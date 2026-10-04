@@ -1,0 +1,1 @@
+option('python', type: 'string', description: 'Python interpreter for the extension ABI')

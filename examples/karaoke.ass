@@ -1,0 +1,14 @@
+[Script Info]
+Title: Python karaoke template
+ScriptType: v4.00+
+PlayResX: 1280
+PlayResY: 720
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Arial,48,&H00FFFFFF,&H0000FFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,2,0,2,30,30,40,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Comment: 1,0:00:00.00,0:00:00.00,Default,,0,0,0,template syl noblank,!retime("syl")!{\an5\pos($scenter,$smiddle)\fad(50,80)\fscx120\fscy120\t(0,$sdur,\fscx100\fscy100)}
+Dialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,{\k50}你{\k50}好{\k50}世{\k50}界

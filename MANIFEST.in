@@ -1,0 +1,7 @@
+include native/metrics.cpp native/meson.build native/meson.options
+include tools/collect_licenses.py
+recursive-include tests *.py
+recursive-include vendor *.tar.gz *.patch LICENSE.*
+recursive-include vendor/runtime-licenses *
+include THIRD_PARTY.md docs/releasing.md
+recursive-include examples *.ass

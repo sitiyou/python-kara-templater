@@ -1,0 +1,11 @@
+Binary wheels bundle native shared libraries and include their license texts in
+this directory. These libraries retain their upstream licenses; the MIT license
+for kara-templater does not replace them. Source distributions without bundled
+shared libraries require separately installed native dependencies.
+
+Dependency sources:
+https://github.com/msys2/MINGW-packages
+https://src.fedoraproject.org/
+https://almalinux.org/
+
+See THIRD_PARTY.md for the bundled libass source and metrics patches.
