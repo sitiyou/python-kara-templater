@@ -26,7 +26,7 @@ test-command = "python -m unittest discover -s tests -v && python -m kara_templa
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux_2_28"
-repair-wheel-command = """auditwheel repair --plat manylinux_2_28 \\
+repair-wheel-command = """auditwheel repair --plat manylinux_2_28_x86_64 \\
   --exclude 'libharfbuzz.so.*' --exclude 'libfribidi.so.*' \\
   --exclude 'libfontconfig.so.*' --exclude 'libfreetype.so.*' \\
   --exclude 'libglib-2.0.so.*' --exclude 'libgraphite2.so.*' \\
