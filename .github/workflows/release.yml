@@ -96,7 +96,7 @@ jobs:
           "$env:pythonLocation" >> $env:GITHUB_PATH
       - name: Install wheel build tools
         run: python -m pip install cibuildwheel==4.2.1 twine
-      - name: Build, repair and test Linux wheels
+      - name: Build and test Linux wheels
         if: runner.os == 'Linux'
         shell: bash
         run: |

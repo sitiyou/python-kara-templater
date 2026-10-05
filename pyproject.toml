@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kara-templater"
-version = "0.1.0"
+version = "0.1.1"
 description = "Python karaoke template engine with native libass text metrics"
 requires-python = ">=3.12"
 license = "MIT"
@@ -26,6 +26,7 @@ test-command = "python -m unittest discover -s tests -v && python -m kara_templa
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux_2_28"
+repair-wheel-command = ""
 before-all = "dnf install -y epel-release && dnf install -y autoconf automake libtool nasm pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts"
 
 [tool.cibuildwheel.windows]

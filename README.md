@@ -6,13 +6,25 @@ The package keeps the karaoke templater's ASS template format, `$variables`, mod
 
 ## Installation
 
-Requires Python 3.12 or newer. Binary wheels target CPython 3.12–3.14 on Linux x86-64 (glibc 2.28+) and Windows 10+ x64. They include the native library dependencies; no compiler or MSYS2 installation is needed to use a wheel.
+Requires Python 3.12 or newer. Wheels target CPython 3.12–3.14 on Linux x86-64 and Windows 10+ x64. Windows wheels bundle their native DLL dependencies. Linux wheels use the system's native libraries and are not manylinux wheels; they target glibc 2.28 or newer and do not support musl-based systems such as Alpine Linux.
+
+On Linux, install the runtime libraries before installing the package. For Arch Linux:
+
+```sh
+sudo pacman -S --needed freetype2 harfbuzz fribidi fontconfig libpng gcc-libs
+```
+
+For Debian or Ubuntu:
+
+```sh
+sudo apt install libfreetype6 libharfbuzz0b libfribidi0 libfontconfig1 libpng16-16 libstdc++6
+```
+
+Package names may vary across distribution releases. Install the fonts specified by your subtitle styles. Missing fonts use system font fallback, and different fonts can change the layout.
 
 ```sh
 python -m pip install kara-templater
 ```
-
-Install the fonts specified by your subtitle styles. Missing fonts use system font fallback, and different fonts can change the layout.
 
 ### Build from source on Linux
 
