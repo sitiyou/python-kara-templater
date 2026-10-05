@@ -62,7 +62,7 @@ python -m venv .venv
 python -m pip install delvewheel
 python tools/collect_licenses.py
 python -m pip wheel . --no-deps --wheel-dir dist
-python -m delvewheel repair --strip --wheel-dir wheelhouse (Get-ChildItem dist\*.whl).FullName
+python -m delvewheel repair --strip --no-mangle libharfbuzz-0.dll --wheel-dir wheelhouse (Get-ChildItem dist\*.whl).FullName
 python -m pip install --no-index --find-links wheelhouse kara-templater
 ```
 

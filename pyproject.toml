@@ -30,4 +30,4 @@ before-all = "dnf install -y epel-release && dnf install -y autoconf automake li
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
-repair-wheel-command = "delvewheel repair --strip -w {dest_dir} {wheel}"
+repair-wheel-command = "delvewheel repair --strip --no-mangle libharfbuzz-0.dll -w {dest_dir} {wheel}"
