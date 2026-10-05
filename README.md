@@ -6,7 +6,7 @@ The package keeps the karaoke templater's ASS template format, `$variables`, mod
 
 ## Installation
 
-Requires Python 3.12 or newer. Wheels target CPython 3.12–3.14 on Linux x86-64 and Windows 10+ x64. Windows wheels bundle their native DLL dependencies. Linux wheels use the system's native libraries and are not manylinux wheels; they target glibc 2.28 or newer and do not support musl-based systems such as Alpine Linux.
+Requires Python 3.12 or newer. Wheels target CPython 3.12–3.14 on Linux x86-64 and Windows 10+ x64. Windows wheels bundle their native DLL dependencies. Linux wheels carry a `manylinux_2_28` tag but leave native libraries dynamically linked to the host; pip does not install these OS-level dependencies. They require glibc 2.28 or newer and do not support musl-based systems such as Alpine Linux.
 
 On Linux, install the runtime libraries before installing the package. For Arch Linux:
 

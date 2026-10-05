@@ -26,7 +26,14 @@ test-command = "python -m unittest discover -s tests -v && python -m kara_templa
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux_2_28"
-repair-wheel-command = ""
+repair-wheel-command = """auditwheel repair --plat manylinux_2_28 \\
+  --exclude 'libharfbuzz.so.*' --exclude 'libfribidi.so.*' \\
+  --exclude 'libfontconfig.so.*' --exclude 'libfreetype.so.*' \\
+  --exclude 'libglib-2.0.so.*' --exclude 'libgraphite2.so.*' \\
+  --exclude 'libexpat.so.*' --exclude 'libz.so.*' --exclude 'libbz2.so.*' \\
+  --exclude 'libpng16.so.*' --exclude 'libbrotlidec.so.*' \\
+  --exclude 'libbrotlicommon.so.*' --exclude 'libpcre2-8.so.*' \\
+  -w {dest_dir} {wheel}"""
 before-all = "dnf install -y epel-release && dnf install -y autoconf automake libtool nasm pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts"
 
 [tool.cibuildwheel.windows]
