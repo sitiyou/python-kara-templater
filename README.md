@@ -124,6 +124,34 @@ width, height, descent, external_leading = text_extents(
 
 `apply_templates` returns a new document without modifying its input. `Document.parse(text)` and `result.dumps()` support in-memory use.
 
+### Structured lyrics and independent timing
+
+Use `layout_line` to lay out lyrics without encoding or parsing ASS karaoke tags:
+
+```python
+from kara_templater import KaraokeLine, Segment, Style, TextUnit, layout_line
+
+source = KaraokeLine((
+    TextUnit("A", (Segment(0, 2000),)),
+    TextUnit("B", (Segment(1000, 3000),)),
+    TextUnit("今日", (Segment(3000, 3500, "きょ"), Segment(3700, 4000, "う"))),
+))
+layout = layout_line(source, style=Style(fontname="Noto Sans CJK JP", fontsize=72))
+```
+
+Times are nonnegative integer milliseconds on your source timeline. Different text units may
+have overlapping or out-of-order times. Segments sharing one base text must be ordered and must
+not overlap; gaps and zero durations are allowed. A unit without segments is static text.
+
+The immutable result contains a box for each base text, a box for each ruby segment, and the
+horizontal base interval assigned to each segment. Ruby widths determine the partition of a
+shared base. Supply `ruby_style` to override the default half-size ruby font and `resolution`
+to override `(1920, 1080)`. Alignment and margins come from `Style`.
+
+This API only measures and positions text; it does not execute templates or generate effects.
+Use the resulting coordinates and unchanged times to generate your own ASS `Line` events.
+The single-line layout limitations below also apply to this API.
+
 ## Templates
 
 | Type | Behavior |

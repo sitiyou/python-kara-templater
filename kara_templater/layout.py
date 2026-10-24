@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from . import _metrics
 from .ass import Line, Record, Style
+from .model import Box, KaraokeLine, LaidOutLine, LaidOutSegment, LaidOutUnit
 
 KARAOKE = re.compile(r"\\(kf|ko|k|K)(-?\d+)")
 BLOCKS = re.compile(r"\{[^}]*\}|[^{}]+|[{}]")
@@ -123,6 +124,69 @@ def split_karaoke(text: str) -> tuple[list[Record], list[Record]]:
     return syllables, furigana
 
 
+def layout_line(
+    source: KaraokeLine,
+    *,
+    style: Style,
+    ruby_style: Style | None = None,
+    resolution: tuple[int, int] = (1920, 1080),
+) -> LaidOutLine:
+    if min(resolution) <= 0:
+        raise ValueError("resolution must be positive")
+    line = Line(style=style.name)
+    line.styleref = style
+    line.kara, line.furi = [], []
+    for unit in source.units:
+        syl = Record(
+            text_stripped=unit.text,
+            text_spacestripped=unit.text,
+            prespace="",
+            postspace="",
+            furi=[],
+            isfuri=False,
+        )
+        for segment in unit.segments:
+            if segment.ruby:
+                furi = Record(
+                    text_spacestripped=segment.ruby,
+                    prespace="",
+                    postspace="",
+                    isbreak=not syl.furi,
+                    spillback=True,
+                    isfuri=True,
+                )
+                syl.furi.append(furi)
+                line.furi.append(furi)
+        line.kara.append(syl)
+    styles = {style.name: style}
+    if ruby_style is not None:
+        styles[style.name + "-furigana"] = ruby_style
+    _position(line, styles, Record(res_x=resolution[0], res_y=resolution[1], video_x_correct_factor=1))
+    units = []
+    for source_unit, syl in zip(source.units, line.kara, strict=True):
+        box = Box(line.left + syl.left, line.top, syl.width, syl.height)
+        weights = [text_extents(line.furistyle or style, s.ruby)[0] if s.ruby else 0 for s in source_unit.segments]
+        if not sum(weights):
+            weights = [1] * len(weights)
+        total = sum(weights)
+        cursor = 0
+        furis = iter(syl.furi)
+        segments = []
+        for segment, weight in zip(source_unit.segments, weights, strict=True):
+            left = box.left + box.width * cursor / total
+            cursor += weight
+            right = box.left + box.width * cursor / total
+            furi = next(furis) if segment.ruby else None
+            ruby_box = (
+                Box(line.left + furi.left, line.top - furi.height, furi.width, furi.height)
+                if furi is not None
+                else None
+            )
+            segments.append(LaidOutSegment(segment, left, right, ruby_box))
+        units.append(LaidOutUnit(source_unit, box, tuple(segments)))
+    return LaidOutLine(Box(line.left, line.top, line.width, line.height), tuple(units))
+
+
 def _horizontal(item, left):
     item.left = left
     item.center = left + item.width / 2
@@ -144,9 +208,7 @@ def _layout(syllables):
     cursor, ruby_right = 0, None
     for group in groups:
         ruby_offset = (
-            (group.basewidth - group.furiwidth) / 2
-            if group.spillback or group.furiwidth <= group.basewidth
-            else 0
+            (group.basewidth - group.furiwidth) / 2 if group.spillback or group.furiwidth <= group.basewidth else 0
         )
         left = cursor
         if group.furi and ruby_right is not None:
@@ -170,10 +232,12 @@ def preprocess(line: Line, styles: dict[str, Style], meta: Record) -> Line:
     line.styleref = styles.get(line.style, next(iter(styles.values())))
     line.duration = line.end_time - line.start_time
     line.kara, line.furi = split_karaoke(line.text)
+    return _position(line, styles, meta)
+
+
+def _position(line, styles, meta):
     line.text_stripped = "".join(s.text_stripped for s in line.kara)
-    line.width, line.height, line.descent, line.extlead = text_extents(
-        line.styleref, line.text_stripped
-    )
+    line.width, line.height, line.descent, line.extlead = text_extents(line.styleref, line.text_stripped)
     factor = meta.video_x_correct_factor
     line.width *= factor
     if line.furi:
@@ -212,10 +276,7 @@ def preprocess(line: Line, styles: dict[str, Style], meta: Record) -> Line:
     if horizontal == 0:
         left = line.eff_margin_l
     elif horizontal == 1:
-        left = (
-            line.eff_margin_l
-            + (meta.res_x - line.eff_margin_l - line.eff_margin_r - line.width) / 2
-        )
+        left = line.eff_margin_l + (meta.res_x - line.eff_margin_l - line.eff_margin_r - line.width) / 2
     else:
         left = meta.res_x - line.eff_margin_r - line.width
     _horizontal(line, left)
