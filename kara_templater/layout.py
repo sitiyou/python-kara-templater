@@ -235,6 +235,90 @@ def preprocess(line: Line, styles: dict[str, Style], meta: Record) -> Line:
     return _position(line, styles, meta)
 
 
+def preprocess_layout(line: Line, layout: LaidOutLine, styles: dict[str, Style]) -> Line:
+    """Adapt a measured layout to template contexts without parsing or remeasuring text."""
+    line.styleref = styles[line.style]
+    ruby_name = line.style + "-furigana"
+    if ruby_name not in styles and any(segment.ruby is not None for unit in layout.units for segment in unit.segments):
+        styles[ruby_name] = replace(
+            line.styleref,
+            name=ruby_name,
+            fontsize=line.styleref.fontsize / 2,
+            outline=line.styleref.outline / 2,
+            shadow=line.styleref.shadow / 2,
+        )
+    line.duration = line.end_time - line.start_time
+    line.text_stripped = "".join(unit.source.text for unit in layout.units)
+    box = layout.box
+    for name in ("left", "center", "right", "width", "top", "middle", "height"):
+        setattr(line, name, getattr(box, name))
+    line.bottom = box.top + box.height
+    horizontal = (line.styleref.align - 1) % 3
+    vertical = (line.styleref.align - 1) // 3
+    line.halign = ("left", "center", "right")[horizontal]
+    line.valign = ("bottom", "middle", "top")[vertical]
+    line.x, line.y = getattr(line, line.halign), getattr(line, line.valign)
+    for side in ("l", "r", "v"):
+        setattr(line, "eff_margin_" + side, getattr(line, "margin_" + side) or getattr(line.styleref, "margin_" + side))
+    line.eff_margin_t = line.eff_margin_b = line.eff_margin_v
+    line.kara, line.furi = [], []
+
+    def syllable(text, box, intervals, index, *, ruby=False):
+        highlights = [
+            Record(start_time=a - line.start_time, end_time=b - line.start_time, duration=b - a) for a, b in intervals
+        ]
+        start = highlights[0].start_time if highlights else 0
+        end = highlights[-1].end_time if highlights else start
+        style = styles.get(line.style + "-furigana", line.styleref) if ruby else line.styleref
+        return Record(
+            text=text,
+            text_stripped=text,
+            text_spacestripped=text,
+            prespace="",
+            postspace="",
+            prespacewidth=0,
+            postspacewidth=0,
+            inline_fx="",
+            tag="",
+            i=index,
+            start_time=start,
+            end_time=end,
+            duration=end - start,
+            kdur=(end - start) / 10,
+            highlights=highlights,
+            furi=[],
+            isfuri=ruby,
+            style=style,
+            line=line,
+            left=box.left - line.left,
+            center=box.center - line.left,
+            right=box.right - line.left,
+            width=box.width,
+            height=box.height,
+            top=box.top,
+            middle=box.middle,
+            bottom=box.top + box.height,
+        )
+
+    line.kara.append(syllable("", Box(box.left, box.top, 0, box.height), (), 0))
+    for index, unit in enumerate(layout.units, 1):
+        syl = syllable(unit.source.text, unit.box, [(s.source.start_ms, s.source.end_ms) for s in unit.segments], index)
+        line.kara.append(syl)
+        for segment in unit.segments:
+            if segment.ruby is not None:
+                furi = syllable(
+                    segment.source.ruby,
+                    segment.ruby,
+                    [(segment.source.start_ms, segment.source.end_ms)],
+                    index,
+                    ruby=True,
+                )
+                furi.syl = syl
+                syl.furi.append(furi)
+                line.furi.append(furi)
+    return line
+
+
 def _position(line, styles, meta):
     line.text_stripped = "".join(s.text_stripped for s in line.kara)
     line.width, line.height, line.descent, line.extlead = text_extents(line.styleref, line.text_stripped)

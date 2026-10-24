@@ -1,9 +1,12 @@
 from .ass import Document, Line, Record, Style
+from .effects import SweepSettings, render_sweep
 from .engine import Engine, TemplateError, apply_templates
 from .layout import layout_line, preprocess, split_karaoke, text_extents
 from .model import Box, KaraokeLine, LaidOutLine, LaidOutSegment, LaidOutUnit, Segment, TextUnit
 
 __all__ = [
+    "SweepSettings",
+    "render_sweep",
     "Box",
     "KaraokeLine",
     "LaidOutLine",

@@ -7,7 +7,7 @@ from copy import copy, deepcopy
 from dataclasses import dataclass, field
 
 from .ass import Document, Line, Record, number
-from .layout import preprocess, text_extents
+from .layout import preprocess, preprocess_layout, text_extents
 
 
 class TemplateError(ValueError):
@@ -77,12 +77,7 @@ def parse_templates(lines):
                 mode = "line" if modifier == "pre-line" else modifier
                 t.modes.append(mode)
                 pre = modifier == "pre-line"
-                if (
-                    mode == "line"
-                    and not t.code
-                    and i < len(tokens)
-                    and tokens[i].lower() not in MODIFIERS
-                ):
+                if mode == "line" and not t.code and i < len(tokens) and tokens[i].lower() not in MODIFIERS:
                     identifier = tokens[i].lower()
                     i += 1
             elif modifier in {"repeat", "loop", "fx", "fxgroup"}:
@@ -190,9 +185,9 @@ def _syl_context(line, syl):
         ctx["s" + attr] = _round(line.left + syl[attr])
     ctx.swidth = _round(syl.width)
     ctx.sheight = syl.height
-    ctx.stop = _round(ctx.ltop - syl.height) if syl.isfuri else ctx.ltop
-    ctx.smiddle = _round(ctx.ltop - syl.height / 2) if syl.isfuri else ctx.lmiddle
-    ctx.sbottom = ctx.ltop if syl.isfuri else ctx.lbottom
+    ctx.stop = _round(syl.get("top", ctx.ltop - syl.height if syl.isfuri else ctx.ltop))
+    ctx.smiddle = _round(syl.get("middle", ctx.ltop - syl.height / 2 if syl.isfuri else ctx.lmiddle))
+    ctx.sbottom = _round(syl.get("bottom", ctx.ltop if syl.isfuri else ctx.lbottom))
     ctx.sx = ctx["s" + line.halign]
     ctx.sy = ctx["s" + line.valign]
     for attr in ("left", "center", "right", "width", "top", "middle", "bottom", "height", "x", "y"):
@@ -229,11 +224,17 @@ class Engine:
         self.max_output_lines = max_output_lines
         self.video_size = video_size
 
-    def apply(self, document: Document) -> Document:
+    def apply(self, document: Document, *, layouts=None) -> Document:
+        """Execute trusted templates, optionally using measured layouts.
+
+        layouts maps one-based event indices (excluding removed fx events) to
+        LaidOutLine objects with absolute millisecond segment times. Expressions
+        and code execute Python without a sandbox; only use trusted templates.
+        """
+        if layouts and self.video_size:
+            raise ValueError("video_size cannot be combined with premeasured layouts")
         result = deepcopy(document)
-        result.records = [
-            x for x in result.records if not isinstance(x, Line) or x.comment or x.effect != "fx"
-        ]
+        result.records = [x for x in result.records if not isinstance(x, Line) or x.comment or x.effect != "fx"]
         templates = parse_templates(result.lines)
         styles = result.styles
         if not styles:
@@ -263,12 +264,13 @@ class Engine:
             if "once" in t.modes:
                 self._run_code(t)
         for index, line in enumerate(result.lines, 1):
-            if not (
-                (not line.comment and line.effect == "") or re.search(r"[Kk]araoke", line.effect)
-            ):
+            if not ((not line.comment and line.effect == "") or re.search(r"[Kk]araoke", line.effect)):
                 continue
             line.i = index
-            preprocess(line, styles, result.meta)
+            if layouts is not None and index in layouts:
+                preprocess_layout(line, layouts[index], styles)
+            else:
+                preprocess(line, styles, result.meta)
             self.env.update(orgline=line, line=None, syl=None, basesyl=None)
             before = len(self.generated)
             for t in templates:
@@ -289,21 +291,12 @@ class Engine:
                 line.effect = "karaoke"
         added_styles = [s for name, s in styles.items() if name not in result.styles]
         if added_styles:
-            pos = (
-                max(
-                    i
-                    for i, x in enumerate(result.records)
-                    if not isinstance(x, str) and not isinstance(x, Line)
-                )
-                + 1
-            )
+            pos = max(i for i, x in enumerate(result.records) if not isinstance(x, str) and not isinstance(x, Line)) + 1
             result.records[pos:pos] = added_styles
         event_indices = [i for i, x in enumerate(result.records) if isinstance(x, Line)]
         if self.generated:
             pos = event_indices[-1] + 1
-            self.generated = [
-                self._event_format(x, result.records[event_indices[-1]]) for x in self.generated
-            ]
+            self.generated = [self._event_format(x, result.records[event_indices[-1]]) for x in self.generated]
             result.records[pos:pos] = self.generated
         return result
 
@@ -403,9 +396,7 @@ class Engine:
                     prespacewidth=0,
                     postspacewidth=0,
                 )
-                unit.width = (
-                    text_extents(base.style, char)[0] * self.env["meta"].video_x_correct_factor
-                )
+                unit.width = text_extents(base.style, char)[0] * self.env["meta"].video_x_correct_factor
                 unit.left, unit.center, unit.right = left, left + unit.width / 2, left + unit.width
                 left = unit.right
                 units.append(unit)
@@ -416,9 +407,7 @@ class Engine:
                 if hl is not None:
                     syl.update(hl)
                     syl.kdur = syl.duration / 10
-                if t.noblank and (
-                    syl.duration <= 0 or not syl.text_stripped.strip(" \t\r\n\u3000")
-                ):
+                if t.noblank and (syl.duration <= 0 or not syl.text_stripped.strip(" \t\r\n\u3000")):
                     continue
                 self.env["syl"] = syl
                 if t.code:
@@ -524,5 +513,5 @@ class Engine:
         )
 
 
-def apply_templates(document: Document, **options) -> Document:
-    return Engine(**options).apply(document)
+def apply_templates(document: Document, *, layouts=None, **options) -> Document:
+    return Engine(**options).apply(document, layouts=layouts)

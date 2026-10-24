@@ -148,9 +148,38 @@ horizontal base interval assigned to each segment. Ruby widths determine the par
 shared base. Supply `ruby_style` to override the default half-size ruby font and `resolution`
 to override `(1920, 1080)`. Alignment and margins come from `Style`.
 
-This API only measures and positions text; it does not execute templates or generate effects.
-Use the resulting coordinates and unchanged times to generate your own ASS `Line` events.
-The single-line layout limitations below also apply to this API.
+`layout_line` only measures and positions text. To generate the built-in sweep effect, call
+`render_sweep(unit, style_name, show_ms, hide_ms, SweepSettings(), colours)` for each laid-out
+unit. `colours` contains five ASS BGR hex strings: overlay, overlay glow, base glow, base outline,
+and overlay outline. Optional `segment_colours` supplies a palette per segment.
+
+To run trusted ASS templates against measured lyrics, pass layouts to `apply_templates`:
+
+```python
+from kara_templater import Document, Line, Record, apply_templates
+
+style = Style(name="Lyrics", fontname="sans-serif", fontsize=72, margin_v=100)
+layout = layout_line(source, style=style)
+template = Line(
+    comment=True, style="Lyrics", effect="template syl multi noblank",
+    text=r'!retime("syl")!{\an5\pos($scenter,$smiddle)}',
+)
+lyric = Line(text="AB今日", style="Lyrics", start_time=0, end_time=4500)
+document = Document(
+    [style, template, lyric],
+    Record(res_x=1920, res_y=1080, video_x_correct_factor=1),
+)
+result = apply_templates(document, layouts={2: layout})
+```
+
+Layout keys are one-based event indices after old generated `fx` events are removed, including
+comment/template events. Layout segment times remain absolute milliseconds; template syllable
+times are relative to the source event's start. `multi` exposes each independent interval,
+including gaps, while `furi` uses each ruby segment's measured box and timing. Supply a matching
+`Lyrics-furigana` style when using a custom ruby font. Premeasured layouts cannot be combined
+with `video_size`. The single-line layout limitations below also apply to this API.
+
+**Templates execute unrestricted Python. Only execute templates you trust.**
 
 ## Templates
 
