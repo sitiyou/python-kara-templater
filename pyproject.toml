@@ -21,7 +21,8 @@ packages = ["kara_templater"]
 build = ["cp3{12,13,14}-manylinux_x86_64", "cp3{12,13,14}-win_amd64"]
 before-build = 'python "{package}/tools/collect_licenses.py"'
 test-sources = ["tests", "examples"]
-test-command = "python -m unittest discover -s tests -v && python -m kara_templater examples/karaoke.ass output.ass"
+test-requires = ["pytest"]
+test-command = "python -m pytest tests -v && python -m kara_templater examples/karaoke.ass output.ass"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
