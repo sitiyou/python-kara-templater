@@ -20,6 +20,7 @@ class Segment:
 class TextUnit:
     text: str
     segments: tuple[Segment, ...] = ()
+    ruby_continuation: bool = False
 
     def __post_init__(self):
         for left, right in zip(self.segments, self.segments[1:], strict=False):

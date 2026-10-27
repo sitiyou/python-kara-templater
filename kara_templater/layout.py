@@ -151,7 +151,7 @@ def layout_line(
                     text_spacestripped=segment.ruby,
                     prespace="",
                     postspace="",
-                    isbreak=not syl.furi,
+                    isbreak=not syl.furi and not unit.ruby_continuation,
                     spillback=True,
                     isfuri=True,
                 )

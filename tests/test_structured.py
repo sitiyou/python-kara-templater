@@ -24,6 +24,23 @@ class StructuredLayoutTests(unittest.TestCase):
         self.assertLess(first.ruby.top, unit.box.top)
         self.assertLess(first.ruby.left, last.ruby.left)
 
+    def test_ruby_continuation_keeps_bases_and_readings_contiguous(self):
+        source = KaraokeLine(
+            (
+                TextUnit("A", (Segment(0, 1000, "long"),)),
+                TextUnit("B", (Segment(1500, 2000, "reading"),), ruby_continuation=True),
+            )
+        )
+        first, second = layout_line(source, style=Style()).units
+        self.assertAlmostEqual(first.box.right, second.box.left)
+        self.assertAlmostEqual(first.segments[0].ruby.right, second.segments[0].ruby.left)
+        self.assertAlmostEqual(
+            (first.box.left + second.box.right) / 2,
+            (first.segments[0].ruby.left + second.segments[0].ruby.right) / 2,
+        )
+        self.assertEqual(first.segments[0].source, source.units[0].segments[0])
+        self.assertEqual(second.segments[0].source, source.units[1].segments[0])
+
     def test_static_and_zero_duration_units(self):
         result = layout_line(KaraokeLine((TextUnit(" "), TextUnit("A", (Segment(0, 0),)))), style=Style())
         self.assertEqual(result.units[0].segments, ())
