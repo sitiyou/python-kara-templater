@@ -20,4 +20,4 @@ libass = subproject(
 )
 
 python = import('python').find_installation(get_option('python'))
-python.extension_module('_metrics', 'metrics.cpp', dependencies: libass.get_variable('libass_dep'))
+python.extension_module('_metrics', 'metrics.cpp', dependencies: [libass.get_variable('libass_dep'), dependency('freetype2')])

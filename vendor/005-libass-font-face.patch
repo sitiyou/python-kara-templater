@@ -1,0 +1,34 @@
+--- a/libass/ass_metrics.h
++++ b/libass/ass_metrics.h
+@@ -73,6 +73,8 @@
+ };
+ 
+ typedef struct ass_metrics_outline {
++    char *font_family;
++    char *font_style;
+     unsigned codepoint;
+     int glyph_index;  // Zero is the missing-glyph outline
+     ASS_DVector glyph_origin;  // Before bitmap subpixel quantization
+--- a/libass/ass_render.c
++++ b/libass/ass_render.c
+@@ -1392,6 +1392,11 @@
+         return;
+ 
+     ASS_Metrics_Outline *result = *metrics_outline;
++    if (info->font && info->face_index >= 0 && info->face_index < info->font->n_faces) {
++        FT_Face face = info->font->faces[info->face_index];
++        result->font_family = strdup(face->family_name ? face->family_name : "");
++        result->font_style = strdup(face->style_name ? face->style_name : "");
++    }
+     result->codepoint = info->symbol;
+     result->glyph_index = info->glyph_index;
+     result->glyph_origin.x = d6_to_double(info->pos.x);
+@@ -3605,6 +3610,8 @@
+     if (!outline)
+         return;
+ 
++    free(outline->font_family);
++    free(outline->font_style);
+     ass_metric_outline_free(outline);
+ 
+     ASS_Metrics_Outline *next = outline->next;

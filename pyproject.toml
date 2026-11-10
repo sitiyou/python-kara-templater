@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kara-templater"
 version = "0.2.1"
-description = "Python karaoke template engine with native libass text metrics"
+description = "Scriptable karaoke effects and ASS generation with native libass text metrics"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE", "vendor/LICENSE.libass", "vendor/runtime-licenses/**/*"]
@@ -17,11 +17,14 @@ kara-templater = "kara_templater.__main__:main"
 [tool.setuptools]
 packages = ["kara_templater"]
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.cibuildwheel]
 build = ["cp3{12,13,14}-manylinux_x86_64", "cp3{12,13,14}-win_amd64"]
 before-build = 'python "{package}/tools/collect_licenses.py"'
-test-sources = ["tests", "examples"]
-test-requires = ["pytest"]
+test-sources = ["tests", "examples", "tools", "setup.py"]
+test-requires = ["pytest", "setuptools>=77"]
 test-command = "python -m pytest tests -v && python -m kara_templater examples/karaoke.ass output.ass"
 
 [tool.cibuildwheel.linux]

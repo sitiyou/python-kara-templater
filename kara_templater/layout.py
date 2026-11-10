@@ -1,14 +1,10 @@
 from __future__ import annotations
 
-import re
 from dataclasses import replace
 
 from . import _metrics
 from .ass import Line, Record, Style
 from .model import Box, KaraokeLine, LaidOutLine, LaidOutSegment, LaidOutUnit
-
-KARAOKE = re.compile(r"\\(kf|ko|k|K)(-?\d+)")
-BLOCKS = re.compile(r"\{[^}]*\}|[^{}]+|[{}]")
 
 
 def text_extents(style: Style, text: str) -> tuple[float, float, float, float]:
@@ -23,105 +19,6 @@ def text_extents(style: Style, text: str) -> tuple[float, float, float, float]:
         style.encoding,
         text,
     )
-
-
-def _raw_syllables(text):
-    result = [Record(text="", text_stripped="", start_time=0, end_time=0, duration=0, tag="")]
-    current = Record(text="", text_stripped="", start_time=0, duration=0, tag="\\k")
-    drawing = 0
-
-    def tags(value):
-        if value:
-            current.text += "{" + value + "}"
-
-    for block in BLOCKS.findall(text):
-        if block.startswith("{") and block.endswith("}"):
-            inner = block[1:-1]
-            offset = 0
-            for match in KARAOKE.finditer(inner):
-                tags(inner[offset : match.start()])
-                start = current.start_time + current.duration
-                if current.duration > 0 or current.text_stripped:
-                    current.end_time = start
-                    result.append(current)
-                    current = Record(text="", text_stripped="", start_time=start)
-                current.start_time = start
-                current.duration = max(0, int(match[2]) * 10)
-                current.tag = "\\kf" if match[1] == "K" else "\\" + match[1]
-                offset = match.end()
-            tags(inner[offset:])
-            for match in re.finditer(r"\\p(\d+)(?!\d)", inner):
-                drawing = int(match[1])
-        else:
-            current.text += block
-            if not drawing:
-                current.text_stripped += block
-    current.end_time = current.start_time + current.duration
-    result.append(current)
-    return result
-
-
-def split_karaoke(text: str) -> tuple[list[Record], list[Record]]:
-    syllables, furigana = [], []
-    inline_fx = ""
-    for raw in _raw_syllables(text):
-        match = re.search(r"\\-([^}\\]+)", raw.text)
-        if match:
-            inline_fx = match[1]
-        match = re.fullmatch(r"([ \t]*)(.*?)([ \t]*)", raw.text_stripped, re.DOTALL)
-        prespace, core, postspace = match.groups()
-        continuation = core.startswith(("#", "＃")) and bool(syllables)
-        highlight = Record(start_time=raw.start_time, end_time=raw.end_time, duration=raw.duration)
-        if continuation:
-            syl = syllables[-1]
-            syl.duration += raw.duration
-            syl.kdur = syl.duration / 10
-            syl.end_time = raw.end_time
-            syl.highlights.append(highlight)
-        else:
-            syl = Record(raw)
-            syl.update(
-                i=len(syllables),
-                prespace=prespace,
-                postspace=postspace,
-                inline_fx=inline_fx,
-                highlights=[highlight],
-                furi=[],
-                isfuri=False,
-            )
-            syllables.append(syl)
-        base, separator, ruby = core.replace("｜", "|").partition("|")
-        if separator:
-            marker = ruby[:1]
-            isbreak = marker in {"!", "！", "<", "＜"}
-            if isbreak:
-                ruby = ruby[1:]
-            furi = Record(
-                text=ruby,
-                text_stripped=ruby,
-                text_spacestripped=ruby,
-                start_time=raw.start_time,
-                end_time=raw.end_time,
-                duration=raw.duration,
-                kdur=raw.duration / 10,
-                tag=raw.tag,
-                i=syl.i,
-                inline_fx=inline_fx,
-                prespace="",
-                postspace="",
-                highlights=[highlight],
-                isfuri=True,
-                isbreak=isbreak,
-                spillback=marker in {"<", "＜"},
-                syl=syl,
-            )
-            furigana.append(furi)
-            syl.furi.append(furi)
-        if not continuation:
-            syl.text_stripped = prespace + base + postspace
-            syl.text_spacestripped = base
-            syl.kdur = syl.duration / 10
-    return syllables, furigana
 
 
 def layout_line(
@@ -161,11 +58,18 @@ def layout_line(
     styles = {style.name: style}
     if ruby_style is not None:
         styles[style.name + "-furigana"] = ruby_style
-    _position(line, styles, Record(res_x=resolution[0], res_y=resolution[1], video_x_correct_factor=1))
+    _position(
+        line,
+        styles,
+        Record(res_x=resolution[0], res_y=resolution[1], video_x_correct_factor=1),
+    )
     units = []
     for source_unit, syl in zip(source.units, line.kara, strict=True):
         box = Box(line.left + syl.left, line.top, syl.width, syl.height)
-        weights = [text_extents(line.furistyle or style, s.ruby)[0] if s.ruby else 0 for s in source_unit.segments]
+        weights = [
+            text_extents(line.furistyle or style, s.ruby)[0] if s.ruby else 0
+            for s in source_unit.segments
+        ]
         if not sum(weights):
             weights = [1] * len(weights)
         total = sum(weights)
@@ -178,7 +82,12 @@ def layout_line(
             right = box.left + box.width * cursor / total
             furi = next(furis) if segment.ruby else None
             ruby_box = (
-                Box(line.left + furi.left, line.top - furi.height, furi.width, furi.height)
+                Box(
+                    line.left + furi.left,
+                    line.top - furi.height,
+                    furi.width,
+                    furi.height,
+                )
                 if furi is not None
                 else None
             )
@@ -198,7 +107,9 @@ def _layout(syllables):
     for syl in syllables:
         join = groups and syl.furi and groups[-1].furi and not syl.furi[0].isbreak
         if not join:
-            groups.append(Record(syls=[], furi=[], basewidth=0, furiwidth=0, spillback=False))
+            groups.append(
+                Record(syls=[], furi=[], basewidth=0, furiwidth=0, spillback=False)
+            )
         group = groups[-1]
         group.syls.append(syl)
         group.furi.extend(syl.furi)
@@ -208,7 +119,9 @@ def _layout(syllables):
     cursor, ruby_right = 0, None
     for group in groups:
         ruby_offset = (
-            (group.basewidth - group.furiwidth) / 2 if group.spillback or group.furiwidth <= group.basewidth else 0
+            (group.basewidth - group.furiwidth) / 2
+            if group.spillback or group.furiwidth <= group.basewidth
+            else 0
         )
         left = cursor
         if group.furi and ruby_right is not None:
@@ -226,102 +139,11 @@ def _layout(syllables):
     return cursor
 
 
-def preprocess(line: Line, styles: dict[str, Style], meta: Record) -> Line:
-    if not styles:
-        raise ValueError("No ASS styles found")
-    line.styleref = styles.get(line.style, next(iter(styles.values())))
-    line.duration = line.end_time - line.start_time
-    line.kara, line.furi = split_karaoke(line.text)
-    return _position(line, styles, meta)
-
-
-def preprocess_layout(line: Line, layout: LaidOutLine, styles: dict[str, Style]) -> Line:
-    """Adapt a measured layout to template contexts without parsing or remeasuring text."""
-    line.styleref = styles[line.style]
-    ruby_name = line.style + "-furigana"
-    if ruby_name not in styles and any(segment.ruby is not None for unit in layout.units for segment in unit.segments):
-        styles[ruby_name] = replace(
-            line.styleref,
-            name=ruby_name,
-            fontsize=line.styleref.fontsize / 2,
-            outline=line.styleref.outline / 2,
-            shadow=line.styleref.shadow / 2,
-        )
-    line.duration = line.end_time - line.start_time
-    line.text_stripped = "".join(unit.source.text for unit in layout.units)
-    box = layout.box
-    for name in ("left", "center", "right", "width", "top", "middle", "height"):
-        setattr(line, name, getattr(box, name))
-    line.bottom = box.top + box.height
-    horizontal = (line.styleref.align - 1) % 3
-    vertical = (line.styleref.align - 1) // 3
-    line.halign = ("left", "center", "right")[horizontal]
-    line.valign = ("bottom", "middle", "top")[vertical]
-    line.x, line.y = getattr(line, line.halign), getattr(line, line.valign)
-    for side in ("l", "r", "v"):
-        setattr(line, "eff_margin_" + side, getattr(line, "margin_" + side) or getattr(line.styleref, "margin_" + side))
-    line.eff_margin_t = line.eff_margin_b = line.eff_margin_v
-    line.kara, line.furi = [], []
-
-    def syllable(text, box, intervals, index, *, ruby=False):
-        highlights = [
-            Record(start_time=a - line.start_time, end_time=b - line.start_time, duration=b - a) for a, b in intervals
-        ]
-        start = highlights[0].start_time if highlights else 0
-        end = highlights[-1].end_time if highlights else start
-        style = styles.get(line.style + "-furigana", line.styleref) if ruby else line.styleref
-        return Record(
-            text=text,
-            text_stripped=text,
-            text_spacestripped=text,
-            prespace="",
-            postspace="",
-            prespacewidth=0,
-            postspacewidth=0,
-            inline_fx="",
-            tag="",
-            i=index,
-            start_time=start,
-            end_time=end,
-            duration=end - start,
-            kdur=(end - start) / 10,
-            highlights=highlights,
-            furi=[],
-            isfuri=ruby,
-            style=style,
-            line=line,
-            left=box.left - line.left,
-            center=box.center - line.left,
-            right=box.right - line.left,
-            width=box.width,
-            height=box.height,
-            top=box.top,
-            middle=box.middle,
-            bottom=box.top + box.height,
-        )
-
-    line.kara.append(syllable("", Box(box.left, box.top, 0, box.height), (), 0))
-    for index, unit in enumerate(layout.units, 1):
-        syl = syllable(unit.source.text, unit.box, [(s.source.start_ms, s.source.end_ms) for s in unit.segments], index)
-        line.kara.append(syl)
-        for segment in unit.segments:
-            if segment.ruby is not None:
-                furi = syllable(
-                    segment.source.ruby,
-                    segment.ruby,
-                    [(segment.source.start_ms, segment.source.end_ms)],
-                    index,
-                    ruby=True,
-                )
-                furi.syl = syl
-                syl.furi.append(furi)
-                line.furi.append(furi)
-    return line
-
-
 def _position(line, styles, meta):
     line.text_stripped = "".join(s.text_stripped for s in line.kara)
-    line.width, line.height, line.descent, line.extlead = text_extents(line.styleref, line.text_stripped)
+    line.width, line.height, line.descent, line.extlead = text_extents(
+        line.styleref, line.text_stripped
+    )
     factor = meta.video_x_correct_factor
     line.width *= factor
     if line.furi:
@@ -349,7 +171,8 @@ def _position(line, styles, meta):
         setattr(
             line,
             "eff_margin_" + side,
-            max(0, getattr(line, "margin_" + side)) or getattr(line.styleref, "margin_" + side),
+            max(0, getattr(line, "margin_" + side))
+            or getattr(line.styleref, "margin_" + side),
         )
     line.eff_margin_t = line.eff_margin_b = line.eff_margin_v
     align = line.styleref.align
@@ -360,7 +183,10 @@ def _position(line, styles, meta):
     if horizontal == 0:
         left = line.eff_margin_l
     elif horizontal == 1:
-        left = line.eff_margin_l + (meta.res_x - line.eff_margin_l - line.eff_margin_r - line.width) / 2
+        left = (
+            line.eff_margin_l
+            + (meta.res_x - line.eff_margin_l - line.eff_margin_r - line.width) / 2
+        )
     else:
         left = meta.res_x - line.eff_margin_r - line.width
     _horizontal(line, left)
