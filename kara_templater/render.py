@@ -105,9 +105,11 @@ def render_karaoke(
         selected = effect.get(item.style) if isinstance(effect, Mapping) else effect
         fallback_origin = EventOrigin(
             (SourceRef(item.id),),
-            "style dispatch"
-            if isinstance(effect, Mapping) and item.style not in effect
-            else getattr(selected, "__qualname__", type(selected).__name__),
+            (
+                "style dispatch"
+                if isinstance(effect, Mapping) and item.style not in effect
+                else getattr(selected, "__qualname__", type(selected).__name__)
+            ),
         )
         with _source_context(fallback_origin):
             styles = result.styles
@@ -141,6 +143,13 @@ def render_karaoke(
                 raise ValueError(
                     f"{item.id}: no effect configured for style {item.style!r}"
                 )
+            # Author configuration runs on source targets before measurement.
+            from .effect import Effect
+
+            if isinstance(selected, type) and issubclass(selected, Effect):
+                selected = selected()
+            if isinstance(selected, Effect):
+                selected, style, ruby_style = selected._prepare(item, style, ruby_style)
             layout = layout_line(
                 item.source, style=style, ruby_style=ruby_style, resolution=resolution
             )

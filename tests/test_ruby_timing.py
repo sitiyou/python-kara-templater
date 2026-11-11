@@ -3,28 +3,31 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
+    Body,
     CharacterTarget,
     Color,
     DisplayWindow,
+    Effect,
     EffectContext,
     HighlightEnter,
     HighlightTrack,
-    KaraokeEffect,
     KaraokeItem,
     KaraokeLine,
+    Lyrics,
     Paint,
-    PaintPair,
     ProgressCurve,
     Pulse,
     Region,
-    RubyPolicy,
+    Ruby,
     Segment,
     SingingPass,
     Style,
     TextUnit,
+    Transition,
     compile_layers,
     layout_line,
     plan_pulses,
+    there_and_back,
 )
 
 
@@ -92,15 +95,31 @@ def test_ruby_affine_mapping_preserves_pauses_rounds_and_exit(repeat, ending):
         end_behavior=ending,
     )
     before, after = Paint(), Paint(Color(255, 0, 0))
-    plan = KaraokeEffect(
-        paints=PaintPair(before, after),
-        tracks=(track,),
-        pulses=(Pulse.whole_syllable(duration_ms=100),),
-        ruby=RubyPolicy(follow="syllable"),
-    ).build(
-        KaraokeItem("line", source, "Default", DisplayWindow(0, 1200)),
-        EffectContext(layout, style, ruby_style, (640, 480)),
-    )
+
+    class Readings(Effect):
+        def compose(self):
+            yield Lyrics(
+                Body(
+                    fill=before.fill, stroke=before.outline, stroke_width=before.border
+                ),
+                Ruby(stroke_width=before.border, follow="syllable"),
+            )
+
+        def configure(self):
+            self.text.sweep(fill=after.fill, tracks=(track,))
+            # Preserve one group emphasis at the start of each original round.
+            rounds = {}
+            for singing_pass in track.passes:
+                rounds.setdefault(singing_pass.round_id, singing_pass.start_ms)
+            for start in rounds.values():
+                self.syllables.animate(
+                    scale=Transition(1, 1.1, rate=there_and_back),
+                    during=(start, start + 100),
+                )
+
+    item = KaraokeItem("line", source, "Default", DisplayWindow(0, 1200))
+    bound, _, _ = Readings()._prepare(item, style, ruby_style)
+    plan = bound.build(item, EffectContext(layout, style, ruby_style, (640, 480)))
     for index, segment in enumerate((first, second)):
         layers = [
             layer

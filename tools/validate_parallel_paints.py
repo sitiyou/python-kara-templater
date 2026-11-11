@@ -17,9 +17,9 @@ from kara_templater import (
     DisplayWindow,
     Document,
     EffectPlan,
+    Fade,
     Glow,
     HighlightTrack,
-    KaraokeEffect,
     KaraokeItem,
     KaraokeLine,
     Line,
@@ -30,12 +30,14 @@ from kara_templater import (
     Segment,
     SingingPass,
     Style,
+    Sweep,
     TextUnit,
     TrackStyle,
     layout_characters,
     load_font,
     render_karaoke,
 )
+from kara_templater._compiler import _compile_targets, _prepare_targets
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
 from tools.render_effects import render
 
@@ -90,14 +92,16 @@ def scene(kind, reference=False, *, decorated=False):
             c,
             opacity=opacity,
             border=4 if decorated else 0,
-            glow=Glow(
-                c,
-                blur=6 if i == 0 or kind == "union" else 24,
-                border=3 if i == 0 or kind == "union" else 8,
-                opacity=0.6,
-            )
-            if decorated
-            else None,
+            glow=(
+                Glow(
+                    c,
+                    blur=6 if i == 0 or kind == "union" else 24,
+                    border=3 if i == 0 or kind == "union" else 8,
+                    opacity=0.6,
+                )
+                if decorated
+                else None
+            ),
         )
         for i, c in enumerate(colors)
     )
@@ -115,19 +119,36 @@ def scene(kind, reference=False, *, decorated=False):
                     tracks(kind, decorated)
                 )
             )
-            return KaraokeEffect(
+            # Exercise the backend's complete-paint overlap policies directly;
+            # the reference below independently emits static ASS rectangles.
+            sweep = Sweep()
+            styles = tuple(
+                TrackStyle(str(i), paint, i) for i, paint in enumerate(after)
+            )
+            prepared = _prepare_targets(
+                target,
+                context,
                 paints=PaintPair(before, after[0]),
                 tracks=singing,
-                track_styles=tuple(
-                    TrackStyle(str(i), paint, i) for i, paint in enumerate(after)
-                ),
-                overlap="union"
-                if kind == "disjoint"
-                else "layer"
-                if kind == "layer_sync"
-                else kind,
+                track_styles=styles,
+                sweep=sweep,
                 ruby=RubyPolicy(enabled=False),
-            ).build(target, context)
+                origin_effect="ParallelPaints",
+            )
+            return _compile_targets(
+                target,
+                context,
+                prepared,
+                sweep=sweep,
+                fade=Fade(),
+                track_styles=styles,
+                overlap=(
+                    "union"
+                    if kind == "disjoint"
+                    else "layer" if kind == "layer_sync" else kind
+                ),
+                origin_effect="ParallelPaints",
+            )
         characters = layout_characters(context.layout, style=context.style)
         lines = []
         for time in TIMES:

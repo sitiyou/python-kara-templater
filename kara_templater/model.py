@@ -13,7 +13,9 @@ class Segment:
         if type(self.start_ms) is not int or type(self.end_ms) is not int:
             raise ValueError("segment times must be integer milliseconds")
         if self.start_ms < 0 or self.end_ms < self.start_ms:
-            raise ValueError(f"invalid segment interval: {self.start_ms}..{self.end_ms}")
+            raise ValueError(
+                f"invalid segment interval: {self.start_ms}..{self.end_ms}"
+            )
 
 
 @dataclass(frozen=True)

@@ -6,8 +6,8 @@
 
 1. 将应用中的 ASS 样式及文档元信息构造成 `Document`。K1/K2/H1/H2/LEAD 可继续作为应用的样式名称，布局使用各自的对齐、字号和边距。
 2. 将歌词数据构造成 `KaraokeItem(id, source, style, window)`。`source` 为 `KaraokeLine`，时间使用绝对整数毫秒；显示窗口独立于演唱时间。如果输入已经是带时间标签的 ASS，可省略 `items` 让 `render_karaoke()` 导入。
-3. 将环境变量解析后的颜色转成 RGB `Color`，用 `PaintPair` 表达唱前/唱后外观，`Glow` 表达辉光。颜色派生算法属于主题配置，可保留在应用中的普通 Python 函数里。
-4. 用共享 `KaraokeEffect` 配方及 `dataclasses.replace()` 配置正文/顶部样式差异，通过 `effect={"K1": ..., ...}` 分派。导唱使用 `KaraokeEffect.guide()`。
+3. 将环境变量解析后的颜色转成 RGB `Color` 或 `#RRGGBB`，用 Body/Ruby 的 style 与 style.sung 表达唱前/唱后外观，Halo 表达辉光。颜色派生算法属于主题配置，可保留在应用中的普通 Python 函数里。
+4. 在 Effect.compose() 中声明 Body/Ruby/Halo，在 configure() 中绑定扫色、强调与淡入淡出。可根据 self.source.style 配置正文/顶部差异，也可通过样式名分派多个 Effect。导唱仅声明 Body，参见 RecipeEffect 的 LEAD 分支。
 5. 调用 `render_karaoke(document, items, effect=effects, owner="song")`，检查 `RenderResult.diagnostics` 后保存 `.document`。保留稳定 owner 可重复生成；不要再创建模板注释或手动复制多个视觉层。
 
 可运行例子为 [recipes.py](../examples/recipes.py)，另有可直接用于 CLI 的 [song_effect.py](../examples/song_effect.py)。两个例子均不读取外部应用目录。
@@ -61,7 +61,7 @@
 | `$variables` 和内嵌 `!expression!` | `KaraokeItem`、`EffectContext.layout`、标准 Python 表达式 |
 | 模板类型、循环、分组、记忆变量 | Python 函数、循环、对象及显式配置；不执行 ASS 中的代码 |
 | `retime`、`relayer`、`restyle` 等模板辅助函数 | 显式时间对象、配方层序和样式；特殊事件通过 `EffectPlan.raw_lines` 提供 |
-| `render_sweep()`、`SweepSettings`、五项 BGR 调色板 | `KaraokeEffect`、`Sweep`、`PaintPair`、`Glow` 和 RGB `Color` |
+| `render_sweep()`、`SweepSettings`、五项 BGR 调色板 | `Effect`、`text.sweep()`、状态样式、`Halo` 和 RGB `Color` |
 | 结构化布局到模板环境的桥接、空的第零音节 | 直接遍历结构化歌词和布局；没有人为插入的模板上下文 |
 | 基于 Unicode 码点的拆字 | 经轮廓验证的字符单元及 `TextRange` 来源映射 |
 | `--video-size` 的隐式比例修正 | 坐标统一为 ASS PlayRes 像素；应用提供一致的分辨率和位置 |

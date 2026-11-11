@@ -92,7 +92,8 @@ def _clusters(text):
             continue
         accepted = (
             kind == "Zs"
-            or char in "々ー●"  # Japanese marks and karaoke guide dots; shape-checked below.
+            or char
+            in "々ー●"  # Japanese marks and karaoke guide dots; shape-checked below.
             or 0x1100 <= ord(char) <= 0x1112
             or 0x1161 <= ord(char) <= 0x1175
             or 0x11A8 <= ord(char) <= 0x11C2

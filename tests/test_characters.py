@@ -26,8 +26,7 @@ def test_karaoke_guide_dots_have_verified_ink_and_separate_timing_regions():
     assert chars[0].timing_region.left == layout.box.left
     assert chars[-1].timing_region.right == layout.box.right
     assert all(
-        a.timing_region.right == b.timing_region.left
-        for a, b in pairwise(chars)
+        a.timing_region.right == b.timing_region.left for a, b in pairwise(chars)
     )
 
 
@@ -35,7 +34,10 @@ def test_japanese_prolonged_sound_mark_keeps_its_source_offset():
     from kara_templater.characters import _clusters
 
     assert _clusters("コーラス") == [
-        (0, 1, "コ"), (1, 2, "ー"), (2, 3, "ラ"), (3, 4, "ス")
+        (0, 1, "コ"),
+        (1, 2, "ー"),
+        (2, 3, "ラ"),
+        (3, 4, "ス"),
     ]
 
 

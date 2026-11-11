@@ -1,0 +1,1011 @@
+{
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "filter_threads": 1,
+  "spatial_tolerance_px": 1,
+  "excluded_front_half_width_px": 2,
+  "front_coordinate_tolerance_px": 0.75,
+  "channel_tolerance": 3,
+  "cases": {
+    "group_follow": {
+      "variants": {
+        "native": {
+          "events": 86,
+          "layers": 36,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.0,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "9b589e894e4d61586df12b746ded2c75cbbb98cc329a7e840928854de02da94e",
+            "ebf96ddd61b6673eed5511f1c9868cb5bf25d09eba5f97b935aa6efda62f211e",
+            "aa0e62f12c4a41ac8bc0726f4c2ff4fa3e69fb0d4d73576f58e091d4ca026d62",
+            "01ec72c074d3e1cae41e270f7219ba6c722cb3a5d23969841917837776a07776",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "keyframes": {
+          "events": 86,
+          "layers": 36,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.0,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "9b589e894e4d61586df12b746ded2c75cbbb98cc329a7e840928854de02da94e",
+            "ebf96ddd61b6673eed5511f1c9868cb5bf25d09eba5f97b935aa6efda62f211e",
+            "aa0e62f12c4a41ac8bc0726f4c2ff4fa3e69fb0d4d73576f58e091d4ca026d62",
+            "01ec72c074d3e1cae41e270f7219ba6c722cb3a5d23969841917837776a07776",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "function": {
+          "events": 1218,
+          "layers": 1218,
+          "front_error_px": [
+            0,
+            0.25,
+            0.23750000000001137,
+            0.0,
+            0.39583333333337123,
+            0.26249999999998863,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "sampling: 2700 target samples at 10 ms; estimated 3000 events before native subdivision"
+          ],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "fe0e1ec674a46838e0ea6dbad0580bf9d91c9b8b6003b48b10dbee345f9fdd09",
+            "ebf96ddd61b6673eed5511f1c9868cb5bf25d09eba5f97b935aa6efda62f211e",
+            "3320ecf1bf91f394616ec657b8e99f7fa14d47271f97a2d2a07a998b8c427af8",
+            "93a5e3ff58a5df56ad2cfd7f55acd005e26b863fe937c47170b2fb85fd238d13",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        }
+      },
+      "comparison": [
+        {
+          "time_ms": 500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 1000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              280,
+              284
+            ],
+            [
+              301,
+              305
+            ]
+          ]
+        },
+        {
+          "time_ms": 1250,
+          "keyframes_max_error": 0,
+          "max_channel_error": 107,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              297,
+              301
+            ],
+            [
+              309,
+              313
+            ]
+          ]
+        },
+        {
+          "time_ms": 1500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              318,
+              322
+            ],
+            [
+              318,
+              322
+            ]
+          ]
+        },
+        {
+          "time_ms": 1750,
+          "keyframes_max_error": 0,
+          "max_channel_error": 224,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              353,
+              357
+            ],
+            [
+              334,
+              338
+            ]
+          ]
+        },
+        {
+          "time_ms": 1800,
+          "keyframes_max_error": 0,
+          "max_channel_error": 108,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              342,
+              346
+            ],
+            [
+              329,
+              333
+            ]
+          ]
+        },
+        {
+          "time_ms": 2000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 2500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        }
+      ]
+    },
+    "group_detached": {
+      "variants": {
+        "native": {
+          "events": 78,
+          "layers": 36,
+          "front_error_px": [
+            0,
+            0.25,
+            0.23750000000001137,
+            0.0,
+            0.15625,
+            0.11250000000001137,
+            0,
+            0
+          ],
+          "diagnostics": [],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "7097e35b84712564241ba598d2324f132b9c8e35e71c26f76f1d1702919b92b7",
+            "836cb01c7e48539662557fe7790dee4e3f44a253eb8d5a8e8346bfc448c8270c",
+            "eb5e7417c5c34f991c1777e0ff07b2f9fe22781f61d8dd5b129b52453f57afa2",
+            "d59b114b115afee0fe42f0eb777e7a71ba2b9ef86e433f770684ff749085dee0",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "keyframes": {
+          "events": 78,
+          "layers": 36,
+          "front_error_px": [
+            0,
+            0.25,
+            0.23750000000001137,
+            0.0,
+            0.15625,
+            0.11250000000001137,
+            0,
+            0
+          ],
+          "diagnostics": [],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "7097e35b84712564241ba598d2324f132b9c8e35e71c26f76f1d1702919b92b7",
+            "836cb01c7e48539662557fe7790dee4e3f44a253eb8d5a8e8346bfc448c8270c",
+            "eb5e7417c5c34f991c1777e0ff07b2f9fe22781f61d8dd5b129b52453f57afa2",
+            "d59b114b115afee0fe42f0eb777e7a71ba2b9ef86e433f770684ff749085dee0",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "function": {
+          "events": 826,
+          "layers": 824,
+          "front_error_px": [
+            0,
+            0.25,
+            0.23750000000001137,
+            0.0,
+            0.39583333333337123,
+            0.13800000000003365,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "sampling: 2700 target samples at 10 ms; estimated 3000 events before native subdivision"
+          ],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "7097e35b84712564241ba598d2324f132b9c8e35e71c26f76f1d1702919b92b7",
+            "836cb01c7e48539662557fe7790dee4e3f44a253eb8d5a8e8346bfc448c8270c",
+            "878dcb4db2ab25c5708e8c9bc1cb8d3fabcd3144296b162f56c0dc370e14cf93",
+            "d59b114b115afee0fe42f0eb777e7a71ba2b9ef86e433f770684ff749085dee0",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        }
+      },
+      "comparison": [
+        {
+          "time_ms": 500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 1000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              280,
+              284
+            ],
+            [
+              301,
+              305
+            ]
+          ]
+        },
+        {
+          "time_ms": 1250,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              297,
+              301
+            ],
+            [
+              309,
+              313
+            ]
+          ]
+        },
+        {
+          "time_ms": 1500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              318,
+              322
+            ],
+            [
+              318,
+              322
+            ]
+          ]
+        },
+        {
+          "time_ms": 1750,
+          "keyframes_max_error": 0,
+          "max_channel_error": 129,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              353,
+              357
+            ],
+            [
+              332,
+              336
+            ]
+          ]
+        },
+        {
+          "time_ms": 1800,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              342,
+              346
+            ],
+            [
+              328,
+              332
+            ]
+          ]
+        },
+        {
+          "time_ms": 2000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 2500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        }
+      ]
+    },
+    "group_sung": {
+      "variants": {
+        "native": {
+          "events": 136,
+          "layers": 63,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.0,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "combined/unit:0/text:0:1/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:0:1/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/unit:0/text:1:2/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:1:2/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/ruby:0:0/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/ruby:0:0/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed"
+          ],
+          "frames": [
+            "4522bc9af535944850c35cd7c9b8ea6dee1a1f3d7d523320b7c53dfffa21c4e0",
+            "9643daed0aa6c435d92172ebcc823ef163c6b250f112e9784469e9e879c11602",
+            "a45372e442f12d5fe0040a7e45d4eb87f5476357fca7770a9ece1703674399ee",
+            "5cdd5bf41792841ad27c1d4f00487fe573c68873b8e473d664e465d5547d3f4a",
+            "65ec013bdc75d66527623e3d084b5760b254b7935c0c0b0ff7d4e46f04deaad9",
+            "3c9997f328bc1b45be7a1fe4c9ee214004b52bcbc89aa0cfa042b0b5b1da2aa1",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "keyframes": {
+          "events": 136,
+          "layers": 63,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.0,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "combined/unit:0/text:0:1/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:0:1/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/unit:0/text:1:2/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:1:2/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/ruby:0:0/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/ruby:0:0/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed"
+          ],
+          "frames": [
+            "4522bc9af535944850c35cd7c9b8ea6dee1a1f3d7d523320b7c53dfffa21c4e0",
+            "9643daed0aa6c435d92172ebcc823ef163c6b250f112e9784469e9e879c11602",
+            "a45372e442f12d5fe0040a7e45d4eb87f5476357fca7770a9ece1703674399ee",
+            "5cdd5bf41792841ad27c1d4f00487fe573c68873b8e473d664e465d5547d3f4a",
+            "65ec013bdc75d66527623e3d084b5760b254b7935c0c0b0ff7d4e46f04deaad9",
+            "3c9997f328bc1b45be7a1fe4c9ee214004b52bcbc89aa0cfa042b0b5b1da2aa1",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "function": {
+          "events": 1518,
+          "layers": 1518,
+          "front_error_px": [
+            0,
+            0.25,
+            0.23750000000001137,
+            0.0,
+            0.39583333333337123,
+            0.26249999999998863,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "combined/unit:0/text:0:1/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:0:1/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/unit:0/text:1:2/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:1:2/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/ruby:0:0/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/ruby:0:0/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "sampling: 2700 target samples at 10 ms; estimated 3300 events before native subdivision"
+          ],
+          "frames": [
+            "4522bc9af535944850c35cd7c9b8ea6dee1a1f3d7d523320b7c53dfffa21c4e0",
+            "9643daed0aa6c435d92172ebcc823ef163c6b250f112e9784469e9e879c11602",
+            "93380b491758d65c77e9d3f31ec9be5736a7102076e7f949a1e6122b1808cac2",
+            "5cdd5bf41792841ad27c1d4f00487fe573c68873b8e473d664e465d5547d3f4a",
+            "85f4c57e562489cc17026ade3a701ebeb71b77657afc80f8eabbb476de0fe22d",
+            "beb3a5ff86aed09d373bd02b7ae7d0cef38a8d4a9c4741406732bcf319b08e79",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        }
+      },
+      "comparison": [
+        {
+          "time_ms": 500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 1000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              280,
+              284
+            ],
+            [
+              301,
+              305
+            ]
+          ]
+        },
+        {
+          "time_ms": 1250,
+          "keyframes_max_error": 0,
+          "max_channel_error": 102,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              297,
+              301
+            ],
+            [
+              309,
+              313
+            ]
+          ]
+        },
+        {
+          "time_ms": 1500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              318,
+              322
+            ],
+            [
+              318,
+              322
+            ]
+          ]
+        },
+        {
+          "time_ms": 1750,
+          "keyframes_max_error": 0,
+          "max_channel_error": 229,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              353,
+              357
+            ],
+            [
+              334,
+              338
+            ]
+          ]
+        },
+        {
+          "time_ms": 1800,
+          "keyframes_max_error": 0,
+          "max_channel_error": 104,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              342,
+              346
+            ],
+            [
+              329,
+              333
+            ]
+          ]
+        },
+        {
+          "time_ms": 2000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 2500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        }
+      ]
+    },
+    "characters": {
+      "variants": {
+        "native": {
+          "events": 86,
+          "layers": 36,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.22500000000002274,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "ab9dfb6938835ebd429121287ca950a2bbc6a5cafc92acf7c9a88af047f49ae0",
+            "8da4e0e035b35db3467f225bf7dc22956d5666878df27053548be66dc5ebee99",
+            "2421d1d7437982f7bc02c6dabb8ff4412d24404e710ac59fefd027b7035f3d43",
+            "ae90f77e6ba21dfe6a2df8dea5bbb3a2418872dd7a0338ce659be2aa214ea7d6",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "keyframes": {
+          "events": 86,
+          "layers": 36,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.22500000000002274,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "ab9dfb6938835ebd429121287ca950a2bbc6a5cafc92acf7c9a88af047f49ae0",
+            "8da4e0e035b35db3467f225bf7dc22956d5666878df27053548be66dc5ebee99",
+            "2421d1d7437982f7bc02c6dabb8ff4412d24404e710ac59fefd027b7035f3d43",
+            "ae90f77e6ba21dfe6a2df8dea5bbb3a2418872dd7a0338ce659be2aa214ea7d6",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "function": {
+          "events": 1218,
+          "layers": 1218,
+          "front_error_px": [
+            0,
+            0.25,
+            0.39999999999997726,
+            0.27499999999997726,
+            0.40833333333335986,
+            0.26249999999998863,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "sampling: 2700 target samples at 10 ms; estimated 3000 events before native subdivision"
+          ],
+          "frames": [
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "58ed975c213269488541bf9845617033f33788b85e5f779d72a16cf1706240e2",
+            "f2b5d4699dface45f0505faa31d6968357f5b34a250aa4fc522784beeef0ae7d",
+            "c7cbabfa6200399eb3b82f5aaddef03ac552b31b650bd338c5b18a43a7f018f1",
+            "faa2a7d8ed0e06e9d37f1221e132bef5d79dff75e021d31bc40c6b9ae65efab9",
+            "2c7f9d1e6c28d268d3d08bf1c400c4c0150ef0079a606ff42cfbc6d9927530c3",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        }
+      },
+      "comparison": [
+        {
+          "time_ms": 500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 1000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              280,
+              284
+            ],
+            [
+              280,
+              284
+            ],
+            [
+              301,
+              305
+            ]
+          ]
+        },
+        {
+          "time_ms": 1250,
+          "keyframes_max_error": 0,
+          "max_channel_error": 105,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              299,
+              303
+            ],
+            [
+              295,
+              299
+            ],
+            [
+              309,
+              313
+            ]
+          ]
+        },
+        {
+          "time_ms": 1500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 2,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              322,
+              326
+            ],
+            [
+              314,
+              318
+            ],
+            [
+              318,
+              322
+            ]
+          ]
+        },
+        {
+          "time_ms": 1750,
+          "keyframes_max_error": 0,
+          "max_channel_error": 224,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              354,
+              358
+            ],
+            [
+              351,
+              355
+            ],
+            [
+              334,
+              338
+            ]
+          ]
+        },
+        {
+          "time_ms": 1800,
+          "keyframes_max_error": 0,
+          "max_channel_error": 107,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              344,
+              348
+            ],
+            [
+              341,
+              345
+            ],
+            [
+              329,
+              333
+            ]
+          ]
+        },
+        {
+          "time_ms": 2000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 2500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        }
+      ]
+    },
+    "characters_sung": {
+      "variants": {
+        "native": {
+          "events": 136,
+          "layers": 63,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.22500000000002274,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "combined/unit:0/text:0:1/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:0:1/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/unit:0/text:1:2/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:1:2/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/ruby:0:0/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/ruby:0:0/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed"
+          ],
+          "frames": [
+            "4522bc9af535944850c35cd7c9b8ea6dee1a1f3d7d523320b7c53dfffa21c4e0",
+            "9643daed0aa6c435d92172ebcc823ef163c6b250f112e9784469e9e879c11602",
+            "b942e3e87c63a58c51ad30ea5103c43e06f2f160cb13f1b58a49f86404774197",
+            "b0c125727b354c686a6f08c9acb725f8a1a1c800bf8c7fb2dc8b176590e8861a",
+            "9c65eef050ee3ca35cf66993eca2fa1ebfa559f07fa727eed76d9dfbd18b0df3",
+            "343947c6125199c6cb8c87381fd7fd1a5cea49617f99051b48e5340daa2586b1",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "keyframes": {
+          "events": 136,
+          "layers": 63,
+          "front_error_px": [
+            0,
+            0.25,
+            0.453125,
+            0.22500000000002274,
+            0.24479166666662877,
+            0.5374999999999659,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "combined/unit:0/text:0:1/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:0:1/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/unit:0/text:1:2/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:1:2/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/ruby:0:0/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/ruby:0:0/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed"
+          ],
+          "frames": [
+            "4522bc9af535944850c35cd7c9b8ea6dee1a1f3d7d523320b7c53dfffa21c4e0",
+            "9643daed0aa6c435d92172ebcc823ef163c6b250f112e9784469e9e879c11602",
+            "b942e3e87c63a58c51ad30ea5103c43e06f2f160cb13f1b58a49f86404774197",
+            "b0c125727b354c686a6f08c9acb725f8a1a1c800bf8c7fb2dc8b176590e8861a",
+            "9c65eef050ee3ca35cf66993eca2fa1ebfa559f07fa727eed76d9dfbd18b0df3",
+            "343947c6125199c6cb8c87381fd7fd1a5cea49617f99051b48e5340daa2586b1",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        },
+        "function": {
+          "events": 1518,
+          "layers": 1518,
+          "front_error_px": [
+            0,
+            0.25,
+            0.39999999999997726,
+            0.27499999999997726,
+            0.40833333333335986,
+            0.26249999999998863,
+            0,
+            0
+          ],
+          "diagnostics": [
+            "combined/unit:0/text:0:1/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:0:1/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/unit:0/text:1:2/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/unit:0/text:1:2/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "combined/ruby:0:0/halo:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1200 ms; tracks=main,echo; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "combined/ruby:0:0/halo:1: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed",
+            "sampling: 2700 target samples at 10 ms; estimated 3300 events before native subdivision"
+          ],
+          "frames": [
+            "4522bc9af535944850c35cd7c9b8ea6dee1a1f3d7d523320b7c53dfffa21c4e0",
+            "9643daed0aa6c435d92172ebcc823ef163c6b250f112e9784469e9e879c11602",
+            "eac600620f9436bacb0e87956a3f63f8ac2dbb9c6dbf804674c9d95e3732d3af",
+            "3d76cc6df6eaab04bd5bc821de825700b9b87f9e817d6f909453455af82bcd9c",
+            "e4c70c2a5eddf6ac10da02482af0e2e2cf91679b681cacc7e76752b1f0767951",
+            "b308a8c60c1d65e84fd7ebe251a4e2a30914dbda9feca343efc348e556f0ade3",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680",
+            "89f437a014098676259b88125054f4367ab9caa46a085b955847aaf225db6680"
+          ]
+        }
+      },
+      "comparison": [
+        {
+          "time_ms": 500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 1000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              280,
+              284
+            ],
+            [
+              280,
+              284
+            ],
+            [
+              301,
+              305
+            ]
+          ]
+        },
+        {
+          "time_ms": 1250,
+          "keyframes_max_error": 0,
+          "max_channel_error": 102,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              299,
+              303
+            ],
+            [
+              295,
+              299
+            ],
+            [
+              309,
+              313
+            ]
+          ]
+        },
+        {
+          "time_ms": 1500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 43,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              322,
+              326
+            ],
+            [
+              314,
+              318
+            ],
+            [
+              318,
+              322
+            ]
+          ]
+        },
+        {
+          "time_ms": 1750,
+          "keyframes_max_error": 0,
+          "max_channel_error": 229,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              354,
+              358
+            ],
+            [
+              351,
+              355
+            ],
+            [
+              334,
+              338
+            ]
+          ]
+        },
+        {
+          "time_ms": 1800,
+          "keyframes_max_error": 0,
+          "max_channel_error": 102,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": [
+            [
+              344,
+              348
+            ],
+            [
+              341,
+              345
+            ],
+            [
+              329,
+              333
+            ]
+          ]
+        },
+        {
+          "time_ms": 2000,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        },
+        {
+          "time_ms": 2500,
+          "keyframes_max_error": 0,
+          "max_channel_error": 0,
+          "one_pixel_residual": 0,
+          "excluded_front_bands": []
+        }
+      ]
+    }
+  },
+  "failures": []
+}

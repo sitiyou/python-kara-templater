@@ -155,7 +155,11 @@ class Line:
             attr = EVENT_NAMES.get(key.lower(), key.lower())
             if hasattr(self, attr):
                 value = getattr(self, attr)
-                value = format_time(value) if attr in {"start_time", "end_time"} else number(value)
+                value = (
+                    format_time(value)
+                    if attr in {"start_time", "end_time"}
+                    else number(value)
+                )
             result.append(str(value))
         return ("Comment: " if self.comment else "Dialogue: ") + ",".join(result)
 
@@ -212,14 +216,18 @@ class Document:
                 raise ValueError("SSA styles are not supported; use ASS v4.00+")
             if kind == "format" and section in {"[v4+ styles]", "[events]"}:
                 columns = [x.strip() for x in value.split(",")]
-                if section == "[events]" and (not columns or columns[-1].lower() != "text"):
+                if section == "[events]" and (
+                    not columns or columns[-1].lower() != "text"
+                ):
                     raise ValueError("ASS event Text must be the final field")
             if section == "[script info]" and sep and not kind.startswith(";"):
                 meta[kind] = value.strip()
             if section == "[v4+ styles]" and kind == "style":
                 if not columns:
                     raise ValueError("Missing style Format")
-                records.append(_parse_record(Style, value.lstrip(), columns, STYLE_NAMES))
+                records.append(
+                    _parse_record(Style, value.lstrip(), columns, STYLE_NAMES)
+                )
             elif section == "[events]" and kind in {"dialogue", "comment"}:
                 if not columns:
                     raise ValueError("Missing event Format")
@@ -252,7 +260,10 @@ class Document:
         return [x for x in self.records if isinstance(x, Line)]
 
     def dumps(self):
-        return "\n".join(x if isinstance(x, str) else x.serialize() for x in self.records) + "\n"
+        return (
+            "\n".join(x if isinstance(x, str) else x.serialize() for x in self.records)
+            + "\n"
+        )
 
     def save(self, path: str | Path):
         Path(path).write_text(self.dumps(), encoding="utf-8-sig")

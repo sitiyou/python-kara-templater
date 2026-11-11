@@ -5,34 +5,128 @@ from dataclasses import replace
 from pathlib import Path
 
 from kara_templater import (
+    BLACK,
+    Body,
     Color,
-    ColorSpan,
     DisplayWindow,
     Document,
-    EdgeSweep,
-    Fade,
+    Effect,
     Glow,
+    Halo,
     HighlightTrack,
-    KaraokeEffect,
     KaraokeItem,
     KaraokeLine,
+    Lyrics,
     Paint,
-    PaintPair,
     ProgressCurve,
-    Pulse,
     Region,
-    RubyPaint,
-    RubyPolicy,
+    Ruby,
     Segment,
     SingingPass,
     Style,
-    Sweep,
-    TextRange,
     TextUnit,
     TrackStyle,
     render_karaoke,
+    tracks_from_layout,
 )
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
+
+CYAN, PINK = Color.hex("#33ddff"), Color.hex("#ff5599")
+
+
+class RecipeEffect(Effect):
+    def compose(self):
+        mode = self.source.style
+        children = [Body(fill="#dcdcdc", stroke=BLACK, stroke_width=1)]
+        if mode != "LEAD":
+            children.append(
+                Ruby(
+                    stroke_width=1,
+                    offset_y=0 if mode == "H2" else -4,
+                    follow="syllable" if mode in {"K1", "K2"} else "none",
+                )
+            )
+        if mode == "H2":
+            # The pink character has no glow; its reading keeps the cyan theme.
+            children.extend(
+                (
+                    Halo(
+                        targets=self.rubies,
+                        color=CYAN,
+                        blur=3,
+                        width=2,
+                        opacity=0.5,
+                        clip="sung",
+                    ),
+                    Halo(
+                        targets=self.characters[:1],
+                        color=CYAN,
+                        blur=3,
+                        width=2,
+                        opacity=0.5,
+                        clip="sung",
+                    ),
+                )
+            )
+        elif mode != "K2":
+            children.append(Halo(color=CYAN, blur=3, width=2, opacity=0.5, clip="sung"))
+        yield Lyrics(*children)
+
+    def configure(self):
+        mode = self.source.style
+        if mode == "K2":
+            # Track styles describe the complete paint of a priority region:
+            # the echo deliberately replaces the cyan glow with plain pink.
+            main = Paint(CYAN, border=1, glow=Glow(CYAN, blur=3, border=2, opacity=0.5))
+            self.text.sweep(
+                fill=CYAN,
+                tracks=self.parallel,
+                track_styles=tuple(
+                    TrackStyle(f"main-{i}", main) for i in range(len(self.syllables))
+                )
+                + (TrackStyle("echo", Paint(PINK, border=1), 10),),
+                overlap="priority",
+                padding=4,
+                lead=80,
+                tail=100,
+            )
+        elif mode in {"K1", "H1"}:
+            self.text.sweep(
+                fill=CYAN,
+                curve=ProgressCurve.two_stage(
+                    time_fraction=0.25, progress_fraction=0.4
+                ),
+                padding=4,
+                lead=80,
+                tail=100,
+            )
+        else:
+            self.text.sweep(fill=CYAN)
+        if mode == "H2":
+            self.characters[1].style.sung.fill = PINK
+            self.characters[1].style.sung.stroke_width = 0
+            self.characters.on_highlight(pulse=1.1)
+        elif mode == "K1":
+            self.syllables.on_singing(pulse=1.1)
+        elif mode == "H1":
+            self.characters.on_singing(pulse=1.1)
+        if mode != "H2":
+            self.text.fade(in_ms=200 if mode == "LEAD" else 300, out_ms=300)
+
+    def parallel(self, layout):
+        box = layout.units[1].box
+        return (
+            *(
+                replace(t, id=f"main-{i}")
+                for i, t in enumerate(tracks_from_layout(layout))
+            ),
+            HighlightTrack(
+                "echo",
+                1,
+                (SingingPass(1200, 1750, Region(box.left, box.right)),),
+                end_behavior="hide",
+            ),
+        )
 
 
 def build():
@@ -98,59 +192,10 @@ def build():
             window,
         ),
     )
-    cyan, pink = Color.hex("#33ddff"), Color.hex("#ff5599")
-    theme = PaintPair(
-        before=Paint(Color(220, 220, 220), border=1),
-        after=Paint(cyan, border=1, glow=Glow(cyan, blur=3, border=2, opacity=0.5)),
-    )
-    primary = KaraokeEffect(
-        paints=theme,
-        fade=Fade(300, 300),
-        pulses=(Pulse.whole_syllable(),),
-        sweep=Sweep(
-            ProgressCurve.two_stage(time_fraction=0.25, progress_fraction=0.4),
-            EdgeSweep(4, 80, 100),
-        ),
-        ruby=RubyPolicy(offset_y=-4, follow="syllable"),
-    )
-
-    def parallel(target, context):
-        box = context.layout.units[1].box
-        track = HighlightTrack(
-            "echo",
-            1,
-            (SingingPass(1200, 1750, Region(box.left, box.right)),),
-            end_behavior="hide",
-        )
-        from kara_templater import tracks_from_layout
-
-        return replace(
-            primary,
-            pulses=(),
-            sweep=Sweep(edges=EdgeSweep(4, 80, 100)),
-            tracks=(*tracks_from_layout(context.layout), track),
-            track_styles=(TrackStyle("echo", Paint(pink, border=1), 10),),
-            overlap="priority",
-        ).build(target, context)
-
-    effects = {
-        "K1": primary,
-        "K2": parallel,
-        "H1": replace(
-            primary, pulses=(Pulse.simultaneous_chars(),), ruby=RubyPolicy(offset_y=-4)
-        ),
-        "H2": KaraokeEffect(
-            paints=theme,
-            spans=(ColorSpan(TextRange(0, 1, 2), after=Paint(pink)),),
-            ruby_paints=(RubyPaint(0, 0, theme),),
-            pulses=(Pulse.each_char(),),
-        ),
-        "LEAD": KaraokeEffect.guide(paints=theme, fade=Fade(200, 300)),
-    }
-    result = render_karaoke(source, items, effect=effects, owner="example")
+    result = render_karaoke(source, items, effect=RecipeEffect, owner="example")
     assert (
         render_karaoke(
-            result.document, items, effect=effects, owner="example"
+            result.document, items, effect=RecipeEffect, owner="example"
         ).document.dumps()
         == result.document.dumps()
     )

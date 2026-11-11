@@ -2,6 +2,8 @@ from .animation import (
     AnimationPlan,
     CharacterTarget,
     HighlightEnter,
+    OffsetAnimation,
+    OpacityAnimation,
     Pulse,
     ScaleAnimation,
     SegmentStart,
@@ -65,7 +67,6 @@ from .model import (
 from .recipe import (
     EffectContext,
     EffectPlan,
-    KaraokeEffect,
     KaraokeItem,
     RubyPolicy,
     Sweep,
@@ -119,7 +120,6 @@ __all__ = [
     "HighlightTrack",
     "ImportSettings",
     "ImportedKaraoke",
-    "KaraokeEffect",
     "KaraokeItem",
     "KaraokeLine",
     "LaidOutLine",
@@ -128,6 +128,8 @@ __all__ = [
     "LayoutCapabilityError",
     "Line",
     "LoadedFont",
+    "OffsetAnimation",
+    "OpacityAnimation",
     "OutputCapabilityError",
     "OutputSettings",
     "Paint",
@@ -178,3 +180,78 @@ __all__ = [
     "union_regions",
     "walk_karaoke",
 ]
+
+from .colors import (
+    BLACK,
+    BLUE,
+    CYAN,
+    GRAY,
+    GREEN,
+    MAGENTA,
+    ORANGE,
+    PINK,
+    PURPLE,
+    RED,
+    WHITE,
+    YELLOW,
+)
+from .effect import Body, Effect, Halo, Lyrics, Ruby
+from .stylesheet import INHERIT, UNSET, StyleSheet, rule
+
+__all__ += [
+    "BLACK",
+    "BLUE",
+    "CYAN",
+    "GRAY",
+    "GREEN",
+    "INHERIT",
+    "MAGENTA",
+    "ORANGE",
+    "PINK",
+    "PURPLE",
+    "RED",
+    "UNSET",
+    "WHITE",
+    "YELLOW",
+    "Body",
+    "Effect",
+    "Lyrics",
+    "Ruby",
+    "StyleSheet",
+    "rule",
+]
+
+from .properties import (
+    Contextual,
+    PropertyContext,
+    PropertyTarget,
+    Transition,
+    ease_in,
+    ease_in_out,
+    ease_out,
+    linear,
+    smooth,
+    there_and_back,
+)
+
+__all__ += [
+    "Contextual",
+    "Halo",
+    "PropertyContext",
+    "PropertyTarget",
+    "Transition",
+    "ease_in",
+    "ease_in_out",
+    "ease_out",
+    "linear",
+    "smooth",
+    "there_and_back",
+]
+
+from .properties import Keyframe, Keyframes, display, singing
+
+__all__ += ["Keyframe", "Keyframes", "display", "singing"]
+
+from .follow import Follow
+
+__all__ += ["Follow"]

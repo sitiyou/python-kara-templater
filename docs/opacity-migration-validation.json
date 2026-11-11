@@ -1,0 +1,151 @@
+{
+  "comparison": "native alpha versus previous 40 ms held samples",
+  "max_channel_tolerance": 8,
+  "examples": [
+    {
+      "example": "layered_glow",
+      "before_events": 728,
+      "native_events": 389,
+      "frames": [
+        {
+          "frame": "frame-01.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "frame-02.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "frame-03.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "frame-04.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "frame-05.png",
+          "max_channel_error": 5
+        },
+        {
+          "frame": "frame-06.png",
+          "max_channel_error": 4
+        },
+        {
+          "frame": "frame-07.png",
+          "max_channel_error": 5
+        },
+        {
+          "frame": "frame-08.png",
+          "max_channel_error": 4
+        },
+        {
+          "frame": "frame-09.png",
+          "max_channel_error": 4
+        },
+        {
+          "frame": "frame-10.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "frame-11.png",
+          "max_channel_error": 4
+        },
+        {
+          "frame": "frame-12.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "frame-13.png",
+          "max_channel_error": 0
+        }
+      ]
+    },
+    {
+      "example": "whole_glow",
+      "before_events": 210,
+      "native_events": 49,
+      "frames": [
+        {
+          "frame": "whole-01.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "whole-02.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "whole-03.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "whole-04.png",
+          "max_channel_error": 4
+        },
+        {
+          "frame": "whole-05.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "whole-06.png",
+          "max_channel_error": 4
+        },
+        {
+          "frame": "whole-07.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "whole-08.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "whole-09.png",
+          "max_channel_error": 0
+        }
+      ]
+    },
+    {
+      "example": "staggered_path",
+      "before_events": 166,
+      "native_events": 166,
+      "frames": [
+        {
+          "frame": "arc-01.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-02.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-03.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-04.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-05.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-06.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-07.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-08.png",
+          "max_channel_error": 0
+        },
+        {
+          "frame": "arc-09.png",
+          "max_channel_error": 0
+        }
+      ]
+    }
+  ]
+}

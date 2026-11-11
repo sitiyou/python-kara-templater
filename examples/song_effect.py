@@ -1,33 +1,37 @@
 """Use with: kara-templater input.ass output.ass --effect examples/song_effect.py."""
 
 from kara_templater import (
+    BLACK,
+    Body,
     Color,
-    EdgeSweep,
-    Fade,
-    Glow,
-    KaraokeEffect,
-    Paint,
-    PaintPair,
+    Effect,
+    Halo,
+    Lyrics,
     ProgressCurve,
-    Pulse,
-    RubyPolicy,
-    Sweep,
+    Ruby,
 )
 
 CYAN = Color.hex("#33ddff")
 
-effect = KaraokeEffect(
-    paints=PaintPair(
-        before=Paint(Color(230, 230, 230), border=2),
-        after=Paint(CYAN, border=2, glow=Glow(CYAN, blur=4, border=3, opacity=0.5)),
-    ),
-    sweep=Sweep(
-        progress_curve=ProgressCurve.two_stage(
-            time_fraction=0.25, progress_fraction=0.4
-        ),
-        edges=EdgeSweep(padding_px=8, lead_ms=80, tail_ms=100),
-    ),
-    pulses=(Pulse.whole_syllable(),),
-    ruby=RubyPolicy(offset_y=-4, follow="syllable"),
-    fade=Fade(in_ms=100, out_ms=100),
-)
+
+class SongEffect(Effect):
+    def compose(self):
+        yield Lyrics(
+            Body(fill=Color(230, 230, 230), stroke=BLACK, stroke_width=2),
+            Ruby(stroke_width=2, offset_y=-4, follow="syllable"),
+            Halo(color=CYAN, blur=4, width=3, opacity=0.5, clip="sung"),
+        )
+
+    def configure(self):
+        self.text.sweep(
+            fill=CYAN,
+            curve=ProgressCurve.two_stage(time_fraction=0.25, progress_fraction=0.4),
+            padding=8,
+            lead=80,
+            tail=100,
+        )
+        self.syllables.on_singing(pulse=1.1)
+        self.text.fade(in_ms=100, out_ms=100)
+
+
+effect = SongEffect

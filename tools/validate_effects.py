@@ -22,7 +22,6 @@ from kara_templater import (
     Fade,
     Glow,
     HighlightTrack,
-    KaraokeEffect,
     KaraokeItem,
     KaraokeLine,
     Line,
@@ -47,6 +46,7 @@ from kara_templater import (
     render_karaoke,
     tracks_from_layout,
 )
+from kara_templater._compiler import _compile_targets, _prepare_targets
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
 
 FONT = Path(__file__).resolve().parents[1] / "tests/fonts/DejaVuSans.ttf"
@@ -154,22 +154,29 @@ def scene(kind, resolution=(640, 480)):
         guide_paint = Paint(BLUE, opacity=0.5)
 
         def build(target, context):
-            recipe = (
-                KaraokeEffect.guide(paints=PaintPair(guide_paint, guide_paint))
-                if target.id == "guide"
-                else KaraokeEffect(
-                    paints=PaintPair(body_paint, body_paint),
-                    ruby=RubyPolicy(enabled=False),
-                )
+            paint = guide_paint if target.id == "guide" else body_paint
+            sweep = Sweep()
+            prepared = _prepare_targets(
+                target,
+                context,
+                paints=PaintPair(paint, paint),
+                sweep=sweep,
+                ruby=RubyPolicy(enabled=False),
+                origin_effect="StackValidation",
             )
-            return recipe.build(target, context)
+            return _compile_targets(
+                target,
+                context,
+                prepared,
+                sweep=sweep,
+                fade=Fade(),
+                origin_effect="StackValidation",
+            )
 
         items = (
             (body,)
             if kind == "stack_body"
-            else (guide, body)
-            if reverse
-            else (body, guide)
+            else (guide, body) if reverse else (body, guide)
         )
         return render_karaoke(document, items, effect=build)
     item = KaraokeItem(
@@ -184,11 +191,13 @@ def scene(kind, resolution=(640, 480)):
             item,
             source=KaraokeLine(
                 (
-                    TextUnit("A", (Segment(1000, 2000, "a"),)),
-                    TextUnit("B", (Segment(1000, 2000, "b"),)),
-                )
-                if inherited
-                else (TextUnit("AB", (Segment(1000, 2000, "ab"),)),),
+                    (
+                        TextUnit("A", (Segment(1000, 2000, "a"),)),
+                        TextUnit("B", (Segment(1000, 2000, "b"),)),
+                    )
+                    if inherited
+                    else (TextUnit("AB", (Segment(1000, 2000, "ab"),)),)
+                ),
             ),
         )
     if kind.startswith("ruby_"):
@@ -260,7 +269,13 @@ def scene(kind, resolution=(640, 480)):
                             )
                         )
                 return EffectPlan(tuple(layers))
-            return KaraokeEffect(
+            sweep = Sweep()
+            prepared = _prepare_targets(
+                target,
+                context,
+                sweep=sweep,
+                ruby=RubyPolicy(),
+                origin_effect="ColorValidation",
                 paints=theme,
                 spans=(
                     ColorSpan(
@@ -270,7 +285,15 @@ def scene(kind, resolution=(640, 480)):
                     ),
                 ),
                 ruby_paints=() if inherited else (RubyPaint(0, 0, reading),),
-            ).build(target, context)
+            )
+            return _compile_targets(
+                target,
+                context,
+                prepared,
+                sweep=sweep,
+                fade=Fade(),
+                origin_effect="ColorValidation",
+            )
         region = Region(context.layout.box.left, context.layout.box.right)
         base = HighlightTrack("base", 0, (SingingPass(1000, 2000, region),))
         tracks, styles, overlap = (base,), (), "union"
@@ -414,27 +437,46 @@ def scene(kind, resolution=(640, 480)):
             animated = True
             ruby = RubyPolicy(
                 offset_y=-30,
-                follow="syllable"
-                if kind in {"ruby_follow", "ruby_sampled"}
-                else "none",
+                follow=(
+                    "syllable" if kind in {"ruby_follow", "ruby_sampled"} else "none"
+                ),
             )
             if kind == "ruby_sampled":
                 dynamic = DynamicEffect(lambda ctx: DynamicProperties())
-        return KaraokeEffect(
+        # These fixtures exercise backend clocks, masks and sampling against
+        # independent static references, using a fixed measured layout.
+        sweep = (
+            Sweep(edges=EdgeSweep(lead_ms=100, tail_ms=200))
+            if kind.endswith(("_tail", "_cropped"))
+            else Sweep(completion="clip" if kind.endswith("_clipped") else "release")
+        )
+        prepared = _prepare_targets(
+            target,
+            context,
             paints=PaintPair(before, after),
             tracks=tracks,
             track_styles=styles,
-            overlap=overlap,
-            dynamic=dynamic,
-            fade=Fade(800, 800) if animated else Fade(),
-            pulses=(Pulse.whole_syllable(scale=1.3),)
-            if animated and kind != "ruby_static"
-            else (),
+            pulses=(
+                (Pulse.whole_syllable(scale=1.3),)
+                if animated and kind != "ruby_static"
+                else ()
+            ),
             ruby=ruby,
-            sweep=Sweep(edges=EdgeSweep(lead_ms=100, tail_ms=200))
-            if kind.endswith(("_tail", "_cropped"))
-            else Sweep(completion="clip" if kind.endswith("_clipped") else "release"),
-        ).build(target, context)
+            sweep=sweep,
+            origin_effect="BackendValidation",
+        )
+        plan = _compile_targets(
+            target,
+            context,
+            prepared,
+            sweep=sweep,
+            fade=Fade(800, 800) if animated else Fade(),
+            track_styles=styles,
+            overlap=overlap,
+            max_glow_blur=dynamic.max_glow_blur if dynamic else None,
+            origin_effect="BackendValidation",
+        )
+        return replace(plan, dynamic=dynamic)
 
     return render_karaoke(document, (item,), effect=build)
 
@@ -678,9 +720,7 @@ def main():
         reference_time = (
             1000 + (time - 1000) * 2
             if 1000 <= time < 1250
-            else 1500
-            if 1250 <= time < 1500
-            else time
+            else 1500 if 1250 <= time < 1500 else time
         )
         reference_index = TIMES.index(reference_time)
         equality(

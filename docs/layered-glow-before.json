@@ -1,0 +1,161 @@
+{
+  "input_sha256": "1a2925974c8f210f6a5943d3c523b8423192703bcb19302c6fcd397b0b372387",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "ffmpeg_filter_threads": 1,
+  "ffmpeg_version": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "event_count": 728,
+  "layer_count": 535,
+  "diagnostics": [
+    "ass:34f863f6bfecca67c7f4/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:34f863f6bfecca67c7f4/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:34f863f6bfecca67c7f4/unit:1/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:34f863f6bfecca67c7f4/unit:1/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:34f863f6bfecca67c7f4/ruby:0:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:34f863f6bfecca67c7f4/ruby:1:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:94c74b4ea771fd474c16/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:94c74b4ea771fd474c16/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:94c74b4ea771fd474c16/ruby:0:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:94c74b4ea771fd474c16/ruby:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..4000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:c28f30cb45586fd82f37/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:c28f30cb45586fd82f37/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:c28f30cb45586fd82f37/unit:1/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "ass:c28f30cb45586fd82f37/unit:1/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+    "sampling: 1800 target samples at 40 ms; estimated 1989 events before native subdivision",
+    "sampling: 1200 target samples at 40 ms; estimated 1486 events before native subdivision",
+    "sampling: 1200 target samples at 40 ms; estimated 1318 events before native subdivision"
+  ],
+  "events_by_style": {
+    "K1": 220,
+    "K2": 140,
+    "LEAD": 166,
+    "K1-ruby": 106,
+    "K2-ruby": 96
+  },
+  "frames": [
+    {
+      "time_ms": 0,
+      "pixel_sha256": "0b150fd32588b1daca5569992ebe559c0102c837306b1af4c44d35128ec58366",
+      "bbox": null
+    },
+    {
+      "time_ms": 500,
+      "pixel_sha256": "602d7818222b21904d1fb28bdfa090752fed00d0b55bf9007593f5918e650d44",
+      "bbox": [
+        226,
+        66,
+        413,
+        436
+      ]
+    },
+    {
+      "time_ms": 800,
+      "pixel_sha256": "04c99641c889f70ef9d234a9c24428acb97fae44b6995e922a4bbd781599c2af",
+      "bbox": [
+        224,
+        64,
+        415,
+        438
+      ]
+    },
+    {
+      "time_ms": 1000,
+      "pixel_sha256": "56e460da1db94982925a8b45aaafe0f6658664d2e5f85e5b048bb2e2e6e1ca20",
+      "bbox": [
+        224,
+        64,
+        415,
+        438
+      ]
+    },
+    {
+      "time_ms": 1300,
+      "pixel_sha256": "01fdd479d86317abe3026f45c7944f729d4b3b4ba067c2503d7c75bbb0258fcd",
+      "bbox": [
+        222,
+        64,
+        415,
+        440
+      ]
+    },
+    {
+      "time_ms": 1600,
+      "pixel_sha256": "08d7c8d275a810fcb7fca48bcc5652ce0bf6e6c600d3ac0949d59741ec6615e3",
+      "bbox": [
+        219,
+        64,
+        415,
+        442
+      ]
+    },
+    {
+      "time_ms": 1700,
+      "pixel_sha256": "dff9c3205e96853ca13da6ffafca12542c12317cf1a20a489ca0fb3840638079",
+      "bbox": [
+        218,
+        64,
+        415,
+        442
+      ]
+    },
+    {
+      "time_ms": 1800,
+      "pixel_sha256": "62209129fdeadd0a92db99270a69e5c24432cbbe8e3b49d0f880823a72d3ea70",
+      "bbox": [
+        218,
+        64,
+        415,
+        442
+      ]
+    },
+    {
+      "time_ms": 1850,
+      "pixel_sha256": "73426f25ebf606b94ea3f574f99f060b53492fb700aa0b7f1d4e6b5c18a736af",
+      "bbox": [
+        217,
+        64,
+        415,
+        443
+      ]
+    },
+    {
+      "time_ms": 2400,
+      "pixel_sha256": "eede09f050258b5cdff075c35b48adb9c5c54d31f5354ad951582073821a4f52",
+      "bbox": [
+        222,
+        64,
+        415,
+        440
+      ]
+    },
+    {
+      "time_ms": 2700,
+      "pixel_sha256": "cb2ea8ecf9cc258040a5d047cd1e358fe1e9697dc2f9f9a3e30ad2dcd2703a4e",
+      "bbox": [
+        222,
+        62,
+        415,
+        440
+      ]
+    },
+    {
+      "time_ms": 3000,
+      "pixel_sha256": "95ce7e7d3408647cede659930f8d34393fce56398eb03ddd513533e62dfc1e2c",
+      "bbox": [
+        222,
+        62,
+        417,
+        440
+      ]
+    },
+    {
+      "time_ms": 3900,
+      "pixel_sha256": "3db618fa98c54224cb98efdad47fe654b9eb540cb52a65cf111aa92449f764d0",
+      "bbox": [
+        225,
+        65,
+        413,
+        437
+      ]
+    }
+  ]
+}

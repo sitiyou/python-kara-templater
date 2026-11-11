@@ -1,17 +1,67 @@
 # kara-templater
 
-A Python library for scripted karaoke effects and ASS generation, with native libass text measurement. Recipes combine singing timelines, appearance, ruby and animation without embedding executable expressions in subtitle text.
+A Python library for adding effects to existing karaoke lyrics and exporting ASS,
+with native libass text measurement. Source lyrics retain their text, layout and
+singing timeline; Python code supplies appearance and animation.
 
-## Python effects
+## Define an effect
 
-The new domain API evaluates singing timelines, decoration edges, multi-track
-coverage, and character or syllable scale animations independently of ASS tags.
-Implementation follows the [effects plan](docs/karaoke-effects-plan.md).
-See the [delivery audit](docs/karaoke-effects-audit.md) for requirement coverage and validation evidence.
-`KaraokeEffect` builds reusable recipes and `render_karaoke()` renders explicit
-structured items or imported ASS lyrics into a copied document. Character layout verifies independent
-glyph outlines against the original text; unsafe splitting raises
-`LayoutCapabilityError`.
+Declare visual components in `compose()`, then select source targets and configure
+styles and behavior in `configure()`. Each source line receives its own bound
+instance, configured before layout. Both parsed ASS and directly constructed
+`Document` inputs use the same effect system.
+
+```python
+from kara_templater import (
+    BLACK, CYAN, WHITE, Body, Document, Effect, Halo, Lyrics, Ruby,
+    render_karaoke,
+)
+
+class Glow(Effect):
+    def compose(self):
+        yield Lyrics(
+            Body(fill=WHITE, stroke=BLACK, stroke_width=3),
+            Ruby(follow="syllable"),
+            Halo(id="light", color=CYAN, width=6, blur=8, opacity=0.2),
+        )
+
+    def configure(self):
+        self.text.sweep(fill=CYAN)
+        self.syllables.on_singing(pulse=1.1)
+        self.query_one("#light").on_singing(opacity=(0.2, 0.8), keep=True)
+
+source = Document.load("input.ass")
+result = render_karaoke(source, effect=Glow)
+result.document.save("output.ass")
+```
+
+See the [effect guide](docs/effects.md) for code-only color ranges,
+source queries, timing curves, ruby, independent glow, follow controls and
+sampling limits. The [implementation plan](docs/effect-system-plan.md) and
+[progress record](docs/effect-system-progress.md) document the completed changes
+and verification. The [backend audit](docs/karaoke-effects-audit.md) describes
+the underlying rendering implementation.
+
+Runnable examples:
+
+```sh
+python -m examples.alternating_colors /tmp/colors.ass
+python -m examples.whole_glow /tmp/whole.ass
+python -m examples.staggered_path /tmp/staggered.ass
+python -m examples.parallel_tracks /tmp/parallel.ass
+kara-templater input.ass output.ass --effect examples/layered_glow.py
+```
+
+The Chinese color example needs an installed CJK font matching its `fontname`.
+`LayeredGlow`, `WholeGlow` and `ArcWave` use the same components and behaviors.
+
+## Rendering primitives and backend extensions
+
+The following sections describe lower-level timelines, source metadata and ASS
+output. Effect scripts use `Effect` above;
+custom backends can still return `EffectPlan` from `build(item, context)`.
+Character layout checks independent glyph outlines against the original text;
+unsafe splitting raises `LayoutCapabilityError`.
 
 ```python
 from kara_templater import EdgeSweep, Region, SingingPass
@@ -85,8 +135,9 @@ For a custom object-based animation, run:
 python -m examples.staggered_path /tmp/staggered.ass
 ```
 
-`ArcWave.build()` schedules each body's character arc at its sweep arrival,
-using the public trigger planner and a `DynamicEffect` callback. Each 400 ms
+`ArcWave.configure()` binds two offset functions with
+`self.characters.on_highlight(duration_ms=400, ...)`, scheduling each character's
+arc at its sweep arrival. Each 400 ms
 arc moves up 24 px and sideways up to 8 px, then returns to the original
 layout. Parameters are reusable; timing state is local to each build. The
 example deliberately leaves ruby disabled. It uses 40 ms held samples for the
@@ -171,19 +222,23 @@ timings, so these errors do not infer a segment from coinciding timestamps.
 
 ```python
 from kara_templater import (
-    Color, DisplayWindow, KaraokeEffect, KaraokeItem, KaraokeLine,
-    Paint, PaintPair, Pulse, Segment, TextUnit, render_karaoke,
+    Body, DisplayWindow, Effect, KaraokeItem, KaraokeLine, Lyrics, Ruby,
+    Segment, TextUnit, render_karaoke,
 )
 
 # document supplies ASS metadata and a Default style.
 item = KaraokeItem("line-1", KaraokeLine((
     TextUnit("Karaoke", (Segment(1000, 2000),)),
 )), "Default", DisplayWindow(500, 2500))
-effect = KaraokeEffect(
-    paints=PaintPair(after=Paint(Color.hex("#33ddff"))),
-    pulses=(Pulse.each_char(),),
-)
-result = render_karaoke(document, (item,), effect=effect, owner="song")
+class Highlight(Effect):
+    def compose(self):
+        yield Lyrics(Body(), Ruby())
+
+    def configure(self):
+        self.text.sweep(fill="#33ddff")
+        self.characters.on_highlight(pulse=1.1)
+
+result = render_karaoke(document, (item,), effect=Highlight, owner="song")
 result.document.save("output.ass")
 ```
 
@@ -335,30 +390,36 @@ To use a Python recipe file:
 
 ```python
 # song_effect.py
-from kara_templater import Color, KaraokeEffect, Paint, PaintPair, Pulse
+from kara_templater import Body, Effect, Lyrics
 
-effect = KaraokeEffect(
-    paints=PaintPair(after=Paint(Color.hex("#ff5599"))),
-    pulses=(Pulse.whole_syllable(),),
-)
+class SongEffect(Effect):
+    def compose(self):
+        yield Lyrics(Body())
+
+    def configure(self):
+        self.text.sweep(fill="#ff5599")
+        self.syllables.on_singing(pulse=1.1)
+
+effect = SongEffect
 ```
 
 ```sh
 kara-templater input.ass output.ass --effect song_effect.py
 ```
 
-The file is ordinary Python and exports `effect` (a recipe or style mapping),
+The file is ordinary Python and exports `effect` (an Effect class/instance, recipe or style mapping),
 or `build(item, context)` returning `EffectPlan`. Subtitle text is never executed.
 Configure colors, pulses and fades inside the file when using `--effect`.
 
 ## ASS input and source preservation
 
 ```python
-from kara_templater import Document, ImportSettings, KaraokeEffect, render_karaoke
+from kara_templater import Document, ImportSettings, render_karaoke
+from song_effect import SongEffect
 
 source = Document.load("input.ass")
 result = render_karaoke(
-    source, effect=KaraokeEffect(),
+    source, effect=SongEffect,
     import_settings=ImportSettings(lead_ms=300, tail_ms=200),
 )
 result.document.save("output.ass")
@@ -438,9 +499,12 @@ other fonts and scripts still require separate validation.
 - Output limits bound generated events; Python recipe execution uses normal Python
   process semantics. Native ASS output is piecewise, with the timing and spatial
   precision limits described above.
-# 动态属性脚本
+# 底层动态属性脚本
 
-`KaraokeEffect(dynamic=DynamicEffect(function, seed=42, max_glow_blur=18))`
+常规作者脚本优先使用 `on_singing()`、`on_highlight()` 和 `animate()`，见
+[特效指南](docs/effects.md)。以下接口用于自定义输出计划。
+
+`EffectPlan(layers=layers, dynamic=DynamicEffect(function, seed=42, max_glow_blur=18))`
 可通过普通 Python 函数返回 `DynamicProperties(offset_x=..., offset_y=...,
 opacity=..., glow_blur=..., glow_opacity=...)`。回调上下文提供绝对 `time_ms`、整段显示窗口的
 归一化 `progress`、稳定的 `target_id` 和可复现的 `noise()`；同一字符的
@@ -491,4 +555,8 @@ result = render_karaoke(document, effect=effect, on_estimate=report_cost)
 python -m kara_templater examples/karaoke.ass /tmp/dynamic.ass \
   --effect examples/dynamic_effect.py
 ```
+
+该示例现使用 `Effect`、`Contextual` 和独立 `Halo`，通过来源作用域的
+确定性噪声同步文字位移与模糊。动态模糊在 `Halo(max_blur=18)` 声明上界，
+详细接口见[特效指南](docs/effects.md)。
 

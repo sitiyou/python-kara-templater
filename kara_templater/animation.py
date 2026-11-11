@@ -1,6 +1,7 @@
 """Resolve karaoke triggers to scale animations before choosing an ASS backend."""
 
 from dataclasses import dataclass
+from itertools import pairwise
 
 from .sources import _source_location
 from .timeline import DisplayWindow, HighlightTrack, Region, _finite, _milliseconds
@@ -102,6 +103,60 @@ class Pulse:
 
 
 @dataclass(frozen=True)
+class OffsetAnimation:
+    """Known piecewise-linear translation applied after scaling."""
+
+    points: tuple[tuple[float, float], ...]
+    axis: str
+    keep: bool = False
+
+    def __post_init__(self):
+        object.__setattr__(self, "points", tuple(tuple(p) for p in self.points))
+        if (
+            len(self.points) < 2
+            or self.axis not in {"x", "y"}
+            or type(self.keep) is not bool
+        ):
+            raise ValueError(
+                "offset animation requires points, x/y axis and boolean keep"
+            )
+        for time, value in self.points:
+            _finite(time, "offset time")
+            _finite(value, "offset value")
+        times = [t for t, _ in self.points]
+        if not all(t == times[0] for t in times) and any(
+            a >= b for a, b in pairwise(times)
+        ):
+            raise ValueError("offset point times must increase")
+
+
+@dataclass(frozen=True)
+class OpacityAnimation:
+    """Known piecewise-linear opacity; group multiplies, glow replaces glow alpha."""
+
+    points: tuple[tuple[float, float], ...]
+    keep: bool = False
+    component: str = "group"
+
+    def __post_init__(self):
+        object.__setattr__(self, "points", tuple(tuple(p) for p in self.points))
+        if len(self.points) < 2:
+            raise ValueError("opacity animation needs at least two points")
+        if type(self.keep) is not bool or self.component not in {"group", "glow"}:
+            raise ValueError("invalid opacity keep/component")
+        for time, value in self.points:
+            _finite(time, "opacity time")
+            _finite(value, "opacity value")
+            if not 0 <= value <= 1:
+                raise ValueError("opacity must be in 0..1")
+        times = [t for t, _ in self.points]
+        if not all(t == times[0] for t in times) and any(
+            a >= b for a, b in pairwise(times)
+        ):
+            raise ValueError("opacity point times must increase")
+
+
+@dataclass(frozen=True)
 class ScaleAnimation:
     target_id: str
     track_id: str
@@ -111,12 +166,31 @@ class ScaleAnimation:
     peak_scale: float
     pivot: tuple[float, float]
 
+    keyframes: tuple[tuple[float, float], ...] | None = None
+    keep: bool = False
+
+    @property
+    def points(self):
+        return (
+            self.keyframes
+            if self.keyframes is not None
+            else (
+                (self.start_ms, 1.0),
+                ((self.start_ms + self.end_ms) / 2, self.peak_scale),
+                (self.end_ms, 1.0),
+            )
+        )
+
     def scale_at(self, time_ms: float) -> float:
         _finite(time_ms, "time")
-        if self.end_ms == self.start_ms or not self.start_ms < time_ms < self.end_ms:
+        if time_ms < self.start_ms:
             return 1.0
-        phase = (time_ms - self.start_ms) / (self.end_ms - self.start_ms)
-        return 1 + (self.peak_scale - 1) * (1 - abs(2 * phase - 1))
+        if time_ms >= self.end_ms:
+            return self.points[-1][1] if self.keep else 1.0
+        for (start, a), (end, b) in zip(self.points, self.points[1:]):
+            if start <= time_ms <= end and end > start:
+                return a + (b - a) * (time_ms - start) / (end - start)
+        return 1.0
 
     def point_at(self, x: float, y: float, time_ms: float) -> tuple[float, float]:
         scale = self.scale_at(time_ms)
@@ -154,6 +228,7 @@ def plan_pulses(
     tracks: tuple[HighlightTrack, ...],
     window: DisplayWindow,
     overflow: str = "truncate",
+    check_conflicts: bool = True,
 ) -> AnimationPlan:
     """Resolve triggers and reject conflicting scale animations.
 
@@ -161,7 +236,11 @@ def plan_pulses(
     mapped body is not crossed. First-arrival selection is per target/round and
     independent of visual track priority. Truncation retains original animation
     times so clipping a display window never restarts or accelerates a pulse.
+    check_conflicts=False delegates overlap validation to a property composition
+    planner, which must validate the resulting intervals before output.
     """
+    if type(check_conflicts) is not bool:
+        raise TypeError("check_conflicts must be bool")
     if overflow not in {"truncate", "extend"}:
         raise ValueError("overflow must be truncate or extend")
     if len({c.id for c in characters}) != len(characters):
@@ -294,7 +373,7 @@ def plan_pulses(
             right = min(current.end_ms, previous.end_ms)
             if overflow == "truncate":
                 left, right = max(left, window.start_ms), min(right, window.end_ms)
-            if left < right:
+            if check_conflicts and left < right:
                 unit_index = next(
                     c.unit_index for c in characters if c.id == current.target_id
                 )

@@ -12,21 +12,19 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from kara_templater import (
+    BLACK,
+    Body,
     Color,
-    DynamicEffect,
-    DynamicProperties,
+    Effect,
     Glow,
-    KaraokeEffect,
-    Paint,
-    PaintPair,
-    RubyPolicy,
+    Halo,
+    Lyrics,
     SamplingSettings,
-    Segment,
 )
 
 
-@dataclass(frozen=True)
-class WholeGlow:
+@dataclass
+class WholeGlow(Effect):
     glow: Glow = field(
         default_factory=lambda: Glow(Color(40, 220, 255), blur=24, border=3)
     )
@@ -39,64 +37,24 @@ class WholeGlow:
         replace(self.glow, opacity=self.final_opacity)
         SamplingSettings(step_ms=self.step_ms)
 
-    def build(self, target, context):
-        plan = KaraokeEffect(
-            paints=PaintPair(Paint(Color(200, 200, 200)), Paint(Color(40, 220, 255))),
-            ruby=RubyPolicy(enabled=False),
-        ).build(target, context)
-        order = min((layer.order for layer in plan.layers), default=0) - 1
-        seen, timings, glow_layers = set(), {}, []
-        for layer in plan.layers:
-            # A glyph may appear in many mask regions/time exposures. Emit its
-            # unmasked glow exactly once, with the original global window.
-            identity = layer.animation_id or layer.source_id
-            if identity in seen:
-                continue
-            seen.add(identity)
-            glow_id = identity + "/whole-glow"
-            segments = [ref.resolve(target) for ref in layer.origin.sources]
-            segments = [s for s in segments if isinstance(s, Segment)]
-            if segments:
-                timings[glow_id] = (
-                    min(s.start_ms for s in segments),
-                    max(s.end_ms for s in segments),
-                )
-            glow_layers.append(
-                replace(
-                    layer,
-                    source_id=glow_id,
-                    animation_id=glow_id,
-                    component="glow",
-                    paint=Paint(glow=self.glow),
-                    clips=None,
-                    active_window=None,
-                    order=order,
-                    origin=replace(layer.origin, effect="WholeGlow"),
-                )
-            )
+    def compose(self):
+        yield Lyrics(
+            Body(fill="#c8c8c8", stroke=BLACK, stroke_width=0, opacity=1),
+            Halo(
+                id="whole",
+                color=self.glow.color,
+                width=self.glow.border,
+                blur=self.glow.blur,
+                opacity=self.initial_opacity,
+            ),
+        )
 
-        def properties(sample):
-            if sample.target_id not in seen_glows:
-                return DynamicProperties()
-            timing = timings.get(sample.target_id)
-            progress = 0
-            if timing is not None:
-                start, end = timing
-                progress = (
-                    float(sample.time_ms >= end)
-                    if start == end
-                    else min(1, max(0, (sample.time_ms - start) / (end - start)))
-                )
-            return DynamicProperties(
-                glow_opacity=self.initial_opacity
-                + (self.final_opacity - self.initial_opacity) * progress
-            )
-
-        seen_glows = {layer.animation_id for layer in glow_layers}
-        return replace(
-            plan,
-            layers=(*glow_layers, *plan.layers),
-            dynamic=DynamicEffect(properties, SamplingSettings(step_ms=self.step_ms)),
+    def configure(self):
+        self.sampling = SamplingSettings(step_ms=self.step_ms)
+        self.text.sweep(fill="#28dcff")
+        self.query_one("#whole").on_singing(
+            opacity=(self.initial_opacity, self.final_opacity),
+            keep=True,
         )
 
 

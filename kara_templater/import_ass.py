@@ -249,9 +249,10 @@ def paint_pair_from_style(style: Style) -> PaintPair:
             )
         except ValueError as error:
             raise ValueError(f"style {style.name}: invalid {key}") from error
-        return Color(packed & 255, (packed >> 8) & 255, (packed >> 16) & 255), 1 - (
-            (packed >> 24) & 255
-        ) / 255
+        return (
+            Color(packed & 255, (packed >> 8) & 255, (packed >> 16) & 255),
+            1 - ((packed >> 24) & 255) / 255,
+        )
 
     outline, outline_opacity = decode("OutlineColour", "&H00000000")
     before, before_opacity = decode("SecondaryColour", "&H000000FF")

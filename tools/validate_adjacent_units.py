@@ -19,8 +19,8 @@ from kara_templater import (
     Document,
     EdgeSweep,
     EffectPlan,
+    Fade,
     Glow,
-    KaraokeEffect,
     KaraokeItem,
     KaraokeLine,
     Paint,
@@ -35,6 +35,7 @@ from kara_templater import (
     render_karaoke,
     tracks_from_layout,
 )
+from kara_templater._compiler import _compile_targets, _prepare_targets
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
 from tools.render_effects import render
 
@@ -96,14 +97,36 @@ def scene(kind, geometry):
             "no_lead": replace(EDGES, lead_ms=0),
             "no_tail": replace(EDGES, tail_ms=0),
         }.get(kind, EDGES)
-        base = KaraokeEffect(
-            paints=PaintPair(Paint(Color(200, 200, 200)), PAINTS[0]),
-            spans=(ColorSpan(TextRange(1, 0, 2), after=PAINTS[1]),),
-            sweep=Sweep(edges=edges),
-            ruby=RubyPolicy(enabled=False),
-        )
+        sweep = Sweep(edges=edges)
+
+        # This is a backend mask-composition check. Keep the fixed layout and
+        # complete paints explicit, including the independent-unit reference.
+        def compile_unit(target, measured, paint, spans=()):
+            prepared = _prepare_targets(
+                target,
+                measured,
+                paints=PaintPair(Paint(Color(200, 200, 200)), paint),
+                spans=spans,
+                sweep=sweep,
+                ruby=RubyPolicy(enabled=False),
+                origin_effect="AdjacentUnits",
+            )
+            return _compile_targets(
+                target,
+                measured,
+                prepared,
+                sweep=sweep,
+                fade=Fade(),
+                origin_effect="AdjacentUnits",
+            )
+
         if kind != "independent":
-            return base.build(item, context)
+            return compile_unit(
+                item,
+                context,
+                PAINTS[0],
+                (ColorSpan(TextRange(1, 0, 2), after=PAINTS[1]),),
+            )
         # Build each source unit alone at its original absolute layout position.
         # No shared mask composition or cross-unit track processing participates.
         layers = []
@@ -112,9 +135,9 @@ def scene(kind, geometry):
                 item, id=f"reference-{index}", source=KaraokeLine((unit.source,))
             )
             layout = replace(context.layout, box=unit.box, units=(unit,))
-            plan = replace(
-                base, spans=(), paints=replace(base.paints, after=PAINTS[index])
-            ).build(isolated, replace(context, layout=layout))
+            plan = compile_unit(
+                isolated, replace(context, layout=layout), PAINTS[index]
+            )
             layers.extend(plan.layers)
         return EffectPlan(layers=tuple(layers))
 

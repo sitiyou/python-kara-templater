@@ -1,0 +1,130 @@
+{
+  "status": "passed: 16 frames pixel-identical",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "ffmpeg_filter_threads": 1,
+  "variants": {
+    "before": {
+      "event_count": 674,
+      "ass_sha256": "b69054d1214e45f8e9922aa03d09afdb0daa3b577563072df616243db5666982"
+    },
+    "after": {
+      "event_count": 841,
+      "ass_sha256": "c92bf57a53cef1ceb278cb4e1422fcc87149eb3def7ae3465de13b6db0821472"
+    }
+  },
+  "frames": [
+    {
+      "time_ms": 0,
+      "max_channel_error": 0,
+      "before_sha256": "aef378911b5321842704a4c052a75c6013d40c8aff77084459b6c5f35aec4458",
+      "after_sha256": "aef378911b5321842704a4c052a75c6013d40c8aff77084459b6c5f35aec4458",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 250,
+      "max_channel_error": 0,
+      "before_sha256": "8a4d846a7f12eacb77e94b564d427951aac810f11362f5b688d74f9fe9beb7a2",
+      "after_sha256": "8a4d846a7f12eacb77e94b564d427951aac810f11362f5b688d74f9fe9beb7a2",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 500,
+      "max_channel_error": 0,
+      "before_sha256": "7f2739fe705cf461868877beda2cd0f238f02797c7609f99c8b3a51886818000",
+      "after_sha256": "7f2739fe705cf461868877beda2cd0f238f02797c7609f99c8b3a51886818000",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 750,
+      "max_channel_error": 0,
+      "before_sha256": "fab9496bf58b96fbc68476d68dbd88c4fb4e75521fd5fdebcdab7abc747b261f",
+      "after_sha256": "fab9496bf58b96fbc68476d68dbd88c4fb4e75521fd5fdebcdab7abc747b261f",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 900,
+      "max_channel_error": 0,
+      "before_sha256": "3c0ab1696bda3331693889e142642e6840ffc7d2f7128c8c2f9b1b9266472a46",
+      "after_sha256": "3c0ab1696bda3331693889e142642e6840ffc7d2f7128c8c2f9b1b9266472a46",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 1000,
+      "max_channel_error": 0,
+      "before_sha256": "6dc55cc7db0740204d1553717dc8fdc6a94f53686e0ef1a38caba11451892b82",
+      "after_sha256": "6dc55cc7db0740204d1553717dc8fdc6a94f53686e0ef1a38caba11451892b82",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 1100,
+      "max_channel_error": 0,
+      "before_sha256": "ca13fd76696814528e10faf763bcca77b1ced0b6009e94e12b120a10549392d8",
+      "after_sha256": "ca13fd76696814528e10faf763bcca77b1ced0b6009e94e12b120a10549392d8",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 1200,
+      "max_channel_error": 0,
+      "before_sha256": "b4805618f53f6ffdd7f71d01152d6036769520ef76c8fae5946fb39dfa297fb9",
+      "after_sha256": "b4805618f53f6ffdd7f71d01152d6036769520ef76c8fae5946fb39dfa297fb9",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 1400,
+      "max_channel_error": 0,
+      "before_sha256": "3d615bdc6957f4c5d588992b6d9df41726756462d523a137b5256959d1098ac2",
+      "after_sha256": "3d615bdc6957f4c5d588992b6d9df41726756462d523a137b5256959d1098ac2",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 1600,
+      "max_channel_error": 0,
+      "before_sha256": "ec5323c13795e0f88025cd2d192aa757d3fcfcf0328565eb0dd38647eefbe354",
+      "after_sha256": "ec5323c13795e0f88025cd2d192aa757d3fcfcf0328565eb0dd38647eefbe354",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 1750,
+      "max_channel_error": 0,
+      "before_sha256": "4c3a8e7e7a0d6c9245d20e72abc4e85ab84cc2be9b759333a590d6b181ce9969",
+      "after_sha256": "4c3a8e7e7a0d6c9245d20e72abc4e85ab84cc2be9b759333a590d6b181ce9969",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 1800,
+      "max_channel_error": 0,
+      "before_sha256": "7ab9a31159216448b7d64f859f445900ff651ab1aa49e57cfc66d7369c10ab95",
+      "after_sha256": "7ab9a31159216448b7d64f859f445900ff651ab1aa49e57cfc66d7369c10ab95",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 2000,
+      "max_channel_error": 0,
+      "before_sha256": "3a25b6e86784ff97bd9629063b0285b3a123f4f0fee3ad46724530b6ca81cda4",
+      "after_sha256": "3a25b6e86784ff97bd9629063b0285b3a123f4f0fee3ad46724530b6ca81cda4",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 2200,
+      "max_channel_error": 0,
+      "before_sha256": "208a51a7ca83afb54df65f4ad6d43c10667822648f6e8e5b1bb2f9f9a2a4e31c",
+      "after_sha256": "208a51a7ca83afb54df65f4ad6d43c10667822648f6e8e5b1bb2f9f9a2a4e31c",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 2800,
+      "max_channel_error": 0,
+      "before_sha256": "74c314a0020c27285d8f73ea1e0081e49af8c03b571caa99e16726e84a49fb75",
+      "after_sha256": "74c314a0020c27285d8f73ea1e0081e49af8c03b571caa99e16726e84a49fb75",
+      "difference_bbox": null
+    },
+    {
+      "time_ms": 2990,
+      "max_channel_error": 0,
+      "before_sha256": "1b401babc7713e29787a6333859e804468f7eb86f4f69553f29b425b1703a368",
+      "after_sha256": "1b401babc7713e29787a6333859e804468f7eb86f4f69553f29b425b1703a368",
+      "difference_bbox": null
+    }
+  ],
+  "correction": "Declare ruby Halo before body Halo to preserve the original overlap order; body text remains above both."
+}

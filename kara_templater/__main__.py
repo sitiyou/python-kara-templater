@@ -1,15 +1,12 @@
 import argparse
 import runpy
-from dataclasses import replace
 from pathlib import Path
 
-from .animation import Pulse
-from .appearance import PaintPair
 from .ass import Document
-from .ass_output import Fade, OutputSettings
+from .ass_output import OutputSettings
 from .composition import Color
+from .effect import Body, Effect, Lyrics, Ruby
 from .import_ass import ImportSettings, paint_pair_from_style
-from .recipe import KaraokeEffect
 from .render import render_karaoke
 
 
@@ -71,28 +68,32 @@ def main():
                     "effect file must export effect or build(item, context)"
                 )
         else:
-            pulses = {
-                "none": (),
-                "char": (Pulse.each_char(),),
-                "chars": (Pulse.simultaneous_chars(),),
-                "syllable": (Pulse.whole_syllable(),),
-            }[args.pulse]
 
-            def effect(target, context):
-                paints = paint_pair_from_style(context.style)
-                paints = PaintPair(
-                    replace(paints.before, fill=args.before)
-                    if args.before
-                    else paints.before,
-                    replace(paints.after, fill=args.after)
-                    if args.after
-                    else paints.after,
-                )
-                return KaraokeEffect(
-                    paints=paints,
-                    pulses=pulses,
-                    fade=Fade(args.fade_in_ms, args.fade_out_ms),
-                ).build(target, context)
+            class Preset(Effect):
+                def compose(self):
+                    yield Lyrics(Body(), Ruby())
+
+                def configure(self):
+                    paints = paint_pair_from_style(document.styles[self.source.style])
+                    self.ruby.style.stroke_width = paints.before.border
+                    self.ruby.style.opacity = paints.before.opacity
+                    self.ruby.style.sung.opacity = paints.after.opacity
+                    if args.before is not None:
+                        self.body.style.fill = args.before
+                    # A base fill applies to both states; explicitly retain the
+                    # source sung color when only --before was supplied.
+                    if args.before is not None and args.after is None:
+                        self.body.style.sung.fill = paints.after.fill
+                    self.text.sweep(fill=args.after)
+                    self.text.fade(in_ms=args.fade_in_ms, out_ms=args.fade_out_ms)
+                    if args.pulse == "char":
+                        self.characters.on_highlight(pulse=1.1)
+                    elif args.pulse == "chars":
+                        self.characters.on_singing(pulse=1.1)
+                    elif args.pulse == "syllable":
+                        self.syllables.on_singing(pulse=1.1)
+
+            effect = Preset
 
         def report_estimate(estimate):
             if estimate.sampling:

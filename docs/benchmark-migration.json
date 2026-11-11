@@ -1,0 +1,326 @@
+{
+  "before_smoke": {
+    "workload": "synthetic 7-character lyrics, 1.5-second singing, 2.5-second display",
+    "lines": 8,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "max_events": 200000,
+    "units": 8,
+    "segments": 8,
+    "duration_ms": 20000,
+    "input_sha256": null,
+    "input": null,
+    "styles": null,
+    "karaoke_comments": false,
+    "font_family": "DejaVu Sans",
+    "font": "/home/quy/dev/kara-templater/tests/fonts/DejaVuSans.ttf",
+    "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+    "python": "3.14.9",
+    "platform": "Linux-7.3.1-1-cachyos-x86_64-with-glibc2.44",
+    "source_sha256": "c482626b64eeb83e82b123c3adba7e3ece014d825f807b53e24df4b98dcd61a8",
+    "benchmark_sha256": "735edb827434f666d083d330ac066fd04075fa02386b8e5fc0dab304b120479c",
+    "timing_scope": "render_karaoke including layout/build/compile; excludes import, font registration and serialization",
+    "results": {
+      "plain": {
+        "median_ms": 14.761130034457892,
+        "runs_ms": [
+          14.761130034457892
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 65837,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 224,
+        "target_samples": 0
+      },
+      "colors": {
+        "median_ms": 14.969403040595353,
+        "runs_ms": [
+          14.969403040595353
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 65837,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 224,
+        "target_samples": 0
+      },
+      "union4": {
+        "median_ms": 17.065962951164693,
+        "runs_ms": [
+          17.065962951164693
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 65837,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 224,
+        "target_samples": 0
+      },
+      "priority4": {
+        "median_ms": 46.997445984743536,
+        "runs_ms": [
+          46.997445984743536
+        ],
+        "events": 896,
+        "planned_layers": 896,
+        "bytes": 274849,
+        "events_per_line": 112.0,
+        "diagnostics": 56,
+        "estimated_events": 896,
+        "target_samples": 0
+      },
+      "pulse_glow": {
+        "median_ms": 35.46751901740208,
+        "runs_ms": [
+          35.46751901740208
+        ],
+        "events": 1080,
+        "planned_layers": 224,
+        "bytes": 354174,
+        "events_per_line": 135.0,
+        "diagnostics": 112,
+        "estimated_events": 1080,
+        "target_samples": 0
+      },
+      "sampled_constant": {
+        "median_ms": 90.03401402151212,
+        "runs_ms": [
+          90.03401402151212
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 69498,
+        "events_per_line": 28.0,
+        "diagnostics": 8,
+        "estimated_events": 5712,
+        "target_samples": 3528
+      }
+    }
+  },
+  "after_smoke": {
+    "workload": "synthetic 7-character lyrics, 1.5-second singing, 2.5-second display",
+    "lines": 8,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "max_events": 200000,
+    "units": 8,
+    "segments": 8,
+    "duration_ms": 20000,
+    "input_sha256": null,
+    "input": null,
+    "styles": null,
+    "karaoke_comments": false,
+    "font_family": "DejaVu Sans",
+    "font": "/home/quy/dev/kara-templater/tests/fonts/DejaVuSans.ttf",
+    "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+    "python": "3.14.9",
+    "platform": "Linux-7.3.1-1-cachyos-x86_64-with-glibc2.44",
+    "source_sha256": "c482626b64eeb83e82b123c3adba7e3ece014d825f807b53e24df4b98dcd61a8",
+    "benchmark_sha256": "aa78ea74a019a57a607fa655e8db8e90489a5c002464435de9663083630e5c32",
+    "timing_scope": "render_karaoke including layout/build/compile; excludes import, font registration and serialization",
+    "results": {
+      "plain": {
+        "median_ms": 19.483264011796564,
+        "runs_ms": [
+          19.483264011796564
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 65837,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 224,
+        "target_samples": 0
+      },
+      "colors": {
+        "median_ms": 19.123609992675483,
+        "runs_ms": [
+          19.123609992675483
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 65837,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 224,
+        "target_samples": 0
+      },
+      "union4": {
+        "median_ms": 22.359149996191263,
+        "runs_ms": [
+          22.359149996191263
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 65837,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 224,
+        "target_samples": 0
+      },
+      "priority4": {
+        "median_ms": 52.0433479687199,
+        "runs_ms": [
+          52.0433479687199
+        ],
+        "events": 896,
+        "planned_layers": 896,
+        "bytes": 274849,
+        "events_per_line": 112.0,
+        "diagnostics": 56,
+        "estimated_events": 896,
+        "target_samples": 0
+      },
+      "pulse_glow": {
+        "median_ms": 71.54101802734658,
+        "runs_ms": [
+          71.54101802734658
+        ],
+        "events": 1440,
+        "planned_layers": 448,
+        "bytes": 481807,
+        "events_per_line": 180.0,
+        "diagnostics": 112,
+        "estimated_events": 1440,
+        "target_samples": 0
+      },
+      "sampled_constant": {
+        "median_ms": 99.31743500055745,
+        "runs_ms": [
+          99.31743500055745
+        ],
+        "events": 224,
+        "planned_layers": 224,
+        "bytes": 69498,
+        "events_per_line": 28.0,
+        "diagnostics": 8,
+        "estimated_events": 5712,
+        "target_samples": 3528
+      }
+    }
+  },
+  "full": {
+    "workload": "synthetic 7-character lyrics, 1.5-second singing, 2.5-second display",
+    "lines": 120,
+    "resolution": [
+      1920,
+      1080
+    ],
+    "max_events": 200000,
+    "units": 120,
+    "segments": 120,
+    "duration_ms": 300000,
+    "input_sha256": null,
+    "input": null,
+    "styles": null,
+    "karaoke_comments": false,
+    "font_family": "DejaVu Sans",
+    "font": "/home/quy/dev/kara-templater/tests/fonts/DejaVuSans.ttf",
+    "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+    "python": "3.14.9",
+    "platform": "Linux-7.3.1-1-cachyos-x86_64-with-glibc2.44",
+    "source_sha256": "c482626b64eeb83e82b123c3adba7e3ece014d825f807b53e24df4b98dcd61a8",
+    "benchmark_sha256": "3316a351ebdf51d093eca15355b403856456826970bd3fd555421853bf3b2517",
+    "timing_scope": "render_karaoke including layout/build/compile; excludes import, font registration and serialization",
+    "results": {
+      "plain": {
+        "median_ms": 280.0569820101373,
+        "runs_ms": [
+          280.0569820101373,
+          280.8032080065459,
+          276.1642579571344
+        ],
+        "events": 3360,
+        "planned_layers": 3360,
+        "bytes": 988157,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 3360,
+        "target_samples": 0
+      },
+      "colors": {
+        "median_ms": 293.8928439980373,
+        "runs_ms": [
+          293.8928439980373,
+          293.25732099823654,
+          304.274381021969
+        ],
+        "events": 3360,
+        "planned_layers": 3360,
+        "bytes": 988157,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 3360,
+        "target_samples": 0
+      },
+      "union4": {
+        "median_ms": 338.9809970394708,
+        "runs_ms": [
+          335.19701403565705,
+          342.6345090265386,
+          338.9809970394708
+        ],
+        "events": 3360,
+        "planned_layers": 3360,
+        "bytes": 988157,
+        "events_per_line": 28.0,
+        "diagnostics": 0,
+        "estimated_events": 3360,
+        "target_samples": 0
+      },
+      "priority4": {
+        "median_ms": 797.6955029880628,
+        "runs_ms": [
+          797.6955029880628,
+          803.2286039669998,
+          790.5348690110259
+        ],
+        "events": 13440,
+        "planned_layers": 13440,
+        "bytes": 4146017,
+        "events_per_line": 112.0,
+        "diagnostics": 840,
+        "estimated_events": 13440,
+        "target_samples": 0
+      },
+      "pulse_glow": {
+        "median_ms": 1084.960475040134,
+        "runs_ms": [
+          1084.960475040134,
+          1081.1256090528332,
+          1096.3009020197205
+        ],
+        "events": 21600,
+        "planned_layers": 6720,
+        "bytes": 7266947,
+        "events_per_line": 180.0,
+        "diagnostics": 1680,
+        "estimated_events": 21600,
+        "target_samples": 0
+      },
+      "sampled_constant": {
+        "median_ms": 1513.1540200090967,
+        "runs_ms": [
+          1509.1094360104762,
+          1513.1540200090967,
+          1530.0509490189143
+        ],
+        "events": 3360,
+        "planned_layers": 3360,
+        "bytes": 1047370,
+        "events_per_line": 28.0,
+        "diagnostics": 120,
+        "estimated_events": 85680,
+        "target_samples": 52920
+      }
+    }
+  }
+}

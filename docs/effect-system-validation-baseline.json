@@ -1,0 +1,30 @@
+{
+  "ffmpeg_filter_threads": 1,
+  "all_glyphs_visible_during_sweep": true,
+  "ffmpeg_version": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "font_family": "Sarasa Gothic CL",
+  "font_sha256": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b",
+  "frames_ms": [
+    0,
+    490,
+    510,
+    1490,
+    1510,
+    3500
+  ],
+  "event_counts": {
+    "constructed": 18,
+    "parsed": 18,
+    "items": 18,
+    "direct": 18
+  },
+  "input_frames_identical": true,
+  "initial_white_final_rgb": true,
+  "layout_and_timing_unchanged": true,
+  "diagnostics": {
+    "constructed": [],
+    "parsed": [],
+    "items": [],
+    "direct": []
+  }
+}

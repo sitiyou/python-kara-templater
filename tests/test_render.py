@@ -2,7 +2,9 @@ from dataclasses import replace
 
 import pytest
 
-from kara_templater.appearance import ColorSpan, PaintPair, RubyPaint
+from kara_templater import WHITE, Body, Effect, Lyrics, Ruby
+from kara_templater._compiler import _compile_targets, _prepare_targets
+from kara_templater.appearance import ColorSpan, PaintPair
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT, Document, Line, Style
 from kara_templater.ass_output import OutputCapabilityError
 from kara_templater.characters import TextRange
@@ -10,9 +12,9 @@ from kara_templater.composition import Color, Paint
 from kara_templater.model import KaraokeLine, Segment, TextUnit
 from kara_templater.recipe import (
     EffectPlan,
-    KaraokeEffect,
     KaraokeItem,
     RubyPolicy,
+    Sweep,
     TrackStyle,
 )
 from kara_templater.render import render_karaoke
@@ -21,10 +23,35 @@ from kara_templater.timeline import DisplayWindow, HighlightTrack, Region, Singi
 RED, BLUE = Paint(Color(255, 0, 0)), Paint(Color(0, 0, 255))
 
 
-def test_decoration_boundary_diagnostic_identifies_source_time_and_tracks():
-    from kara_templater import Glow
+class PlainLyrics(Effect):
+    def compose(self):
+        yield Lyrics(Body(fill=WHITE, stroke_width=0), Ruby(stroke_width=0))
 
-    recipe = KaraokeEffect(paints=PaintPair(after=replace(RED, glow=Glow(blur=20))))
+    def configure(self):
+        self.text.sweep()
+
+
+class RedLyrics(PlainLyrics):
+    def configure(self):
+        self.text.sweep(fill=RED.fill)
+
+
+def measured_plan(effect, target, context):
+    """Bind an author fixture before tests deliberately modify backend plans."""
+    bound, style, ruby_style = effect._prepare(
+        target, context.style, context.ruby_style
+    )
+    return bound.build(target, replace(context, style=style, ruby_style=ruby_style))
+
+
+def test_decoration_boundary_diagnostic_identifies_source_time_and_tracks():
+    from kara_templater import Halo
+
+    class Decorated(RedLyrics):
+        def compose(self):
+            yield Lyrics(Body(stroke_width=0), Halo(blur=20, clip="sung"))
+
+    recipe = Decorated()
     lyric = item()
     result = render_karaoke(document(), (lyric,), effect=recipe)
     messages = [d for d in result.diagnostics if "ASS hard-clips" in d]
@@ -44,16 +71,21 @@ def test_decoration_boundary_diagnostic_identifies_source_time_and_tracks():
 
 
 def test_partial_highlight_keeps_partition_clip_after_track_completion():
-    def build(target, context):
-        box = context.layout.units[0].box
-        track = HighlightTrack(
-            "half", 0, (SingingPass(1000, 2000, Region(box.left, box.center)),)
-        )
-        return KaraokeEffect(paints=PaintPair(after=RED), tracks=(track,)).build(
-            target, context
-        )
+    class Partial(RedLyrics):
+        def configure(self):
+            def tracks(layout):
+                box = layout.units[0].box
+                return (
+                    HighlightTrack(
+                        "half",
+                        0,
+                        (SingingPass(1000, 2000, Region(box.left, box.center)),),
+                    ),
+                )
 
-    result = render_karaoke(document(), (item(),), effect=build)
+            self.text.sweep(fill=RED.fill, tracks=tracks)
+
+    result = render_karaoke(document(), (item(),), effect=Partial())
     final = [event for event, _ in result.event_origins if event.end_time > 2000]
     assert final and all(r"\clip" in event.text for event in final)
 
@@ -65,15 +97,26 @@ def test_sweep_completion_removes_clip_only_after_tail_without_restarting_clocks
     from kara_templater import EdgeSweep, Fade, Glow, Pulse, Sweep
 
     plans = []
-    recipe = KaraokeEffect(
-        paints=PaintPair(after=Paint(RED.fill, glow=Glow(blur=30))),
-        sweep=Sweep(edges=EdgeSweep(tail_ms=200), completion=completion),
-        fade=Fade(100, 400),
-        pulses=(Pulse.whole_syllable(duration_ms=1800),),
-    )
+    sweep = Sweep(edges=EdgeSweep(tail_ms=200), completion=completion)
 
     def build(target, context):
-        plan = recipe.build(target, context)
+        prepared = _prepare_targets(
+            target,
+            context,
+            paints=PaintPair(after=Paint(RED.fill, glow=Glow(blur=30))),
+            sweep=sweep,
+            ruby=RubyPolicy(),
+            pulses=(Pulse.whole_syllable(duration_ms=1800),),
+            origin_effect="CompletionValidation",
+        )
+        plan = _compile_targets(
+            target,
+            context,
+            prepared,
+            sweep=sweep,
+            fade=Fade(100, 400),
+            origin_effect="CompletionValidation",
+        )
         plans.append(plan)
         return plan
 
@@ -119,9 +162,16 @@ def test_pulse_planning_failure_identifies_unit_and_independent_tracks(incomplet
         tracks = (HighlightTrack("main", 1, (SingingPass(1000, 2000, region),)),)
         if not incomplete:
             tracks += (HighlightTrack("echo", 1, (SingingPass(1000, 2000, region),)),)
-        return KaraokeEffect(
-            tracks=tracks, pulses=(Pulse.each_char(tracks="each"),)
-        ).build(target, context)
+        return _prepare_targets(
+            target,
+            context,
+            paints=PaintPair(),
+            sweep=Sweep(),
+            ruby=RubyPolicy(),
+            tracks=tracks,
+            pulses=(Pulse.each_char(tracks="each"),),
+            origin_effect="PulseValidation",
+        )  # Preparation must fail before producing a plan.
 
     with pytest.raises(
         ValueError, match="incomplete traversal" if incomplete else "scale conflict"
@@ -159,7 +209,9 @@ def test_document_validation_keeps_item_origin_and_precedes_sampling(failure):
     def custom(target, context):
         if failure == "result":
             return None
-        plan = KaraokeEffect(dynamic=DynamicEffect(sample)).build(target, context)
+        plan = replace(
+            measured_plan(PlainLyrics(), target, context), dynamic=DynamicEffect(sample)
+        )
         if failure == "raw_time":
             return replace(
                 plan, raw_lines=(Line(text="raw", start_time=200, end_time=100),)
@@ -217,7 +269,7 @@ def test_early_layout_and_ruby_errors_resolve_precise_source_locations():
         ),
     )
     with pytest.raises(LayoutCapabilityError) as caught:
-        render_karaoke(source, (lyric,), effect=KaraokeEffect())
+        render_karaoke(source, (lyric,), effect=PlainLyrics())
     assert caught.value.origin.sources == (SourceRef(lyric.id, 1),)
     assert caught.value.origin.sources[0].resolve(lyric) is lyric.source.units[1]
     assert len(caught.value.__notes__) == 1
@@ -231,7 +283,13 @@ def test_early_layout_and_ruby_errors_resolve_precise_source_locations():
             )
         ),
     )
-    recipe = KaraokeEffect(spans=(ColorSpan(TextRange(1, 1, 2), after=RED),))
+
+    class Ambiguous(PlainLyrics):
+        def configure(self):
+            self.syllables[1].characters[1].style.sung.fill = RED.fill
+            self.text.sweep()
+
+    recipe = Ambiguous()
     with pytest.raises(ValueError, match="ambiguous body colors") as caught:
         render_karaoke(source, (lyric,), effect=recipe)
     assert caught.value.origin.sources == (SourceRef(lyric.id, 1, 0),)
@@ -239,7 +297,7 @@ def test_early_layout_and_ruby_errors_resolve_precise_source_locations():
         caught.value.origin.sources[0].resolve(lyric)
         is lyric.source.units[1].segments[0]
     )
-    assert caught.value.origin.effect == "KaraokeEffect"
+    assert caught.value.origin.effect == "Ambiguous"
     assert len(caught.value.__notes__) == 1
     assert source.dumps() == unchanged
 
@@ -247,7 +305,17 @@ def test_early_layout_and_ruby_errors_resolve_precise_source_locations():
 def test_color_range_failure_and_custom_builder_keep_exception_identity():
     from kara_templater import LayoutCapabilityError, SourceRef
 
-    recipe = KaraokeEffect(spans=(ColorSpan(TextRange(0, 0, 100), after=RED),))
+    def recipe(target, context):
+        return _prepare_targets(
+            target,
+            context,
+            paints=PaintPair(),
+            sweep=Sweep(),
+            ruby=RubyPolicy(),
+            spans=(ColorSpan(TextRange(0, 0, 100), after=RED),),
+            origin_effect="RangeValidation",
+        )  # Invalid backend ranges must fail during preparation.
+
     with pytest.raises(LayoutCapabilityError, match="outside text") as caught:
         render_karaoke(document(), (item(),), effect=recipe)
     assert caught.value.origin.sources == (SourceRef(item().id, 0),)
@@ -265,8 +333,6 @@ def test_color_range_failure_and_custom_builder_keep_exception_identity():
 
 def test_generated_event_origins_keep_segments_ruby_and_dynamic_sources():
     from kara_templater import (
-        DynamicEffect,
-        DynamicProperties,
         KaraokeLine,
         Segment,
         SourceRef,
@@ -287,11 +353,18 @@ def test_generated_event_origins_keep_segments_ruby_and_dynamic_sources():
             )
         ),
     )
-    recipe = KaraokeEffect(
-        dynamic=DynamicEffect(
-            lambda ctx: DynamicProperties(offset_y=ctx.time_ms % 80 / 10),
-        )
-    )
+    from kara_templater import Contextual, display
+
+    class MovingLyrics(PlainLyrics):
+        def configure(self):
+            self.text.sweep()
+            for selected in (self.characters, self.rubies):
+                selected.animate(
+                    offset_y=Contextual(lambda ctx: ctx.time_ms % 80 / 10),
+                    during=(display.start, display.end),
+                )
+
+    recipe = MovingLyrics()
     result = render_karaoke(document(), (lyric,), effect=recipe, owner="trace:/test")
     assert len(result.event_origins) == result.event_count
     generated = [
@@ -301,7 +374,7 @@ def test_generated_event_origins_keep_segments_ruby_and_dynamic_sources():
     ]
     assert [id(event) for event, _ in result.event_origins] == list(map(id, generated))
     for event, origin in result.event_origins:
-        assert origin.effect == "KaraokeEffect"
+        assert origin.effect == "MovingLyrics"
         assert origin.track_ids
         for ref in origin.sources:
             assert (
@@ -320,7 +393,7 @@ def test_custom_and_raw_events_fall_back_to_item_origin_without_index_drift():
     from kara_templater import SourceRef
 
     def custom(target, context):
-        plan = KaraokeEffect().build(target, context)
+        plan = measured_plan(PlainLyrics(), target, context)
         return replace(
             plan,
             layers=tuple(replace(layer, origin=None) for layer in plan.layers),
@@ -349,7 +422,7 @@ def test_document_estimate_precedes_properties_and_can_cancel_without_mutation()
         return DynamicProperties()
 
     def build(target, context):
-        plan = KaraokeEffect().build(target, context)
+        plan = measured_plan(PlainLyrics(), target, context)
         return (
             plan
             if target.id == "static"
@@ -394,7 +467,7 @@ def test_invalid_raw_event_fails_before_properties_or_cost_report():
 
     def build(target, context):
         return replace(
-            KaraokeEffect().build(target, context),
+            measured_plan(PlainLyrics(), target, context),
             dynamic=DynamicEffect(forbidden),
             raw_lines=(Line(text="invalid", start_time=200, end_time=100),),
         )
@@ -421,25 +494,36 @@ def test_occluded_track_still_triggers_named_first_and_each_pulses():
                 ),
             ),
         )
-        base = KaraokeEffect(
-            paints=PaintPair(after=RED),
-            tracks=(main,),
-            pulses=(Pulse.each_char(tracks="named", track_id="main", duration_ms=50),),
-        )
-        plans["baseline"] = base.build(target, context)
-        covered = replace(
-            base,
-            tracks=(main, cover),
-            overlap="priority",
-            track_styles=(TrackStyle("cover", BLUE, 10),),
-        )
-        plans["named"] = covered.build(target, context)
-        plans["first"] = replace(
-            covered, pulses=(Pulse.each_char(duration_ms=50),)
-        ).build(target, context)
-        plans["each"] = replace(
-            covered, pulses=(Pulse.each_char(tracks="each", duration_ms=50),)
-        ).build(target, context)
+        from kara_templater import Fade
+
+        for name in ("baseline", "named", "first", "each"):
+            styles = () if name == "baseline" else (TrackStyle("cover", BLUE, 10),)
+            trigger = (
+                Pulse.each_char(tracks="named", track_id="main", duration_ms=50)
+                if name in {"baseline", "named"}
+                else Pulse.each_char(tracks=name, duration_ms=50)
+            )
+            prepared = _prepare_targets(
+                target,
+                context,
+                paints=PaintPair(after=RED),
+                sweep=Sweep(),
+                ruby=RubyPolicy(),
+                tracks=(main,) if name == "baseline" else (main, cover),
+                track_styles=styles,
+                pulses=(trigger,),
+                origin_effect="OccludedPulse",
+            )
+            plans[name] = _compile_targets(
+                target,
+                context,
+                prepared,
+                sweep=Sweep(),
+                fade=Fade(),
+                track_styles=styles,
+                overlap="priority",
+                origin_effect="OccludedPulse",
+            )
         return plans["named"]
 
     render_karaoke(document(), (item(),), effect=build)
@@ -470,9 +554,24 @@ def test_decoration_bounds_do_not_split_body_sweep_at_character_edges():
     for blur in (0, 3, 30):
 
         def build(target, context, blur=blur):
-            plan = KaraokeEffect(
-                paints=PaintPair(after=Paint(RED.fill, glow=Glow(blur=blur)))
-            ).build(target, context)
+            from kara_templater import Fade
+
+            prepared = _prepare_targets(
+                target,
+                context,
+                sweep=Sweep(),
+                ruby=RubyPolicy(),
+                paints=PaintPair(after=Paint(RED.fill, glow=Glow(blur=blur))),
+                origin_effect="DecorationBounds",
+            )
+            plan = _compile_targets(
+                target,
+                context,
+                prepared,
+                sweep=Sweep(),
+                fade=Fade(),
+                origin_effect="DecorationBounds",
+            )
             moving = [
                 s
                 for layer in plan.layers
@@ -496,34 +595,62 @@ def test_dynamic_decoration_and_padding_do_not_retime_character_pulses():
         Sweep,
     )
 
-    variants = (
-        KaraokeEffect(pulses=(Pulse.each_char(),)),
-        KaraokeEffect(
-            pulses=(Pulse.each_char(),),
-            spans=(
-                ColorSpan(TextRange(0, 0, 1), before=RED, after=BLUE),
-                ColorSpan(TextRange(0, 1, 2), before=BLUE, after=RED),
-            ),
-        ),
-        KaraokeEffect(
-            paints=PaintPair(after=Paint(RED.fill, border=20, glow=Glow(blur=30))),
-            pulses=(Pulse.each_char(),),
-            sweep=Sweep(edges=EdgeSweep(100, 200, 300)),
-        ),
-        KaraokeEffect(
-            paints=PaintPair(after=Paint(RED.fill, glow=Glow(blur=3))),
-            pulses=(Pulse.each_char(),),
-            dynamic=DynamicEffect(
-                lambda ctx: DynamicProperties(glow_blur=ctx.progress * 40),
-                max_glow_blur=40,
-            ),
-        ),
-    )
     timings = []
-    for recipe in variants:
+    for variant in ("plain", "colors", "padding", "dynamic"):
 
-        def build(target, context, recipe=recipe):
-            plan = recipe.build(target, context)
+        def build(target, context, variant=variant):
+            from kara_templater import Fade
+
+            sweep = (
+                Sweep(edges=EdgeSweep(100, 200, 300))
+                if variant == "padding"
+                else Sweep()
+            )
+            after = (
+                Paint(RED.fill, border=20, glow=Glow(blur=30))
+                if variant == "padding"
+                else (
+                    Paint(RED.fill, glow=Glow(blur=3))
+                    if variant == "dynamic"
+                    else Paint()
+                )
+            )
+            spans = (
+                (
+                    ColorSpan(TextRange(0, 0, 1), before=RED, after=BLUE),
+                    ColorSpan(TextRange(0, 1, 2), before=BLUE, after=RED),
+                )
+                if variant == "colors"
+                else ()
+            )
+            dynamic = (
+                DynamicEffect(
+                    lambda ctx: DynamicProperties(glow_blur=ctx.progress * 40),
+                    max_glow_blur=40,
+                )
+                if variant == "dynamic"
+                else None
+            )
+            prepared = _prepare_targets(
+                target,
+                context,
+                paints=PaintPair(after=after),
+                spans=spans,
+                sweep=sweep,
+                ruby=RubyPolicy(),
+                pulses=(Pulse.each_char(),),
+                origin_effect="PulseClockValidation",
+            )
+            plan = _compile_targets(
+                target,
+                context,
+                prepared,
+                sweep=sweep,
+                fade=Fade(),
+                max_glow_blur=dynamic.max_glow_blur if dynamic else None,
+                origin_effect="PulseClockValidation",
+            )
+            plan = replace(plan, dynamic=dynamic)
             timings.append(
                 {animation for layer in plan.layers for animation in layer.animations}
             )
@@ -542,7 +669,11 @@ def test_dynamic_render_and_whole_document_preflight():
         calls.append(ctx)
         return DynamicProperties(offset_y=ctx.progress * 5)
 
-    effect = KaraokeEffect(dynamic=DynamicEffect(sample))
+    def effect(target, context):
+        return replace(
+            measured_plan(PlainLyrics(), target, context), dynamic=DynamicEffect(sample)
+        )
+
     one = render_karaoke(document(), (item(),), effect=effect)
     assert calls
     assert any("target samples" in d for d in one.diagnostics)
@@ -581,7 +712,7 @@ def item(ruby=False):
 def test_structured_render_is_immutable_and_repeatable_with_ruby():
     source = document()
     before = source.dumps()
-    effect = KaraokeEffect(paints=PaintPair(after=RED))
+    effect = RedLyrics()
     result = render_karaoke(source, (item(True),), effect=effect)
     assert source.dumps() == before
     assert result.event_count > 0
@@ -596,7 +727,7 @@ def test_owner_cleanup_preserves_source_and_other_generated_owners():
     source = document()
     original = Line(text="untouched", start_time=0, end_time=500, effect="source")
     source.records.append(original)
-    effect = KaraokeEffect(paints=PaintPair(after=RED))
+    effect = RedLyrics()
     first = render_karaoke(source, (item(),), effect=effect, owner="one")
     second = render_karaoke(
         first.document, (replace(item(), id="other"),), effect=effect, owner="two"
@@ -615,13 +746,14 @@ def test_owner_cleanup_preserves_source_and_other_generated_owners():
 
 
 def test_color_spans_and_explicit_ruby_palette_reach_ass():
-    effect = KaraokeEffect(
-        spans=(
-            ColorSpan(TextRange(0, 0, 1), after=RED),
-            ColorSpan(TextRange(0, 1, 2), after=BLUE),
-        ),
-        ruby_paints=(RubyPaint(0, 0, PaintPair(after=RED)),),
-    )
+    class ColoredLyrics(PlainLyrics):
+        def configure(self):
+            self.characters[0].style.sung.fill = RED.fill
+            self.characters[1].style.sung.fill = BLUE.fill
+            self.rubies[0].style.sung.fill = RED.fill
+            self.text.sweep()
+
+    effect = ColoredLyrics()
     result = render_karaoke(document(), (item(True),), effect=effect)
     assert any(
         line.text.endswith("A") and r"\1c&H0000FF&" in line.text
@@ -635,7 +767,7 @@ def test_color_spans_and_explicit_ruby_palette_reach_ass():
 
 def test_function_recipe_and_style_dispatch():
     def effect(target, context):
-        return KaraokeEffect(paints=PaintPair(after=RED)).build(target, context)
+        return measured_plan(RedLyrics(), target, context)
 
     result = render_karaoke(document(), (item(),), effect={"Default": effect})
     assert result.event_count > 0
@@ -650,27 +782,36 @@ def test_function_recipe_and_style_dispatch():
 
 
 def test_guide_does_not_generate_ruby():
+    class Guide(RedLyrics):
+        def compose(self):
+            yield Lyrics(Body(fill=WHITE, stroke_width=0))
+
     result = render_karaoke(
         document(),
         (item(True),),
-        effect=KaraokeEffect.guide(paints=PaintPair(after=RED)),
+        effect=Guide(),
     )
     assert all(line.style == "Default" for line in result.document.lines)
 
 
 def test_multitrack_conflict_is_reported_with_source():
-    def effect(target, context):
-        box = context.layout.box
-        tracks = tuple(
-            HighlightTrack(
-                name, 0, (SingingPass(1000, 2000, Region(box.left, box.right)),)
-            )
-            for name in ("a", "b")
-        )
-        return KaraokeEffect(
-            tracks=tracks, track_styles=(TrackStyle("a", RED), TrackStyle("b", BLUE))
-        ).build(target, context)
+    class Conflicting(RedLyrics):
+        def configure(self):
+            def tracks(layout):
+                box = layout.box
+                return tuple(
+                    HighlightTrack(
+                        name, 0, (SingingPass(1000, 2000, Region(box.left, box.right)),)
+                    )
+                    for name in ("a", "b")
+                )
 
+            self.text.sweep(
+                tracks=tracks,
+                track_styles=(TrackStyle("a", RED), TrackStyle("b", BLUE)),
+            )
+
+    effect = Conflicting()
     with pytest.raises(
         OutputCapabilityError, match="line:1/unit:0/text:0:1.*identical"
     ):
@@ -680,28 +821,39 @@ def test_multitrack_conflict_is_reported_with_source():
 def test_follow_ruby_requires_group_pulses():
     from kara_templater.animation import Pulse
 
-    effect = KaraokeEffect(
-        pulses=(Pulse.each_char(),), ruby=RubyPolicy(follow="syllable")
-    )
+    def effect(target, context):
+        return _prepare_targets(
+            target,
+            context,
+            paints=PaintPair(),
+            sweep=Sweep(),
+            pulses=(Pulse.each_char(),),
+            ruby=RubyPolicy(follow="syllable"),
+            origin_effect="PulseFollowValidation",
+        )  # The low-level Pulse planner cannot map character pivots to ruby.
+
     with pytest.raises(OutputCapabilityError, match="requires syllable-target"):
         render_karaoke(document(), (item(True),), effect=effect)
 
 
 def test_duplicate_union_track_has_identical_output_and_no_brightness_duplication():
     def build(count):
-        def effect(target, context):
-            box = context.layout.box
-            tracks = tuple(
-                HighlightTrack(
-                    str(i), 0, (SingingPass(1000, 2000, Region(box.left, box.right)),)
-                )
-                for i in range(count)
-            )
-            return KaraokeEffect(paints=PaintPair(after=RED), tracks=tracks).build(
-                target, context
-            )
+        class Duplicate(RedLyrics):
+            def configure(self):
+                def tracks(layout):
+                    box = layout.box
+                    return tuple(
+                        HighlightTrack(
+                            str(i),
+                            0,
+                            (SingingPass(1000, 2000, Region(box.left, box.right)),),
+                        )
+                        for i in range(count)
+                    )
 
-        return render_karaoke(document(), (item(),), effect=effect)
+                self.text.sweep(fill=RED.fill, tracks=tracks)
+
+        return render_karaoke(document(), (item(),), effect=Duplicate())
 
     assert build(1).document.dumps() == build(2).document.dumps()
 
@@ -711,9 +863,7 @@ def test_generated_records_stay_in_their_ass_sections():
     index = source.records.index("[Events]")
     source.records[index:index] = ["[Fonts]", "fontname: untouched.ttf"]
     source.records.extend(("[Graphics]", "filename: untouched.png"))
-    result = render_karaoke(
-        source, (item(True),), effect=KaraokeEffect(paints=PaintPair(after=RED))
-    )
+    result = render_karaoke(source, (item(True),), effect=RedLyrics())
     parsed = Document.parse(result.document.dumps())
     assert "Default-ruby" in parsed.styles
     assert len(parsed.lines) == result.event_count

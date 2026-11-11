@@ -34,10 +34,20 @@ class DynamicProperties:
     opacity: float = 1
     glow_blur: float | None = None
     glow_opacity: float | None = None
+    scale: float = 1
+    pivot: tuple[float, float] | None = None
 
     def __post_init__(self):
         for name in ("offset_x", "offset_y", "opacity"):
             _finite(getattr(self, name), name)
+        _finite(self.scale, "dynamic scale")
+        if self.scale <= 0:
+            raise ValueError("dynamic scale must be positive")
+        if self.pivot is not None:
+            if len(self.pivot) != 2:
+                raise ValueError("dynamic pivot must have two coordinates")
+            for coordinate in self.pivot:
+                _finite(coordinate, "dynamic pivot")
         if not 0 <= self.opacity <= 1:
             raise ValueError("dynamic opacity must be in 0..1")
         if self.glow_opacity is not None:
@@ -172,6 +182,32 @@ class SamplingPlan:
                 )
                 for a in layer.animations
             )
+            if value.scale != 1 or value.pivot is not None:
+                from .animation import ScaleAnimation
+
+                if animations:
+                    raise OutputCapabilityError(
+                        f"{target_id}: sampled scale conflicts with native scale",
+                        origin=layer.origin,
+                        time_ms=time,
+                    )
+                pivot = value.pivot or (layer.box.center, layer.box.middle)
+                animations = (
+                    ScaleAnimation(
+                        target_id,
+                        "sampled",
+                        0,
+                        layer.window.start_ms,
+                        layer.window.end_ms,
+                        value.scale,
+                        (pivot[0] + value.offset_x, pivot[1] + value.offset_y),
+                        (
+                            (layer.window.start_ms, value.scale),
+                            (layer.window.end_ms, value.scale),
+                        ),
+                        True,
+                    ),
+                )
             box = replace(
                 layer.box,
                 left=layer.box.left + value.offset_x,

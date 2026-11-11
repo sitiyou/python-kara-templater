@@ -21,10 +21,9 @@ def test_arc_staggers_by_character_arrival_and_returns_to_layout():
     ruby = replace(style, name="ruby", fontsize=20)
     window = DisplayWindow(500, 3000)
     layout = layout_line(source, style=style, ruby_style=ruby, resolution=(640, 480))
-    plan = ArcWave().build(
-        KaraokeItem("arc", source, "Default", window),
-        EffectContext(layout, style, ruby, (640, 480)),
-    )
+    item = KaraokeItem("arc", source, "Default", window)
+    bound, style, ruby = ArcWave()._prepare(item, style, ruby)
+    plan = bound.build(item, EffectContext(layout, style, ruby, (640, 480)))
     ids = {layer.text: layer.animation_id for layer in plan.layers}
     assert set(ids) == {"A", "B"}
     assert all(not layer.animations for layer in plan.layers)

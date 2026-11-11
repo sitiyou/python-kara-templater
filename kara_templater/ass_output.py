@@ -5,7 +5,7 @@ from itertools import pairwise
 from math import floor
 from typing import Literal
 
-from .animation import ScaleAnimation
+from .animation import OffsetAnimation, OpacityAnimation, ScaleAnimation
 from .ass import Line, Style
 from .composition import Color, Paint
 from .model import Box
@@ -181,6 +181,9 @@ class TextLayer:
     active_window: DisplayWindow | None = None
     origin: EventOrigin | None = None
     component: Literal["both", "fill", "glow"] = "both"
+    fade_window: DisplayWindow | None = None
+    opacity_animations: tuple[OpacityAnimation, ...] = ()
+    offsets: tuple[OffsetAnimation, ...] = ()
 
     def __post_init__(self):
         if self.component not in ("both", "fill", "glow"):
@@ -192,6 +195,46 @@ class TextLayer:
         if self.origin is not None and not isinstance(self.origin, EventOrigin):
             raise TypeError("text layer origin must be EventOrigin or None")
         object.__setattr__(self, "animations", tuple(self.animations))
+        object.__setattr__(self, "offsets", tuple(self.offsets))
+        for index, motion in enumerate(self.offsets):
+            if not isinstance(motion, OffsetAnimation):
+                raise TypeError("offsets requires OffsetAnimation")
+            for previous in self.offsets[:index]:
+                if previous.axis != motion.axis:
+                    continue
+                start = max(
+                    previous.points[0][0], motion.points[0][0], self.window.start_ms
+                )
+                end = min(
+                    self.window.end_ms,
+                    self.window.end_ms if previous.keep else previous.points[-1][0],
+                    self.window.end_ms if motion.keep else motion.points[-1][0],
+                )
+                if start < end:
+                    raise ValueError(
+                        f"{self.source_id}: overlapping {motion.axis} offset animations"
+                    )
+
+        object.__setattr__(self, "opacity_animations", tuple(self.opacity_animations))
+        for index, motion in enumerate(self.opacity_animations):
+            if not isinstance(motion, OpacityAnimation):
+                raise TypeError("opacity_animations requires OpacityAnimation")
+            for previous in self.opacity_animations[:index]:
+                if previous.component != motion.component:
+                    continue
+                start = max(
+                    previous.points[0][0], motion.points[0][0], self.window.start_ms
+                )
+                end = min(
+                    self.window.end_ms,
+                    self.window.end_ms if previous.keep else previous.points[-1][0],
+                    self.window.end_ms if motion.keep else motion.points[-1][0],
+                )
+                if start < end:
+                    raise ValueError(
+                        f"{self.source_id}: overlapping {motion.component} opacity animations"
+                    )
+
         if self.clips is not None:
             object.__setattr__(self, "clips", tuple(self.clips))
             for a, b in pairwise(self.clips):
@@ -199,7 +242,7 @@ class TextLayer:
                     raise ValueError(
                         f"{self.source_id}: overlapping or reversed clip spans"
                     )
-        self.fade.opacity_at(self.window.start_ms, self.window)
+        self.fade.opacity_at(self.window.start_ms, self.fade_window or self.window)
         for a, b in pairwise(sorted(self.animations, key=lambda a: a.start_ms)):
             if a.end_ms > b.start_ms:
                 raise ValueError(f"{self.source_id}: overlapping scale animations")
@@ -237,43 +280,139 @@ class CompiledLayers:
     origins: tuple[EventOrigin | None, ...] = ()
 
 
-def _transform(layer, time):
-    for animation in layer.animations:
-        start, middle, end = (
-            quantize(t)
-            for t in (
-                animation.start_ms,
-                (animation.start_ms + animation.end_ms) / 2,
-                animation.end_ms,
-            )
+def _offset(layer, time, axis, *, left=False):
+    for motion in layer.offsets:
+        if motion.axis != axis:
+            continue
+        points = tuple((quantize(t), value) for t, value in motion.points)
+        start, end = points[0][0], points[-1][0]
+        if time < start or (time == start and left):
+            continue
+        if time > end or (time == end and not left) or start == end:
+            if motion.keep:
+                return points[-1][1]
+            continue
+        return next(
+            a + (b - a) * (time - t0) / (t1 - t0)
+            for (t0, a), (t1, b) in pairwise(points)
+            if t0 <= time <= t1 and t0 < t1
         )
-        if start < end and start <= time <= end:
-            progress = (
-                (time - start) / (middle - start)
-                if time < middle
-                else (end - time) / (end - middle)
-            )
-            scale = 1 + (animation.peak_scale - 1) * progress
-            px, py = animation.pivot
-            x, y = (
-                px + (layer.box.center - px) * scale,
-                py + (layer.box.middle - py) * scale,
-            )
-            return scale, x, y, px
-    return 1, layer.box.center, layer.box.middle, layer.box.center
+    return 0.0
 
 
-def _mask(layer, span, time):
+def _transform(layer, time, *, left=False):
+    dx, dy = _offset(layer, time, "x", left=left), _offset(layer, time, "y", left=left)
+    for animation in layer.animations:
+        points = tuple((quantize(t), value) for t, value in animation.points)
+        start, end = points[0][0], points[-1][0]
+        if time < start or (time == start and left):
+            continue
+        if time > end or (time == end and not left):
+            if not animation.keep:
+                continue
+            scale = points[-1][1]
+        elif start == end:
+            scale = points[-1][1] if animation.keep else 1.0
+        else:
+            scale = next(
+                a + (b - a) * (time - t0) / (t1 - t0)
+                for (t0, a), (t1, b) in pairwise(points)
+                if t0 <= time <= t1 and t0 < t1
+            )
+        px, py = animation.pivot
+        x, y = (
+            px + (layer.box.center - px) * scale,
+            py + (layer.box.middle - py) * scale,
+        )
+        return scale, x + dx, y + dy, px
+    return 1, layer.box.center + dx, layer.box.middle + dy, layer.box.center
+
+
+def _animated_opacity(layer, time, *, glow, left=False):
+    group_value = 1.0
+    glow_value = layer.paint.glow.opacity if layer.paint.glow is not None else 1.0
+    for animation in layer.opacity_animations:
+        points = tuple((quantize(t), value) for t, value in animation.points)
+        start, end = points[0][0], points[-1][0]
+        if time < start or (time == start and left):
+            continue
+        if time > end or (time == end and not left) or start == end:
+            if not animation.keep:
+                continue
+            value = points[-1][1]
+        else:
+            value = next(
+                a + (b - a) * (time - t0) / (t1 - t0)
+                for (t0, a), (t1, b) in pairwise(points)
+                if t0 <= time <= t1 and t0 < t1
+            )
+        if animation.component == "group":
+            group_value = value
+        else:
+            glow_value = value
+    return layer.paint.opacity * group_value * (glow_value if glow else 1.0)
+
+
+def _mask(layer, span, time, *, left=False):
     start, end = quantize(span.start_ms), quantize(span.end_ms)
     t = min(1, max(0, (time - start) / (end - start)))
     region = Region(
         span.start.left + (span.end.left - span.start.left) * t,
         span.start.right + (span.end.right - span.start.right) * t,
     )
-    scale, _, _, pivot = _transform(layer, time)
+    scale, _, _, pivot = _transform(layer, time, left=left)
+    dx = _offset(layer, time, "x", left=left)
     return Region(
-        pivot + (region.left - pivot) * scale, pivot + (region.right - pivot) * scale
+        pivot + (region.left - pivot) * scale + dx,
+        pivot + (region.right - pivot) * scale + dx,
     )
+
+
+def native_opacity_supported(layer):
+    """Check known alpha curves without output generation or user callbacks."""
+    window = layer.fade_window or layer.window
+    knots = {
+        quantize(layer.window.start_ms),
+        quantize(layer.window.end_ms),
+        quantize(window.start_ms),
+        quantize(window.end_ms),
+        quantize(window.start_ms + layer.fade.in_ms),
+        quantize(window.end_ms - layer.fade.out_ms),
+    }
+    for motion in layer.opacity_animations:
+        times = tuple(quantize(t) for t, _ in motion.points)
+        if motion.points[-1][0] > motion.points[0][0] and any(
+            a >= b for a, b in pairwise(times)
+        ):
+            return False
+        knots.update(times)
+    for start, end in pairwise(sorted(knots)):
+        if end <= quantize(layer.window.start_ms) or start >= quantize(
+            layer.window.end_ms
+        ):
+            continue
+        for glow in (False, True):
+            if (glow and (layer.component == "fill" or layer.paint.glow is None)) or (
+                not glow and layer.component == "glow"
+            ):
+                continue
+
+            def at(time, *, left=False, is_glow=glow):
+                return _animated_opacity(
+                    layer, time, glow=is_glow, left=left
+                ) * layer.fade.opacity_at(time, window)
+
+            first, last = at(start), at(end, left=True)
+            for fraction in (0.25, 0.5, 0.75):
+                if (
+                    abs(
+                        at(start + (end - start) * fraction)
+                        - (first + (last - first) * fraction)
+                    )
+                    > 1e-10
+                ):
+                    return False
+    return True
 
 
 def _clip(region, height):
@@ -293,7 +432,7 @@ def _compile_interval(layer, span, start, end, settings, events):
     # Linear interpolation's maximum error is at the midpoint. Subdivide only
     # when necessary; static/ordinary sweeps never become frame-sized events.
     if span is not None:
-        first, last = _mask(layer, span, start), _mask(layer, span, end)
+        first, last = _mask(layer, span, start), _mask(layer, span, end, left=True)
         middle = _mask(layer, span, (start + end) / 2)
         error = max(
             abs(middle.left - (first.left + last.left) / 2),
@@ -317,35 +456,43 @@ def _compile_interval(layer, span, start, end, settings, events):
     # transforms to a short interval even when the mathematical line is equal.
     geometry_start, geometry_end = start, end
     for animation in layer.animations:
-        knots = tuple(
-            quantize(t)
-            for t in (
-                animation.start_ms,
-                (animation.start_ms + animation.end_ms) / 2,
-                animation.end_ms,
-            )
-        )
+        knots = tuple(quantize(t) for t, _ in animation.points)
         for a, b in pairwise(knots):
             if a <= start < end <= b:
                 geometry_start, geometry_end = a, b
                 break
     s0, x0, y0, _ = _transform(layer, geometry_start)
-    s1, x1, y1, _ = _transform(layer, geometry_end)
+    s1, x1, y1, _ = _transform(layer, geometry_end, left=True)
     local_start, local_end = start - emitted_start, end - emitted_start
     geometry_local_start = geometry_start - emitted_start
     geometry_local_end = geometry_end - emitted_start
+    position_start, position_end = geometry_start, geometry_end
+    if layer.offsets:
+        position_knots = {
+            quantize(layer.window.start_ms),
+            quantize(layer.window.end_ms),
+            *(
+                quantize(t)
+                for motion in (*layer.animations, *layer.offsets)
+                for t, _ in motion.points
+            ),
+        }
+        position_start = max(t for t in position_knots if t <= start)
+        position_end = min(t for t in position_knots if t >= end)
+        _, x0, y0, _ = _transform(layer, position_start)
+        _, x1, y1, _ = _transform(layer, position_end, left=True)
     position = (
         rf"\pos({number(x0)},{number(y0)})"
         if (x0, y0) == (x1, y1)
-        else rf"\move({number(x0)},{number(y0)},{number(x1)},{number(y1)},{geometry_local_start},{geometry_local_end})"
+        else rf"\move({number(x0)},{number(y0)},{number(x1)},{number(y1)},{position_start - emitted_start},{position_end - emitted_start})"
     )
-    common = r"\an5\q2\shad0" + position
+    common = r"\an5\q2\shad0" + rf"\fs{number(layer.style.fontsize)}" + position
     common += rf"\fscx{number(layer.style.scale_x * s0)}\fscy{number(layer.style.scale_y * s0)}"
     transform = ""
     if s0 != s1:
         transform += rf"\fscx{number(layer.style.scale_x * s1)}\fscy{number(layer.style.scale_y * s1)}"
     if span is not None:
-        if not layer.animations:
+        if not layer.animations and not any(m.axis == "x" for m in layer.offsets):
             # Preserve the original integer clip endpoints across event cuts.
             # Re-rounding a sampled endpoint changes the sweep by a pixel.
             # libass accepts negative transform times relative to this event.
@@ -380,17 +527,58 @@ def _compile_interval(layer, span, start, end, settings, events):
     # Quantize opacity once at the original fade endpoints; re-quantizing it at
     # every clip cut produces different alpha curves on adjacent regions.
     fade_start, fade_end = start, end
+    fade_window = layer.fade_window or layer.window
     for a, b in (
-        (layer.window.start_ms, layer.window.start_ms + layer.fade.in_ms),
-        (layer.window.end_ms - layer.fade.out_ms, layer.window.end_ms),
+        (fade_window.start_ms, fade_window.start_ms + layer.fade.in_ms),
+        (fade_window.end_ms - layer.fade.out_ms, fade_window.end_ms),
     ):
         a, b = quantize(a), quantize(b)
         if a <= start < end <= b:
             fade_start, fade_end = a, b
             break
+    if layer.opacity_animations:
+        # Use original alpha knots, independently of clip and geometry cuts.
+        # Re-quantizing alpha at clip cuts would create seams between regions.
+        alpha_knots = {
+            quantize(layer.window.start_ms),
+            quantize(layer.window.end_ms),
+            quantize(fade_window.start_ms),
+            quantize(fade_window.end_ms),
+            quantize(fade_window.start_ms + layer.fade.in_ms),
+            quantize(fade_window.end_ms - layer.fade.out_ms),
+            *(
+                quantize(t)
+                for motion in layer.opacity_animations
+                for t, _ in motion.points
+            ),
+        }
+        fade_start = max(t for t in alpha_knots if t <= start)
+        fade_end = min(t for t in alpha_knots if t >= end)
     for sublayer, fill, outline, border, blur, opacity in passes:
-        a0 = alpha(opacity * layer.fade.opacity_at(fade_start, layer.window))
-        a1 = alpha(opacity * layer.fade.opacity_at(fade_end, layer.window))
+        if layer.opacity_animations:
+
+            def value_at(time, *, left=False, is_glow=sublayer == 0):
+                return _animated_opacity(
+                    layer, time, glow=is_glow, left=left
+                ) * layer.fade.opacity_at(time, fade_window)
+
+            value0, value1 = value_at(fade_start), value_at(fade_end, left=True)
+            # Products of fade/group/glow linear ramps can be cubic. Check
+            # enough interior points to reject nonlinear products instead of
+            # silently emitting an incorrect linear ASS transform.
+            for fraction in (0.25, 0.5, 0.75):
+                actual = value_at(fade_start + (fade_end - fade_start) * fraction)
+                expected = value0 + (value1 - value0) * fraction
+                if abs(actual - expected) > 1e-10:
+                    raise OutputCapabilityError(
+                        f"{layer.source_id}: nonlinear opacity product requires sampling",
+                        origin=layer.origin,
+                        time_ms=fade_start,
+                    )
+            a0, a1 = alpha(value0), alpha(value1)
+        else:
+            a0 = alpha(opacity * layer.fade.opacity_at(fade_start, fade_window))
+            a1 = alpha(opacity * layer.fade.opacity_at(fade_end, fade_window))
         tags = (
             common
             + rf"\bord{number(border * s0)}\blur{number(blur * s0)}\1c{color(fill)}\3c{color(outline)}\alpha{a0}"
@@ -440,29 +628,52 @@ def compile_layers(
                 f"{layer.source_id}: display window vanished during centisecond quantization"
             )
             continue
+        fade_window = layer.fade_window or window
         knots = {
             start,
             end,
-            quantize(window.start_ms + layer.fade.in_ms),
-            quantize(window.end_ms - layer.fade.out_ms),
+            quantize(fade_window.start_ms),
+            quantize(fade_window.end_ms),
+            quantize(fade_window.start_ms + layer.fade.in_ms),
+            quantize(fade_window.end_ms - layer.fade.out_ms),
         }
         for animation in layer.animations:
-            times = tuple(
-                quantize(t)
-                for t in (
-                    animation.start_ms,
-                    (animation.start_ms + animation.end_ms) / 2,
-                    animation.end_ms,
-                )
-            )
-            if (
-                animation.end_ms > animation.start_ms
-                and not times[0] < times[1] < times[2]
+            times = tuple(quantize(t) for t, _ in animation.points)
+            if animation.end_ms > animation.start_ms and any(
+                a >= b for a, b in pairwise(times)
             ):
                 raise OutputCapabilityError(
-                    f"{layer.source_id}: pulse rise/fall collapses at centisecond resolution",
+                    f"{layer.source_id}: "
+                    + (
+                        "pulse rise/fall collapses"
+                        if animation.keyframes is None
+                        else "scale keyframes collapse"
+                    )
+                    + " at centisecond resolution",
                     origin=layer.origin,
                     time_ms=animation.start_ms,
+                )
+            knots.update(times)
+        for motion in layer.opacity_animations:
+            times = tuple(quantize(t) for t, _ in motion.points)
+            if motion.points[-1][0] > motion.points[0][0] and any(
+                a >= b for a, b in pairwise(times)
+            ):
+                raise OutputCapabilityError(
+                    f"{layer.source_id}: opacity keyframes collapse at centisecond resolution",
+                    origin=layer.origin,
+                    time_ms=motion.points[0][0],
+                )
+            knots.update(times)
+        for motion in layer.offsets:
+            times = tuple(quantize(t) for t, _ in motion.points)
+            if motion.points[-1][0] > motion.points[0][0] and any(
+                a >= b for a, b in pairwise(times)
+            ):
+                raise OutputCapabilityError(
+                    f"{layer.source_id}: offset keyframes collapse at centisecond resolution",
+                    origin=layer.origin,
+                    time_ms=motion.points[0][0],
                 )
             knots.update(times)
         if layer.clips is not None:

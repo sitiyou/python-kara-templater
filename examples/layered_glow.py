@@ -1,107 +1,68 @@
 """多层辉光与整音节强调：python -m examples.layered_glow input.ass output.ass。"""
 
 import argparse
-from dataclasses import replace
 from pathlib import Path
 
 from kara_templater import (
+    BLACK,
+    WHITE,
+    Body,
     Color,
     Document,
-    DynamicEffect,
-    DynamicProperties,
-    EdgeSweep,
-    Fade,
-    Glow,
-    KaraokeEffect,
+    Effect,
+    Halo,
     Line,
+    Lyrics,
     OutputSettings,
-    Paint,
-    PaintPair,
     ProgressCurve,
-    Pulse,
-    RubyPolicy,
-    SamplingSettings,
-    Segment,
-    Sweep,
+    Ruby,
     render_karaoke,
 )
 
+BASE_GLOW = Color.hex("#9e6d64")
+SUNG_GLOW = Color.hex("#67e5ff")
+SUNG_FILL = Color.hex("#01829d")
 
-class LayeredGlow:
+
+class LayeredGlow(Effect):
     """白字黑边 → 青字白边，配合整音节辉光增强和 1.1 倍缩放。"""
 
-    def build(self, item, context):
-        guide = item.style == "LEAD"
-        plan = KaraokeEffect(
-            paints=PaintPair(
-                before=Paint(Color.hex("#ffffff"), Color.hex("#000000"), border=5),
-                after=Paint(Color.hex("#01829d"), Color.hex("#ffffff"), border=5),
+    def compose(self):
+        yield Lyrics(
+            Body(fill=WHITE, stroke=BLACK, stroke_width=5),
+            Ruby(stroke_width=3, offset_y=10, follow="syllable"),
+            Halo(
+                id="base", color=BASE_GLOW, opacity=0.8, blur=10, width=10, ruby_width=6
             ),
-            sweep=Sweep(
-                progress_curve=ProgressCurve()
-                if guide
-                else ProgressCurve.two_stage(
-                    time_fraction=3 / 17, progress_fraction=0.3
-                ),
-                edges=EdgeSweep(padding_px=24, lead_ms=24, tail_ms=24),
+            Halo(
+                id="sung", color=SUNG_GLOW, opacity=0.2, blur=10, width=10, ruby_width=6
             ),
-            pulses=() if guide else (Pulse.whole_syllable(scale=1.1),),
-            ruby=RubyPolicy(enabled=not guide, offset_y=10, follow="syllable"),
-            fade=Fade(in_ms=800, out_ms=200),
-        ).build(item, context)
-
-        body, halos, timings, seen = [], [], {}, set()
-        for layer in plan.layers:
-            ruby = layer.style.name == context.ruby_style.name
-            if ruby:
-                layer = replace(layer, paint=replace(layer.paint, border=3))
-            body.append(layer)
-            identity = layer.animation_id
-            if identity in seen:
-                continue
-            seen.add(identity)
-
-            # 扫色会把同一个字拆成多个区域/时段；辉光只画一次，且不随前沿裁剪。
-            halo = replace(layer, clips=None, active_window=None)
-            for suffix, order, color, opacity in (
-                ("base-glow", -2, "#9e6d64", 0.8),
-                ("sung-glow", -1, "#67e5ff", 0.2),
-            ):
-                glow_id = f"{identity}/{suffix}"
-                glow = Glow(
-                    Color.hex(color), blur=10, border=6 if ruby else 10, opacity=opacity
-                )
-                halos.append(
-                    replace(
-                        halo,
-                        source_id=glow_id,
-                        animation_id=glow_id,
-                        component="glow",
-                        order=order,
-                        paint=Paint(glow=glow),
-                    )
-                )
-                if suffix == "sung-glow":
-                    segments = [ref.resolve(item) for ref in layer.origin.sources]
-                    segments = [s for s in segments if isinstance(s, Segment)]
-                    if segments:
-                        timings[glow_id] = (
-                            min(s.start_ms for s in segments),
-                            max(s.end_ms for s in segments),
-                        )
-
-        def brightness(sample):
-            if sample.target_id not in timings:
-                return DynamicProperties()
-            start, end = timings[sample.target_id]
-            progress = (sample.time_ms - start) / max(1, end - start)
-            return DynamicProperties(glow_opacity=0.2 + 0.6 * min(1, max(0, progress)))
-
-        return replace(
-            plan,
-            layers=(*halos, *body),
-            dynamic=DynamicEffect(brightness, SamplingSettings(step_ms=40)),
         )
+
+    def configure(self):
+        guide = self.source.style == "LEAD"
+        curve = (
+            "linear"
+            if guide
+            else ProgressCurve.two_stage(time_fraction=3 / 17, progress_fraction=0.3)
+        )
+        self.text.sweep(
+            fill=SUNG_FILL,
+            stroke=WHITE,
+            curve=curve,
+            padding=24,
+            lead=24,
+            tail=24,
+        )
+        self.query_one("#sung").on_singing(opacity=(0.2, 0.8), keep=True)
+        self.text.fade(in_ms=800, out_ms=200)
+        if guide:
+            self.ruby.hide()
+        else:
+            self.syllables.on_singing(pulse=1.1)
+
+
+effect = LayeredGlow
 
 
 def apply(input_path, output_path):

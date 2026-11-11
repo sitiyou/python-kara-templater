@@ -10,29 +10,26 @@ from dataclasses import replace
 from pathlib import Path
 
 from kara_templater import (
+    Body,
     Color,
-    ColorSpan,
     DisplayWindow,
     Document,
-    DynamicEffect,
-    DynamicProperties,
-    Glow,
+    Effect,
+    Halo,
     ImportSettings,
-    KaraokeEffect,
     KaraokeItem,
     KaraokeLine,
     Line,
+    Lyrics,
     OutputSettings,
     Paint,
-    PaintPair,
-    Pulse,
+    Ruby,
     Segment,
     Style,
-    TextRange,
     TextUnit,
     TrackStyle,
+    display,
     import_karaoke,
-    layout_characters,
     load_font,
     render_karaoke,
     tracks_from_layout,
@@ -70,31 +67,45 @@ def workload(lines, fontname="DejaVu Sans"):
 def effect(kind):
     red, blue = Paint(Color(255, 60, 60)), Paint(Color(60, 100, 255))
 
-    def build(target, context):
-        base = KaraokeEffect(paints=PaintPair(after=red))
-        if kind == "colors":
-            chars = layout_characters(context.layout, style=context.style)
-            if chars:
-                unit = chars[0].source.unit_index
-                selected = [c for c in chars if c.source.unit_index == unit][:3]
-                base = replace(
-                    base,
-                    spans=(
-                        ColorSpan(
-                            TextRange(
-                                unit, selected[0].source.start, selected[-1].source.end
-                            ),
-                            after=blue,
-                        ),
-                    ),
-                )
-        elif kind == "sampled_constant":
-            base = replace(base, dynamic=DynamicEffect(lambda ctx: DynamicProperties()))
-        elif kind in {"union4", "priority4"}:
-            tracks = tuple(
+    class BenchmarkEffect(Effect):
+        def compose(self):
+            children = [Body(stroke_width=0), Ruby(stroke_width=0)]
+            if kind == "pulse_glow":
+                children.append(Halo(color=red.fill, blur=8, width=3, clip="sung"))
+            yield Lyrics(*children)
+
+        def configure(self):
+            options = {}
+            if kind in {"union4", "priority4"}:
+                options["tracks"] = self.parallel
+                options["overlap"] = "priority" if kind == "priority4" else "union"
+                if kind == "priority4":
+                    options["track_styles"] = tuple(
+                        TrackStyle(f"main-{ui}/{i}", red if i % 2 else blue, i)
+                        for ui, unit in enumerate(self.source.source.units)
+                        if unit.segments
+                        for i in range(4)
+                    )
+            self.text.sweep(fill=red.fill, **options)
+            if kind == "colors" and len(self.characters):
+                # Source selections have the same cluster-boundary validation
+                # as author scripts; do not change shaping to force a split.
+                first = next(unit for unit in self.syllables if len(unit.characters))
+                first.characters[:3].style.sung.fill = blue.fill
+            elif kind == "pulse_glow":
+                self.characters.on_highlight(pulse=1.1)
+            elif kind == "sampled_constant":
+                for selected in (self.characters, self.rubies):
+                    selected.animate(
+                        opacity=lambda t: 1,
+                        during=(display.start, display.end),
+                    )
+
+        def parallel(self, layout):
+            return tuple(
                 replace(
                     track,
-                    id=f"{track.id}/{i}",
+                    id=f"main-{track.unit_index}/{i}",
                     passes=tuple(
                         replace(
                             p,
@@ -106,34 +117,11 @@ def effect(kind):
                         for p in track.passes
                     ),
                 )
-                for track in tracks_from_layout(context.layout)
+                for track in tracks_from_layout(layout)
                 for i in range(4)
             )
-            styles = (
-                tuple(
-                    TrackStyle(t.id, red if i % 2 else blue, i % 4)
-                    for i, t in enumerate(tracks)
-                )
-                if kind == "priority4"
-                else ()
-            )
-            base = replace(
-                base,
-                tracks=tracks,
-                track_styles=styles,
-                overlap="priority" if kind == "priority4" else "union",
-            )
-        elif kind == "pulse_glow":
-            base = replace(
-                base,
-                paints=PaintPair(
-                    after=replace(red, glow=Glow(red.fill, blur=8, border=3))
-                ),
-                pulses=(Pulse.each_char(),),
-            )
-        return base.build(target, context)
 
-    return build
+    return BenchmarkEffect()
 
 
 def ass_workload(path, *, styles=None, karaoke_comments=False, font_family=None):
@@ -220,26 +208,28 @@ def main():
             "target_samples": estimates[-1].target_samples,
         }
         print(kind, results[kind], flush=True)
-    assert results["union4"]["events"] == results["plain"]["events"], (
-        "identical tracks must not duplicate output"
-    )
+    assert (
+        results["union4"]["events"] == results["plain"]["events"]
+    ), "identical tracks must not duplicate output"
     assert results["sampled_constant"]["events"] == results["plain"]["events"]
     fingerprint = hashlib.sha256()
     for path in sorted((ROOT / "kara_templater").glob("*.py")):
         fingerprint.update(path.name.encode() + path.read_bytes())
     report = {
-        "workload": "imported ASS song"
-        if args.input
-        else "synthetic 7-character lyrics, 1.5-second singing, 2.5-second display",
+        "workload": (
+            "imported ASS song"
+            if args.input
+            else "synthetic 7-character lyrics, 1.5-second singing, 2.5-second display"
+        ),
         "lines": len(items),
         "resolution": [int(document.meta.res_x), int(document.meta.res_y)],
         "max_events": args.max_events,
         "units": sum(len(i.source.units) for i in items),
         "segments": sum(len(u.segments) for i in items for u in i.source.units),
         "duration_ms": max(i.window.end_ms for i in items),
-        "input_sha256": hashlib.sha256(args.input.read_bytes()).hexdigest()
-        if args.input
-        else None,
+        "input_sha256": (
+            hashlib.sha256(args.input.read_bytes()).hexdigest() if args.input else None
+        ),
         "input": str(args.input) if args.input else None,
         "styles": args.style,
         "karaoke_comments": args.karaoke_comments,

@@ -18,25 +18,43 @@ from examples.whole_glow import WholeGlow
 from kara_templater import (
     Color,
     EffectPlan,
+    Fade,
     Glow,
-    KaraokeEffect,
     Paint,
     PaintPair,
     RubyPolicy,
+    SamplingSettings,
     Sweep,
     load_font,
 )
+from kara_templater._compiler import _compile_targets, _prepare_targets
 from tools.render_effects import render
 
 TIMES = (990, 1000, 1200, 1480, 1500, 1990, 2000, 2010, 2400)
 GLOW = Glow(Color(40, 220, 255), blur=24, border=3, opacity=0.8)
 
 
+class SampledWholeGlow(WholeGlow):
+    """Keep the held-function path under test; WholeGlow now lowers natively."""
+
+    def configure(self):
+        self.sampling = SamplingSettings(step_ms=self.step_ms)
+        self.text.sweep(fill="#28dcff")
+        self.query_one("#whole").on_singing(
+            opacity=lambda t: self.initial_opacity
+            + (self.final_opacity - self.initial_opacity) * t,
+            keep=True,
+        )
+
+
 def recipe(kind, geometry=None):
     def build(target, context):
         if geometry is not None:
             geometry["body"] = context.layout.units[0].box
-        whole = WholeGlow(glow=GLOW).build(target, context)
+        bound, _, _ = SampledWholeGlow(glow=GLOW)._prepare(
+            target, context.style, context.ruby_style
+        )
+        whole = bound.build(target, context)
         if kind == "whole":
             return whole
         body = tuple(l for l in whole.layers if l.component != "glow")
@@ -52,11 +70,23 @@ def recipe(kind, geometry=None):
                 if l.component == "glow"
             )
         else:
-            local = KaraokeEffect(
+            sweep = Sweep(completion="clip" if kind == "clip" else "release")
+            prepared = _prepare_targets(
+                target,
+                context,
                 paints=PaintPair(Paint(), Paint(glow=GLOW)),
                 ruby=RubyPolicy(enabled=False),
-                sweep=Sweep(completion="clip" if kind == "clip" else "release"),
-            ).build(target, context)
+                sweep=sweep,
+                origin_effect="GlowStrategy",
+            )
+            local = _compile_targets(
+                target,
+                context,
+                prepared,
+                sweep=sweep,
+                fade=Fade(),
+                origin_effect="GlowStrategy",
+            )
             glows = tuple(
                 replace(l, component="glow", order=-1)
                 for l in local.layers

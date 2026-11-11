@@ -3,14 +3,16 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
+    Body,
     DisplayWindow,
+    Effect,
     EffectContext,
     HighlightTrack,
-    KaraokeEffect,
     KaraokeItem,
     KaraokeLine,
-    Pulse,
+    Lyrics,
     Region,
+    Ruby,
     Segment,
     SingingPass,
     Style,
@@ -79,9 +81,18 @@ def test_mixed_static_empty_and_multiple_readings_keep_source_time():
         == (Region(first.left, first.right),)
     )
     assert sung.regions_at(900) == (Region(unit.box.left, unit.box.right),)
-    plan = KaraokeEffect(pulses=(Pulse.each_char(),)).build(
-        KaraokeItem("mixed", source, "Default", DisplayWindow(0, 1000)), context
-    )
+
+    class Mixed(Effect):
+        def compose(self):
+            yield Lyrics(Body(), Ruby())
+
+        def configure(self):
+            self.text.sweep()
+            self.characters.on_highlight(pulse=1.1)
+
+    item = KaraokeItem("mixed", source, "Default", DisplayWindow(0, 1000))
+    bound, _, _ = Mixed()._prepare(item, context.style, context.ruby_style)
+    plan = bound.build(item, context)
     animations = {a for layer in plan.layers for a in layer.animations}
     assert len(animations) == 2
     assert all(
@@ -107,9 +118,18 @@ def test_explicit_body_regions_replace_reading_weights_without_changing_source()
             SingingPass(600, 800, chars[1].timing_region),
         ),
     )
-    plan = KaraokeEffect(tracks=(track,), pulses=(Pulse.each_char(),)).build(
-        KaraokeItem("mapped", source, "Default", DisplayWindow(0, 1000)), context
-    )
+
+    class Mapped(Effect):
+        def compose(self):
+            yield Lyrics(Body(), Ruby())
+
+        def configure(self):
+            self.text.sweep(tracks=(track,))
+            self.characters.on_highlight(pulse=1.1)
+
+    item = KaraokeItem("mapped", source, "Default", DisplayWindow(0, 1000))
+    bound, _, _ = Mapped()._prepare(item, context.style, context.ruby_style)
+    plan = bound.build(item, context)
     animations = {a for layer in plan.layers for a in layer.animations}
     assert {(a.start_ms, a.end_ms) for a in animations} == {(200, 400), (600, 800)}
     assert context.layout.units[3].source.segments == source.units[3].segments
