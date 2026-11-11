@@ -560,3 +560,7 @@ python -m kara_templater examples/karaoke.ass /tmp/dynamic.ass \
 确定性噪声同步文字位移与模糊。动态模糊在 `Halo(max_blur=18)` 声明上界，
 详细接口见[特效指南](docs/effects.md)。
 
+
+开发检查安装与严格度说明见[类型与质量检查](docs/type-checking.md)。库附带
+`py.typed` 和原生扩展类型声明，组件查询、样式、来源选择和动画表达式可用于
+编辑器补全和静态检查。

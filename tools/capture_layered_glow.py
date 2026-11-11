@@ -90,6 +90,8 @@ def main():
         },
         "frames": frames,
     }
+    mismatches = []
+    event_delta = 0
     if args.compare:
         baseline = json.loads(args.compare.read_text())
         assert baseline["input_sha256"] == report["input_sha256"], "different input"
@@ -100,15 +102,16 @@ def main():
             if old["time_ms"] != new["time_ms"]
             or old["pixel_sha256"] != new["pixel_sha256"]
         ]
+        event_delta = result.event_count - baseline["event_count"]
         report["comparison"] = {
             "baseline": str(args.compare),
             "mismatched_frames_ms": mismatches,
-            "event_delta": report["event_count"] - baseline["event_count"],
+            "event_delta": event_delta,
         }
     (output / "report.json").write_text(json.dumps(report, indent=2))
     if args.compare:
         assert not mismatches, f"frame differences at {mismatches} ms"
-        assert report["comparison"]["event_delta"] == 0, "event count changed"
+        assert event_delta == 0, "event count changed"
 
     print(
         json.dumps(

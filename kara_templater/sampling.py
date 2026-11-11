@@ -1,15 +1,19 @@
 """Explicit sampling of user property functions on an absolute time grid."""
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .ass_output import TextLayer
 
 from .timeline import DisplayWindow, Region, _finite
 
 
 @dataclass(frozen=True)
 class SampleContext:
-    time_ms: int
+    time_ms: float
     progress: float
     window: DisplayWindow
     target_id: str
@@ -37,7 +41,7 @@ class DynamicProperties:
     scale: float = 1
     pivot: tuple[float, float] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for name in ("offset_x", "offset_y", "opacity"):
             _finite(getattr(self, name), name)
         _finite(self.scale, "dynamic scale")
@@ -65,7 +69,7 @@ class SamplingSettings:
     step_ms: int = 40
     max_samples: int = 100000
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if type(self.step_ms) is not int or self.step_ms < 10 or self.step_ms % 10:
             raise ValueError("sampling step must be a positive multiple of 10 ms")
         if type(self.max_samples) is not int or self.max_samples <= 0:
@@ -79,7 +83,7 @@ class DynamicEffect:
     seed: int = 0
     max_glow_blur: float | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not callable(self.function):
             raise TypeError("dynamic effect requires a property function")
         if type(self.seed) is not int:
@@ -104,13 +108,14 @@ class SamplingPlan:
 
     effect: DynamicEffect
     # layer, output start/end, absolute sample timestamp
-    intervals: tuple
+    intervals: tuple[tuple["TextLayer", int, int, int], ...]
     estimate: SamplingEstimate
 
-    def evaluate(self):
+    def evaluate(self) -> tuple["TextLayer", ...]:
         from .ass_output import OutputCapabilityError
 
-        cache, result = {}, []
+        cache = {}
+        result: list[TextLayer] = []
         previous_layer, previous_state = None, None
         for layer, start, end, time in self.intervals:
             target_id = layer.animation_id or layer.source_id
@@ -220,11 +225,14 @@ class SamplingPlan:
             if (
                 previous_layer is layer
                 and previous_state == state
+                and result[-1].active_window is not None
                 and result[-1].active_window.end_ms == start
             ):
+                active_window = result[-1].active_window
+                assert active_window is not None
                 result[-1] = replace(
                     result[-1],
-                    active_window=DisplayWindow(result[-1].active_window.start_ms, end),
+                    active_window=DisplayWindow(active_window.start_ms, end),
                 )
                 continue
             previous_layer, previous_state = layer, state
@@ -243,7 +251,7 @@ class SamplingPlan:
 
 
 def prepare_sampling(
-    layers, effect: DynamicEffect, *, max_events: int = 10000
+    layers: Iterable["TextLayer"], effect: DynamicEffect, *, max_events: int = 10000
 ) -> SamplingPlan:
     """Compute cost and reject budgets before any property function evaluation.
 

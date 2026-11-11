@@ -13,3 +13,4 @@ include docs/karaoke-effects-plan.md docs/ass-builder-replacement.md
 include docs/effects-validation.md docs/effects-validation-baseline.json
 include docs/karaoke-effects-audit.md
 recursive-include examples *.ass *.py
+include docs/type-checking.md

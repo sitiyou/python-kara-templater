@@ -10,7 +10,7 @@ from .import_ass import ImportSettings, paint_pair_from_style
 from .render import render_karaoke
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Render ASS karaoke using Python effect recipes"
     )

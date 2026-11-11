@@ -2,7 +2,9 @@
 
 from dataclasses import dataclass
 from itertools import pairwise
+from typing import Literal, Self, TypedDict, Unpack
 
+from .model import LaidOutLine
 from .sources import _source_location
 from .timeline import DisplayWindow, HighlightTrack, Region, _finite, _milliseconds
 
@@ -22,7 +24,7 @@ class CharacterTarget:
     drawable: bool = True
     center_x: float | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id:
             raise ValueError("character target needs a stable id")
         if type(self.unit_index) is not int or self.unit_index < 0:
@@ -36,7 +38,7 @@ class CharacterTarget:
 class HighlightEnter:
     threshold: str = "enter"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.threshold not in {"enter", "center", "complete"}:
             raise ValueError("threshold must be enter, center or complete")
 
@@ -51,18 +53,32 @@ class SegmentStart:
     pass
 
 
+class PulseTiming(TypedDict, total=False):
+    scale: float
+    duration_ms: int | Literal["traversal"]
+    tracks: Literal["first", "each", "named"]
+    track_id: str | None
+    retrigger: bool
+
+
+class PulseOptions(PulseTiming, total=False):
+    trigger: HighlightEnter | SyllableStart | SegmentStart
+    target: Literal["triggering_char", "chars", "syllable"]
+    pivot: Literal["char_center", "each_center", "group_center"]
+
+
 @dataclass(frozen=True)
 class Pulse:
     trigger: HighlightEnter | SyllableStart | SegmentStart = HighlightEnter()
     target: str = "triggering_char"
     pivot: str = "char_center"
     scale: float = 1.1
-    duration_ms: int | str = "traversal"
+    duration_ms: int | Literal["traversal"] = "traversal"
     tracks: str = "first"
     track_id: str | None = None
     retrigger: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.trigger, (HighlightEnter, SyllableStart, SegmentStart)):
             raise TypeError("unsupported pulse trigger")
         if (self.target, self.pivot) not in {
@@ -86,17 +102,17 @@ class Pulse:
             raise ValueError("track_id is required only for named track selection")
 
     @classmethod
-    def each_char(cls, **kwargs):
+    def each_char(cls, **kwargs: Unpack[PulseOptions]) -> Self:
         return cls(**kwargs)
 
     @classmethod
-    def simultaneous_chars(cls, **kwargs):
+    def simultaneous_chars(cls, **kwargs: Unpack[PulseTiming]) -> Self:
         return cls(
             trigger=SyllableStart(), target="chars", pivot="each_center", **kwargs
         )
 
     @classmethod
-    def whole_syllable(cls, **kwargs):
+    def whole_syllable(cls, **kwargs: Unpack[PulseTiming]) -> Self:
         return cls(
             trigger=SyllableStart(), target="syllable", pivot="group_center", **kwargs
         )
@@ -110,7 +126,7 @@ class OffsetAnimation:
     axis: str
     keep: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "points", tuple(tuple(p) for p in self.points))
         if (
             len(self.points) < 2
@@ -138,7 +154,7 @@ class OpacityAnimation:
     keep: bool = False
     component: str = "group"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "points", tuple(tuple(p) for p in self.points))
         if len(self.points) < 2:
             raise ValueError("opacity animation needs at least two points")
@@ -170,7 +186,7 @@ class ScaleAnimation:
     keep: bool = False
 
     @property
-    def points(self):
+    def points(self) -> tuple[tuple[float, float], ...]:
         return (
             self.keyframes
             if self.keyframes is not None
@@ -187,7 +203,7 @@ class ScaleAnimation:
             return 1.0
         if time_ms >= self.end_ms:
             return self.points[-1][1] if self.keep else 1.0
-        for (start, a), (end, b) in zip(self.points, self.points[1:]):
+        for (start, a), (end, b) in pairwise(self.points):
             if start <= time_ms <= end and end > start:
                 return a + (b - a) * (time_ms - start) / (end - start)
         return 1.0
@@ -223,7 +239,7 @@ def _arrivals(passes, x, threshold):
 def plan_pulses(
     pulses: tuple[Pulse, ...],
     *,
-    layout,
+    layout: LaidOutLine,
     characters: tuple[CharacterTarget, ...],
     tracks: tuple[HighlightTrack, ...],
     window: DisplayWindow,

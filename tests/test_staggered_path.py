@@ -29,7 +29,10 @@ def test_arc_staggers_by_character_arrival_and_returns_to_layout():
     assert all(not layer.animations for layer in plan.layers)
 
     def at(text, time):
-        return plan.dynamic.function(SampleContext(time, 0, window, ids[text], 0))
+        assert plan.dynamic is not None
+        target_id = ids[text]
+        assert target_id is not None
+        return plan.dynamic.function(SampleContext(time, 0, window, target_id, 0))
 
     assert at("A", 999) == at("B", 1200) == DynamicProperties()
     assert at("A", 1200).offset_y == -24

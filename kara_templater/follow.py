@@ -10,18 +10,20 @@ class Follow:
     opacity: bool = True
     fade: bool = True
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if any(
             type(getattr(self, name)) is not bool
             for name in ("position", "scale", "opacity", "fade")
         ):
             raise TypeError("follow switches must be bool")
 
-    def allows(self, property):
+    def allows(self, property: str) -> bool:
         return (
             self.position
             if property in {"offset_x", "offset_y"}
-            else getattr(self, property)
+            else {"scale": self.scale, "opacity": self.opacity, "fade": self.fade}[
+                property
+            ]
         )
 
 

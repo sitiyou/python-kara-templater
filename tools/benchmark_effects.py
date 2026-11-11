@@ -75,18 +75,22 @@ def effect(kind):
             yield Lyrics(*children)
 
         def configure(self):
-            options = {}
+            tracks = None
+            overlap = "union"
+            track_styles = ()
             if kind in {"union4", "priority4"}:
-                options["tracks"] = self.parallel
-                options["overlap"] = "priority" if kind == "priority4" else "union"
+                tracks = self.parallel
+                overlap = "priority" if kind == "priority4" else "union"
                 if kind == "priority4":
-                    options["track_styles"] = tuple(
+                    track_styles = tuple(
                         TrackStyle(f"main-{ui}/{i}", red if i % 2 else blue, i)
                         for ui, unit in enumerate(self.source.source.units)
                         if unit.segments
                         for i in range(4)
                     )
-            self.text.sweep(fill=red.fill, **options)
+            self.text.sweep(
+                fill=red.fill, tracks=tracks, overlap=overlap, track_styles=track_styles
+            )
             if kind == "colors" and len(self.characters):
                 # Source selections have the same cluster-boundary validation
                 # as author scripts; do not change shaping to force a split.
@@ -182,6 +186,7 @@ def main():
     ):
         timings = []
         estimates = []
+        result = None
         for _ in range(args.runs):
             started = time.perf_counter()
             result = render_karaoke(
@@ -196,6 +201,7 @@ def main():
             )
             elapsed = time.perf_counter() - started
             timings.append(elapsed * 1000)
+        assert result is not None
         results[kind] = {
             "median_ms": statistics.median(timings),
             "runs_ms": timings,

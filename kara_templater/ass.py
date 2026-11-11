@@ -5,14 +5,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 
-class Record(dict):
-    def __getattr__(self, name):
+class Record(dict[str, object]):
+    # Standard document metadata, in addition to arbitrary ASS metadata keys.
+    res_x: int
+    res_y: int
+    video_x_correct_factor: float
+
+    def __getattr__(self, name: str) -> object:
         try:
             return self[name]
         except KeyError as error:
             raise AttributeError(name) from error
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: object) -> None:
         self[name] = value
 
 
@@ -76,14 +81,14 @@ class Style:
     fields: dict[str, str] = field(default_factory=dict, repr=False)
 
     @property
-    def margin_t(self):
+    def margin_t(self) -> int:
         return self.margin_v
 
     @property
-    def margin_b(self):
+    def margin_b(self) -> int:
         return self.margin_v
 
-    def serialize(self):
+    def serialize(self) -> str:
         defaults = dict(
             zip(
                 STYLE_FORMAT.split(", "),
@@ -112,6 +117,7 @@ class Style:
                     "10",
                     "1",
                 ],
+                strict=True,
             )
         )
         values = self.fields or defaults
@@ -141,14 +147,14 @@ class Line:
     fields: dict[str, str] = field(default_factory=dict, repr=False)
 
     @property
-    def margin_t(self):
+    def margin_t(self) -> int:
         return self.margin_v
 
     @property
-    def margin_b(self):
+    def margin_b(self) -> int:
         return self.margin_v
 
-    def serialize(self):
+    def serialize(self) -> str:
         values = self.fields or dict.fromkeys(EVENT_FORMAT.split(", "), "")
         result = []
         for key, value in values.items():
@@ -164,7 +170,7 @@ class Line:
         return ("Comment: " if self.comment else "Dialogue: ") + ",".join(result)
 
 
-def number(value):
+def number[T](value: T) -> T | int:
     return int(value) if isinstance(value, float) and value.is_integer() else value
 
 
@@ -172,7 +178,7 @@ def _parse_record(cls, text, columns, names):
     values = text.split(",", len(columns) - 1)
     if len(values) != len(columns):
         raise ValueError(f"Expected {len(columns)} fields: {text!r}")
-    fields = dict(zip(columns, values))
+    fields = dict(zip(columns, values, strict=True))
     obj = cls(fields=fields)
     for key, value in fields.items():
         attr = names.get(key.lower(), key.lower())
@@ -236,7 +242,9 @@ class Document:
                 records.append(line)
             else:
                 records.append(raw)
-        x, y = int(meta.get("playresx", 0)), int(meta.get("playresy", 0))
+        raw_x, raw_y = meta.get("playresx", 0), meta.get("playresy", 0)
+        assert isinstance(raw_x, (str, int)) and isinstance(raw_y, (str, int))
+        x, y = int(raw_x), int(raw_y)
         if not x and not y:
             x, y = 384, 288
         elif not x:
@@ -252,18 +260,18 @@ class Document:
         return cls.parse(Path(path).read_text(encoding="utf-8-sig"))
 
     @property
-    def styles(self):
+    def styles(self) -> dict[str, Style]:
         return {x.name: x for x in self.records if isinstance(x, Style)}
 
     @property
-    def lines(self):
+    def lines(self) -> list[Line]:
         return [x for x in self.records if isinstance(x, Line)]
 
-    def dumps(self):
+    def dumps(self) -> str:
         return (
             "\n".join(x if isinstance(x, str) else x.serialize() for x in self.records)
             + "\n"
         )
 
-    def save(self, path: str | Path):
+    def save(self, path: str | Path) -> None:
         Path(path).write_text(self.dumps(), encoding="utf-8-sig")

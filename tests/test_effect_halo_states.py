@@ -1,4 +1,5 @@
 from dataclasses import replace
+from typing import Literal
 
 import pytest
 from effect_values import properties_at, same_effect, sampled_layers
@@ -24,7 +25,7 @@ class States(Effect):
         rule("halo", fill=RED, opacity=0.3),
         rule("halo:sung", fill=BLUE, opacity=0.8),
     )
-    clip = "none"
+    clip: Literal["none", "sung"] = "none"
 
     def compose(self):
         yield Lyrics(Body(), Halo(clip=self.clip, width=4, blur=6))
@@ -68,8 +69,8 @@ def test_halo_direct_sung_override_and_unset_use_same_cascade():
     class Direct(States):
         def configure(self):
             super().configure()
-            self.query_one("halo").style.sung.fill = RED
-            self.query_one("halo").style.sung.fill = UNSET
+            self.query_one(Halo).style.sung.fill = RED
+            self.query_one(Halo).style.sung.fill = UNSET
 
     expected, _, _ = build(States())
     actual, _, _ = build(Direct())
@@ -80,8 +81,8 @@ def test_identical_states_keep_full_halo_without_masks():
     class Equal(States):
         def configure(self):
             super().configure()
-            self.query_one("halo").style.sung.fill = RED
-            self.query_one("halo").style.sung.opacity = 0.3
+            self.query_one(Halo).style.sung.fill = RED
+            self.query_one(Halo).style.sung.opacity = 0.3
 
     plan, _, _ = build(Equal())
     assert halos(plan) and all(
@@ -94,7 +95,7 @@ def test_opacity_animation_overrides_active_states_then_restores_state_opacity(k
     class Animated(States):
         def configure(self):
             super().configure()
-            self.query_one("halo").on_singing(opacity=(0.2, 0.6), keep=keep)
+            self.query_one(Halo).on_singing(opacity=(0.2, 0.6), keep=keep)
 
     plan, _, _ = build(Animated(), segments=(Segment(1000, 2000),))
     sampled = sampled_layers(plan)
@@ -193,9 +194,9 @@ def test_halo_explicit_color_inheritance_uses_each_attachment_state(declaration)
             self.characters[1].style.sung.fill = CYAN
             self.rubies.style.sung.fill = GREEN
             if declaration == "sung_only":
-                self.query_one("halo").style.sung.fill = INHERIT
+                self.query_one(Halo).style.sung.fill = INHERIT
             elif declaration == "unset":
-                self.query_one("halo").style.fill = UNSET
+                self.query_one(Halo).style.fill = UNSET
             self.text.sweep()
 
     plan, _, _ = build(Inherited())

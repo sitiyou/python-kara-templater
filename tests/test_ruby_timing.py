@@ -41,6 +41,7 @@ def test_ruby_coordinate_mapping_keeps_threshold_arrivals(threshold, expected, i
     layout = layout_line(source, style=style, ruby_style=replace(style, fontsize=20))
     body = layout.units[0].box
     ruby = layout.units[0].segments[0].ruby
+    assert ruby is not None
     curve = ProgressCurve(((0, 0), (0.2, 0.5), (0.6, 0.5), (1, 1)))
     starts = []
     for name, box in (("body", body), ("ruby", ruby)):
@@ -153,6 +154,7 @@ def test_ruby_affine_mapping_preserves_pauses_rounds_and_exit(repeat, ending):
         ):
             for progress in (0.1, 0.5, 0.9):
                 body_x = segment.left + (segment.right - segment.left) * progress
+                assert segment.ruby is not None
                 ruby_x = segment.ruby.left + segment.ruby.width * progress
                 expected = (
                     after

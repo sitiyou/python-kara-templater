@@ -2,6 +2,7 @@ from dataclasses import replace
 
 import pytest
 from effect_values import properties_at
+from source_assertions import require_origin
 from test_effect_halo import build
 from test_effect_properties import value
 
@@ -159,7 +160,7 @@ def test_empty_selection_validates_but_registers_no_rules():
     effect, _ = prepare(Effect())
     effect.syllables[1].segments.on_singing(pulse=1.2)
     assert not effect._motion_rules
-    with pytest.raises(ValueError, match="unsupported animated property"):
+    with pytest.raises(TypeError, match="unknown"):
         effect.syllables[1].segments.on_singing(unknown=1)
 
 
@@ -184,7 +185,7 @@ def test_segment_timing_error_identifies_the_selected_reading():
 
     with pytest.raises(ValueError) as error:
         build(Reversed())
-    assert error.value.origin.sources == (SourceRef("line", 0, 1),)
+    assert require_origin(error.value).sources == (SourceRef("line", 0, 1),)
 
 
 def test_ruby_selection_filters_absent_readings_and_retains_source_identity():

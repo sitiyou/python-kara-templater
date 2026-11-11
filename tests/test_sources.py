@@ -49,7 +49,7 @@ def test_references_survive_item_reordering_and_presentation_changes():
     original = dict(walk_karaoke((first, second)))
     changed = replace(first, style="Other", window=DisplayWindow(0, 2000))
     assert dict(walk_karaoke((second, changed))) == original
-    for ref, source in walk_karaoke((changed,)):
+    for ref, _source in walk_karaoke((changed,)):
         assert ref.resolve(changed) is original[ref]
     with pytest.raises(ValueError, match="belongs to"):
         SourceRef(first.id).resolve(second)
@@ -70,5 +70,6 @@ def test_ambiguous_ids_and_unknown_levels_fail_before_visiting():
     with pytest.raises(ValueError, match="duplicate"):
         next(walk_karaoke((first, first)))
     with pytest.raises(ValueError, match="level"):
-        list(walk_karaoke((), level="character"))
+        # Unsupported traversal levels must also fail at runtime.
+        list(walk_karaoke((), level="character"))  # ty: ignore[no-matching-overload]
     assert list(walk_karaoke(())) == []

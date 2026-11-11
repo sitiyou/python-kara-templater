@@ -4,6 +4,7 @@ from dataclasses import replace
 
 from kara_templater import DynamicProperties, Paint, SampleContext, prepare_sampling
 from kara_templater.ass_output import _animated_opacity, _offset, _transform
+from kara_templater.properties import AnimatedProperties, PropertyValue
 
 
 def properties_at(plan, layer, time):
@@ -51,3 +52,18 @@ def sampled_layers(plan, layers=None):
 def same_effect(layer):
     """Compare layers from different effect classes, retaining source metadata."""
     return replace(layer, origin=replace(layer.origin, effect="comparison"))
+
+
+def animated_property(name: str, value: PropertyValue) -> AnimatedProperties:
+    """Construct a checked single-property declaration for parameterized tests."""
+    match name:
+        case "scale":
+            return {"scale": value}
+        case "opacity":
+            return {"opacity": value}
+        case "offset_x":
+            return {"offset_x": value}
+        case "offset_y":
+            return {"offset_y": value}
+        case _:
+            raise ValueError(name)

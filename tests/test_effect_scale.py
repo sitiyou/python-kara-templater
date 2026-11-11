@@ -1,6 +1,7 @@
 from math import pi, sin
 
 import pytest
+from source_assertions import require_origin
 from test_effect_halo import build
 
 from kara_templater import (
@@ -68,7 +69,8 @@ def test_lambda_scale_is_deferred_and_transforms_all_followers_once():
     mid = [
         layer
         for layer in sampled
-        if layer.active_window.start_ms <= 1700 < layer.active_window.end_ms
+        if layer.active_window is not None
+        and layer.active_window.start_ms <= 1700 < layer.active_window.end_ms
     ]
     assert mid
     for layer in mid:
@@ -230,7 +232,10 @@ def test_zero_duration_native_scale_is_an_instant_switch(keep):
 def test_static_source_does_not_run_scale_function():
     class Static(Scaling):
         def configure(self):
-            self.syllables.on_singing(scale=lambda p: 1 / 0)
+            # A static source must never evaluate this deliberately failing callback.
+            self.syllables.on_singing(
+                scale=lambda p: 1 / 0  # ty: ignore[division-by-zero]
+            )
 
     plan, _, _ = build(Static(), segments=())
     assert plan.dynamic is None
@@ -247,7 +252,7 @@ def test_invalid_function_scale_is_diagnosed_at_sample_source():
         OutputCapabilityError, match="scale must be positive"
     ) as failure:
         prepare_sampling(plan.layers, plan.dynamic).evaluate()
-    assert failure.value.origin.sources[0].item_id == "line"
+    assert require_origin(failure.value).sources[0].item_id == "line"
 
 
 def test_configurable_linear_return_curve_uses_native_keyframes():
@@ -335,7 +340,10 @@ def test_nonlinear_keyframe_rates_are_deferred_and_keep_endpoint():
     plan, _, _ = build(Curved())
     sampled = prepare_sampling(plan.layers, plan.dynamic).evaluate()
     final = [
-        l for l in sampled if l.active_window.start_ms <= 2800 < l.active_window.end_ms
+        l
+        for l in sampled
+        if l.active_window is not None
+        and l.active_window.start_ms <= 2800 < l.active_window.end_ms
     ]
     assert final and all(l.animations[0].scale_at(2800) == 1.1 for l in final)
 

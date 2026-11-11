@@ -7,6 +7,7 @@ region edge. The output backend must validate whether it can realize them.
 from dataclasses import dataclass
 from itertools import pairwise
 from string import hexdigits
+from typing import Self
 
 from .timeline import HighlightTrack, Region, _finite
 
@@ -17,13 +18,13 @@ class Color:
     green: int
     blue: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for channel in (self.red, self.green, self.blue):
             if type(channel) is not int or not 0 <= channel <= 255:
                 raise ValueError("RGB channels must be integers in 0..255")
 
     @classmethod
-    def hex(cls, value: str):
+    def hex(cls, value: str) -> Self:
         if (
             not isinstance(value, str)
             or len(value) != 7
@@ -44,7 +45,7 @@ class Glow:
     border: float = 0
     opacity: float = 1
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _appearance_values(self.color, self.border, self.opacity)
         _finite(self.blur, "blur")
         if self.blur < 0:
@@ -68,7 +69,7 @@ class Paint:
     opacity: float = 1
     glow: Glow | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _appearance_values(self.fill, self.border, self.opacity)
         if not isinstance(self.outline, Color) or (
             self.glow is not None and not isinstance(self.glow, Glow)
@@ -82,7 +83,7 @@ class TrackPaint:
     paint: Paint
     priority: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if type(self.priority) is not int:
             raise ValueError("track priority must be an integer")
 

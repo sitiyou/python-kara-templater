@@ -70,9 +70,9 @@ def test_color_validation_at_declaration_boundary(value):
 
 
 def test_colors_share_existing_color_type():
-    assert RED == Color.hex("#ff0000")
-    assert GREEN == Color.hex("#00ff00")
-    assert BLUE == Color.hex("#0000ff")
+    assert Color.hex("#ff0000") == RED
+    assert Color.hex("#00ff00") == GREEN
+    assert Color.hex("#0000ff") == BLUE
     assert rule("body", fill=RED) == rule("body", fill="#ff0000")
 
 

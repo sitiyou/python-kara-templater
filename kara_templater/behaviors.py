@@ -1,18 +1,33 @@
 """Resolve author property rules to existing visual targets before expansion."""
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, replace
+from itertools import pairwise
+from typing import TYPE_CHECKING, Literal, Self, TypedDict
+
+if TYPE_CHECKING:
+    from .effect import Component
+    from .targets import PreparedLyrics
 
 from .animation import HighlightEnter, Pulse, ScaleAnimation, plan_pulses
 from .ass_output import OutputCapabilityError
 from .characters import TextRange, _clusters, layout_characters, select_characters
 from .follow import Follow
 from .lowering import native_motions
+from .model import KaraokeLine, Segment
 from .properties import (
+    AnimatedProperties,
     BackRate,
+    CompositionMode,
     Contextual,
     Keyframes,
+    ProgressMode,
     PropertyContext,
     PropertyTarget,
+    PropertyValue,
+    TimeInterval,
     Transition,
     expression,
     linear,
@@ -23,7 +38,7 @@ from .properties import (
     there_and_back,
 )
 from .sources import EventOrigin, SourceRef, _source_context
-from .stylesheet import SelectionStyle, Selector
+from .stylesheet import UNSET, SelectionStyle, Selector, StyleKeyword
 from .timeline import DisplayWindow, _finite
 
 
@@ -32,7 +47,7 @@ class MotionRule:
     units: tuple[int, ...]
     mode: str
     value: object
-    during: tuple
+    during: TimeInterval
     keep: bool = False
     ranges: tuple[TextRange, ...] | None = None
     property: str = "scale"
@@ -43,19 +58,23 @@ class MotionRule:
 
 
 class TargetSelection:
+    units: tuple[int, ...]
+    mode: str
+    ranges: tuple[TextRange, ...] | None
+
     def __init__(
         self,
-        source,
-        rules,
+        source: KaraokeLine,
+        rules: list[MotionRule],
         *,
-        item_id,
-        style_targets=None,
-        query_target=None,
-        units=None,
-        mode="syllable",
-        ranges=None,
-        segments=None,
-    ):
+        item_id: str,
+        style_targets: Callable[[TargetSelection], tuple[Component, ...]] | None = None,
+        query_target: Callable[[TargetSelection], Component] | None = None,
+        units: Iterable[int] | None = None,
+        mode: str = "syllable",
+        ranges: tuple[TextRange, ...] | None = None,
+        segments: tuple[tuple[int, int], ...] | None = None,
+    ) -> None:
         self.source = source
         self.item_id = item_id
         self._style_targets = style_targets
@@ -66,16 +85,16 @@ class TargetSelection:
         self.ranges = ranges
         self._segments = segments
 
-    def _style_nodes(self):
+    def _style_nodes(self) -> tuple[Component, ...]:
         if self._style_targets is None:
             raise ValueError("selection is not bound to author styles")
         return self._style_targets(self)
 
     @property
-    def style(self):
+    def style(self) -> SelectionStyle:
         return SelectionStyle(tuple(node.style for node in self._style_nodes()))
 
-    def add_class(self, *names):
+    def add_class(self, *names: str) -> Self:
         # Validate even empty selections, without partially changing targets.
         if any(
             not isinstance(n, str) or not n or any(c.isspace() for c in n)
@@ -85,6 +104,21 @@ class TargetSelection:
         for node in self._style_nodes():
             node.add_class(*names)
         return self
+
+    @property
+    def _segment_members(self) -> tuple[tuple[int, int], ...]:
+        assert self._segments is not None
+        return self._segments
+
+    @property
+    def _character_members(self) -> tuple[TextRange, ...]:
+        if self.ranges is not None:
+            return self.ranges
+        return tuple(
+            TextRange(ui, start, end)
+            for ui in self.units
+            for start, end, _ in _clusters(self.source.units[ui].text)
+        )
 
     @property
     def _members(self):
@@ -102,18 +136,18 @@ class TargetSelection:
             for start, end, _ in _clusters(self.source.units[ui].text)
         )
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[TargetSelection]:
         return (self[index] for index in range(len(self)))
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._members)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index: int | slice) -> TargetSelection:
         members = self._members[index]
         members = members if isinstance(index, slice) else (members,)
         return self._with_members(members)
 
-    def _with_members(self, members):
+    def _with_members(self, members) -> TargetSelection:
         if self.mode in {"segment", "ruby"}:
             return TargetSelection(
                 self.source,
@@ -146,7 +180,7 @@ class TargetSelection:
             mode=self.mode,
         )
 
-    def query(self, selector):
+    def query(self, selector: str) -> TargetSelection:
         """Filter this source collection without inspecting or creating output layers."""
         parsed = Selector.parse(selector)
         if self._query_target is None:
@@ -158,7 +192,7 @@ class TargetSelection:
         )
         return self._with_members(members)
 
-    def query_one(self, selector):
+    def query_one(self, selector: str) -> TargetSelection:
         found = self.query(selector)
         if len(found) != 1:
             raise ValueError(
@@ -167,18 +201,18 @@ class TargetSelection:
         return found
 
     @property
-    def text(self):
+    def text(self) -> str:
         if self.mode == "ruby":
             return "".join(self.readings)
         if self.mode == "character":
             return "".join(
                 self.source.units[r.unit_index].text[r.start : r.end]
-                for r in self._members
+                for r in self._character_members
             )
         return "".join(self.source.units[i].text for i in self.units)
 
     @property
-    def segments(self):
+    def segments(self) -> TargetSelection:
         """Singing segments, in source order; static units contribute no members."""
         if self.mode == "segment":
             return self
@@ -214,7 +248,7 @@ class TargetSelection:
         )
 
     @property
-    def rubies(self):
+    def rubies(self) -> TargetSelection:
         """Nonempty source readings, independently configurable before layout."""
         if self.mode == "ruby":
             return self
@@ -235,7 +269,7 @@ class TargetSelection:
         )
 
     @property
-    def characters(self):
+    def characters(self) -> TargetSelection:
         if self.mode in {"segment", "ruby"}:
             raise ValueError("select characters from syllables, not temporal segments")
         if self.mode == "character":
@@ -251,22 +285,22 @@ class TargetSelection:
         )
 
     @property
-    def _selected_units(self):
+    def _selected_units(self) -> tuple[int, ...]:
         if self.mode == "character":
-            return tuple(dict.fromkeys(r.unit_index for r in self._members))
+            return tuple(dict.fromkeys(r.unit_index for r in self._character_members))
         return self.units
 
     @property
-    def source_refs(self):
+    def source_refs(self) -> tuple[SourceRef, ...]:
         if self.mode in {"segment", "ruby"}:
             return tuple(SourceRef(self.item_id, ui, si) for ui, si in self._members)
         return tuple(SourceRef(self.item_id, ui) for ui in self._selected_units)
 
     @property
-    def intervals(self):
+    def intervals(self) -> tuple[tuple[int, int], ...]:
         """Original singing intervals, without coalescing gaps or zero durations."""
         members = (
-            self._members
+            self._segment_members
             if self.mode in {"segment", "ruby"}
             else (
                 (ui, si)
@@ -283,22 +317,26 @@ class TargetSelection:
         )
 
     @property
-    def readings(self):
+    def readings(self) -> tuple[str, ...]:
         if self.mode not in {"segment", "ruby"}:
             raise ValueError("readings requires a segment selection")
         return tuple(
-            self.source.units[ui].segments[si].ruby for ui, si in self._members
+            self.source.units[ui].segments[si].ruby for ui, si in self._segment_members
         )
 
     def on_singing(
         self,
         *,
-        pulse=None,
-        keep=False,
-        compose="replace",
-        progress="envelope",
-        **properties,
-    ):
+        pulse: float | None = None,
+        keep: bool = False,
+        compose: CompositionMode = "replace",
+        progress: ProgressMode = "envelope",
+        scale: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        opacity: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        offset_x: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        offset_y: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+    ) -> Self:
+        properties = _animated_properties(scale, opacity, offset_x, offset_y)
         if pulse is not None:
             if "scale" in properties:
                 raise ValueError("pulse and scale write the same property")
@@ -314,16 +352,20 @@ class TargetSelection:
     def on_highlight(
         self,
         *,
-        duration_ms="traversal",
-        threshold="enter",
-        tracks="first",
-        track_id=None,
-        retrigger=True,
-        pulse=None,
-        keep=False,
-        compose="replace",
-        **properties,
-    ):
+        duration_ms: int | Literal["traversal"] = "traversal",
+        threshold: Literal["enter", "center", "complete"] = "enter",
+        tracks: Literal["first", "each", "named"] = "first",
+        track_id: str | None = None,
+        retrigger: bool = True,
+        pulse: float | None = None,
+        keep: bool = False,
+        compose: CompositionMode = "replace",
+        scale: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        opacity: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        offset_x: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        offset_y: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+    ) -> Self:
+        properties = _animated_properties(scale, opacity, offset_x, offset_y)
         if self.mode != "character":
             raise ValueError("on_highlight requires a character selection")
         if pulse is not None:
@@ -345,15 +387,19 @@ class TargetSelection:
     def animate(
         self,
         *,
-        during,
-        keep=False,
-        compose="replace",
-        progress="envelope",
-        **properties,
-    ):
+        during: TimeInterval,
+        keep: bool = False,
+        compose: CompositionMode = "replace",
+        progress: ProgressMode = "envelope",
+        scale: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        opacity: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        offset_x: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+        offset_y: PropertyValue | Literal[StyleKeyword.UNSET] = UNSET,
+    ) -> Self:
+        properties = _animated_properties(scale, opacity, offset_x, offset_y)
         return self._add(properties, during, keep, compose, progress, None)
 
-    def _add(self, properties, during, keep, compose, progress, arrival):
+    def _add(self, properties, during, keep, compose, progress, arrival) -> Self:
         if self.mode in {"segment", "ruby"}:
             # Each segment owns a separate clock, even when a selection includes
             # multiple readings of the same unit. Validate before committing.
@@ -398,6 +444,24 @@ class TargetSelection:
         return self
 
 
+def _animated_properties(
+    scale: PropertyValue | Literal[StyleKeyword.UNSET],
+    opacity: PropertyValue | Literal[StyleKeyword.UNSET],
+    offset_x: PropertyValue | Literal[StyleKeyword.UNSET],
+    offset_y: PropertyValue | Literal[StyleKeyword.UNSET],
+) -> AnimatedProperties:
+    properties: AnimatedProperties = {}
+    if scale is not UNSET:
+        properties["scale"] = scale
+    if opacity is not UNSET:
+        properties["opacity"] = opacity
+    if offset_x is not UNSET:
+        properties["offset_x"] = offset_x
+    if offset_y is not UNSET:
+        properties["offset_y"] = offset_y
+    return properties
+
+
 def declare_properties(
     properties,
     *,
@@ -410,7 +474,7 @@ def declare_properties(
     mode="halo",
     ranges=None,
     segments=None,
-):
+) -> tuple[MotionRule, ...]:
     if len(during) != 2:
         raise ValueError("during requires start and end")
     if type(keep) is not bool:
@@ -421,7 +485,7 @@ def declare_properties(
         raise ValueError("singing progress requires the source singing interval")
     if not properties:
         raise ValueError("animation needs at least one property")
-    pending = []
+    pending: list[MotionRule] = []
     for name, value in properties.items():
         if name not in _BASE or (name == "glow_blur" and mode != "halo"):
             raise ValueError(f"unsupported animated property {name!r}")
@@ -460,8 +524,9 @@ _BASE = {
 }
 
 
-def _validate_property(name, value):
+def _validate_property(name: str, value: object) -> float:
     _finite(value, f"{name} result")
+    assert isinstance(value, (float, int))
     if name == "scale" and value <= 0:
         raise ValueError("scale must be positive")
     if name == "opacity" and not 0 <= value <= 1:
@@ -473,20 +538,20 @@ def _validate_property(name, value):
 
 @dataclass(frozen=True)
 class BoundProperty:
-    interval: tuple[int, int]
+    interval: tuple[float, float]
     value: object
     keep: bool
     pivot: tuple[float, float]
-    points: tuple | None
-    frames: tuple | None = None
+    points: tuple[tuple[float, float], ...] | None
+    frames: tuple[tuple[float, float, Callable[[float], float]], ...] | None = None
     property: str = "scale"
     compose: str = "replace"
     progress: str = "envelope"
-    segments: tuple = ()
+    segments: tuple[Segment, ...] = ()
     target: PropertyTarget | None = None
     window: DisplayWindow | None = None
 
-    def at(self, time):
+    def at(self, time: float) -> float | None:
         start, end = self.interval
         if time < start or (time >= end and not self.keep):
             return _BASE[self.property]
@@ -512,18 +577,22 @@ class BoundProperty:
             if time >= end:
                 result = self.frames[-1][1]
             else:
-                for (a, av, rate), (b, bv, _) in zip(self.frames, self.frames[1:]):
+                for (a, av, rate), (b, bv, _) in pairwise(self.frames):
                     if a <= time <= b:
                         fraction = rate((time - a) / (b - a))
                         _finite(fraction, "keyframe rate")
                         result = av + (bv - av) * fraction
                         break
+                else:
+                    raise ValueError("time is outside keyframe intervals")
         else:
             result = self.value(p) if callable(self.value) else self.value
         return _validate_property(self.property, result)
 
 
-def bind_property(rule, segments, window, pivot, *, interval=None, target=None):
+def bind_property(
+    rule, segments, window, pivot, *, interval=None, target=None
+) -> BoundProperty | None:
     interval = (
         resolve_interval(rule.during, segments, window)
         if interval is None
@@ -580,8 +649,11 @@ def bind_property(rule, segments, window, pivot, *, interval=None, target=None):
     )
 
 
-def resolve_behaviors(prepared, context, rules, *, ruby_follow, item_id):
-    targets, sampled, schedules = [], {}, {}
+def resolve_behaviors(
+    prepared: PreparedLyrics, context, rules, *, ruby_follow, item_id
+) -> tuple[PreparedLyrics, dict[str, tuple[BoundProperty, ...]]]:
+    targets, schedules = [], {}
+    sampled: dict[str, tuple[BoundProperty, ...]] = {}
     # Source candidates may become a single shaped ligature. Validate selected
     # coverage against layout and bind to its real clusters, never silently drop
     # a rule because its source candidate has no exact visual counterpart.
@@ -742,7 +814,7 @@ def resolve_behaviors(prepared, context, rules, *, ruby_follow, item_id):
     return replace(prepared, targets=tuple(targets)), sampled
 
 
-def check_motion_conflicts(bound, window, origin, identity):
+def check_motion_conflicts(bound, window, origin, identity) -> None:
     for index, motion in enumerate(bound):
         for previous in bound[:index]:
             if previous.property != motion.property:
@@ -766,8 +838,17 @@ def check_motion_conflicts(bound, window, origin, identity):
                 )
 
 
-def sample_properties(motions, time):
-    result = {}
+class PropertySamples(TypedDict, total=False):
+    scale: float
+    opacity: float
+    offset_x: float
+    offset_y: float
+    glow_blur: float | None
+    pivot: tuple[float, float]
+
+
+def sample_properties(motions, time) -> PropertySamples:
+    result: PropertySamples = {}
     for name, base in _BASE.items():
         active = [
             m
@@ -788,7 +869,18 @@ def sample_properties(motions, time):
             value = sum(m.at(time) for m in active)
         else:
             value = active[0].at(time)
-        result[name] = _validate_property(name, value)
+        checked = _validate_property(name, value)
+        # Enumerate supported keys so sampled kwargs remain statically typed.
+        if name == "scale":
+            result["scale"] = checked
+        elif name == "opacity":
+            result["opacity"] = checked
+        elif name == "offset_x":
+            result["offset_x"] = checked
+        elif name == "offset_y":
+            result["offset_y"] = checked
+        elif name == "glow_blur":
+            result["glow_blur"] = checked
         if name == "scale":
             result["pivot"] = active[0].pivot
     return result

@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 import pytest
+from source_assertions import require_origin
 
 from kara_templater import WHITE, Body, Effect, Lyrics, Ruby
 from kara_templater._compiler import _compile_targets, _prepare_targets
@@ -177,7 +178,7 @@ def test_pulse_planning_failure_identifies_unit_and_independent_tracks(incomplet
         ValueError, match="incomplete traversal" if incomplete else "scale conflict"
     ) as caught:
         render_karaoke(document(), (lyric,), effect=custom)
-    origin = caught.value.origin
+    origin = require_origin(caught.value)
     assert origin.sources == (SourceRef(lyric.id, 1),)
     assert set(origin.track_ids) == ({"main"} if incomplete else {"main", "echo"})
     assert origin.sources[0].resolve(lyric) is lyric.source.units[1]
@@ -242,9 +243,12 @@ def test_document_validation_keeps_item_origin_and_precedes_sampling(failure):
     source = document()
     original = source.dumps()
     with pytest.raises((ValueError, TypeError)) as caught:
-        render_karaoke(source, (lyric,), effect=effect)
+        # Deliberately pass an invalid builder to verify runtime diagnostics.
+        render_karaoke(
+            source, (lyric,), effect=effect  # ty: ignore[invalid-argument-type]
+        )
     assert not calls
-    origin = caught.value.origin
+    origin = require_origin(caught.value)
     assert origin.sources[0].item_id == lyric.id
     if failure == "layer_style":
         assert origin.sources == (SourceRef(lyric.id, 0, 0),)
@@ -270,8 +274,10 @@ def test_early_layout_and_ruby_errors_resolve_precise_source_locations():
     )
     with pytest.raises(LayoutCapabilityError) as caught:
         render_karaoke(source, (lyric,), effect=PlainLyrics())
-    assert caught.value.origin.sources == (SourceRef(lyric.id, 1),)
-    assert caught.value.origin.sources[0].resolve(lyric) is lyric.source.units[1]
+    assert require_origin(caught.value).sources == (SourceRef(lyric.id, 1),)
+    assert (
+        require_origin(caught.value).sources[0].resolve(lyric) is lyric.source.units[1]
+    )
     assert len(caught.value.__notes__) == 1
 
     lyric = replace(
@@ -292,12 +298,12 @@ def test_early_layout_and_ruby_errors_resolve_precise_source_locations():
     recipe = Ambiguous()
     with pytest.raises(ValueError, match="ambiguous body colors") as caught:
         render_karaoke(source, (lyric,), effect=recipe)
-    assert caught.value.origin.sources == (SourceRef(lyric.id, 1, 0),)
+    assert require_origin(caught.value).sources == (SourceRef(lyric.id, 1, 0),)
     assert (
-        caught.value.origin.sources[0].resolve(lyric)
+        require_origin(caught.value).sources[0].resolve(lyric)
         is lyric.source.units[1].segments[0]
     )
-    assert caught.value.origin.effect == "Ambiguous"
+    assert require_origin(caught.value).effect == "Ambiguous"
     assert len(caught.value.__notes__) == 1
     assert source.dumps() == unchanged
 
@@ -318,7 +324,7 @@ def test_color_range_failure_and_custom_builder_keep_exception_identity():
 
     with pytest.raises(LayoutCapabilityError, match="outside text") as caught:
         render_karaoke(document(), (item(),), effect=recipe)
-    assert caught.value.origin.sources == (SourceRef(item().id, 0),)
+    assert require_origin(caught.value).sources == (SourceRef(item().id, 0),)
     failure = TypeError("custom configuration failed")
 
     def custom(target, context):
@@ -327,8 +333,8 @@ def test_color_range_failure_and_custom_builder_keep_exception_identity():
     with pytest.raises(TypeError, match="custom configuration") as caught:
         render_karaoke(document(), (item(),), effect=custom)
     assert caught.value is failure
-    assert failure.origin.sources == (SourceRef(item().id),)
-    assert failure.origin.effect.endswith("custom")
+    assert require_origin(failure).sources == (SourceRef(item().id),)
+    assert require_origin(failure).effect.endswith("custom")
 
 
 def test_generated_event_origins_keep_segments_ruby_and_dynamic_sources():

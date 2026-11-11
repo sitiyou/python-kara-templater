@@ -54,7 +54,7 @@ class LayeredGlow(Effect):
             lead=24,
             tail=24,
         )
-        self.query_one("#sung").on_singing(opacity=(0.2, 0.8), keep=True)
+        self.query_one("#sung", Halo).on_singing(opacity=(0.2, 0.8), keep=True)
         self.text.fade(in_ms=800, out_ms=200)
         if guide:
             self.ruby.hide()

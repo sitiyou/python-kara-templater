@@ -52,7 +52,7 @@ class WholeGlow(Effect):
     def configure(self):
         self.sampling = SamplingSettings(step_ms=self.step_ms)
         self.text.sweep(fill="#28dcff")
-        self.query_one("#whole").on_singing(
+        self.query_one("#whole", Halo).on_singing(
             opacity=(self.initial_opacity, self.final_opacity),
             keep=True,
         )

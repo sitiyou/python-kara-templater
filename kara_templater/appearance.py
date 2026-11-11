@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 
 from .characters import DrawableCharacter, TextRange, select_characters
 from .composition import Paint
+from .model import LaidOutLine
 from .sources import _source_location
 
 
@@ -23,7 +24,7 @@ class ColorSpan:
     after: Paint | None = None
     priority: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if type(self.priority) is not int:
             raise ValueError("span priority must be an integer")
         if self.before is None and self.after is None:
@@ -88,7 +89,7 @@ class RubyPaint:
 
 
 def resolve_ruby_paints(
-    layout,
+    layout: LaidOutLine,
     characters: tuple[CharacterPaint, ...],
     *,
     overrides: tuple[RubyPaint, ...] = (),

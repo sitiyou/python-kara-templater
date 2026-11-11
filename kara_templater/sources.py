@@ -3,7 +3,7 @@
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, overload
 
 from .model import KaraokeLine, Segment, TextUnit
 
@@ -18,9 +18,14 @@ def _source_location(unit_index, segment_index=None, *, track_ids=()):
         yield
     except Exception as error:
         if not hasattr(error, "source_indices"):
-            error.source_indices = ((unit_index, segment_index),)
+            # Metadata is attached to arbitrary exception types.
+            setattr(  # noqa: B010
+                error, "source_indices", ((unit_index, segment_index),)
+            )
         if track_ids and not hasattr(error, "source_track_ids"):
-            error.source_track_ids = tuple(dict.fromkeys(track_ids))
+            setattr(  # noqa: B010
+                error, "source_track_ids", tuple(dict.fromkeys(track_ids))
+            )
         raise
 
 
@@ -42,7 +47,8 @@ def _source_context(origin):
                     origin.effect,
                     track_ids,
                 )
-            error.origin = origin
+            # Preserve the original exception type and traceback.
+            setattr(error, "origin", origin)  # noqa: B010
             error.add_note(
                 f"effect={origin.effect}; sources={origin.sources!r}; tracks={origin.track_ids!r}"
             )
@@ -61,7 +67,7 @@ class EventOrigin:
     effect: str
     track_ids: tuple[str, ...] = ()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "sources", tuple(self.sources))
         object.__setattr__(self, "track_ids", tuple(self.track_ids))
         if not self.sources or not all(isinstance(s, SourceRef) for s in self.sources):
@@ -84,7 +90,7 @@ class SourceRef:
     unit_index: int | None = None
     segment_index: int | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.item_id, str) or not self.item_id:
             raise ValueError("source reference needs a nonempty item id")
         for index in (self.unit_index, self.segment_index):
@@ -112,6 +118,24 @@ class SourceRef:
             raise ValueError(
                 f"source reference is outside item structure: {self!r}"
             ) from error
+
+
+@overload
+def walk_karaoke(
+    items: Iterable["KaraokeItem"], *, level: Literal["line"]
+) -> Iterator[tuple[SourceRef, KaraokeLine]]: ...
+
+
+@overload
+def walk_karaoke(
+    items: Iterable["KaraokeItem"], *, level: Literal["unit"]
+) -> Iterator[tuple[SourceRef, TextUnit]]: ...
+
+
+@overload
+def walk_karaoke(
+    items: Iterable["KaraokeItem"], *, level: Literal["segment"] = "segment"
+) -> Iterator[tuple[SourceRef, Segment]]: ...
 
 
 def walk_karaoke(

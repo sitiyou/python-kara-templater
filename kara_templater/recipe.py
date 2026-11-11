@@ -23,7 +23,7 @@ class KaraokeItem:
     ruby_style: str | None = None
     margins: tuple[int, int, int] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.id, str) or not self.id:
             raise ValueError("karaoke item needs a stable id")
         if self.margins is not None and (
@@ -55,7 +55,7 @@ class Sweep:
     edges: EdgeSweep = field(default_factory=EdgeSweep)
     completion: str = "release"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.completion not in {"release", "clip"}:
             raise ValueError("sweep completion must be release or clip")
 
@@ -66,7 +66,7 @@ class TrackStyle:
     after: Paint | None = None
     priority: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not self.track_id or type(self.priority) is not int:
             raise ValueError("track appearance needs an id and integer priority")
 
@@ -77,7 +77,7 @@ class RubyPolicy:
     offset_y: float = 0
     follow: str = "none"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         from .timeline import _finite
 
         _finite(self.offset_y, "ruby offset")

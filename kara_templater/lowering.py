@@ -1,11 +1,23 @@
 """Select native properties where known curves can be represented accurately."""
 
+from __future__ import annotations
+
+from collections.abc import Sequence
 from dataclasses import replace
 from itertools import pairwise
 from math import prod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .behaviors import BoundProperty
 
 from .animation import OffsetAnimation, OpacityAnimation
-from .ass_output import native_opacity_supported, quantize
+from .ass_output import TextLayer, native_opacity_supported, quantize
+
+
+def _points(motion: BoundProperty) -> tuple[tuple[float, float], ...]:
+    assert motion.points is not None
+    return motion.points
 
 
 def _point_value(points, time):
@@ -17,13 +29,15 @@ def _point_value(points, time):
     raise ValueError("time precedes known curve")
 
 
-def native_motions(motions, window_end):
+def native_motions(
+    motions: Sequence[BoundProperty], window_end: int
+) -> tuple[BoundProperty, ...] | None:
     """Return disjoint known linear rules, or None when sampling is needed."""
     if any(m.points is None for m in motions):
         return None
     if any(
         m.interval[0] != m.interval[1]
-        and any(quantize(a[0]) >= quantize(b[0]) for a, b in pairwise(m.points))
+        and any(quantize(a[0]) >= quantize(b[0]) for a, b in pairwise(_points(m)))
         for m in motions
     ):
         return None
@@ -32,7 +46,7 @@ def native_motions(motions, window_end):
     # Split at every activation, release and slope change. Determine the active
     # rules inside each interval, then evaluate both one-sided endpoints from
     # their known points. Never call author functions during native lowering.
-    knots = sorted({window_end, *(t for m in motions for t, _ in m.points)})
+    knots = sorted({window_end, *(t for m in motions for t, _ in _points(m))})
     if any(quantize(a) >= quantize(b) for a, b in pairwise(knots)):
         return None
     result = []
@@ -49,7 +63,8 @@ def native_motions(motions, window_end):
         elif active[0].compose not in {"add", "multiply"}:
             active = active[:1]
         endpoints = [
-            (_point_value(m.points, start), _point_value(m.points, end)) for m in active
+            (_point_value(_points(m), start), _point_value(_points(m), end))
+            for m in active
         ]
         multiply = active[0].compose == "multiply"
         if multiply:
@@ -74,7 +89,9 @@ def native_motions(motions, window_end):
     return tuple(result)
 
 
-def lower_offsets(layers, property_targets):
+def lower_offsets(
+    layers: tuple[TextLayer, ...], property_targets
+) -> tuple[TextLayer, ...]:
     window_ends = {}
     for layer in layers:
         identity = layer.animation_id or layer.source_id
@@ -92,7 +109,9 @@ def lower_offsets(layers, property_targets):
             if composed is None:
                 continue
             converted.add(name)
-            animations.extend(OffsetAnimation(m.points, axis, m.keep) for m in composed)
+            animations.extend(
+                OffsetAnimation(_points(m), axis, m.keep) for m in composed
+            )
         if converted:
             native[identity] = tuple(animations)
             remaining = tuple(m for m in motions if m.property not in converted)
@@ -110,7 +129,9 @@ def lower_offsets(layers, property_targets):
     )
 
 
-def lower_opacity(layers, property_targets, glow_targets):
+def lower_opacity(
+    layers: tuple[TextLayer, ...], property_targets, glow_targets
+) -> tuple[TextLayer, ...]:
     grouped = {}
     for layer in layers:
         grouped.setdefault(layer.animation_id or layer.source_id, []).append(layer)
@@ -132,7 +153,7 @@ def lower_opacity(layers, property_targets, glow_targets):
                     (
                         component,
                         tuple(
-                            OpacityAnimation(m.points, m.keep, component)
+                            OpacityAnimation(_points(m), m.keep, component)
                             for m in composed
                         ),
                     )

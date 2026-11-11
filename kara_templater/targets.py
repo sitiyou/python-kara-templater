@@ -49,9 +49,9 @@ def layout_targets(
     ruby_paints,
     pulses,
     effect_name,
-):
+) -> PreparedLyrics:
     layout = context.layout
-    result = []
+    result: list[VisualTarget] = []
 
     def emit(*args, **kwargs):
         result.append(VisualTarget(*args, **kwargs))

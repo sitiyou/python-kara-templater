@@ -2,6 +2,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 from effect_values import properties_at
+from source_assertions import require_origin
 from test_effect_halo import build
 
 from kara_templater import (
@@ -85,7 +86,7 @@ def test_contextual_halo_uses_own_target_and_validates_result_with_source():
 
     class HaloValue(Base):
         def configure(self):
-            self.query_one("halo").on_singing(
+            self.query_one(Halo).on_singing(
                 opacity=Contextual(lambda ctx: seen.append(ctx) or 2)
             )
 
@@ -94,7 +95,7 @@ def test_contextual_halo_uses_own_target_and_validates_result_with_source():
     with pytest.raises(OutputCapabilityError, match="opacity must be") as error:
         prepare_sampling(plan.layers, plan.dynamic).evaluate()
     assert seen[-1].target.kind == "halo"
-    assert error.value.origin.sources[0].item_id == item.id
+    assert require_origin(error.value).sources[0].item_id == item.id
     assert error.value.time_ms is not None
 
 
@@ -112,11 +113,12 @@ def test_source_scoped_noise_aligns_independent_halo_and_body_properties():
     class Shared(Base):
         def configure(self):
             self.syllables.on_singing(offset_x=expression)
-            self.query_one("halo").on_singing(opacity=expression)
+            self.query_one(Halo).on_singing(opacity=expression)
 
     plan, item, _ = build(Shared())
     for layer in plan.layers:
         if layer.component == "glow":
-            segment = layer.origin.sources[0].resolve(item)
+            segment = require_origin(layer).sources[0].resolve(item)
+            assert isinstance(segment, Segment)
             state = properties_at(plan, layer, (segment.start_ms + segment.end_ms) / 2)
             assert state.glow_opacity == state.offset_x

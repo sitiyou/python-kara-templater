@@ -22,7 +22,7 @@ class Glow(Effect):
     def configure(self):
         self.text.sweep(fill=CYAN)
         self.syllables.on_singing(pulse=1.1)
-        self.query_one("#light").on_singing(opacity=(0.2, 0.8), keep=True)
+        self.query_one("#light", Halo).on_singing(opacity=(0.2, 0.8), keep=True)
 ```
 
 `compose()` 必须返回一个 Lyrics，包含一个 Body、至多一个 Ruby，以及任意多个 Halo。每行创建独立的绑定实例，随后调用 `configure()`，完成样式解析后才测量布局和编译输出。不要把绑定后的组件或目标保存到全局变量。
@@ -96,11 +96,17 @@ self.body.text_range(0, 2).style.sung.fill = GREEN
 | --- | --- |
 | `self.source` | 当前 KaraokeItem，含来源 ID、ASS 样式、显示窗口和结构化歌词 |
 | `self.body` / `self.ruby` | 声明组件；后者要求已声明 Ruby |
-| `self.query("halo")` / `query_one("#light")` | 查询声明组件；query_one 要求恰好一个匹配 |
+| `self.query(Halo)` / `query_one("#light", Halo)` | 查询声明组件；query_one 要求恰好一个匹配 |
 | `self.syllables` | 原歌词单元，可能有多个演唱段 |
 | `self.characters` | 全行字符候选，实际可独立绘制性由布局验证 |
 | `self.segments` | 所有原演唱段，保留停顿、重复与零时长 |
 | `self.rubies` | 有非空读音的来源段，正文不在此集合中 |
+
+组件查询支持类型推断：`self.query(Body)` 返回 `tuple[Body, ...]`，
+`self.query_one(Ruby)` 返回 `Ruby`，子类查询保留子类类型。
+字符串选择器的结果是 `Component`；需要调用特定组件的方法时，写成
+`self.query_one("#light", Halo)`。它会先要求恰好一个匹配，再检查实际组件类型，
+不匹配时报 `TypeError`。`self.body` 和 `self.ruby` 分别是 `Body`、`Ruby`。
 
 集合支持索引、切片、迭代和 `.query()` / `.query_one()`，筛选后仍可调用样式及行为方法。例如 `self.syllables[0].segments[1]`、`self.rubies.query('[text="きょ"]')`。属性等值、类型、类标记、局部 ID 和后代关系共用有限选择器语法；不支持 `>`、逗号组合或运行时伪状态查询。
 
@@ -180,7 +186,7 @@ Halo 默认跟随目标全部变换；使用 Follow 关闭对应属性。`window
 
 Halo 自身支持 opacity 和 blur 的 on_singing/animate，组透明度与装饰自身透明度相乘。可用 `rule("halo:sung", fill=BLUE, opacity=0.8)` 或 `halo.style.sung.fill = BLUE` 配置唱后外观。唱后状态根据实际扫色覆盖解释，单纯经过演唱结束时间不会触发整对象换色。
 
-动态模糊必须在构造时声明上界，例如 `Halo(id="light", blur=10, max_blur=30)`，再调用 `self.query_one("#light").on_singing(blur=(10, 30))`。blur 支持常量、曲线、关键帧、函数和 Contextual，当前统一采样，可与原生 opacity 同时使用。区间外恢复基础 blur，keep=True 保持终值。上界必须覆盖基础模糊，并用于裁剪域预留；实际采样值超出该 Halo 的上界会报告来源和时间，不因另一个 Halo 声明了更大上界而放行。动画不修改原布局或正文扫色进度。
+动态模糊必须在构造时声明上界，例如 `Halo(id="light", blur=10, max_blur=30)`，再调用 `self.query_one("#light", Halo).on_singing(blur=(10, 30))`。blur 支持常量、曲线、关键帧、函数和 Contextual，当前统一采样，可与原生 opacity 同时使用。区间外恢复基础 blur，keep=True 保持终值。上界必须覆盖基础模糊，并用于裁剪域预留；实际采样值超出该 Halo 的上界会报告来源和时间，不因另一个 Halo 声明了更大上界而放行。动画不修改原布局或正文扫色进度。
 
 `clip="none"` 保持唱前和唱后两侧均可见；外观不同时需要空间裁剪来区分两侧，外观相同则保持完整无裁剪辉光。`clip="sung"` 始终隐藏未唱区域。自身 opacity 动画在活动区间覆盖两侧的状态透明度，结束后恢复各状态值；keep=True 则保持终值。改变状态颜色会保留 ASS 硬裁剪接缝诊断，不承诺统一模糊的无缝混色。
 

@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 import pytest
+from source_assertions import require_origin
 
 from kara_templater import (
     Body,
@@ -62,9 +63,9 @@ def test_import_failure_identifies_actual_record_without_inventing_segment():
     assert error.record_index == index
     assert source.records[error.record_index].text == r"{\k20\blur4}B"
     assert error.style == "Default"
-    assert error.origin.effect == "ASS import"
-    assert error.origin.sources[0].item_id.startswith("ass:")
-    assert error.origin.sources[0].unit_index is None
+    assert require_origin(error).effect == "ASS import"
+    assert require_origin(error).sources[0].item_id.startswith("ass:")
+    assert require_origin(error).sources[0].unit_index is None
     assert isinstance(error.__cause__, ValueError)
     assert source.dumps() == original
 

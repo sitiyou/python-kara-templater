@@ -29,6 +29,7 @@ from .ass_output import (
     compile_layers,
     sweep_spans,
 )
+from .behaviors import TargetSelection
 from .characters import (
     DrawableCharacter,
     FontFace,
@@ -36,6 +37,20 @@ from .characters import (
     TextRange,
     layout_characters,
     select_characters,
+)
+from .colors import (
+    BLACK,
+    BLUE,
+    CYAN,
+    GRAY,
+    GREEN,
+    MAGENTA,
+    ORANGE,
+    PINK,
+    PURPLE,
+    RED,
+    WHITE,
+    YELLOW,
 )
 from .composition import (
     Color,
@@ -45,6 +60,8 @@ from .composition import (
     TrackPaint,
     compose_highlights,
 )
+from .effect import Body, Component, Effect, Halo, Lyrics, Ruby
+from .follow import Follow
 from .fonts import LoadedFont, load_font
 from .import_ass import (
     AssImportError,
@@ -64,6 +81,28 @@ from .model import (
     Segment,
     TextUnit,
 )
+from .properties import (
+    AnimatedProperties,
+    CompositionMode,
+    Contextual,
+    Keyframe,
+    Keyframes,
+    ProgressMode,
+    PropertyContext,
+    PropertyTarget,
+    PropertyValue,
+    TimeInterval,
+    TimeRef,
+    Transition,
+    display,
+    ease_in,
+    ease_in_out,
+    ease_out,
+    linear,
+    singing,
+    smooth,
+    there_and_back,
+)
 from .recipe import (
     EffectContext,
     EffectPlan,
@@ -72,7 +111,14 @@ from .recipe import (
     Sweep,
     TrackStyle,
 )
-from .render import RenderEstimate, RenderResult, render_karaoke
+from .render import (
+    EffectBuilder,
+    EffectFactory,
+    EffectInput,
+    RenderEstimate,
+    RenderResult,
+    render_karaoke,
+)
 from .sampling import (
     DynamicEffect,
     DynamicProperties,
@@ -83,6 +129,19 @@ from .sampling import (
     prepare_sampling,
 )
 from .sources import EventOrigin, SourceRef, walk_karaoke
+from .stylesheet import (
+    INHERIT,
+    UNSET,
+    ColorStyle,
+    NumberStyle,
+    SelectionStyle,
+    StyleKeyword,
+    StyleOverrides,
+    StyleProperties,
+    StyleSheet,
+    StyleValues,
+    rule,
+)
 from .timeline import (
     DisplayWindow,
     EdgeSweep,
@@ -181,22 +240,6 @@ __all__ = [
     "walk_karaoke",
 ]
 
-from .colors import (
-    BLACK,
-    BLUE,
-    CYAN,
-    GRAY,
-    GREEN,
-    MAGENTA,
-    ORANGE,
-    PINK,
-    PURPLE,
-    RED,
-    WHITE,
-    YELLOW,
-)
-from .effect import Body, Effect, Halo, Lyrics, Ruby
-from .stylesheet import INHERIT, UNSET, StyleSheet, rule
 
 __all__ += [
     "BLACK",
@@ -221,18 +264,6 @@ __all__ += [
     "rule",
 ]
 
-from .properties import (
-    Contextual,
-    PropertyContext,
-    PropertyTarget,
-    Transition,
-    ease_in,
-    ease_in_out,
-    ease_out,
-    linear,
-    smooth,
-    there_and_back,
-)
 
 __all__ += [
     "Contextual",
@@ -248,10 +279,30 @@ __all__ += [
     "there_and_back",
 ]
 
-from .properties import Keyframe, Keyframes, display, singing
 
 __all__ += ["Keyframe", "Keyframes", "display", "singing"]
 
-from .follow import Follow
 
 __all__ += ["Follow"]
+
+
+__all__ += [
+    "AnimatedProperties",
+    "ColorStyle",
+    "Component",
+    "CompositionMode",
+    "EffectBuilder",
+    "EffectFactory",
+    "EffectInput",
+    "NumberStyle",
+    "ProgressMode",
+    "PropertyValue",
+    "SelectionStyle",
+    "StyleKeyword",
+    "StyleOverrides",
+    "StyleProperties",
+    "StyleValues",
+    "TargetSelection",
+    "TimeInterval",
+    "TimeRef",
+]

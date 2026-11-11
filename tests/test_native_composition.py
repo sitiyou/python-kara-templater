@@ -1,5 +1,5 @@
 import pytest
-from effect_values import properties_at
+from effect_values import animated_property, properties_at
 from test_effect_halo import build
 
 from kara_templater import (
@@ -24,9 +24,11 @@ def test_linear_product_with_constant_is_native_and_keeps_final_value(name):
     class Product(Base):
         def configure(self):
             self.syllables.on_singing(
-                **{name: (0.2, 0.8)}, compose="multiply", keep=True
+                **animated_property(name, (0.2, 0.8)), compose="multiply", keep=True
             )
-            self.syllables.on_singing(**{name: 0.5}, compose="multiply", keep=True)
+            self.syllables.on_singing(
+                **animated_property(name, 0.5), compose="multiply", keep=True
+            )
 
     plan, _, _ = build(Product(), segments=(Segment(1000, 2000),))
     assert plan.dynamic is None
@@ -43,7 +45,9 @@ def test_product_of_two_varying_factors_remains_sampled(name):
     class Product(Base):
         def configure(self):
             for _ in range(2):
-                self.syllables.on_singing(**{name: (0.2, 0.8)}, compose="multiply")
+                self.syllables.on_singing(
+                    **animated_property(name, (0.2, 0.8)), compose="multiply"
+                )
 
     plan, _, _ = build(Product(), segments=(Segment(1000, 2000),))
     assert plan.dynamic is not None
@@ -56,9 +60,11 @@ def test_product_of_two_varying_factors_remains_sampled(name):
 def test_override_releases_to_underlying_curve_without_restarting_it(name):
     class Override(Base):
         def configure(self):
-            self.syllables.on_singing(**{name: (0.2, 0.8)}, compose="override")
+            self.syllables.on_singing(
+                **animated_property(name, (0.2, 0.8)), compose="override"
+            )
             self.syllables.animate(
-                **{name: 0.9},
+                **animated_property(name, 0.9),
                 during=(singing.start + 200, singing.start + 400),
                 compose="override",
             )

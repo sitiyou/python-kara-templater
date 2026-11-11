@@ -72,7 +72,7 @@ class ComposedGlow(Effect):
             target.on_singing(scale=scale, compose=mode)
             if self.curve == "product":
                 target.on_singing(scale=0.5, compose=mode)
-        halo = self.query_one("#active")
+        halo = self.query_one("#active", Halo)
         if self.curve == "product":
             halo.on_singing(opacity=(0.5, 1), keep=True, compose="multiply")
             halo.on_singing(opacity=0.8, keep=True, compose="multiply")

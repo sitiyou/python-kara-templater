@@ -9,7 +9,7 @@ class Segment:
     end_ms: int
     ruby: str = ""
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if type(self.start_ms) is not int or type(self.end_ms) is not int:
             raise ValueError("segment times must be integer milliseconds")
         if self.start_ms < 0 or self.end_ms < self.start_ms:
@@ -24,7 +24,7 @@ class TextUnit:
     segments: tuple[Segment, ...] = ()
     ruby_continuation: bool = False
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for left, right in zip(self.segments, self.segments[1:], strict=False):
             if left.end_ms > right.start_ms:
                 raise ValueError(
@@ -46,15 +46,15 @@ class Box:
     height: float
 
     @property
-    def right(self):
+    def right(self) -> float:
         return self.left + self.width
 
     @property
-    def center(self):
+    def center(self) -> float:
         return self.left + self.width / 2
 
     @property
-    def middle(self):
+    def middle(self) -> float:
         return self.top + self.height / 2
 
 

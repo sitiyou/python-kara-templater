@@ -7,6 +7,39 @@ from .ass import Line, Record, Style
 from .model import Box, KaraokeLine, LaidOutLine, LaidOutSegment, LaidOutUnit
 
 
+class _Syllable(Record):
+    furi: list[_Syllable]
+    width: float
+    height: float
+    left: float
+    right: float
+    prespacewidth: float
+    postspacewidth: float
+    isbreak: bool
+    spillback: bool
+
+
+class _Group(Record):
+    syls: list[_Syllable]
+    furi: list[_Syllable]
+    basewidth: float
+    furiwidth: float
+    spillback: bool
+
+
+class _LayoutLine(Line):
+    """Transient layout attributes, populated by _position."""
+
+    styleref: Style
+    furistyle: Style | None
+    kara: list[_Syllable]
+    furi: list[_Syllable]
+    left: float
+    top: float
+    width: float
+    height: float
+
+
 def text_extents(style: Style, text: str) -> tuple[float, float, float, float]:
     return _metrics.text_extents(
         style.fontname,
@@ -30,11 +63,11 @@ def layout_line(
 ) -> LaidOutLine:
     if min(resolution) <= 0:
         raise ValueError("resolution must be positive")
-    line = Line(style=style.name)
+    line = _LayoutLine(style=style.name)
     line.styleref = style
     line.kara, line.furi = [], []
     for unit in source.units:
-        syl = Record(
+        syl = _Syllable(
             text_stripped=unit.text,
             text_spacestripped=unit.text,
             prespace="",
@@ -44,7 +77,7 @@ def layout_line(
         )
         for segment in unit.segments:
             if segment.ruby:
-                furi = Record(
+                furi = _Syllable(
                     text_spacestripped=segment.ruby,
                     prespace="",
                     postspace="",
@@ -108,7 +141,7 @@ def _layout(syllables):
         join = groups and syl.furi and groups[-1].furi and not syl.furi[0].isbreak
         if not join:
             groups.append(
-                Record(syls=[], furi=[], basewidth=0, furiwidth=0, spillback=False)
+                _Group(syls=[], furi=[], basewidth=0, furiwidth=0, spillback=False)
             )
         group = groups[-1]
         group.syls.append(syl)
@@ -162,6 +195,7 @@ def _position(line, styles, meta):
     for syl in [*line.kara, *line.furi]:
         syl.line = line
         syl.style = line.furistyle if syl.isfuri else line.styleref
+        assert syl.style is not None
         syl.width, syl.height, _, _ = text_extents(syl.style, syl.text_spacestripped)
         syl.width *= factor
         syl.prespacewidth = text_extents(syl.style, syl.prespace)[0] * factor

@@ -3,15 +3,28 @@
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, replace
+from typing import Protocol, runtime_checkable
 from urllib.parse import quote
 
 from .ass import Document, Line
 from .ass_output import OutputCapabilityError, OutputSettings, compile_layers, quantize
+from .effect import Effect
 from .import_ass import ImportSettings, import_karaoke, source_marker
 from .layout import layout_line
 from .recipe import EffectContext, EffectPlan, KaraokeItem
 from .sampling import SamplingEstimate, prepare_sampling
 from .sources import EventOrigin, SourceRef, _source_context
+
+
+@runtime_checkable
+class EffectBuilder(Protocol):
+    def build(self, item: KaraokeItem, context: EffectContext) -> EffectPlan: ...
+
+
+type EffectFactory = type[Effect] | EffectBuilder | Callable[
+    [KaraokeItem, EffectContext], EffectPlan
+]
+type EffectInput = EffectFactory | Mapping[str, EffectFactory]
 
 
 @dataclass(frozen=True)
@@ -54,7 +67,7 @@ def render_karaoke(
     document: Document,
     items: tuple[KaraokeItem, ...] | None = None,
     *,
-    effect,
+    effect: EffectInput,
     owner: str = "default",
     settings: OutputSettings | None = None,
     import_settings: ImportSettings | None = None,
@@ -80,12 +93,14 @@ def render_karaoke(
     )
     if imported is not None:
         items = imported.items
+    assert items is not None
     if len({item.id for item in items}) != len(items):
         raise ValueError("duplicate karaoke item ids")
     result = deepcopy(document)
     if imported is not None:
         for source in imported.sources:
             line = result.records[source.record_index]
+            assert isinstance(line, Line)
             line.comment = True
             line.effect = source_marker(owner, source)
     resolution = (int(result.meta.res_x), int(result.meta.res_y))
@@ -144,8 +159,6 @@ def render_karaoke(
                     f"{item.id}: no effect configured for style {item.style!r}"
                 )
             # Author configuration runs on source targets before measurement.
-            from .effect import Effect
-
             if isinstance(selected, type) and issubclass(selected, Effect):
                 selected = selected()
             if isinstance(selected, Effect):
@@ -156,7 +169,9 @@ def render_karaoke(
             context = EffectContext(
                 layout, style, ruby_style, resolution, settings.max_events
             )
-            builder = selected.build if hasattr(selected, "build") else selected
+            builder = (
+                selected.build if isinstance(selected, EffectBuilder) else selected
+            )
             if not callable(builder):
                 raise TypeError(
                     f"{item.id}: effect must be callable or provide build()"
@@ -198,8 +213,8 @@ def render_karaoke(
                     (
                         i
                         for i in range(section + 1, len(result.records))
-                        if isinstance(result.records[i], str)
-                        and result.records[i].strip().startswith("[")
+                        if isinstance(record := result.records[i], str)
+                        and record.strip().startswith("[")
                     ),
                     len(result.records),
                 )
@@ -304,16 +319,20 @@ def render_karaoke(
             (
                 i
                 for i in range(events_section + 1, len(result.records))
-                if isinstance(result.records[i], str)
-                and result.records[i].strip().startswith("[")
+                if isinstance(record := result.records[i], str)
+                and record.strip().startswith("[")
             ),
             len(result.records),
         )
     result.records[insertion:insertion] = generated
+    event_origins = []
+    for event, origin in zip(generated, origins, strict=True):
+        assert origin is not None
+        event_origins.append((event, origin))
     return RenderResult(
         result,
         tuple(diagnostics),
         len(generated),
         len(layers),
-        tuple(zip(generated, origins, strict=True)),
+        tuple(event_origins),
     )

@@ -133,3 +133,37 @@ def test_author_pipeline_does_not_construct_legacy_recipe(monkeypatch):
     assert plan.layers and any(layer.component == "glow" for layer in plan.layers)
     assert all(layer.origin.effect == "Independent" for layer in plan.layers)
     assert compile_layers(plan.layers).events
+
+
+def test_typed_queries_preserve_subclasses_and_require_exactly_one_match():
+    class AccentBody(Body):
+        pass
+
+    class AccentHalo(Halo):
+        pass
+
+    class Typed(Effect):
+        def compose(self):
+            yield Lyrics(
+                AccentBody(id="body"),
+                Ruby(id="ruby"),
+                Halo(id="first", classes="accent"),
+                AccentHalo(id="second", classes="accent"),
+            )
+
+    effect, _ = prepare(Typed())
+    assert effect.query(Body) == (effect.body,)
+    assert isinstance(effect.query_one(AccentBody), AccentBody)
+    assert effect.query_one("#body", AccentBody) is effect.body
+    assert effect.query_one(Ruby) is effect.ruby
+    assert [node.id for node in effect.query(Halo)] == ["first", "second"]
+    assert effect.query_one(AccentHalo).id == "second"
+    assert effect.query(".accent") == effect.query(Halo)
+    with pytest.raises(TypeError, match="expected Ruby, found AccentBody"):
+        effect.query_one("#body", Ruby)
+    with pytest.raises(ValueError, match="found 2"):
+        effect.query_one(Halo)
+    with pytest.raises(ValueError, match="found 2"):
+        effect.query_one(".accent", Halo)
+    with pytest.raises(ValueError, match="found 0"):
+        effect.query_one("#absent", Body)

@@ -42,7 +42,7 @@ class DynamicGlow(Effect):
                 offset_y=Contextual(lambda ctx: 4 * wave(ctx), seed=42),
                 during=(display.start, display.end),
             )
-        self.query_one("halo").animate(
+        self.query_one(Halo).animate(
             blur=Contextual(lambda ctx: 10 + 8 * wave(ctx), seed=42),
             during=(display.start, display.end),
         )

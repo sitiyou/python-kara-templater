@@ -20,7 +20,7 @@ def test_group_and_constant_glow_are_lowered_without_callbacks():
     class Native(Base):
         def configure(self):
             self.syllables.on_singing(opacity=(0.2, 0.8), keep=True)
-            self.query_one("halo").on_singing(opacity=0.5, keep=True)
+            self.query_one(Halo).on_singing(opacity=0.5, keep=True)
 
     plan, _, _ = build(Native())
     assert plan.dynamic is None
@@ -37,7 +37,7 @@ def test_arbitrary_function_remains_sampled_without_early_evaluation():
 
     class Function(Base):
         def configure(self):
-            self.query_one("halo").on_singing(
+            self.query_one(Halo).on_singing(
                 opacity=lambda p: calls.append(p) or 0.2 + p * 0.6
             )
 
@@ -64,7 +64,7 @@ def test_product_of_two_changing_ramps_uses_sampling_on_halo_only():
     class Product(Base):
         def configure(self):
             self.syllables.on_singing(opacity=(0.2, 0.8))
-            self.query_one("halo").on_singing(opacity=(0.3, 0.7))
+            self.query_one(Halo).on_singing(opacity=(0.3, 0.7))
 
     plan, _, _ = build(Product())
     assert plan.dynamic is not None

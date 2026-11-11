@@ -20,6 +20,7 @@ from kara_templater import (
     EffectPlan,
     Fade,
     Glow,
+    Halo,
     Paint,
     PaintPair,
     RubyPolicy,
@@ -40,7 +41,7 @@ class SampledWholeGlow(WholeGlow):
     def configure(self):
         self.sampling = SamplingSettings(step_ms=self.step_ms)
         self.text.sweep(fill="#28dcff")
-        self.query_one("#whole").on_singing(
+        self.query_one("#whole", Halo).on_singing(
             opacity=lambda t: self.initial_opacity
             + (self.final_opacity - self.initial_opacity) * t,
             keep=True,
@@ -125,7 +126,7 @@ def main():
             Image.open(output / f"{kind}-{i + 1:02d}.png").convert("RGB")
             for i in range(len(TIMES))
         ]
-    checks = []
+    checks: list[dict[str, str | int | bool]] = []
 
     def compare(name, left, right, *, equal=True):
         difference = ImageChops.difference(left, right)

@@ -35,6 +35,7 @@ def test_component_budget_and_independent_glow_opacity(component, passes):
     sampled = plan.evaluate()
     assert len(sampled) == 1
     assert sampled[0].paint.opacity == 0.6
+    assert sampled[0].paint.glow is not None
     assert sampled[0].paint.glow.opacity == 0.25
     events = compile_layers(sampled).events
     assert len(events) == passes
@@ -110,6 +111,7 @@ def test_preflight_cache_and_absolute_grid():
     assert all(layer.window == BASE.window for layer in sampled)
     assert sampled[0].box.left == 107
     assert len(sampled) == 2
+    assert sampled[1].clips is not None
     assert sampled[1].clips[0].start == Region(107, 117)
     assert sampled[0].active_window == DisplayWindow(10, 130)
 
@@ -141,7 +143,9 @@ def test_blur_bound_and_global_fade():
         max_glow_blur=20,
     )
     sampled = prepare_sampling((layer,), dynamic).evaluate()
-    assert all(s.paint.glow.blur == 20 for s in sampled)
+    for sample in sampled:
+        assert sample.paint.glow is not None
+        assert sample.paint.glow.blur == 20
     events = compile_layers(sampled).events
     later = [e for e in events if e.start_time == 80]
     # The original 10..110 ms fade is 70% complete at this event's t=0.
@@ -154,7 +158,11 @@ def test_blur_bound_and_global_fade():
 
 def test_callback_errors_identify_target_and_time():
     with pytest.raises(OutputCapabilityError, match="a at 10 ms"):
-        prepare_sampling((BASE,), DynamicEffect(lambda ctx: None)).evaluate()
+        # Invalid callback results are diagnosed during evaluation.
+        prepare_sampling(
+            (BASE,),
+            DynamicEffect(lambda ctx: None),  # ty: ignore[invalid-argument-type]
+        ).evaluate()
 
 
 def test_sampled_clip_retains_original_interpolation_endpoints():

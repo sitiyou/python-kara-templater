@@ -1,32 +1,43 @@
 """Small Python style cascade, independent of layout and output layers."""
 
+from __future__ import annotations
+
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
+from typing import TYPE_CHECKING, TypedDict, Unpack, cast
 
 from .colors import color
+from .composition import Color
 from .timeline import _finite
 
+if TYPE_CHECKING:
+    from .effect import Component
 
-class _Keyword(Enum):
+
+class StyleKeyword(Enum):
     INHERIT = "inherit"
     UNSET = "unset"
 
 
-INHERIT = _Keyword.INHERIT
-UNSET = _Keyword.UNSET
+INHERIT = StyleKeyword.INHERIT
+UNSET = StyleKeyword.UNSET
 _COLORS = {"fill", "stroke"}
 _NUMBERS = {"stroke_width", "opacity", "font_size"}
 
 
-def _value(name, value):
+def _value(name: str, value: object) -> StyleValue:
     if name not in _COLORS | _NUMBERS:
         raise ValueError(f"unknown style property {name!r}")
-    if isinstance(value, _Keyword):
+    if isinstance(value, StyleKeyword):
         return value
     if name in _COLORS:
+        if not isinstance(value, (str, Color)):
+            raise TypeError("color must be Color or #RRGGBB")
         return color(value)
     _finite(value, name)
+    assert isinstance(value, (int, float))
     if (
         value < 0
         or (name == "opacity" and value > 1)
@@ -36,52 +47,134 @@ def _value(name, value):
     return value
 
 
-class StyleValues:
+type ColorStyle = Color | str | StyleKeyword
+type NumberStyle = float | StyleKeyword
+type StyleValue = Color | float | StyleKeyword
+
+
+class StyleProperties(TypedDict, total=False):
+    fill: ColorStyle
+    stroke: ColorStyle
+    stroke_width: NumberStyle
+    opacity: NumberStyle
+    font_size: NumberStyle
+
+
+class _StyleAccess:
+    """Typed read/write surface shared by component and selection declarations."""
+
+    def _read(self, name: str) -> StyleValue:
+        raise NotImplementedError
+
+    def _write(self, name: str, value: ColorStyle | NumberStyle) -> None:
+        raise NotImplementedError
+
+    @property
+    def fill(self) -> Color | StyleKeyword:
+        return cast(Color | StyleKeyword, self._read("fill"))
+
+    @fill.setter
+    def fill(self, value: ColorStyle) -> None:
+        self._write("fill", value)
+
+    @property
+    def stroke(self) -> Color | StyleKeyword:
+        return cast(Color | StyleKeyword, self._read("stroke"))
+
+    @stroke.setter
+    def stroke(self, value: ColorStyle) -> None:
+        self._write("stroke", value)
+
+    @property
+    def stroke_width(self) -> NumberStyle:
+        return cast(NumberStyle, self._read("stroke_width"))
+
+    @stroke_width.setter
+    def stroke_width(self, value: NumberStyle) -> None:
+        self._write("stroke_width", value)
+
+    @property
+    def opacity(self) -> NumberStyle:
+        return cast(NumberStyle, self._read("opacity"))
+
+    @opacity.setter
+    def opacity(self, value: NumberStyle) -> None:
+        self._write("opacity", value)
+
+    @property
+    def font_size(self) -> NumberStyle:
+        return cast(NumberStyle, self._read("font_size"))
+
+    @font_size.setter
+    def font_size(self, value: NumberStyle) -> None:
+        self._write("font_size", value)
+
+
+class StyleValues(_StyleAccess):
     """Explicit declarations. Assigning UNSET removes this level's override."""
 
-    def __init__(self, **values):
+    _values: dict[str, StyleValue]
+
+    def __init__(self, **values: Unpack[StyleProperties]) -> None:
         object.__setattr__(self, "_values", {})
         for name, value in values.items():
             setattr(self, name, value)
 
-    def __setattr__(self, name, value):
+    def _write(self, name: str, value: ColorStyle | NumberStyle) -> None:
         value = _value(name, value)
         if value is UNSET:
             self._values.pop(name, None)
         else:
             self._values[name] = value
 
-    def __getattr__(self, name):
+    if not TYPE_CHECKING:
+        # Runtime setattr validates names; static callers see only named properties.
+        __setattr__ = _write
+
+    def _read(self, name: str) -> StyleValue:
         if name not in _COLORS | _NUMBERS:
             raise AttributeError(name)
         return self._values.get(name, UNSET)
 
 
 class StyleOverrides(StyleValues):
-    def __init__(self, **values):
+    sung: StyleValues
+
+    def __init__(self, **values: Unpack[StyleProperties]) -> None:
         super().__init__(**values)
         object.__setattr__(self, "sung", StyleValues())
 
 
-class SelectionStyle:
+class SelectionStyle(_StyleAccess):
     """Broadcast declarations to a selection without introducing a cascade level."""
 
-    def __init__(self, targets, *, sung=False):
+    sung: SelectionStyle
+    _targets: tuple[StyleValues, ...]
+
+    def __init__(self, targets: tuple[StyleValues, ...], *, sung: bool = False) -> None:
         object.__setattr__(self, "_targets", targets)
         if not sung:
+            sung_targets = []
+            for target in targets:
+                assert isinstance(target, StyleOverrides)
+                sung_targets.append(target.sung)
             object.__setattr__(
-                self, "sung", SelectionStyle(tuple(t.sung for t in targets), sung=True)
+                self, "sung", SelectionStyle(tuple(sung_targets), sung=True)
             )
 
-    def __setattr__(self, name, value):
+    def _write(self, name: str, value: ColorStyle | NumberStyle) -> None:
         value = _value(name, value)
         for target in self._targets:
             setattr(target, name, value)
 
-    def __getattr__(self, name):
+    if not TYPE_CHECKING:
+        # Runtime setattr validates names; static callers see only named properties.
+        __setattr__ = _write
+
+    def _read(self, name: str) -> StyleValue:
         if name not in _COLORS | _NUMBERS:
             raise AttributeError(name)
-        values = [getattr(target, name) for target in self._targets]
+        values = [target._read(name) for target in self._targets]
         if not values:
             return UNSET
         if any(value != values[0] for value in values[1:]):
@@ -101,11 +194,11 @@ _PARTS = re.compile(r"(?:\[[^\]]*\]|[^\s\[])+")
 
 @dataclass(frozen=True)
 class Selector:
-    parts: tuple
+    parts: tuple[tuple[tuple[str, str | tuple[str, str]], ...], ...]
     specificity: tuple[int, int, int]
 
     @classmethod
-    def parse(cls, text):
+    def parse(cls, text: str) -> Selector:
         if not isinstance(text, str) or not text.strip():
             raise ValueError("selector must be a nonempty string")
         parts, specificity = [], [0, 0, 0]
@@ -144,9 +237,9 @@ class Selector:
             parts.append(tuple(tokens))
         if not parts or text[consumed:].strip():
             raise ValueError(f"unsupported selector {text!r}")
-        return cls(tuple(parts), tuple(specificity))
+        return cls(tuple(parts), (specificity[0], specificity[1], specificity[2]))
 
-    def matches(self, node, *, sung=False):
+    def matches(self, node, *, sung: bool = False) -> bool:
         def matches_part(part, candidate):
             for kind, value in part:
                 if kind == "type" and candidate.kind != value:
@@ -179,10 +272,10 @@ class Selector:
 @dataclass(frozen=True)
 class StyleRule:
     selector: Selector
-    declarations: tuple
+    declarations: tuple[tuple[str, StyleValue], ...]
 
 
-def rule(selector, **properties):
+def rule(selector: str, **properties: Unpack[StyleProperties]) -> StyleRule:
     return StyleRule(
         Selector.parse(selector),
         tuple((k, _value(k, v)) for k, v in properties.items()),
@@ -193,12 +286,20 @@ def rule(selector, **properties):
 class StyleSheet:
     rules: tuple[StyleRule, ...]
 
-    def __init__(self, *rules):
+    def __init__(self, *rules: StyleRule) -> None:
         if any(not isinstance(r, StyleRule) for r in rules):
             raise TypeError("StyleSheet expects rule() declarations")
         object.__setattr__(self, "rules", tuple(rules))
 
-    def resolve(self, node, base, *, sung=False, inherited=None, resolved_parent=None):
+    def resolve(
+        self,
+        node: Component,
+        base: Mapping[str, Color | float],
+        *,
+        sung: bool = False,
+        inherited: Mapping[str, Color | float] | None = None,
+        resolved_parent: Component | None = None,
+    ) -> dict[str, Color | float]:
         """Resolve properties, preserving unspecified values in the source base.
 
         UNSET rules contribute no declaration. INHERIT reads the corresponding

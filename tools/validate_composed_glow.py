@@ -75,6 +75,7 @@ def sweep_fronts(target, follow, time, translate=False):
     )
     fronts = [center + (original - center) * scale for center in centers]
     ruby = layout.units[0].segments[0].ruby
+    assert ruby is not None
     ruby_front = ruby.left + ruby.width * progress
     if follow:
         ruby_front = box.center + (ruby_front - box.center) * scale

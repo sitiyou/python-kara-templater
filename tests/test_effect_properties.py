@@ -1,7 +1,8 @@
 from dataclasses import replace
 
 import pytest
-from effect_values import properties_at, sampled_layers
+from effect_values import animated_property, properties_at, sampled_layers
+from source_assertions import require_origin
 from test_effect_halo import build
 
 from kara_templater import (
@@ -230,7 +231,9 @@ def test_repeated_round_arrival_and_window_truncation_keep_original_progress():
 def test_invalid_composition_fails_during_configuration(property, composition):
     class Invalid(Moving):
         def configure(self):
-            self.syllables.on_singing(**{property: 1}, compose=composition)
+            self.syllables.on_singing(
+                **animated_property(property, 1), compose=composition
+            )
 
     with pytest.raises(ValueError, match="does not support composition"):
         build(Invalid())
@@ -241,7 +244,7 @@ def test_halo_uses_same_keyframe_and_explicit_time_model():
 
     class Fading(Moving):
         def configure(self):
-            self.query_one("halo").animate(
+            self.query_one(Halo).animate(
                 opacity=Keyframes(
                     Keyframe(0, 0.2),
                     Keyframe(0.25, 0.8),
@@ -261,7 +264,7 @@ def test_halo_uses_same_keyframe_and_explicit_time_model():
 def test_halo_singing_progress_and_group_opacity_remain_independent():
     class Fading(Moving):
         def configure(self):
-            self.query_one("halo").on_singing(
+            self.query_one(Halo).on_singing(
                 opacity=Transition(0.2, 0.8), progress="singing", keep=True
             )
             self.syllables.on_singing(opacity=0.5)
@@ -287,7 +290,7 @@ def test_halo_singing_progress_and_group_opacity_remain_independent():
 def test_halo_disjoint_intervals_reset_to_style_and_overlap_reports_source():
     class Sequential(Moving):
         def configure(self):
-            h = self.query_one("halo")
+            h = self.query_one(Halo)
             h.animate(opacity=0.2, during=(singing.start, singing.start + 200))
             h.animate(opacity=0.6, during=(singing.start + 400, singing.end))
 
@@ -299,11 +302,11 @@ def test_halo_disjoint_intervals_reset_to_style_and_overlap_reports_source():
     class Overlap(Sequential):
         def configure(self):
             super().configure()
-            self.query_one("halo").on_singing(opacity=0.8)
+            self.query_one(Halo).on_singing(opacity=0.8)
 
     with pytest.raises(OutputCapabilityError, match="opacity conflict") as caught:
         build(Overlap())
-    assert caught.value.origin.sources[0].unit_index == 0
+    assert require_origin(caught.value).sources[0].unit_index == 0
 
 
 def test_actual_progress_maps_absolute_keyframes_through_singing_gaps():

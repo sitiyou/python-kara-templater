@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 import pytest
+from source_assertions import require_origin
 
 from kara_templater import (
     Body,
@@ -49,7 +50,7 @@ class Decorated(Effect):
 def test_empty_body_with_reading_reports_unavailable_mapping():
     with pytest.raises(OutputCapabilityError, match="zero-width body mapping") as error:
         bind(Decorated(), (TextUnit("", (Segment(1000, 2000, "a"),)),))
-    assert error.value.origin.sources == (SourceRef("edge", 0, 0),)
+    assert require_origin(error.value).sources == (SourceRef("edge", 0, 0),)
 
 
 def test_source_character_selection_cannot_split_a_shaped_ligature():
@@ -59,7 +60,7 @@ def test_source_character_selection_cannot_split_a_shaped_ligature():
 
     with pytest.raises(LayoutCapabilityError, match="cluster") as error:
         bind(Split(), (TextUnit("office", (Segment(1000, 2000),)),))
-    assert error.value.origin.sources == (SourceRef("edge", 0),)
+    assert require_origin(error.value).sources == (SourceRef("edge", 0),)
 
 
 @pytest.mark.parametrize("reverse", [False, True])
@@ -115,6 +116,7 @@ def test_static_unit_has_characters_but_no_singing_clock():
     result = compile_layers(plan.layers)
     assert result.events
     for origin in result.origins:
+        assert origin is not None
         assert origin.sources == (SourceRef(item.id, 0),)
         assert origin.sources[0].resolve(item) is item.source.units[0]
 
@@ -139,27 +141,31 @@ def test_ruby_layout_group_preserves_individual_reading_selection_and_origins():
     assert bound.syllables[0].segments.text == "A"
     assert bound.rubies[-1].segments.intervals == ((2100, 3000),)
     assert item.source.units is units
-    original = {layer.animation_id: layer.origin.sources for layer in plan.layers}
+    original = {
+        layer.animation_id: require_origin(layer).sources for layer in plan.layers
+    }
     assert plan.dynamic is not None
     sampled = prepare_sampling(plan.layers, plan.dynamic).evaluate()
     assert len(sampled) > len(plan.layers)
     for layer in sampled:
-        assert layer.origin.sources == original[layer.animation_id]
-        for ref in layer.origin.sources:
+        assert require_origin(layer).sources == original[layer.animation_id]
+        for ref in require_origin(layer).sources:
             assert (
                 ref.resolve(item) is units[ref.unit_index].segments[ref.segment_index]
             )
     result = compile_layers(sampled)
     assert result.events and len(result.events) == len(result.origins)
-    assert {r for o in result.origins for r in o.sources} == set(
-        bound.segments.source_refs
-    )
+    refs = set()
+    for origin in result.origins:
+        assert origin is not None
+        refs.update(origin.sources)
+    assert refs == set(bound.segments.source_refs)
     for text, refs in (
         ("ab", (SourceRef(item.id, 0, 0),)),
         ("ef", (SourceRef(item.id, 1, 0),)),
     ):
         layers = [layer for layer in sampled if layer.text == text]
-        assert layers and all(layer.origin.sources == refs for layer in layers)
+        assert layers and all(require_origin(layer).sources == refs for layer in layers)
 
 
 @pytest.mark.parametrize(
@@ -186,7 +192,7 @@ def test_halo_source_selection_limits_visuals_and_retains_sources(selection, exp
     halos = [layer for layer in plan.layers if layer.component == "glow"]
     assert {layer.text for layer in halos} == expected
     for layer in halos:
-        for ref in layer.origin.sources:
+        for ref in require_origin(layer).sources:
             assert ref.resolve(item) is not None
     assert {layer.text for layer in plan.layers if layer.component != "glow"} == {
         "A",
@@ -212,7 +218,7 @@ def test_halo_selection_validates_actual_ligature_boundary(whole):
     else:
         with pytest.raises(LayoutCapabilityError, match="cluster") as error:
             bind(Selected(), units)
-        assert error.value.origin.sources == (SourceRef("edge", 0, 0),)
+        assert require_origin(error.value).sources == (SourceRef("edge", 0, 0),)
 
 
 def test_halo_rejects_temporal_segment_selection():

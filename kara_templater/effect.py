@@ -1,12 +1,18 @@
 """Effects and visual components, bound to source lyrics before text layout."""
 
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Iterator
 from copy import deepcopy
 from dataclasses import replace
+from typing import Literal, Self, TypedDict, TypeVar, Unpack, overload
 
 from ._compiler import _compile_targets, _prepare_targets
 from .appearance import ColorSpan, PaintPair, RubyPaint
+from .ass import Style
 from .ass_output import Fade, OutputCapabilityError, TextLayer
 from .behaviors import (
+    MotionRule,
     TargetSelection,
     bind_property,
     check_motion_conflicts,
@@ -20,23 +26,77 @@ from .characters import (
     layout_characters,
     select_characters,
 )
-from .colors import WHITE, color
-from .composition import Glow, Paint
+from .colors import WHITE
+from .composition import Color, Glow, Paint
 from .follow import DEFAULT_FOLLOW, Follow
 from .import_ass import paint_pair_from_style
 from .lowering import lower_offsets, lower_opacity
-from .properties import PropertyTarget, resolve_interval, singing
-from .recipe import RubyPolicy, Sweep
+from .model import LaidOutLine
+from .properties import (
+    CompositionMode,
+    ProgressMode,
+    PropertyTarget,
+    PropertyValue,
+    TimeInterval,
+    resolve_interval,
+    singing,
+)
+from .recipe import (
+    EffectContext,
+    EffectPlan,
+    KaraokeItem,
+    RubyPolicy,
+    Sweep,
+    TrackStyle,
+)
 from .sampling import DynamicEffect, DynamicProperties, SamplingSettings
 from .sources import EventOrigin, SourceRef, _source_context
-from .stylesheet import UNSET, Selector, StyleOverrides, StyleSheet
-from .timeline import DisplayWindow, EdgeSweep, ProgressCurve
+from .stylesheet import (
+    UNSET,
+    ColorStyle,
+    NumberStyle,
+    Selector,
+    StyleKeyword,
+    StyleOverrides,
+    StyleProperties,
+    StyleSheet,
+)
+from .timeline import DisplayWindow, EdgeSweep, HighlightTrack, ProgressCurve
+
+_ComponentT = TypeVar("_ComponentT", bound="Component")
+
+
+class ComponentOptions(StyleProperties, total=False):
+    id: str | None
+    classes: str | Iterable[str]
+
+
+class HaloOptions(TypedDict, total=False):
+    id: str | None
+    classes: str | Iterable[str]
+    fill: ColorStyle
+    stroke: ColorStyle
+    stroke_width: NumberStyle
+    font_size: NumberStyle
 
 
 class Component:
-    kind = "component"
+    kind: str = "component"
+    id: str | None
+    classes: set[str]
+    children: tuple[Component, ...]
+    parent: Component | None
+    attributes: dict[str, str | int]
+    _ranges: dict[tuple[int, int], Component]
+    _length: int | None
 
-    def __init__(self, *children, id=None, classes=(), **style):
+    def __init__(
+        self,
+        *children: Component,
+        id: str | None = None,
+        classes: str | Iterable[str] = (),
+        **style: Unpack[StyleProperties],
+    ) -> None:
         if id is not None and (not isinstance(id, str) or not id):
             raise ValueError("component id must be a nonempty string")
         self.id = id
@@ -55,19 +115,19 @@ class Component:
                 raise ValueError("a component cannot have two parents")
             child.parent = self
 
-    def add_class(self, *names):
+    def add_class(self, *names: str) -> Self:
         for name in names:
             if not isinstance(name, str) or not name or any(c.isspace() for c in name):
                 raise ValueError("class names must be nonempty without whitespace")
             self.classes.add(name)
         return self
 
-    def walk(self):
+    def walk(self) -> Iterator[Component]:
         yield self
         for child in self.children:
             yield from child.walk()
 
-    def text_range(self, start, end):
+    def text_range(self, start: int, end: int) -> Component:
         if self.kind != "body" or self._length is None:
             raise ValueError("text_range requires a source-bound Body")
         if (
@@ -97,7 +157,13 @@ class Body(Component):
 class Ruby(Component):
     kind = "ruby"
 
-    def __init__(self, *, offset_y=0, follow="none", **kwargs):
+    def __init__(
+        self,
+        *,
+        offset_y: float = 0,
+        follow: Literal["none", "syllable"] | Follow = "none",
+        **kwargs: Unpack[ComponentOptions],
+    ) -> None:
         super().__init__(**kwargs)
         self.following = (
             follow
@@ -113,7 +179,7 @@ class Ruby(Component):
             follow="syllable" if isinstance(follow, Follow) else follow,
         )
 
-    def hide(self):
+    def hide(self) -> None:
         self.policy = replace(self.policy, enabled=False)
 
 
@@ -125,18 +191,18 @@ class Halo(Component):
     def __init__(
         self,
         *,
-        color=UNSET,
-        opacity=UNSET,
-        width=0,
-        ruby_width=None,
-        blur=0,
-        max_blur=None,
-        targets="text",
-        clip="none",
-        follow=DEFAULT_FOLLOW,
-        window=None,
-        **kwargs,
-    ):
+        color: ColorStyle = UNSET,
+        opacity: NumberStyle = UNSET,
+        width: float = 0,
+        ruby_width: float | None = None,
+        blur: float = 0,
+        max_blur: float | None = None,
+        targets: Literal["text", "body", "ruby"] | TargetSelection = "text",
+        clip: Literal["none", "sung"] = "none",
+        follow: Follow = DEFAULT_FOLLOW,
+        window: TimeInterval | None = None,
+        **kwargs: Unpack[HaloOptions],
+    ) -> None:
         super().__init__(**kwargs)
         if color is not UNSET:
             self.style.fill = color
@@ -213,12 +279,12 @@ class Halo(Component):
     def on_singing(
         self,
         *,
-        opacity=UNSET,
-        blur=UNSET,
-        keep=False,
-        compose="replace",
-        progress="envelope",
-    ):
+        opacity: PropertyValue | StyleKeyword = UNSET,
+        blur: PropertyValue | StyleKeyword = UNSET,
+        keep: bool = False,
+        compose: CompositionMode = "replace",
+        progress: ProgressMode = "envelope",
+    ) -> Self:
         during = (singing.start, singing.end)
         if any(
             r.during == during
@@ -242,13 +308,13 @@ class Halo(Component):
     def animate(
         self,
         *,
-        opacity=UNSET,
-        blur=UNSET,
-        during,
-        keep=False,
-        compose="replace",
-        progress="envelope",
-    ):
+        opacity: PropertyValue | StyleKeyword = UNSET,
+        blur: PropertyValue | StyleKeyword = UNSET,
+        during: TimeInterval,
+        keep: bool = False,
+        compose: CompositionMode = "replace",
+        progress: ProgressMode = "envelope",
+    ) -> Self:
         properties = {}
         if opacity is not UNSET:
             properties["opacity"] = opacity
@@ -269,28 +335,36 @@ class Halo(Component):
 
 
 class _Text:
-    def __init__(self, effect):
-        self.sweep_settings = None
+    def __init__(self, effect: Effect) -> None:
+        self.sweep_settings: Sweep | None = None
         self.effect = effect
         self.fade_settings = Fade()
         self._has_fade = False
-        self.tracks = None
-        self.track_styles = ()
+        self.tracks: (
+            Iterable[HighlightTrack]
+            | Callable[[LaidOutLine], Iterable[HighlightTrack]]
+            | None
+        ) = None
+        self.track_styles: tuple[TrackStyle, ...] = ()
         self.overlap = "union"
 
     def sweep(
         self,
         *,
-        fill=None,
-        stroke=None,
-        curve=None,
-        padding=0,
-        lead=0,
-        tail=0,
-        tracks=None,
-        track_styles=(),
-        overlap="union",
-    ):
+        fill: ColorStyle | None = None,
+        stroke: ColorStyle | None = None,
+        curve: ProgressCurve | Literal["linear"] | None = None,
+        padding: float = 0,
+        lead: int = 0,
+        tail: int = 0,
+        tracks: (
+            Iterable[HighlightTrack]
+            | Callable[[LaidOutLine], Iterable[HighlightTrack]]
+            | None
+        ) = None,
+        track_styles: Iterable[TrackStyle] = (),
+        overlap: Literal["union", "priority", "layer"] = "union",
+    ) -> None:
         if self.sweep_settings is not None:
             raise ValueError("sweep already configured for text")
         if overlap not in {"union", "priority", "layer"}:
@@ -316,7 +390,7 @@ class _Text:
             if stroke is not None:
                 node.style.sung.stroke = stroke
 
-    def fade(self, *, in_ms=0, out_ms=0):
+    def fade(self, *, in_ms: int = 0, out_ms: int = 0) -> None:
         if self._has_fade:
             raise ValueError("fade already configured for text")
         self.fade_settings = Fade(in_ms, out_ms)
@@ -341,34 +415,81 @@ def _paint(values):
 class Effect:
     """Declare components in compose(), then configure a fresh instance per line."""
 
+    # Bound on a fresh instance by _prepare(), before compose/configure run.
+    source: KaraokeItem
+    text: _Text
+    syllables: TargetSelection
+    characters: TargetSelection
+    segments: TargetSelection
+    rubies: TargetSelection
+    _nodes: tuple[Component, ...]
+    _motion_rules: list[MotionRule]
+    _ruby_targets: dict[tuple[int, int], Component]
+    _source_paints: PaintPair
+
     styles = StyleSheet()
     sampling = SamplingSettings()
 
-    def compose(self):
+    def compose(self) -> Iterable[Lyrics]:
         yield Lyrics(Body(), Ruby())
 
-    def configure(self):
+    def configure(self) -> None:
         pass
 
-    def query(self, selector):
+    @overload
+    def query(self, selector: type[_ComponentT]) -> tuple[_ComponentT, ...]: ...
+
+    @overload
+    def query(self, selector: str) -> tuple[Component, ...]: ...
+
+    def query(
+        self, selector: str | type[_ComponentT]
+    ) -> tuple[Component, ...] | tuple[_ComponentT, ...]:
+        """Find components by selector or class, preserving class query types."""
+        if isinstance(selector, type):
+            return tuple(node for node in self._nodes if isinstance(node, selector))
         parsed = Selector.parse(selector)
         return tuple(node for node in self._nodes if parsed.matches(node))
 
-    def query_one(self, selector):
+    @overload
+    def query_one(self, selector: type[_ComponentT]) -> _ComponentT: ...
+
+    @overload
+    def query_one(
+        self, selector: str, expect_type: type[_ComponentT]
+    ) -> _ComponentT: ...
+
+    @overload
+    def query_one(self, selector: str) -> Component: ...
+
+    def query_one(
+        self,
+        selector: str | type[_ComponentT],
+        expect_type: type[_ComponentT] | None = None,
+    ) -> Component | _ComponentT:
+        """Require exactly one match, then validate its expected class if supplied."""
         found = self.query(selector)
         if len(found) != 1:
             raise ValueError(
                 f"selector {selector!r} expected one component, found {len(found)}"
             )
-        return found[0]
+        node = found[0]
+        if expect_type is not None:
+            if not isinstance(node, expect_type):
+                raise TypeError(
+                    f"selector {selector!r} expected {expect_type.__name__}, "
+                    f"found {type(node).__name__}"
+                )
+            return node
+        return node
 
     @property
-    def body(self):
-        return self.query_one("body")
+    def body(self) -> Body:
+        return self.query_one(Body)
 
     @property
-    def ruby(self):
-        return self.query_one("ruby")
+    def ruby(self) -> Ruby:
+        return self.query_one(Ruby)
 
     def _selection_query_node(self, selection):
         # Read-only adapters: querying a candidate must not create style ranges
@@ -492,7 +613,9 @@ class Effect:
             for r in ranges
         )
 
-    def _prepare(self, item, style, ruby_style):
+    def _prepare(
+        self, item: KaraokeItem, style: Style, ruby_style: Style
+    ) -> tuple[Self, Style, Style]:
         bound = deepcopy(self)
         bound.source = item
         bound.text = _Text(bound)
@@ -537,6 +660,7 @@ class Effect:
             (bound.body, style),
             *((r, ruby_style) for r in bound.query("ruby")),
         ):
+            assert node.parent is not None
             inherited = bound.styles.resolve(
                 node.parent, {"font_size": original.fontsize}
             )
@@ -556,10 +680,11 @@ class Effect:
                 ruby_style = changed
         return bound, style, ruby_style
 
-    def build(self, item, context):
+    def build(self, item: KaraokeItem, context: EffectContext) -> EffectPlan:
         if not hasattr(self, "_nodes"):
             raise ValueError("Effect must be bound before layout by render_karaoke")
         body = self.body
+        assert body.parent is not None
         defaults = []
         for sung, paint in (
             (False, self._source_paints.before),
@@ -730,7 +855,7 @@ class Effect:
         )
         halos, motions, blur_limits = [], {}, {}
         diagnostics = list(plan.diagnostics)
-        decorations = self.query("halo")
+        decorations = self.query(Halo)
         for index, halo in enumerate(decorations):
             if (
                 any(r.property == "glow_blur" for r in halo._property_rules)
@@ -759,16 +884,21 @@ class Effect:
                     inherited={"fill": visual.paints.after.fill, "opacity": 1},
                 )
                 identity = f"{item.id}/{visual.id}/halo:{index}"
+                fill, opacity = values["fill"], values["opacity"]
+                sung_fill, sung_opacity = sung_values["fill"], sung_values["opacity"]
+                assert isinstance(fill, Color) and isinstance(sung_fill, Color)
+                assert isinstance(opacity, (int, float))
+                assert isinstance(sung_opacity, (int, float))
                 glow = Glow(
-                    color(values["fill"]),
+                    fill,
                     blur=halo.blur,
                     border=halo.ruby_width if visual.kind == "ruby" else halo.width,
-                    opacity=values["opacity"],
+                    opacity=opacity,
                 )
                 sung_glow = replace(
                     glow,
-                    color=color(sung_values["fill"]),
-                    opacity=sung_values["opacity"],
+                    color=sung_fill,
+                    opacity=sung_opacity,
                 )
                 origin = EventOrigin(
                     visual.sources,
@@ -924,7 +1054,8 @@ class Effect:
                 blur = glow_values.get("glow_blur")
                 if blur is not None and blur > blur_limits[sample.target_id]:
                     raise ValueError("Halo blur exceeds its declared max_blur")
-            return DynamicProperties(glow_opacity=opacity, glow_blur=blur, **values)
+            values["glow_blur"] = blur
+            return DynamicProperties(glow_opacity=opacity, **values)
 
         return replace(
             plan,

@@ -246,7 +246,7 @@ def compose_masks(
                 anchor is None and (left[0] != left[1] or right[0] != right[1])
                 for (left, right, _), anchor in zip(strips, anchors, strict=True)
             )
-            for index, (first, second) in enumerate(pairwise(strips)):
+            for index, (first, _second) in enumerate(pairwise(strips)):
                 if first[1][0] == first[1][1]:
                     continue
                 a, b = anchors[index : index + 2]

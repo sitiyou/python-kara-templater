@@ -17,6 +17,9 @@ kara-templater = "kara_templater.__main__:main"
 [tool.setuptools]
 packages = ["kara_templater"]
 
+[tool.setuptools.package-data]
+kara_templater = ["py.typed", "*.pyi"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
@@ -43,3 +46,54 @@ before-all = "dnf install -y epel-release && dnf install -y autoconf automake li
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
 repair-wheel-command = "delvewheel repair --strip --no-mangle libharfbuzz-0.dll -w {dest_dir} {wheel}"
+
+# Keep library typing checks reproducible across local development and CI.
+[dependency-groups]
+checks = [
+    "ruff==0.17.4",
+    "ty==0.0.100",
+    "pytest>=8",
+    "Pillow>=10",
+    "setuptools>=77",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+extend-exclude = ["refs", "vendor", "build", "dist", ".firecrawl"]
+
+[tool.ruff.lint]
+select = [
+    "E4", "E7", "E9", "F",  # Python errors and undefined/unused names
+    "I", "UP",               # Imports and modern Python syntax
+    "B", "SIM", "C4", "PIE", # Common bugs and unnecessary constructs
+    "PGH", "RUF100", "RUF013", # Precise suppressions and explicit Optional
+    "ANN201", "ANN204", "ANN205", "ANN206", "ANN401",
+]
+# Lambda callbacks and short coordinate/layer names are intentional in effects.
+ignore = ["E731", "E741"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["ANN201", "ANN204", "ANN205", "ANN206"]
+"examples/**" = ["ANN201", "ANN204", "ANN205", "ANN206"]
+"tools/**" = ["ANN201", "ANN204", "ANN205", "ANN206"]
+"setup.py" = ["ANN201", "ANN204", "ANN205", "ANN206"]
+
+[tool.ty.rules]
+# Defaults already diagnose incompatible arguments, assignments and returns.
+# These additionally prevent dynamic values leaking through declared contracts.
+unsound-return-statement = "error"
+unsound-assignment = "error"
+unsound-yield = "error"
+missing-type-argument = "error"
+possibly-missing-attribute = "error"
+possibly-missing-import = "error"
+possibly-unresolved-reference = "error"
+division-by-zero = "error"
+redundant-cast = "error"
+blanket-ignore-comment = "error"
+unused-ignore-comment = "error"
+unused-type-ignore-comment = "error"
+
+[tool.ty.terminal]
+error-on-warning = true

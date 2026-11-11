@@ -1,5 +1,5 @@
 import pytest
-from effect_values import properties_at
+from effect_values import animated_property, properties_at
 from test_effect_halo import build
 
 from kara_templater import (
@@ -37,13 +37,13 @@ def test_known_singing_curve_matches_function_through_gaps_and_keep(name, keyfra
                 else (0.2, 0.8)
             )
             self.syllables.on_singing(
-                **{name: expression}, progress="singing", keep=True
+                **animated_property(name, expression), progress="singing", keep=True
             )
 
     class Function(Base):
         def configure(self):
             self.syllables.on_singing(
-                **{name: lambda p: calls.append(p) or curve(p)},
+                **animated_property(name, lambda p: calls.append(p) or curve(p)),
                 progress="singing",
                 keep=True,
             )

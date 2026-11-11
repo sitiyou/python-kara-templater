@@ -38,6 +38,7 @@ class StructuredLayoutTests(unittest.TestCase):
         )
         unit = layout_line(source, style=Style()).units[0]
         first, last = unit.segments
+        assert first.ruby is not None and last.ruby is not None
         self.assertEqual(first.left, unit.box.left)
         self.assertEqual(first.right, last.left)
         self.assertAlmostEqual(last.right, unit.box.right)
@@ -54,6 +55,8 @@ class StructuredLayoutTests(unittest.TestCase):
             )
         )
         first, second = layout_line(source, style=Style()).units
+        assert first.segments[0].ruby is not None
+        assert second.segments[0].ruby is not None
         self.assertAlmostEqual(first.box.right, second.box.left)
         self.assertAlmostEqual(
             first.segments[0].ruby.right, second.segments[0].ruby.left
@@ -93,6 +96,8 @@ class StructuredLayoutTests(unittest.TestCase):
         larger = layout_line(
             source, style=style, ruby_style=Style(fontsize=24), resolution=(640, 480)
         )
+        assert layout.units[0].segments[0].ruby is not None
+        assert larger.units[0].segments[0].ruby is not None
         self.assertLess(
             layout.units[0].segments[0].ruby.height,
             larger.units[0].segments[0].ruby.height,
@@ -109,4 +114,5 @@ class StructuredLayoutTests(unittest.TestCase):
     def test_invalid_times(self):
         for start, end in ((-1, 0), (2, 1), (0.5, 1)):
             with self.assertRaises(ValueError):
-                Segment(start, end)
+                # Deliberately include fractional time to test runtime validation.
+                Segment(start, end)  # ty: ignore[invalid-argument-type]

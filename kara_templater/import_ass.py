@@ -21,7 +21,9 @@ SOURCE_PREFIX = "karaoke:source:v1:"
 class AssImportError(ValueError):
     """Failure at a zero-based Document.records position, before a lyric exists."""
 
-    def __init__(self, message, *, record_index, style, item_id=None):
+    def __init__(
+        self, message: str, *, record_index: int, style: str, item_id: str | None = None
+    ) -> None:
         super().__init__(f"event {record_index} ({style}): {message}")
         self.record_index = record_index
         self.style = style
@@ -38,7 +40,7 @@ class ImportSettings:
     tail_ms: int = 0
     styles: tuple[str, ...] | None = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _milliseconds(self.lead_ms, "display lead")
         _milliseconds(self.tail_ms, "display tail")
 
@@ -56,11 +58,11 @@ class ImportedKaraoke:
     sources: tuple[SourceBinding, ...]
 
 
-def source_prefix(owner):
+def source_prefix(owner: str) -> str:
     return SOURCE_PREFIX + quote(owner, safe="") + ":"
 
 
-def source_marker(owner, source):
+def source_marker(owner: str, source: SourceBinding) -> str:
     return (
         source_prefix(owner)
         + quote(source.item_id, safe="")
@@ -75,8 +77,8 @@ def parse_karaoke(line: Line) -> KaraokeLine:
     These tags import timing only; appearance and animation come from the recipe.
     Unsupported override tags are diagnosed instead of silently losing layout.
     """
-    _milliseconds(line.start_time, "ASS event start")
-    cursor = line.start_time
+    start_time = _milliseconds(line.start_time, "ASS event start")
+    cursor = start_time
     text, units = "", []
     pending = None
 
@@ -128,7 +130,7 @@ def parse_karaoke(line: Line) -> KaraokeLine:
                     flush()
                     value = int(match[2]) * 10
                     if match[1] == "kt":
-                        next_start = line.start_time + value
+                        next_start = start_time + value
                         if next_start < cursor:
                             raise ValueError(
                                 "kt cannot reverse time within a unit sequence; use explicit HighlightTrack objects"
@@ -213,8 +215,10 @@ def import_karaoke(
         try:
             source = parse_karaoke(line)
             window = DisplayWindow(
-                max(0, line.start_time - settings.lead_ms),
-                line.end_time + settings.tail_ms,
+                _milliseconds(
+                    max(0, line.start_time - settings.lead_ms), "display start"
+                ),
+                _milliseconds(line.end_time + settings.tail_ms, "display end"),
             )
         except ValueError as error:
             raise AssImportError(

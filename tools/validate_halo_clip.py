@@ -59,13 +59,13 @@ class Sung(Reference):
 class Blue(Full):
     def configure(self):
         super().configure()
-        self.query_one("halo").style.fill = BLUE
+        self.query_one(Halo).style.fill = BLUE
 
 
 class Stateful(Full):
     def configure(self):
         super().configure()
-        self.query_one("halo").style.sung.fill = BLUE
+        self.query_one(Halo).style.sung.fill = BLUE
 
 
 def main():

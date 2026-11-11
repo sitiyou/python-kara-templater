@@ -1,9 +1,13 @@
 """Property expressions evaluated on a target's normalized local time."""
 
+from __future__ import annotations
+
 import itertools
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import Literal, TypedDict, overload
 
+from .model import Segment
 from .sampling import SampleContext
 from .sources import SourceRef
 from .timeline import DisplayWindow, _finite
@@ -24,12 +28,18 @@ class PropertyTarget:
 class PropertyContext:
     time_ms: float
     progress: float
-    interval: tuple[int, int]
+    interval: tuple[float, float]
     window: DisplayWindow
     target: PropertyTarget
     seed: int
 
-    def noise(self, channel="default", *, animated=True, scope="target"):
+    def noise(
+        self,
+        channel: str = "default",
+        *,
+        animated: bool = True,
+        scope: Literal["target", "source"] = "target",
+    ) -> float:
         if scope not in {"target", "source"}:
             raise ValueError("noise scope must be target or source")
         identity = (
@@ -49,37 +59,66 @@ class Contextual:
     function: Callable[[PropertyContext], float]
     seed: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not callable(self.function):
             raise TypeError("contextual property requires a callable")
         if type(self.seed) is not int:
             raise TypeError("contextual property seed must be an integer")
 
-    def __call__(self, context):
+    def __call__(self, context: PropertyContext) -> float:
         return self.function(context)
 
 
-def linear(p):
+def linear(p: float) -> float:
     return p
 
 
-def smooth(p):
+def smooth(p: float) -> float:
     return p * p * (3 - 2 * p)
 
 
-def ease_in(p):
+def ease_in(p: float) -> float:
     return p * p
 
 
-def ease_out(p):
+def ease_out(p: float) -> float:
     return 1 - (1 - p) ** 2
 
 
-def ease_in_out(p):
+def ease_in_out(p: float) -> float:
     return 2 * p * p if p < 0.5 else 1 - 2 * (1 - p) ** 2
 
 
-def there_and_back(p=None, *, peak_at=0.5, return_at=None, rise=linear, fall=linear):
+@overload
+def there_and_back(
+    p: float,
+    *,
+    peak_at: float = 0.5,
+    return_at: float | None = None,
+    rise: Callable[[float], float] = linear,
+    fall: Callable[[float], float] = linear,
+) -> float: ...
+
+
+@overload
+def there_and_back(
+    p: None = None,
+    *,
+    peak_at: float = 0.5,
+    return_at: float | None = None,
+    rise: Callable[[float], float] = linear,
+    fall: Callable[[float], float] = linear,
+) -> BackRate: ...
+
+
+def there_and_back(
+    p: float | None = None,
+    *,
+    peak_at: float = 0.5,
+    return_at: float | None = None,
+    rise: Callable[[float], float] = linear,
+    fall: Callable[[float], float] = linear,
+) -> float | BackRate:
     """Use as a rate directly, or configure a peak, hold, rise and fall."""
     return_at = peak_at if return_at is None else return_at
     _finite(peak_at, "peak_at")
@@ -97,10 +136,10 @@ def there_and_back(p=None, *, peak_at=0.5, return_at=None, rise=linear, fall=lin
 class BackRate:
     peak_at: float
     return_at: float
-    rise: Callable
-    fall: Callable
+    rise: Callable[[float], float]
+    fall: Callable[[float], float]
 
-    def __call__(self, progress):
+    def __call__(self, progress: float) -> float:
         if progress < self.peak_at:
             return self.rise(progress / self.peak_at)
         if progress <= self.return_at:
@@ -108,7 +147,7 @@ class BackRate:
         return 1 - self.fall((progress - self.return_at) / (1 - self.return_at))
 
     @property
-    def native_points(self):
+    def native_points(self) -> tuple[tuple[float, float], ...] | None:
         if self.rise is not linear or self.fall is not linear:
             return None
         points = [(0, 0), (self.peak_at, 1)]
@@ -123,19 +162,21 @@ class Transition:
     end: float
     rate: Callable[[float], float] = linear
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _finite(self.start, "transition start")
         _finite(self.end, "transition end")
         if not callable(self.rate):
             raise TypeError("transition rate must be callable")
 
-    def __call__(self, progress):
+    def __call__(self, progress: float) -> float:
         fraction = self.rate(progress)
         _finite(fraction, "transition rate result")
         return self.start + (self.end - self.start) * fraction
 
 
-def expression(value):
+def expression(
+    value: float | tuple[float, float] | Contextual | Callable[[float], float],
+) -> float | Contextual | Callable[[float], float]:
     if isinstance(value, tuple):
         if len(value) != 2:
             raise ValueError("property transition requires two endpoints")
@@ -146,7 +187,7 @@ def expression(value):
     return value
 
 
-def singing_progress(time, segments):
+def singing_progress(time: float, segments: tuple[Segment, ...]) -> float:
     duration = sum(s.end_ms - s.start_ms for s in segments)
     elapsed = sum(max(0, min(time, s.end_ms) - s.start_ms) for s in segments)
     return (
@@ -156,7 +197,13 @@ def singing_progress(time, segments):
     )
 
 
-def singing_points(points, interval, segments, *, keep):
+def singing_points(
+    points: tuple[tuple[float, float], ...],
+    interval: tuple[float, float],
+    segments: tuple[Segment, ...],
+    *,
+    keep: bool,
+) -> tuple[tuple[float, float], ...] | None:
     """Map a known linear progress curve onto the original singing clock."""
     start, end = interval
     duration = sum(s.end_ms - s.start_ms for s in segments)
@@ -166,7 +213,7 @@ def singing_points(points, interval, segments, *, keep):
     # singing-progress contract. A native held endpoint cannot represent that.
     if keep and end < max(s.end_ms for s in segments):
         return None
-    knots = {start, end}
+    knots: set[float] = {start, end}
     elapsed = 0
     for segment in segments:
         length = segment.end_ms - segment.start_ms
@@ -179,7 +226,7 @@ def singing_points(points, interval, segments, *, keep):
                     knots.add(mapped)
         elapsed += length
 
-    def value(time):
+    def value(time: float) -> float:
         virtual = start + singing_progress(time, segments) * (end - start)
         if virtual >= points[-1][0]:
             return points[-1][1]
@@ -196,7 +243,7 @@ class TimeRef:
     anchor: str
     offset: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.anchor not in {
             "singing.start",
             "singing.end",
@@ -207,15 +254,17 @@ class TimeRef:
         if type(self.offset) is not int:
             raise TypeError("time offsets must be integer milliseconds")
 
-    def __add__(self, milliseconds):
+    def __add__(self, milliseconds: int) -> TimeRef:
         if type(milliseconds) is not int:
             raise TypeError("time offsets must be integer milliseconds")
         return TimeRef(self.anchor, self.offset + milliseconds)
 
-    def __sub__(self, milliseconds):
+    def __sub__(self, milliseconds: int) -> TimeRef:
         return self + (-milliseconds)
 
-    def resolve(self, segments, window):
+    def resolve(
+        self, segments: tuple[Segment, ...], window: DisplayWindow
+    ) -> int | None:
         if self.anchor.startswith("singing.") and not segments:
             return None
         anchors = {
@@ -242,7 +291,9 @@ singing = _Clock(TimeRef("singing.start"), TimeRef("singing.end"))
 display = _Clock(TimeRef("display.start"), TimeRef("display.end"))
 
 
-def resolve_interval(during, segments, window):
+def resolve_interval(
+    during: TimeInterval, segments: tuple[Segment, ...], window: DisplayWindow
+) -> tuple[int, int] | None:
     values = tuple(
         v.resolve(segments, window) if isinstance(v, TimeRef) else v for v in during
     )
@@ -253,6 +304,7 @@ def resolve_interval(during, segments, window):
             "animation interval endpoints must resolve to integer milliseconds"
         )
     start, end = values
+    assert isinstance(start, int) and isinstance(end, int)
     if end < start:
         raise ValueError(f"reversed animation interval: {start}..{end} ms")
     return start, end
@@ -264,7 +316,7 @@ class Keyframe:
     value: float
     rate: Callable[[float], float] = linear
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if not isinstance(self.at, TimeRef):
             _finite(self.at, "keyframe fraction")
             if not 0 <= self.at <= 1:
@@ -278,18 +330,27 @@ class Keyframe:
 class Keyframes:
     frames: tuple[Keyframe, ...]
 
-    def __init__(self, *frames):
+    def __init__(self, *frames: Keyframe) -> None:
         if len(frames) < 2 or any(not isinstance(f, Keyframe) for f in frames):
             raise ValueError("Keyframes requires at least two Keyframe values")
         object.__setattr__(self, "frames", tuple(frames))
 
-    def resolve(self, interval, segments, window, *, progress="envelope"):
+    def resolve(
+        self,
+        interval: tuple[float, float],
+        segments: tuple[Segment, ...],
+        window: DisplayWindow,
+        *,
+        progress: ProgressMode = "envelope",
+    ) -> tuple[tuple[float, float, Callable[[float], float]], ...]:
         start, end = interval
 
-        def timestamp(frame):
+        def timestamp(frame: Keyframe) -> float:
             if isinstance(frame.at, TimeRef):
                 resolved = frame.at.resolve(segments, window)
-                if resolved is not None and progress == "singing":
+                if resolved is None:
+                    raise ValueError("keyframe has no singing time")
+                if progress == "singing":
                     return start + singing_progress(resolved, segments) * (end - start)
                 return resolved
             return start + (end - start) * frame.at
@@ -311,3 +372,20 @@ class Keyframes:
                 f"keyframe times must increase, got {[p[0] for p in points]} ms"
             )
         return points
+
+
+# Public declaration types; expressions retain the scalar callback signature.
+type PropertyValue = float | tuple[
+    float, float
+] | Transition | Keyframes | Contextual | Callable[[float], float]
+type TimePoint = int | TimeRef
+type TimeInterval = tuple[TimePoint, TimePoint]
+type CompositionMode = Literal["replace", "override", "add", "multiply"]
+type ProgressMode = Literal["envelope", "singing"]
+
+
+class AnimatedProperties(TypedDict, total=False):
+    scale: PropertyValue
+    opacity: PropertyValue
+    offset_x: PropertyValue
+    offset_y: PropertyValue

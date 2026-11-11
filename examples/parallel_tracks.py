@@ -50,11 +50,14 @@ class ParallelSweeps(Effect):
                 TrackStyle("echo", Paint(ECHO_PINK, opacity=opacity), 10),
             )
         )
+        overlap = "union" if mode == "regions" else mode
+        if overlap != "union" and overlap != "priority" and overlap != "layer":
+            raise ValueError(f"unsupported track style: {mode!r}")
         self.text.sweep(
             fill=SWEEP_CYAN,
             tracks=self.tracks,
             track_styles=track_styles,
-            overlap="union" if mode == "regions" else mode,
+            overlap=overlap,
         )
 
     def tracks(self, layout):

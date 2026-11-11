@@ -109,7 +109,7 @@ def test_opacity_animation_cannot_reveal_unsung_clip_regions():
 
         def configure(self):
             self.text.sweep()
-            self.query_one("halo").on_singing(opacity=(0.2, 0.8), keep=True)
+            self.query_one(Halo).on_singing(opacity=(0.2, 0.8), keep=True)
 
     plan, _, _ = build(Bright(), segments=(Segment(1000, 2000),))
     sampled = sampled_layers(plan)
@@ -158,7 +158,7 @@ def test_custom_halo_window_keeps_source_fade_clock_and_singing_clock():
 
         def configure(self):
             self.text.fade(in_ms=200, out_ms=300)
-            self.query_one("halo").on_singing(opacity=(0.2, 0.8), keep=True)
+            self.query_one(Halo).on_singing(opacity=(0.2, 0.8), keep=True)
 
     plan, _, _ = build(Extended(), segments=(Segment(1000, 2000),))
     halo = next(l for l in plan.layers if l.component == "glow")

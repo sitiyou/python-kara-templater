@@ -1,5 +1,6 @@
 """Compile explicit karaoke text layers to ASS without executable templates."""
 
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from itertools import pairwise
 from math import floor
@@ -25,11 +26,11 @@ class OutputCapabilityError(ValueError):
 
     def __init__(
         self,
-        message,
+        message: str,
         *,
         origin: EventOrigin | None = None,
         time_ms: float | None = None,
-    ):
+    ) -> None:
         super().__init__(message)
         self.origin = origin
         self.time_ms = time_ms
@@ -81,7 +82,7 @@ class Fade:
     in_ms: int = 0
     out_ms: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _milliseconds(self.in_ms, "fade in")
         _milliseconds(self.out_ms, "fade out")
 
@@ -114,7 +115,7 @@ class ClipSpan:
     start: Region
     end: Region
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _finite(self.start_ms, "clip start")
         _finite(self.end_ms, "clip end")
         if self.end_ms <= self.start_ms:
@@ -143,7 +144,7 @@ def sweep_spans(
         raise ValueError("paint region must enclose timing region")
     left, right = paint.left - edges.padding_px, paint.right + edges.padding_px
     body = singing.region
-    segments = []
+    segments: list[ClipSpan] = []
 
     def add(start, end, x0, x1):
         if end > start:
@@ -185,7 +186,7 @@ class TextLayer:
     opacity_animations: tuple[OpacityAnimation, ...] = ()
     offsets: tuple[OffsetAnimation, ...] = ()
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if self.component not in ("both", "fill", "glow"):
             raise ValueError("text layer component must be both, fill or glow")
         if self.component == "glow" and self.paint.glow is None:
@@ -261,7 +262,7 @@ class OutputSettings:
     max_events: int = 10000
     clip_error_px: float = 0.25
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if len(self.resolution) != 2 or any(
             type(v) is not int or v <= 0 for v in self.resolution
         ):
@@ -368,7 +369,7 @@ def _mask(layer, span, time, *, left=False):
     )
 
 
-def native_opacity_supported(layer):
+def native_opacity_supported(layer: TextLayer) -> bool:
     """Check known alpha curves without output generation or user callbacks."""
     window = layer.fade_window or layer.window
     knots = {
@@ -431,6 +432,7 @@ def _compile_interval(layer, span, start, end, settings, events):
     # On each curve/animation section, transformed mask edges are quadratic.
     # Linear interpolation's maximum error is at the midpoint. Subdivide only
     # when necessary; static/ordinary sweeps never become frame-sized events.
+    first = last = None
     if span is not None:
         first, last = _mask(layer, span, start), _mask(layer, span, end, left=True)
         middle = _mask(layer, span, (start + end) / 2)
@@ -502,6 +504,7 @@ def _compile_interval(layer, span, start, end, settings, events):
                 b = quantize(span.end_ms) - emitted_start
                 common += rf"\t({a},{b},1,{_clip(span.end, settings.resolution[1])})"
         else:
+            assert first is not None and last is not None
             common += _clip(first, settings.resolution[1])
             if first != last:
                 common += rf"\t({local_start},{local_end},1,{_clip(last, settings.resolution[1])})"
@@ -612,7 +615,7 @@ DEFAULT_OUTPUT_SETTINGS = OutputSettings()
 
 
 def compile_layers(
-    layers: tuple[TextLayer, ...], *, settings: OutputSettings = DEFAULT_OUTPUT_SETTINGS
+    layers: Iterable[TextLayer], *, settings: OutputSettings = DEFAULT_OUTPUT_SETTINGS
 ) -> CompiledLayers:
     events, diagnostics = [], []
     origins = {}

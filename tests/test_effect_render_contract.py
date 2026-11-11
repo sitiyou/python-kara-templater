@@ -1,6 +1,7 @@
 from dataclasses import replace
 
 import pytest
+from source_assertions import require_origin
 
 from examples.alternating_colors import document
 from kara_templater import (
@@ -58,7 +59,7 @@ def test_document_preflight_rejects_later_lyric_before_any_property_callback():
             ),
         )
     assert not calls
-    assert error.value.origin.sources[0].item_id == "second"
+    assert require_origin(error.value).sources[0].item_id == "second"
     assert error.value.time_ms is not None
     assert source.dumps() == snapshot
 
@@ -73,7 +74,8 @@ def test_sample_count_budget_rejects_before_evaluation():
         )
     assert not calls
     assert (
-        error.value.origin.sources[0].resolve(ITEM) is ITEM.source.units[0].segments[0]
+        require_origin(error.value).sources[0].resolve(ITEM)
+        is ITEM.source.units[0].segments[0]
     )
 
 
@@ -110,8 +112,12 @@ def test_property_failure_keeps_cause_source_target_and_absolute_time():
     error = caught.value
     assert error.__cause__ is cause
     assert "first/" in str(error)
+    assert error.time_ms is not None
     assert 1000 <= error.time_ms < 2000
-    assert error.origin.sources[0].resolve(ITEM) is ITEM.source.units[0].segments[0]
+    assert (
+        require_origin(error).sources[0].resolve(ITEM)
+        is ITEM.source.units[0].segments[0]
+    )
 
 
 def test_author_native_clip_precision_failure_retains_source_and_time():
@@ -128,6 +134,8 @@ def test_author_native_clip_precision_failure_retains_source_and_time():
             settings=OutputSettings(resolution=(640, 480), clip_error_px=1e-10),
         )
     assert (
-        caught.value.origin.sources[0].resolve(ITEM) is ITEM.source.units[0].segments[0]
+        require_origin(caught.value).sources[0].resolve(ITEM)
+        is ITEM.source.units[0].segments[0]
     )
+    assert caught.value.time_ms is not None
     assert 1000 <= caught.value.time_ms < 2000

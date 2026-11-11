@@ -2,6 +2,7 @@ from dataclasses import replace
 
 import pytest
 from effect_values import properties_at, same_effect, sampled_layers
+from source_assertions import require_origin
 
 from kara_templater import (
     BLACK,
@@ -68,7 +69,7 @@ class Decorated(Effect):
         self.body.text_range(1, 2).style.sung.fill = BLUE
         self.text.sweep()
         self.text.fade(in_ms=200, out_ms=300)
-        self.query_one("#sung").on_singing(opacity=(0.2, 0.8), keep=True)
+        self.query_one("#sung", Halo).on_singing(opacity=(0.2, 0.8), keep=True)
 
 
 def test_halos_bind_once_before_sweep_split_and_keep_global_windows():
@@ -90,7 +91,7 @@ def test_halos_bind_once_before_sweep_split_and_keep_global_windows():
         assert layer.paint.glow.border == (
             (4 if ruby else 8) if index < 4 else (6 if ruby else 12)
         )
-        assert all(ref.item_id == item.id for ref in layer.origin.sources)
+        assert all(ref.item_id == item.id for ref in require_origin(layer).sources)
         assert layer.window == item.window
     assert context.layout.units[0].source is item.source.units[0]
 
@@ -156,7 +157,7 @@ def test_decoration_width_does_not_change_sweep_geometry_or_clocks():
     class Wider(Decorated):
         def configure(self):
             super().configure()
-            self.query_one("#sung").width = 40
+            self.query_one("#sung", Halo).width = 40
 
     narrow, _, _ = build(Decorated())
     wide, _, _ = build(Wider())
@@ -170,7 +171,9 @@ def test_callable_opacity_evaluates_only_after_sampling_preflight():
 
     class FunctionGlow(Decorated):
         def configure(self):
-            self.query_one("#sung").on_singing(opacity=lambda p: calls.append(p) or p)
+            self.query_one("#sung", Halo).on_singing(
+                opacity=lambda p: calls.append(p) or p
+            )
 
     plan, _, _ = build(FunctionGlow())
     assert calls == []
@@ -184,14 +187,15 @@ def test_callable_opacity_evaluates_only_after_sampling_preflight():
 def test_property_failure_reports_target_time_and_source():
     class Bad(Decorated):
         def configure(self):
-            self.query_one("#sung").on_singing(opacity=lambda p: 2)
+            self.query_one("#sung", Halo).on_singing(opacity=lambda p: 2)
 
     plan, _, _ = build(Bad())
     with pytest.raises(
         OutputCapabilityError, match="opacity must be in 0..1"
     ) as failure:
         sampled_layers(plan)
-    assert failure.value.origin.sources[0].item_id == "line"
+    assert require_origin(failure.value).sources[0].item_id == "line"
+    assert failure.value.time_ms is not None
     assert failure.value.time_ms >= 1000
 
 
@@ -212,7 +216,7 @@ def test_custom_rate_and_direct_property_function_have_distinct_semantics():
 
     class Returning(Decorated):
         def configure(self):
-            self.query_one("#sung").on_singing(opacity=motion, keep=True)
+            self.query_one("#sung", Halo).on_singing(opacity=motion, keep=True)
 
     plan, _, _ = build(Returning())
     layer = next(layer for layer in plan.layers if layer.order == -1)
@@ -232,7 +236,7 @@ def test_sampled_declarative_halo_matches_existing_whole_glow_output():
 
         def configure(self):
             self.text.sweep(fill="#28dcff")
-            self.query_one("#whole").on_singing(
+            self.query_one("#whole", Halo).on_singing(
                 opacity=lambda p: 0.2 + 0.6 * p, keep=True
             )
 

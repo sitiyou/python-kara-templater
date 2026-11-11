@@ -108,9 +108,9 @@ def main():
     for time, actual, expected in zip(
         TIMES, frames["native"], frames["reference"], strict=True
     ):
-        assert max(hi for _, hi in actual.getextrema()) > 20, (time, "missing glyph")
+        assert max(actual.tobytes()) > 20, (time, "missing glyph")
         difference = ImageChops.difference(actual, expected)
-        error = max(hi for _, hi in difference.getextrema())
+        error = max(difference.tobytes())
         # ASS interpolates integer alpha endpoints; the static reference rounds
         # the exact value once. Allow one alpha unit plus RGB conversion rounding.
         assert error <= 3, (time, error)

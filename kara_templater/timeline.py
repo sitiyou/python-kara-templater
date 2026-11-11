@@ -4,8 +4,13 @@ All intervals use absolute milliseconds and untransformed script coordinates.
 Evaluation keeps sub-millisecond precision; ASS quantization belongs to output.
 """
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+from itertools import pairwise
 from math import isfinite
+from typing import Self
+
+from .model import LaidOutLine
 
 
 def _finite(value, name):
@@ -17,9 +22,10 @@ def _finite(value, name):
         raise ValueError(f"{name} must be finite")
 
 
-def _milliseconds(value, name):
+def _milliseconds(value, name) -> int:
     if type(value) is not int or value < 0:
         raise ValueError(f"{name} must be nonnegative integer milliseconds")
+    return value
 
 
 @dataclass(frozen=True)
@@ -27,7 +33,7 @@ class DisplayWindow:
     start_ms: int
     end_ms: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _milliseconds(self.start_ms, "display start")
         _milliseconds(self.end_ms, "display end")
         if self.end_ms <= self.start_ms:
@@ -41,21 +47,21 @@ class Region:
     left: float
     right: float
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _finite(self.left, "left")
         _finite(self.right, "right")
         if self.right < self.left:
             raise ValueError("region is reversed")
 
     @property
-    def width(self):
+    def width(self) -> float:
         return self.right - self.left
 
     @property
-    def center(self):
+    def center(self) -> float:
         return (self.left + self.right) / 2
 
-    def at(self, progress):
+    def at(self, progress: float) -> float:
         return self.left + self.width * progress
 
 
@@ -69,7 +75,7 @@ class ProgressCurve:
 
     knots: tuple[tuple[float, float], ...] = ((0, 0), (1, 1))
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "knots", tuple(tuple(k) for k in self.knots))
         if len(self.knots) < 2 or self.knots[0] != (0, 0) or self.knots[-1] != (1, 1):
             raise ValueError("curve must run from (0, 0) to (1, 1)")
@@ -80,14 +86,14 @@ class ProgressCurve:
                 _finite(value, "curve coordinate")
                 if not 0 <= value <= 1:
                     raise ValueError("curve coordinates must be within 0..1")
-        for (t0, p0), (t1, p1) in zip(self.knots, self.knots[1:]):
+        for (t0, p0), (t1, p1) in pairwise(self.knots):
             if t1 <= t0 or p1 < p0:
                 raise ValueError(
                     "curve times must increase and progress cannot reverse"
                 )
 
     @classmethod
-    def two_stage(cls, *, time_fraction: float, progress_fraction: float):
+    def two_stage(cls, *, time_fraction: float, progress_fraction: float) -> Self:
         if not 0 < time_fraction < 1 or not 0 < progress_fraction < 1:
             raise ValueError("stage fractions must be strictly within 0..1")
         return cls(((0, 0), (time_fraction, progress_fraction), (1, 1)))
@@ -95,7 +101,7 @@ class ProgressCurve:
     def at(self, time_fraction: float) -> float:
         _finite(time_fraction, "time fraction")
         t = min(1, max(0, time_fraction))
-        for (t0, p0), (t1, p1) in zip(self.knots, self.knots[1:]):
+        for (t0, p0), (t1, p1) in pairwise(self.knots):
             if t <= t1:
                 return p0 + (p1 - p0) * (t - t0) / (t1 - t0)
         return 1.0
@@ -107,7 +113,7 @@ class ProgressCurve:
             raise ValueError("progress must be within 0..1")
         if progress == 0:
             return 0.0
-        for (t0, p0), (t1, p1) in zip(self.knots, self.knots[1:]):
+        for (t0, p0), (t1, p1) in pairwise(self.knots):
             if p0 < progress <= p1:
                 return t0 + (t1 - t0) * (progress - p0) / (p1 - p0)
         raise AssertionError("validated curve must reach every progress value")
@@ -123,7 +129,7 @@ class SingingPass:
     curve: ProgressCurve = ProgressCurve()
     round_id: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _milliseconds(self.start_ms, "singing start")
         _milliseconds(self.end_ms, "singing end")
         if self.end_ms < self.start_ms:
@@ -156,7 +162,7 @@ class EdgeSweep:
     lead_ms: int = 0
     tail_ms: int = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         _finite(self.padding_px, "padding")
         if self.padding_px < 0:
             raise ValueError("padding cannot be negative")
@@ -187,7 +193,7 @@ class EdgeSweep:
         return body.right + (right - body.right) * p
 
 
-def union_regions(regions) -> tuple[Region, ...]:
+def union_regions(regions: Iterable[Region]) -> tuple[Region, ...]:
     """Merge coverage without filling gaps or painting overlaps twice."""
     result = []
     for region in sorted(regions, key=lambda r: (r.left, r.right)):
@@ -208,7 +214,7 @@ class HighlightTrack:
     repeat: str = "hold"
     end_behavior: str = "hold"
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         object.__setattr__(self, "passes", tuple(self.passes))
         if not isinstance(self.id, str) or not self.id:
             raise ValueError("track needs a stable nonempty id")
@@ -221,7 +227,7 @@ class HighlightTrack:
             "hide",
         }:
             raise ValueError(f"track {self.id}: invalid lifecycle policy")
-        for previous, current in zip(self.passes, self.passes[1:]):
+        for previous, current in pairwise(self.passes):
             if previous.end_ms > current.start_ms:
                 raise ValueError(
                     f"track {self.id}: overlapping or reversed passes; use separate tracks"
@@ -250,7 +256,7 @@ class HighlightTrack:
         )
 
 
-def tracks_from_layout(layout) -> tuple[HighlightTrack, ...]:
+def tracks_from_layout(layout: LaidOutLine) -> tuple[HighlightTrack, ...]:
     """Use layout's ruby-weighted partitions as explicitly approximate body regions.
 
     Static units have no track. Empty-reading partitions retain their duration

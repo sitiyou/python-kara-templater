@@ -5,6 +5,7 @@ from unicodedata import category, name
 
 from . import _metrics
 from .animation import CharacterTarget
+from .ass import Style
 from .model import Box, LaidOutLine
 from .sources import _source_location
 from .timeline import Region
@@ -26,7 +27,7 @@ class TextRange:
     start: int
     end: int
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if (
             any(
                 type(v) is not int or v < 0
@@ -57,13 +58,13 @@ class DrawableCharacter:
     font_faces: tuple[FontFace, ...] = ()
 
     @property
-    def id(self):
+    def id(self) -> str:
         return (
             f"unit:{self.source.unit_index}/text:{self.source.start}:{self.source.end}"
         )
 
     @property
-    def target(self):
+    def target(self) -> CharacterTarget:
         return CharacterTarget(
             self.id,
             self.source.unit_index,
@@ -184,7 +185,9 @@ def _translation(actual, isolated, *, source):
     return shift
 
 
-def layout_characters(layout: LaidOutLine, *, style) -> tuple[DrawableCharacter, ...]:
+def layout_characters(
+    layout: LaidOutLine, *, style: Style
+) -> tuple[DrawableCharacter, ...]:
     """Measure verified clusters in the original unit layout, without relayout.
 
     Ink bounds are conservative outline control-point bounds (no blur/stroke),
@@ -213,7 +216,7 @@ def layout_characters(layout: LaidOutLine, *, style) -> tuple[DrawableCharacter,
             while ci < len(clusters):
                 start = clusters[ci][0]
                 last_error = None
-                matched = False
+                matched = None
                 # A ligature cannot be redrawn as independent source characters.
                 # Grow the source range until its isolated contours exactly match
                 # the original run. Whitespace remains a separate timing region.
@@ -233,17 +236,19 @@ def layout_characters(layout: LaidOutLine, *, style) -> tuple[DrawableCharacter,
                         last_error = error
                         continue
                     ci = stop + 1
-                    matched = True
+                    matched = (text, source, cw, ch, cb, isolated, actual, shift)
                     break
-                if not matched:
+                if matched is None:
+                    assert last_error is not None
                     raise last_error
+                text, source, cw, ch, cb, isolated, actual, shift = matched
                 cursor += len(isolated)
                 dx, dy = shift if shift is not None else (advance, 0)
                 box = Box(unit.box.left + dx, unit.box.top + baseline + dy - cb, cw, ch)
                 points = [point for outline, _, _, _ in actual for point in outline]
                 ink = None
                 if points:
-                    xs, ys = zip(*points)
+                    xs, ys = zip(*points, strict=True)
                     ink = Box(
                         unit.box.left + min(xs),
                         unit.box.top + baseline + min(ys),
