@@ -1,6 +1,6 @@
 # 特效系统重构计划与 TODO
 
-状态：已完成 P0～P5 实现与验收。逐项证据见交付审计，最终运行结果见 effect-system-final-validation.json。
+状态：本文记录的第一轮 P0～P5 已完成实现与验收。后续修改以 [声明式配置与文字 blur 修改计划](declarative-effects-plan.md) 为准；该计划尚未实现，替代本文的 compose/configure 主入口及普通辉光的 Halo 建模方式。本文保留作为第一轮实现记录。逐项证据见交付审计，最终运行结果见 effect-system-final-validation.json。
 
 当前可运行入口见 [alternating_colors.py](../examples/alternating_colors.py)，已实现接口与验证记录见 [特效系统实施记录](effect-system-progress.md)。
 
