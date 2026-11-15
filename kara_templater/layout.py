@@ -45,6 +45,10 @@ class _LayoutLine(Line):
 
 
 def text_extents(style: Style, text: str) -> tuple[float, float, float, float]:
+    """Measure text using the native font/shaping environment and ASS style metrics.
+
+    Return width, height, descent, and external leading in script pixels.
+    """
     return _metrics.text_extents(
         style.fontname,
         style.fontsize,
@@ -65,6 +69,10 @@ def layout_line(
     ruby_style: Style | None = None,
     resolution: tuple[int, int] = (1920, 1080),
 ) -> LaidOutLine:
+    """Measure a structured KaraokeLine with body and reading styles at the requested resolution.
+
+    Return layout boxes without changing source singing intervals.
+    """
     if min(resolution) <= 0:
         raise ValueError("resolution must be positive")
     line = _LayoutLine(style=style.name)

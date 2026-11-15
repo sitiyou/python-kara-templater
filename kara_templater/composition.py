@@ -14,6 +14,12 @@ from .timeline import HighlightTrack, Region, _finite
 
 @dataclass(frozen=True)
 class Color:
+    """An immutable RGB color with integer channels in 0 through 255.
+
+    hex accepts exactly #RRGGBB; ASS BGR conversion is performed at serialization
+    boundaries.
+    """
+
     red: int
     green: int
     blue: int
@@ -25,6 +31,7 @@ class Color:
 
     @classmethod
     def hex(cls, value: str) -> Self:
+        """Parse exactly #RRGGBB into validated integer RGB channels; reject malformed strings."""
         if (
             not isinstance(value, str)
             or len(value) != 7
@@ -40,6 +47,11 @@ class Color:
 
 @dataclass(frozen=True)
 class Glow:
+    """A paint glow with RGB color, nonnegative blur/border in script pixels, and opacity in 0 through 1.
+
+    It is separate from the body fill and outline.
+    """
+
     color: Color = Color(255, 255, 255)
     blur: float = 0
     border: float = 0
@@ -63,6 +75,11 @@ def _appearance_values(color, border, opacity):
 
 @dataclass(frozen=True)
 class Paint:
+    """Resolved fill, outline, border width, opacity, and optional glow for one drawing.
+
+    Distances use script pixels and opacity uses 0 through 1.
+    """
+
     fill: Color = Color(255, 255, 255)
     outline: Color = Color(0, 0, 0)
     border: float = 0
@@ -79,6 +96,11 @@ class Paint:
 
 @dataclass(frozen=True)
 class TrackPaint:
+    """A HighlightTrack paired with a resolved Paint and integer composition priority.
+
+    It is consumed by the low-level highlight compositor.
+    """
+
     track: HighlightTrack
     paint: Paint
     priority: int = 0
@@ -90,6 +112,11 @@ class TrackPaint:
 
 @dataclass(frozen=True)
 class PaintedRegion:
+    """A disjoint highlighted body region with its paints ordered from bottom to top.
+
+    It describes composition semantics before choosing an ASS encoding.
+    """
+
     unit_index: int
     region: Region
     paints: tuple[Paint, ...]

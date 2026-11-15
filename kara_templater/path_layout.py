@@ -12,6 +12,11 @@ from .scene_animation import VisualState
 
 @dataclass(frozen=True)
 class PathItem:
+    """A Scene object with explicit layout advance and local anchor for placement along a path.
+
+    Advance is in script pixels.
+    """
+
     object: SceneObject
     advance: float
     anchor: Vec2 = Vec2()

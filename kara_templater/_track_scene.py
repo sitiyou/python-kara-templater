@@ -41,7 +41,11 @@ def track_objects(
             target.sources, "Track", tuple(t.id for t in target.tracks)
         )
         _validate_target(target, origin)
-        if not target.tracks or target.paints.before == target.paints.after:
+        if not target.tracks or (
+            target.paints.before == target.paints.after
+            and not prepared.highlight_styles
+            and prepared.overlap == "union"
+        ):
             for glow in (True, False):
                 if glow and target.paints.before.glow is None:
                     continue
@@ -55,6 +59,8 @@ def track_objects(
             replace(prepared.lyrics, targets=(target,)),
             sweep=prepared.sweep,
             fade=Fade(),
+            track_styles=prepared.highlight_styles,
+            overlap=prepared.overlap,
             origin_effect="Track",
             max_glow_blur=prepared.bounds.blur_radius,
             max_border=prepared.bounds.stroke_width,

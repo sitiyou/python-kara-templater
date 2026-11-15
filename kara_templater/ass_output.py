@@ -80,6 +80,11 @@ def quantize(time_ms: float) -> int:
 
 @dataclass(frozen=True)
 class Fade:
+    """Native fade-in and fade-out durations in milliseconds.
+
+    Opacity evaluation is relative to the selected display window.
+    """
+
     in_ms: int = 0
     out_ms: int = 0
 
@@ -88,6 +93,7 @@ class Fade:
         _milliseconds(self.out_ms, "fade out")
 
     def opacity_at(self, time_ms: float, window: DisplayWindow) -> float:
+        """Evaluate combined fade opacity at a millisecond time within the display window."""
         if self.in_ms + self.out_ms > window.end_ms - window.start_ms:
             raise ValueError("fade durations exceed the display window")
         before = (
@@ -123,6 +129,7 @@ class ClipSpan:
             raise ValueError("clip spans require positive duration")
 
     def at(self, time_ms: float) -> Region:
+        """Interpolate clip boundaries at the requested millisecond time using the span clock."""
         t = min(1, max(0, (time_ms - self.start_ms) / (self.end_ms - self.start_ms)))
         return Region(
             self.start.left + (self.end.left - self.start.left) * t,
@@ -169,6 +176,12 @@ def sweep_spans(
 
 @dataclass(frozen=True)
 class TextLayer:
+    """A low-level positioned text drawing with paint, millisecond clocks, clipping, and native animations.
+
+    active_window restricts exposure without changing its original fade or animation
+    clocks.
+    """
+
     source_id: str
     text: str
     style: Style
@@ -259,6 +272,12 @@ class TextLayer:
 
 @dataclass(frozen=True)
 class OutputSettings:
+    """Native layer/preparation limits and script resolution.
+
+    clip_error_px bounds supported curve subdivision; optional raster settings
+    select explicit material encoding. Final Scene budgets apply separately.
+    """
+
     resolution: tuple[int, int] = (1920, 1080)
     max_events: int = 10000
     clip_error_px: float = 0.25
@@ -280,6 +299,11 @@ class OutputSettings:
 
 @dataclass(frozen=True)
 class CompiledLayers:
+    """Native ASS events, diagnostics, and an aligned optional source origin for each event.
+
+    The result does not insert events into a Document.
+    """
+
     events: tuple[Line, ...]
     diagnostics: tuple[str, ...]
     origins: tuple[EventOrigin | None, ...] = ()
@@ -621,6 +645,11 @@ DEFAULT_OUTPUT_SETTINGS = OutputSettings()
 def compile_layers(
     layers: Iterable[TextLayer], *, settings: OutputSettings = DEFAULT_OUTPUT_SETTINGS
 ) -> CompiledLayers:
+    """Compile typed text layers to standard ASS events without modifying a Document.
+
+    Enforce native output limits and return per-event origins and approximation
+    diagnostics.
+    """
     events, diagnostics = [], []
     origins = {}
     for layer in layers:

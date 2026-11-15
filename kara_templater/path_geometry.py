@@ -29,6 +29,11 @@ def _point_budget(value: int) -> None:
 
 @dataclass(frozen=True)
 class Polyline:
+    """A finite sequence of points supporting cumulative distance, interpolation, prefixes, and resampling.
+
+    It is the explicit flattened representation used by path algorithms.
+    """
+
     points: tuple[Vec2, ...]
 
     def __post_init__(self) -> None:
@@ -37,6 +42,7 @@ class Polyline:
 
     @cached_property
     def distances(self) -> tuple[float, ...]:
+        """Cumulative flattened distance at every point, starting from zero."""
         values: list[float] = [0.0]
         for a, b in zip(self.points, self.points[1:], strict=False):
             values.append(values[-1] + (b - a).length)
@@ -44,9 +50,11 @@ class Polyline:
 
     @property
     def length(self) -> float:
+        """The total cumulative length of the flattened point sequence."""
         return self.distances[-1]
 
     def point(self, progress: float) -> Vec2:
+        """Return the point at normalized distance along the polyline."""
         finite(progress)
         distance = min(1, max(0, progress)) * self.length
         index = bisect_right(self.distances, distance)
@@ -56,6 +64,7 @@ class Polyline:
         return self.points[index - 1].lerp(self.points[index], (distance - a) / (b - a))
 
     def prefix(self, progress: float) -> Polyline:
+        """Return the polyline prefix through a normalized distance, including its interpolated final point."""
         finite(progress)
         progress = min(1, max(0, progress))
         if progress == 1:
@@ -67,11 +76,13 @@ class Polyline:
         )
 
     def resample(self, count: int) -> Polyline:
+        """Return evenly spaced samples along the flattened path distance."""
         _point_budget(count)
         return Polyline(tuple(self.point(i / (count - 1)) for i in range(count)))
 
     @property
     def signed_area(self) -> float:
+        """Compute the signed polygon area of this point sequence."""
         return (
             sum(
                 a.x * b.y - b.x * a.y

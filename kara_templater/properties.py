@@ -26,6 +26,11 @@ class PropertyTarget:
 
 @dataclass(frozen=True)
 class PropertyContext:
+    """A scalar property callback context with millisecond time/interval, progress, target metadata, display window, and seed.
+
+    Named noise is deterministic for that context.
+    """
+
     time_ms: float
     progress: float
     interval: tuple[float, float]
@@ -40,6 +45,7 @@ class PropertyContext:
         animated: bool = True,
         scope: Literal["target", "source"] = "target",
     ) -> float:
+        """Return deterministic named noise for this target/time context and seed."""
         if scope not in {"target", "source"}:
             raise ValueError("noise scope must be target or source")
         identity = (
@@ -66,26 +72,32 @@ class Contextual:
             raise TypeError("contextual property seed must be an integer")
 
     def __call__(self, context: PropertyContext) -> float:
+        """Evaluate the scalar function using the full PropertyContext rather than progress alone."""
         return self.function(context)
 
 
 def linear(p: float) -> float:
+    """Return normalized progress unchanged for linear interpolation."""
     return p
 
 
 def smooth(p: float) -> float:
+    """Smoothly ease normalized progress with flat endpoints."""
     return p * p * (3 - 2 * p)
 
 
 def ease_in(p: float) -> float:
+    """An accelerating scalar easing curve for normalized progress."""
     return p * p
 
 
 def ease_out(p: float) -> float:
+    """A decelerating scalar easing curve for normalized progress."""
     return 1 - (1 - p) ** 2
 
 
 def ease_in_out(p: float) -> float:
+    """A scalar easing curve that accelerates then decelerates across normalized progress."""
     return 2 * p * p if p < 0.5 else 1 - 2 * (1 - p) ** 2
 
 
@@ -158,6 +170,11 @@ class BackRate:
 
 @dataclass(frozen=True)
 class Transition:
+    """A normalized scalar transition between start and end using an easing rate.
+
+    Track declarations resolve its timing independently of its values.
+    """
+
     start: float
     end: float
     rate: Callable[[float], float] = linear
@@ -169,6 +186,7 @@ class Transition:
             raise TypeError("transition rate must be callable")
 
     def __call__(self, progress: float) -> float:
+        """Evaluate the eased scalar transition at normalized progress."""
         fraction = self.rate(progress)
         _finite(fraction, "transition rate result")
         return self.start + (self.end - self.start) * fraction
@@ -240,6 +258,12 @@ def singing_points(
 
 @dataclass(frozen=True)
 class TimeRef:
+    """A millisecond offset from a named singing/display anchor.
+
+    Adding or subtracting milliseconds creates another reference; resolve binds it
+    to source intervals.
+    """
+
     anchor: str
     offset: int = 0
 
@@ -265,6 +289,7 @@ class TimeRef:
     def resolve(
         self, segments: tuple[Segment, ...], window: DisplayWindow
     ) -> int | None:
+        """Resolve this anchor and millisecond offset against singing segments and display window."""
         if self.anchor.startswith("singing.") and not segments:
             return None
         anchors = {
@@ -312,6 +337,11 @@ def resolve_interval(
 
 @dataclass(frozen=True)
 class Keyframe:
+    """A scalar target at a normalized fraction or millisecond TimeRef with an incoming easing curve.
+
+    Resolution binds it to the selected interval.
+    """
+
     at: float | TimeRef
     value: float
     rate: Callable[[float], float] = linear
@@ -328,6 +358,11 @@ class Keyframe:
 
 @dataclass(frozen=True, init=False)
 class Keyframes:
+    """Ordered scalar keyframes for a property interval.
+
+    Use explicit TimeRef values when targets depend on singing or display anchors.
+    """
+
     frames: tuple[Keyframe, ...]
 
     def __init__(self, *frames: Keyframe) -> None:
@@ -343,6 +378,7 @@ class Keyframes:
         *,
         progress: ProgressMode = "envelope",
     ) -> tuple[tuple[float, float, Callable[[float], float]], ...]:
+        """Resolve normalized fractions or TimeRef anchors to the selected millisecond property interval."""
         start, end = interval
 
         def timestamp(frame: Keyframe) -> float:
@@ -390,6 +426,11 @@ type ProgressMode = Literal["envelope", "singing"]
 
 
 class AnimatedProperties(TypedDict, total=False):
+    """The typed sparse geometry properties accepted by low-level Track behavior declarations.
+
+    Omitted properties do not write or reset unrelated channels.
+    """
+
     scale: PropertyValue
     opacity: PropertyValue
     offset_x: PropertyValue
@@ -398,6 +439,11 @@ class AnimatedProperties(TypedDict, total=False):
 
 @dataclass(frozen=True, kw_only=True)
 class Envelope:
+    """A scale envelope with a peak and millisecond attack/release durations.
+
+    Rise and fall functions receive normalized progress.
+    """
+
     peak: float = 1.1
     attack: int = 80
     release: int = 160

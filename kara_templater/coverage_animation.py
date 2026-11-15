@@ -35,6 +35,7 @@ class GlowFunction:
             raise ValueError("glow breakpoints must be nonnegative local seconds")
 
     def sample(self, state: VisualState, time: float) -> Glow | None:
+        """Evaluate a glow field while enforcing its declared blur and border bounds."""
         finite(time)
         value = self.function(state, time)
         if value is None:
@@ -67,6 +68,7 @@ class ScopeOpacity:
             raise ValueError("opacity breakpoints must be nonnegative local seconds")
 
     def sample(self, time: float) -> float:
+        """Evaluate scope opacity at seconds time and validate the 0 through 1 result."""
         finite(time)
         value = self.function(time)
         if not isinstance(value, (int, float)):
@@ -100,6 +102,7 @@ class CoveragePartition:
             raise ValueError("partition breakpoints must be nonnegative local seconds")
 
     def sample(self, state: VisualState, time: float) -> tuple["Region", ...]:
+        """Evaluate the declared region partition and enforce the configured maximum region count."""
         finite(time)
         regions = self.function(state, time)
         if len(regions) > self.max_regions:

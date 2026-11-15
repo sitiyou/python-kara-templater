@@ -3,8 +3,9 @@
 from dataclasses import replace
 
 import pytest
+from track_helpers import compile_tracks
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from examples.syllable_pulse import SyllablePulse
 from kara_templater import (
     Animation,
@@ -25,7 +26,6 @@ from kara_templater import (
     Track,
     Transform,
     TransformTo,
-    render_karaoke,
 )
 from kara_templater.behaviors import MotionRule, bind_property
 
@@ -100,7 +100,7 @@ def test_later_start_takes_over_from_interpolated_value():
 def test_takeover_only_replaces_overlapping_properties():
     def compose(timeline, context):
         timeline.play(TransformTo(Transform(scale=2, offset_y=10)), duration=1)
-        timeline.play(ScaleTo(1), t=0.5, duration=0.5)
+        timeline.play(ScaleTo(1), at=0.5, duration=0.5)
 
     values = bound(Composition(compose))
     assert values[(0,), "scale"].at(1750) == pytest.approx(1.25)
@@ -111,7 +111,7 @@ def test_parallel_cursor_and_explicit_time_are_independent():
     def compose(timeline, context):
         timeline.play(ScaleTo(2, duration=0.2), MoveTo(y=10, duration=0.5))
         timeline.play(ScaleTo(1), duration=0.1)  # starts at .5
-        timeline.play(OpacityTo(0), t=0.3, duration=0.1)
+        timeline.play(OpacityTo(0), at=0.3, duration=0.1)
 
     values = bound(Composition(compose))
     scale = values[(0,), "scale"]
@@ -232,7 +232,7 @@ def test_pulse_renders_constructed_and_parsed_ass(parsed):
     if parsed:
         doc = Document.parse(doc.dumps())
     track = Track(source=LineMatch(), body=Body(), animations=(SyllablePulse(),))
-    result = render_karaoke(doc, tracks=(track,))
+    result = compile_tracks(doc, tracks=(track,))
     assert result.event_count > 0
 
 
@@ -257,7 +257,7 @@ def test_schedule_boundaries_split_native_sampling_buckets():
 
     doc = document(fontname="DejaVu Sans", text="AB")
     track = Track(source=LineMatch(), animations=(Composition(compose),))
-    result = render_karaoke(doc, items=(source(),), tracks=(track,))
+    result = compile_tracks(doc, items=(source(),), tracks=(track,))
     lines = [
         line
         for line in result.document.lines
@@ -289,7 +289,7 @@ def test_raster_backend_respects_schedule_boundaries():
             ),
         ),
     )
-    result = render_karaoke(
+    result = compile_tracks(
         doc,
         items=(item,),
         tracks=(track,),
@@ -313,7 +313,7 @@ def test_idle_composition_does_not_claim_properties_before_first_play():
             animation,
         ),
     )
-    result = render_karaoke(
+    result = compile_tracks(
         document(fontname="DejaVu Sans", text="AB"), items=(source(),), tracks=(track,)
     )
     assert result.event_count > 0
@@ -337,7 +337,7 @@ def test_top_level_competing_writers_still_raise():
 
     track = Track(source=LineMatch(), animations=(ScaleTo(1.1), ScaleTo(1.2)))
     with pytest.raises(OutputCapabilityError, match="scale conflict"):
-        render_karaoke(
+        compile_tracks(
             document(fontname="DejaVu Sans", text="AB"),
             items=(source(),),
             tracks=(track,),

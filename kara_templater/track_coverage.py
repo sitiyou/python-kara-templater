@@ -11,10 +11,10 @@ from .coverage_animation import CoveragePartition, GlowFunction, ScopeOpacity
 from .coverage_output import CoverageResult, compile_coverage
 from .geometry import finite
 from .import_ass import ImportSettings
+from .karaoke import KaraokeItem
 from .paint_fields import PaintField
 from .raster_settings import RasterSettings
-from .recipe import KaraokeItem
-from .render import _prepare_karaoke
+from .render import _prepare_tracks
 from .scene import Lifetime, ObjectGroup, SceneObject
 from .scene_output import SceneBudget
 from .track import Track, TrackGroup
@@ -49,6 +49,7 @@ class PreparedTrackCoverage:
         settings: RasterSettings = _DEFAULT_SETTINGS,
         budget: SceneBudget = _DEFAULT_BUDGET,
     ) -> CoverageResult:
+        """Compile the editable group and ID-keyed material bindings with explicit raster and Scene limits."""
         return compile_coverage(
             self.document,
             self.group,
@@ -105,7 +106,7 @@ def prepare_track_coverage(
         diagnostics.extend(result.diagnostics)
         return result.group
 
-    prepared = _prepare_karaoke(
+    prepared = _prepare_tracks(
         document,
         items,
         tracks=tracks,

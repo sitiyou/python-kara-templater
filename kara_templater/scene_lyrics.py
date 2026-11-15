@@ -16,6 +16,11 @@ from .sources import EventOrigin, SourceRef
 
 @dataclass(frozen=True)
 class PositionedRuby:
+    """A reading layout associated with a source unit/segment and decoded body range.
+
+    Its own text view retains source mappings and singing timing.
+    """
+
     unit_index: int
     segment_index: int
     body_start: int
@@ -25,12 +30,18 @@ class PositionedRuby:
 
 @dataclass(frozen=True)
 class LyricLayout:
+    """Measured body and positioned readings for projected DocumentLyrics.
+
+    unit_group builds editable body/ruby groups using the body center as pivot.
+    """
+
     lyrics: DocumentLyrics
     body: DocumentLayout
     ruby: tuple[PositionedRuby, ...]
     bounds: Box
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
+        """Combine measured body and positioned ruby objects into an editable group."""
         return ObjectGroup(
             id=self.body.id,
             lifetime=self.body.lifetime,

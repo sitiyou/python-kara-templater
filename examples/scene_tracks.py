@@ -35,7 +35,7 @@ from kara_templater import (
     VectorPath,
     VisualState,
     echoes,
-    prepare_karaoke,
+    prepare_tracks,
 )
 
 
@@ -60,7 +60,7 @@ def build() -> Scene:
         layout=SingleLine(position=(640, 360)),
         animations=(SingingPulseAnimation(peak=1.08),),
     )
-    scene = prepare_karaoke(document, tracks=(lyric,)).scene
+    scene = prepare_tracks(document, tracks=(lyric,), mode="native").scene
     orbit = PathObject(
         id="orbit",
         lifetime=Lifetime(0, 5),

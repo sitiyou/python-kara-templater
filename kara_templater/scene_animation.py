@@ -47,15 +47,23 @@ def local_seconds(time: float, origin: float) -> float:
 
 
 def linear_rate(progress: float) -> float:
+    """Return normalized Scene animation progress unchanged."""
     return progress
 
 
 def smooth_rate(progress: float) -> float:
+    """Ease Scene animation progress smoothly between endpoints."""
     return progress * progress * (3 - 2 * progress)
 
 
 @dataclass(frozen=True)
 class VisualState:
+    """Finite drawing state in script pixels, degrees, RGB colors, and opacity 0 through 1.
+
+    Position, scale, rotation, skew, paint, blur, and shadow compose through the
+    scene hierarchy.
+    """
+
     position: Vec2 = Vec2()
     scale: Vec2 = Vec2(1, 1)
     rotation: float = 0
@@ -87,6 +95,11 @@ class VisualState:
 
 @dataclass(frozen=True, kw_only=True)
 class StatePatch:
+    """A sparse set of VisualState targets for interpolation.
+
+    Omitted channels retain the incoming state.
+    """
+
     position: Vec2 | None = None
     scale: Vec2 | None = None
     rotation: float | None = None
@@ -100,6 +113,7 @@ class StatePatch:
 
     @property
     def channels(self) -> frozenset[Channel]:
+        """The channels explicitly supplied by this sparse patch."""
         pairs: tuple[tuple[Channel, object], ...] = (
             ("position", self.position),
             ("scale", self.scale),
@@ -115,6 +129,8 @@ class StatePatch:
         return frozenset(key for key, value in pairs if value is not None)
 
     def interpolate(self, base: VisualState, progress: float) -> VisualState:
+        """Interpolate supplied targets from the base state, preserving omitted channels."""
+
         def scalar(a: float, b: float | None) -> float:
             return a if b is None else a + (b - a) * progress
 
@@ -148,22 +164,38 @@ class StatePatch:
 
 
 class StateAnimation(Protocol):
-    @property
-    def channels(self) -> frozenset[Channel]: ...
+    """Protocol for a pure normalized-progress state animation with explicitly declared written channels.
 
-    def sample(self, base: VisualState, progress: float) -> VisualState: ...
+    Implement sample without depending on prior frame evaluation.
+    """
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """The explicit set of VisualState channels this animation may write."""
+        ...
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Evaluate normalized clip progress from the incoming state without prior-frame state."""
+        ...
 
 
 @dataclass(frozen=True)
 class Tween:
+    """Interpolate a StatePatch from the incoming VisualState using normalized progress and an easing rate.
+
+    The patch determines the written channels.
+    """
+
     target: StatePatch
     rate: Callable[[float], float] = linear_rate
 
     @property
     def channels(self) -> frozenset[Channel]:
+        """The channels written by the target StatePatch."""
         return self.target.channels
 
     def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Interpolate the target patch using eased normalized progress."""
         value = self.rate(progress)
         finite(value)
         return self.target.interpolate(base, value)
@@ -200,11 +232,18 @@ class StateFunction:
     channels: frozenset[Channel] = CHANNELS
 
     def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Call the custom normalized-progress evaluator with the incoming visual state."""
         return self.function(base, progress)
 
 
 @dataclass(frozen=True)
 class AnimationClip:
+    """A positive-duration state animation starting at local seconds from object birth.
+
+    hold retains final written channels; breakpoints are offsets from the clip
+    start.
+    """
+
     start: float
     duration: float
     animation: StateAnimation
@@ -224,6 +263,7 @@ class AnimationClip:
 
     @property
     def end(self) -> float:
+        """The local clip start plus duration, in seconds."""
         return self.start + self.duration
 
 
@@ -315,6 +355,7 @@ class SceneTimeline:
         return self
 
     def wait(self, duration: float) -> SceneTimeline:
+        """Advance the local seconds cursor without scheduling an animation."""
         finite(duration)
         if duration < 0:
             raise ValueError("wait duration cannot be negative")
@@ -353,6 +394,7 @@ class SceneTimeline:
         return self
 
     def repeat(self, count: int) -> SceneTimeline:
+        """Repeat a complete schedule while preserving clip-local clocks and breakpoints."""
         if type(count) is not int or count < 1 or self._cursor <= 0:
             raise ValueError("repeat requires a positive count and nonempty duration")
         original, duration = tuple(self._clips), self._cursor
@@ -366,6 +408,7 @@ class SceneTimeline:
 
     @property
     def clips(self) -> tuple[AnimationClip, ...]:
+        """The validated immutable AnimationClip schedule for assignment to an object."""
         return tuple(self._clips)
 
 

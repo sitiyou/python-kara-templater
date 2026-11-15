@@ -25,8 +25,8 @@ from kara_templater import (
     Track,
     layout_line,
 )
+from kara_templater._track_types import TrackContext
 from kara_templater.behaviors import sample_hierarchy
-from kara_templater.recipe import EffectContext
 
 
 def binding(*animations):
@@ -46,7 +46,7 @@ def binding(*animations):
     bound = track.bind((item,))[item.id]
     style = Style(fontname="DejaVu Sans", fontsize=32, shadow=0)
     body, ruby = bound.prepare_styles(style, replace(style, name="ruby", fontsize=16))
-    context = EffectContext(
+    context = TrackContext(
         layout_line(item.source, style=body, ruby_style=ruby, resolution=(320, 240)),
         body,
         ruby,

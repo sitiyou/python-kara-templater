@@ -50,6 +50,11 @@ class FontFace:
 
 @dataclass(frozen=True)
 class DrawableCharacter:
+    """An independently drawable shaped cluster with unit-local source range, advance/ink bounds, timing region, and actual font faces.
+
+    A cluster can contain several Unicode code points.
+    """
+
     source: TextRange
     text: str
     box: Box
@@ -59,12 +64,14 @@ class DrawableCharacter:
 
     @property
     def id(self) -> str:
+        """The stable layout-local identity of this drawable source cluster."""
         return (
             f"unit:{self.source.unit_index}/text:{self.source.start}:{self.source.end}"
         )
 
     @property
     def target(self) -> CharacterTarget:
+        """Expose the character region, source unit, and center for highlight scheduling."""
         return CharacterTarget(
             self.id,
             self.source.unit_index,
@@ -294,6 +301,11 @@ def layout_characters(
 def select_characters(
     characters: tuple[DrawableCharacter, ...], source: TextRange
 ) -> tuple[DrawableCharacter, ...]:
+    """Select complete drawable clusters covered by a TextRange.
+
+    Reject boundaries that cut a cluster instead of silently expanding or reshaping
+    the selection.
+    """
     with _source_location(source.unit_index):
         selected = tuple(
             c

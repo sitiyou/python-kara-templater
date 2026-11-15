@@ -28,6 +28,11 @@ from .sources import EventOrigin
 
 @dataclass(frozen=True)
 class Emission:
+    """A stable particle emission ID and nonnegative absolute birth time in seconds.
+
+    Reordering a schedule does not change keyed random values for an existing ID.
+    """
+
     id: str
     birth: float
 
@@ -39,6 +44,12 @@ class Emission:
 
 @dataclass(frozen=True)
 class ParticleContext:
+    """Particle factory input with birth, seed, source position, optional origin, and named random channels.
+
+    position_at samples an emitter explicitly; it does not imply continuous
+    following.
+    """
+
     id: str
     birth: float
     seed: int
@@ -60,6 +71,7 @@ class ParticleContext:
         return minimum + (maximum - minimum) * (number / (1 << 53))
 
     def choose[T](self, key: str, values: tuple[T, ...]) -> T:
+        """Select deterministically from values using a named random channel."""
         if not values:
             raise ValueError("random choice requires a nonempty tuple")
         return values[min(len(values) - 1, int(self.uniform(key) * len(values)))]
@@ -71,7 +83,14 @@ class ParticleContext:
 
 
 class ParticleFactory(Protocol):
-    def __call__(self, context: ParticleContext, /) -> SceneObject: ...
+    """A callable producing a normal Scene object or group from ParticleContext.
+
+    The factory controls its own geometry, animation, and lifetime.
+    """
+
+    def __call__(self, context: ParticleContext, /) -> SceneObject:
+        """Create one Scene object or group preserving the context ID and birth time."""
+        ...
 
 
 def _stamp(node: SceneObject, origin: EventOrigin | None) -> SceneObject:

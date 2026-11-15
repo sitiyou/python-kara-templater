@@ -132,7 +132,8 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "native/metrics.cpp",
         "tests/fonts/KaraTestCJK.ttf",
         "tests/fonts/KaraTestMultiscript.ttf",
-        "docs/ass-animation-engine-plan.md",
+        "docs/getting-started.md",
+        "docs/reference/README.md",
     ):
         if not (package / relative).is_file():
             raise AssertionError(f"source archive is missing {relative}")
@@ -140,7 +141,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
     check.mkdir()
     for name in ("tests", "examples", "tools", "docs"):
         shutil.copytree(package / name, check / name)
-    for name in ("README.md", "setup.py", "pyproject.toml"):
+    for name in ("README.md", "THIRD_PARTY.md", "setup.py", "pyproject.toml"):
         shutil.copy2(package / name, check / name)
     venv = output / "venv"
     run(["uv", "venv", "--python", interpreter, str(venv)], "venv", check)
@@ -217,9 +218,9 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
             "-m",
             "kara_templater",
             "examples/karaoke.ass",
-            "output/legacy.ass",
+            "output/default.ass",
         ],
-        "legacy-cli",
+        "default-cli",
         check,
     )
     run(
@@ -279,7 +280,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "pytest_seconds": seconds,
         "pytest_summary": (logs / "pytest.log").read_text().splitlines()[-1],
         "scene_examples": examples,
-        "legacy_cli_passed": True,
+        "default_cli_passed": True,
         "explicit_v010_template_cli_passed": True,
         "sweep_strategy_examples": strategy_examples,
     }

@@ -15,6 +15,11 @@ from .timeline import DisplayWindow, Region, _finite
 
 @dataclass(frozen=True)
 class SampleContext:
+    """A native Track sampling context with millisecond time, normalized progress, target ID, window, and deterministic seed.
+
+    Named noise does not depend on call order.
+    """
+
     time_ms: float
     progress: float
     window: DisplayWindow
@@ -35,6 +40,11 @@ class SampleContext:
 
 @dataclass(frozen=True)
 class DynamicProperties:
+    """Resolved low-level geometry and material values for one sampled target.
+
+    Optional fields preserve the underlying paint when not supplied.
+    """
+
     offset_x: float = 0
     offset_y: float = 0
     opacity: float = 1
@@ -81,6 +91,11 @@ class DynamicProperties:
 
 @dataclass(frozen=True)
 class SamplingSettings:
+    """A positive millisecond sampling step and total target-sample limit for native Track callbacks.
+
+    Editable Scene output instead uses SceneBudget.
+    """
+
     step_ms: int = 40
     max_samples: int = 100000
 
@@ -93,6 +108,11 @@ class SamplingSettings:
 
 @dataclass(frozen=True)
 class DynamicEffect:
+    """A low-level pure SampleContext callback returning DynamicProperties with sampling, seed, blur bounds, and absolute millisecond breakpoints.
+
+    Evaluation is separate from preparation.
+    """
+
     function: Callable[[SampleContext], DynamicProperties]
     sampling: SamplingSettings = SamplingSettings()
     seed: int = 0
@@ -114,6 +134,11 @@ class DynamicEffect:
 
 @dataclass(frozen=True)
 class SamplingEstimate:
+    """Conservative target-sample and event counts before evaluation/merging at step_ms.
+
+    Native subdivision and final encoding can change the final count.
+    """
+
     target_samples: int
     layer_intervals: int
     estimated_events: int
@@ -130,6 +155,7 @@ class SamplingPlan:
     estimate: SamplingEstimate
 
     def evaluate(self) -> tuple["TextLayer", ...]:
+        """Evaluate a validated sampling plan and return its sampled text layers."""
         from .ass_output import OutputCapabilityError
 
         cache = {}

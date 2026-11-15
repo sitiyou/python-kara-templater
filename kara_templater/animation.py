@@ -36,6 +36,11 @@ class CharacterTarget:
 
 @dataclass(frozen=True)
 class HighlightEnter:
+    """Trigger a character animation when a highlight front reaches its enter, center, or complete threshold.
+
+    Thresholds are measured on the drawable character region.
+    """
+
     threshold: str = "enter"
 
     def __post_init__(self) -> None:
@@ -45,12 +50,12 @@ class HighlightEnter:
 
 @dataclass(frozen=True)
 class SyllableStart:
-    pass
+    """Trigger from the first singing segment of a source syllable."""
 
 
 @dataclass(frozen=True)
 class SegmentStart:
-    pass
+    """Trigger once for each original singing segment, including repeated readings."""
 
 
 class PulseTiming(TypedDict, total=False):
@@ -69,6 +74,12 @@ class PulseOptions(PulseTiming, total=False):
 
 @dataclass(frozen=True)
 class Pulse:
+    """Declare a highlight or singing-start scale trigger with target, pivot, duration, and retrigger policy.
+
+    Fixed durations use milliseconds; traversal duration follows the selected
+    singing pass.
+    """
+
     trigger: HighlightEnter | SyllableStart | SegmentStart = HighlightEnter()
     target: str = "triggering_char"
     pivot: str = "char_center"
@@ -103,16 +114,19 @@ class Pulse:
 
     @classmethod
     def each_char(cls, **kwargs: Unpack[PulseOptions]) -> Self:
+        """Create a pulse triggered by each drawable character threshold crossing."""
         return cls(**kwargs)
 
     @classmethod
     def simultaneous_chars(cls, **kwargs: Unpack[PulseTiming]) -> Self:
+        """Create separate character-center pulses triggered together at a syllable start."""
         return cls(
             trigger=SyllableStart(), target="chars", pivot="each_center", **kwargs
         )
 
     @classmethod
     def whole_syllable(cls, **kwargs: Unpack[PulseTiming]) -> Self:
+        """Create a shared syllable-center pulse at a syllable start for low-level scheduling."""
         return cls(
             trigger=SyllableStart(), target="syllable", pivot="group_center", **kwargs
         )
@@ -174,6 +188,12 @@ class OpacityAnimation:
 
 @dataclass(frozen=True)
 class ScaleAnimation:
+    """A resolved target scale schedule with millisecond boundaries and an explicit pivot.
+
+    Optional piecewise keyframes and keep behavior control evaluation beyond the
+    rise/fall interval.
+    """
+
     target_id: str
     track_id: str
     round_id: int
@@ -187,6 +207,7 @@ class ScaleAnimation:
 
     @property
     def points(self) -> tuple[tuple[float, float], ...]:
+        """The effective millisecond scale keyframes for this animation."""
         return (
             self.keyframes
             if self.keyframes is not None
@@ -198,6 +219,7 @@ class ScaleAnimation:
         )
 
     def scale_at(self, time_ms: float) -> float:
+        """Evaluate the resolved uniform scale at a millisecond time."""
         _finite(time_ms, "time")
         if time_ms < self.start_ms:
             return 1.0
@@ -209,6 +231,7 @@ class ScaleAnimation:
         return 1.0
 
     def point_at(self, x: float, y: float, time_ms: float) -> tuple[float, float]:
+        """Transform a point around this animation pivot at a millisecond time."""
         scale = self.scale_at(time_ms)
         px, py = self.pivot
         return px + (x - px) * scale, py + (y - py) * scale
@@ -216,6 +239,11 @@ class ScaleAnimation:
 
 @dataclass(frozen=True)
 class AnimationPlan:
+    """Resolved scale animations, their display window, and scheduling diagnostics.
+
+    This low-level plan retains source target IDs rather than generated ASS layers.
+    """
+
     animations: tuple[ScaleAnimation, ...]
     window: DisplayWindow
     diagnostics: tuple[str, ...] = ()

@@ -17,6 +17,11 @@ if TYPE_CHECKING:
 
 
 class StyleKeyword(Enum):
+    """Explicit UNSET and INHERIT declarations for the style cascade.
+
+    UNSET contributes no override; INHERIT reads the relevant source/parent value.
+    """
+
     INHERIT = "inherit"
     UNSET = "unset"
 
@@ -53,6 +58,11 @@ type StyleValue = Color | float | StyleKeyword
 
 
 class StyleProperties(TypedDict, total=False):
+    """Typed optional style-declaration keys used by constructors and rule().
+
+    Color and scalar fields retain explicit UNSET/INHERIT support.
+    """
+
     fill: ColorStyle
     stroke: ColorStyle
     stroke_width: NumberStyle
@@ -71,42 +81,52 @@ class _StyleAccess:
 
     @property
     def fill(self) -> Color | StyleKeyword:
+        """Read or set the RGB fill declaration, including explicit style keywords."""
         return cast(Color | StyleKeyword, self._read("fill"))
 
     @fill.setter
     def fill(self, value: ColorStyle) -> None:
+        """Read or set the RGB fill declaration, including explicit style keywords."""
         self._write("fill", value)
 
     @property
     def stroke(self) -> Color | StyleKeyword:
+        """Read or set the RGB outline declaration, including explicit style keywords."""
         return cast(Color | StyleKeyword, self._read("stroke"))
 
     @stroke.setter
     def stroke(self, value: ColorStyle) -> None:
+        """Read or set the RGB outline declaration, including explicit style keywords."""
         self._write("stroke", value)
 
     @property
     def stroke_width(self) -> NumberStyle:
+        """Read or set the nonnegative outline-width declaration in script pixels or a style keyword."""
         return cast(NumberStyle, self._read("stroke_width"))
 
     @stroke_width.setter
     def stroke_width(self, value: NumberStyle) -> None:
+        """Read or set the nonnegative outline-width declaration in script pixels or a style keyword."""
         self._write("stroke_width", value)
 
     @property
     def opacity(self) -> NumberStyle:
+        """Read or set opacity in 0 through 1, including explicit style keywords."""
         return cast(NumberStyle, self._read("opacity"))
 
     @opacity.setter
     def opacity(self, value: NumberStyle) -> None:
+        """Read or set opacity in 0 through 1, including explicit style keywords."""
         self._write("opacity", value)
 
     @property
     def font_size(self) -> NumberStyle:
+        """Read or set the positive font-size declaration in script pixels or a style keyword."""
         return cast(NumberStyle, self._read("font_size"))
 
     @font_size.setter
     def font_size(self, value: NumberStyle) -> None:
+        """Read or set the positive font-size declaration in script pixels or a style keyword."""
         self._write("font_size", value)
 
 
@@ -138,50 +158,16 @@ class StyleValues(_StyleAccess):
 
 
 class StyleOverrides(StyleValues):
+    """Typed mutable base and sung-state style declarations.
+
+    Only supported paint and font-size fields participate in the cascade.
+    """
+
     sung: StyleValues
 
     def __init__(self, **values: Unpack[StyleProperties]) -> None:
         super().__init__(**values)
         object.__setattr__(self, "sung", StyleValues())
-
-
-class SelectionStyle(_StyleAccess):
-    """Broadcast declarations to a selection without introducing a cascade level."""
-
-    sung: SelectionStyle
-    _targets: tuple[StyleValues, ...]
-
-    def __init__(self, targets: tuple[StyleValues, ...], *, sung: bool = False) -> None:
-        object.__setattr__(self, "_targets", targets)
-        if not sung:
-            sung_targets = []
-            for target in targets:
-                assert isinstance(target, StyleOverrides)
-                sung_targets.append(target.sung)
-            object.__setattr__(
-                self, "sung", SelectionStyle(tuple(sung_targets), sung=True)
-            )
-
-    def _write(self, name: str, value: ColorStyle | NumberStyle) -> None:
-        value = _value(name, value)
-        for target in self._targets:
-            setattr(target, name, value)
-
-    if not TYPE_CHECKING:
-        # Runtime setattr validates names; static callers see only named properties.
-        __setattr__ = _write
-
-    def _read(self, name: str) -> StyleValue:
-        if name not in _COLORS | _NUMBERS:
-            raise AttributeError(name)
-        values = [target._read(name) for target in self._targets]
-        if not values:
-            return UNSET
-        if any(value != values[0] for value in values[1:]):
-            raise ValueError(
-                f"selection has different {name} declarations; inspect individual targets"
-            )
-        return values[0]
 
 
 _IDENT = r"[A-Za-z_][\w-]*"
@@ -276,6 +262,10 @@ class StyleRule:
 
 
 def rule(selector: str, **properties: Unpack[StyleProperties]) -> StyleRule:
+    """Build a validated selector rule from typed style declarations.
+
+    Supported selectors identify roles, IDs, classes, attributes, and sung state.
+    """
     return StyleRule(
         Selector.parse(selector),
         tuple((k, _value(k, v)) for k, v in properties.items()),
@@ -284,6 +274,12 @@ def rule(selector: str, **properties: Unpack[StyleProperties]) -> StyleRule:
 
 @dataclass(frozen=True, init=False)
 class StyleSheet:
+    """An immutable ordered collection of selector rules for Track components and
+
+    source ranges. Rules combine specificity with explicit declarations and sung-
+    state scope.
+    """
+
     rules: tuple[StyleRule, ...]
 
     def __init__(self, *rules: StyleRule) -> None:
@@ -291,7 +287,7 @@ class StyleSheet:
             raise TypeError("StyleSheet expects rule() declarations")
         object.__setattr__(self, "rules", tuple(rules))
 
-    def resolve(
+    def _resolve(
         self,
         node: Component,
         base: Mapping[str, Color | float],

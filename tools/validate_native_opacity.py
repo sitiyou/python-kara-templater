@@ -10,7 +10,7 @@ from pathlib import Path
 
 from PIL import Image, ImageChops
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from kara_templater import (
     DisplayWindow,
     Line,

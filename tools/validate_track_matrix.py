@@ -17,7 +17,7 @@ from time import perf_counter
 
 from PIL import Image, ImageChops, ImageDraw
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from kara_templater import (
     BLACK,
     BLUE,
@@ -38,6 +38,7 @@ from kara_templater import (
     PaintStyle,
     RasterSettings,
     Ruby,
+    SceneBudget,
     Segment,
     TextStyle,
     TextUnit,
@@ -45,7 +46,7 @@ from kara_templater import (
     _metrics,
     layout_line,
     load_font,
-    render_karaoke,
+    prepare_tracks,
 )
 
 TIMES = (500, 1000, 1240, 1480, 1520, 1760, 2000, 2500)
@@ -137,7 +138,7 @@ def generate(case, mode, destination, *, raster=False, font_size=56):
         else (),
     )
     start = perf_counter()
-    result = render_karaoke(
+    result = prepare_tracks(
         source,
         items=(item,),
         tracks=(track,),
@@ -146,13 +147,20 @@ def generate(case, mode, destination, *, raster=False, font_size=56):
             max_events=2_000_000 if raster else 10000,
             raster=RasterSettings(max_output_chars=256_000_000) if raster else None,
         ),
+        mode="native",
+    ).compile(
+        budget=SceneBudget(
+            max_events=2_000_000 if raster else 10_000,
+            max_bytes=256_000_000 if raster else 10 * 1024 * 1024,
+            max_active=50_000 if raster else 1000,
+        )
     )
     elapsed = perf_counter() - start
     result.document.save(destination)
     return {
         "compile_seconds": elapsed,
         "events": result.event_count,
-        "layers": result.layer_count,
+        "objects": len(result.objects),
         "ass_bytes": destination.stat().st_size,
         "ass_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
         "diagnostics": result.diagnostics,

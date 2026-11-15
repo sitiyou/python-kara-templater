@@ -29,6 +29,12 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class Lifetime:
+    """An absolute half-open seconds interval with 0 <= start < end.
+
+    Parent lifetimes further restrict child visibility without changing local
+    animation clocks.
+    """
+
     start: float
     end: float
 
@@ -38,6 +44,7 @@ class Lifetime:
             raise ValueError("lifetime requires 0 <= start < end")
 
     def contains(self, time: float) -> bool:
+        """Whether an absolute seconds time lies in this half-open lifetime."""
         return self.start <= time < self.end
 
 
@@ -56,6 +63,7 @@ class RectangleFunction:
             )
 
     def sample(self, time: float) -> tuple[float, float, float, float] | None:
+        """Evaluate local-seconds bounds; None represents an empty rectangle mask."""
         bounds = self.function(time)
         if bounds is None:
             return None
@@ -68,6 +76,11 @@ class RectangleFunction:
 
 @dataclass(frozen=True)
 class RectangleClip:
+    """A positive-area normal or inverse rectangle in screen or object-local space.
+
+    Optional deformation evaluates local seconds and can produce an empty mask.
+    """
+
     left: float
     top: float
     right: float
@@ -108,6 +121,11 @@ class VectorClip:
 
 @dataclass(frozen=True, kw_only=True)
 class VisualNode:
+    """Common state, lifetime, animation, clip, material, reference, and source metadata for Scene visuals.
+
+    Local evaluation is distinct from world-space SceneEvaluator queries.
+    """
+
     id: str
     lifetime: Lifetime
     state: VisualState = VisualState()
@@ -152,6 +170,10 @@ class VisualNode:
                 raise ValueError(f"{self.id}: animation extends beyond lifetime")
 
     def at(self, time: float) -> VisualState:
+        """Evaluate this object at absolute seconds using its local animation clock.
+
+        Use SceneEvaluator for parent transforms and references.
+        """
         finite(time)
         return evaluate_clips(
             self.state, self.animations, local_seconds(time, self.lifetime.start)
@@ -189,6 +211,12 @@ class VisualNode:
 
 @dataclass(frozen=True, kw_only=True)
 class TextObject(VisualNode):
+    """A text drawing with family name, pixel font size, shaping style, alignment, and inherited visual state.
+
+    Unsupported affine combinations can lower to glyph geometry with explicit
+    budgets.
+    """
+
     text: str
     font: str = "DejaVu Sans"
     font_size: float = 48
@@ -217,6 +245,11 @@ class TextObject(VisualNode):
 
 @dataclass(frozen=True, kw_only=True)
 class PathObject(VisualNode):
+    """A visual VectorPath drawing with state, lifetime, and optional geometry deformation.
+
+    Coordinates are local to its local origin and parent transforms.
+    """
+
     path: VectorPath
     deform: GeometryAnimation | None = None
 
@@ -233,6 +266,7 @@ class PathObject(VisualNode):
                 raise ValueError("geometry breakpoint outside object lifetime")
 
     def path_at(self, time: float) -> VectorPath | None:
+        """Return the original or deformed path at absolute seconds, using the object birth as local origin."""
         finite(time)
         if self.deform is None:
             return self.path
@@ -277,6 +311,7 @@ class ObjectGroup(VisualNode):
             )
 
     def copy(self, *, id: str, offset: Vec2 | None = None, delay: float = 0) -> Self:
+        """Copy the full hierarchy with unique identities, delayed local clocks, and remapped internal references."""
         names: dict[str, str] = {}
 
         def clone(
@@ -352,16 +387,24 @@ class NativeEvent:
 
 @dataclass
 class Scene:
+    """A Document-backed composition of visual objects and already-lowered NativeEvents.
+
+    add and source replacement configure generation; compile returns a new standard
+    ASS Document and reports.
+    """
+
     document: Document
     objects: list[SceneObject | NativeEvent] = field(default_factory=list)
     replace_records: set[int] = field(default_factory=set)
     owner: str = "scene"
 
     def add(self, *objects: SceneObject | NativeEvent) -> Self:
+        """Append typed visual/native objects and return this Scene for composition."""
         self.objects.extend(objects)
         return self
 
     def replace_source(self, record_index: int) -> None:
+        """Mark a valid source event record for retention as a Comment during compilation."""
         if not 0 <= record_index < len(self.document.records) or not isinstance(
             self.document.records[record_index], Line
         ):
@@ -369,6 +412,7 @@ class Scene:
         self.replace_records.add(record_index)
 
     def evaluator(self) -> SceneEvaluator:
+        """Construct a seekable world-space evaluator for this scene hierarchy and its references."""
         from .scene_evaluation import SceneEvaluator
 
         return SceneEvaluator(self)
@@ -376,6 +420,10 @@ class Scene:
     def compile(
         self, *, budget: SceneBudget | None = None, native_tweens: bool = False
     ) -> SceneResult:
+        """Compile a new ASS Document and reports under explicit Scene budgets.
+
+        Eligible continuous Tween lowering is opt-in.
+        """
         from .scene_output import SceneBudget, compile_scene
 
         return compile_scene(

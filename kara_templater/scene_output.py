@@ -45,6 +45,11 @@ from .text_geometry import outline_text
 
 
 class SceneCompileError(ValueError):
+    """An invalid scene or exceeded compilation limit with object_id and optional source origin.
+
+    Callback causes remain available for diagnosis.
+    """
+
     def __init__(
         self, message: str, *, object_id: str = "", origin: EventOrigin | None = None
     ) -> None:
@@ -55,6 +60,12 @@ class SceneCompileError(ValueError):
 
 @dataclass(frozen=True, kw_only=True)
 class SceneBudget:
+    """Positive whole-scene sampling and resource limits.
+
+    Defaults bound events, bytes, active drawings, geometry, color bands, and
+    boolean work; exceeding a limit raises instead of reducing quality.
+    """
+
     fps: int = 50
     max_events: int = 25_000
     max_bytes: int = 10 * 1024 * 1024
@@ -83,6 +94,11 @@ class SceneBudget:
 
 @dataclass(frozen=True)
 class ObjectReport:
+    """Per-object output strategy, event count, source origin, sample interval, and observed geometry/band costs.
+
+    Optional metrics apply only to relevant strategies.
+    """
+
     id: str
     strategy: str
     events: int
@@ -95,6 +111,11 @@ class ObjectReport:
 
 @dataclass(frozen=True)
 class SceneResult:
+    """A newly compiled ASS Document with object reports, final cost metrics, diagnostics, and actual generated-event origins.
+
+    Caller-owned input objects remain unchanged.
+    """
+
     document: Document
     objects: tuple[ObjectReport, ...]
     event_count: int
@@ -102,6 +123,8 @@ class SceneResult:
     byte_count: int
     estimated_events: int
     max_time_quantization: float
+    diagnostics: tuple[str, ...] = ()
+    event_origins: tuple[tuple[Line, EventOrigin | None], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -926,6 +949,7 @@ def compile_scene(
         )
     generated: list[Line] = []
     by_object: dict[str, list[Line]] = {}
+    event_origins: dict[int, EventOrigin | None] = {}
     reports: list[ObjectReport] = []
     size = len(output.dumps().encode("utf-8")) + 3
 
@@ -945,6 +969,7 @@ def compile_scene(
                 "actual event/byte budget exceeded", object_id=object_id, origin=origin
             )
         generated.append(event)
+        event_origins[id(event)] = origin
         by_object.setdefault(object_id, []).append(event)
 
     clips = ClipResolver(evaluator, budget.max_path_points, budget.max_boolean_work)
@@ -1142,4 +1167,9 @@ def compile_scene(
         byte_count,
         estimate,
         max_quantization,
+        event_origins=tuple(
+            (event, event_origins[id(event)])
+            for event in generated
+            if not event.comment
+        ),
     )

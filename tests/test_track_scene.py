@@ -1,5 +1,6 @@
 """Track preparation, mixed scenes and ownership across both output entrances."""
 
+from copy import deepcopy
 from dataclasses import replace
 
 import pytest
@@ -28,8 +29,7 @@ from kara_templater import (
     Track,
     Vec2,
     VisualState,
-    prepare_karaoke,
-    render_karaoke,
+    prepare_tracks,
 )
 from kara_templater._raster import rasterize
 
@@ -61,20 +61,28 @@ def test_prepared_tracks_preserve_native_and_raster_playback(raster):
         resolution=(320, 240),
         raster=RasterSettings() if raster else None,
     )
-    prepared = prepare_karaoke(doc, tracks=(track(),), settings=settings)
+    prepared = prepare_tracks(doc, tracks=(track(),), settings=settings, mode="native")
     assert doc.dumps() == before
     assert prepared.scene.objects
     assert all(isinstance(node, NativeEvent) for node in prepared.scene.objects)
     assert all(node.origin is not None for node in prepared.scene.objects)
-    old = render_karaoke(doc, tracks=(track(),), settings=settings)
-    new = prepared.scene.compile()
-    assert new.event_count == old.event_count
-    assert prepared.layer_count == old.layer_count
-    assert prepared.diagnostics == old.diagnostics
+    reference = deepcopy(prepared.scene.document)
+    reference.records.extend(
+        deepcopy(node.event)
+        for node in prepared.scene.objects
+        if isinstance(node, NativeEvent)
+    )
+    result = prepared.compile()
+    assert result.event_count == len(prepared.scene.objects)
+    assert result.diagnostics == prepared.diagnostics
+    assert all(
+        event is next(line for line in result.document.lines if line is event)
+        for event, _ in result.event_origins
+    )
     for time in (0, 100, 200, 390):
         assert (
-            rasterize(new.document.dumps(), time, (320, 240)).rgba
-            == rasterize(old.document.dumps(), time, (320, 240)).rgba
+            rasterize(result.document.dumps(), time, (320, 240)).rgba
+            == rasterize(reference.dumps(), time, (320, 240)).rgba
         )
     # Shared output must keep unknown sections, and must not mutate prepared events.
     prepared.scene.document.records.extend(("[Fonts]", "fontname: retained"))
@@ -84,7 +92,9 @@ def test_prepared_tracks_preserve_native_and_raster_playback(raster):
 
 
 def test_mixed_output_regenerates_without_stale_provenance_or_other_owner_loss():
-    scene = prepare_karaoke(source(), tracks=(track(),), owner="song").scene
+    scene = prepare_tracks(
+        source(), tracks=(track(),), owner="song", mode="native"
+    ).scene
     scene.add(
         TextObject(
             id="caption",
@@ -96,20 +106,14 @@ def test_mixed_output_regenerates_without_stale_provenance_or_other_owner_loss()
     output = scene.compile().document
     other = Line(text="other owner", effect="karaoke:v1:other:0", end_time=400)
     output.records.append(other)
-    repeat = prepare_karaoke(output, tracks=(track(),), owner="song").scene.compile()
+    repeat = prepare_tracks(
+        output, tracks=(track(),), owner="song", mode="native"
+    ).scene.compile()
     assert not any(line.text.endswith("caption") for line in repeat.document.lines)
     assert any(line.effect == other.effect for line in repeat.document.lines)
-    # Switching back to the historical entrance also consumes scene provenance pairs.
-    old = render_karaoke(output, tracks=(track(),), owner="song")
-    assert not any(
-        line.text == "kara native event follows" for line in old.document.lines
-    )
-    assert not any(
-        line.effect.startswith("kara:scene:v1:karaoke%3Asong:")
-        for line in old.document.lines
-    )
-    assert old.event_count == repeat.event_count
-    restored = prepare_karaoke(repeat.document, tracks=(), owner="song").scene.compile()
+    restored = prepare_tracks(
+        repeat.document, tracks=(), owner="song", mode="native"
+    ).scene.compile()
     assert any(
         not line.comment and line.text == r"{\k20}AB"
         for line in restored.document.lines
@@ -127,7 +131,9 @@ def test_preparation_evaluates_callbacks_once_and_scene_adds_combined_budgets():
         animations=(On(Syllable.Singing, Animate(scale=(1, 1.2), rate=rate)),)
     )
     estimates = []
-    prepared = prepare_karaoke(source(), tracks=(config,), on_estimate=estimates.append)
+    prepared = prepare_tracks(
+        source(), tracks=(config,), on_estimate=estimates.append, mode="native"
+    )
     assert calls and len(estimates) == 1
     count = len(calls)
     scene = prepared.scene
@@ -154,8 +160,8 @@ def test_scene_generated_karaoke_text_is_not_imported_as_a_new_source():
             end_time=400,
         )
     )
-    result = prepare_karaoke(doc, tracks=(track(),))
-    expected = prepare_karaoke(source(), tracks=(track(),))
+    result = prepare_tracks(doc, tracks=(track(),), mode="native")
+    expected = prepare_tracks(source(), tracks=(track(),), mode="native")
     assert len(result.scene.objects) == len(expected.scene.objects)
     assert any(
         line.text == r"{\k20}not a source" for line in result.scene.document.lines
@@ -163,7 +169,7 @@ def test_scene_generated_karaoke_text_is_not_imported_as_a_new_source():
 
 
 def test_corrupt_owned_native_marker_is_diagnosed_before_track_callbacks():
-    prepared = prepare_karaoke(source(), tracks=(track(),))
+    prepared = prepare_tracks(source(), tracks=(track(),), mode="native")
     output = prepared.scene.compile().document
     marker = next(
         line for line in output.lines if line.text == "kara native event follows"
@@ -171,35 +177,37 @@ def test_corrupt_owned_native_marker_is_diagnosed_before_track_callbacks():
     index = output.records.index(marker)
     output.records[index + 1] = replace(marker)
     with pytest.raises(SceneCompileError, match="damaged native-event provenance"):
-        prepare_karaoke(output, tracks=(track(),))
+        prepare_tracks(output, tracks=(track(),), mode="native")
 
 
 def test_editable_tracks_document_input_ownership_and_repeat_generation():
-    from kara_templater import ObjectGroup, prepare_track_scene
+    from kara_templater import ObjectGroup, prepare_tracks
 
     document = source()
     original = document.dumps()
-    prepared = prepare_track_scene(document, tracks=(track(),), owner="editable")
+    prepared = prepare_tracks(document, tracks=(track(),), owner="editable")
     assert document.dumps() == original
     assert prepared.scene.objects
     assert all(isinstance(node, ObjectGroup) for node in prepared.scene.objects)
     first = prepared.scene.compile()
-    parsed = prepare_track_scene(
+    parsed = prepare_tracks(
         Document.parse(original), tracks=(track(),), owner="editable"
     )
     assert parsed.scene.compile().document.dumps() == first.document.dumps()
-    repeated = prepare_track_scene(first.document, tracks=(track(),), owner="editable")
+    repeated = prepare_tracks(first.document, tracks=(track(),), owner="editable")
     assert repeated.scene.compile().document.dumps() == first.document.dumps()
     # Both frontends consume the same source ownership and remove stale output.
-    legacy = prepare_karaoke(first.document, tracks=(track(),), owner="editable")
-    switched_back = prepare_track_scene(
+    legacy = prepare_tracks(
+        first.document, tracks=(track(),), owner="editable", mode="native"
+    )
+    switched_back = prepare_tracks(
         legacy.scene.compile().document, tracks=(track(),), owner="editable"
     )
     assert switched_back.scene.compile().document.dumps() == first.document.dumps()
 
 
 def test_editable_tracks_callbacks_wait_for_scene_budget_and_are_seekable():
-    from kara_templater import prepare_track_scene
+    from kara_templater import prepare_tracks
 
     calls = []
 
@@ -210,7 +218,7 @@ def test_editable_tracks_callbacks_wait_for_scene_budget_and_are_seekable():
     configured = track(
         animations=(On(Syllable.Singing, Animate(scale=(1, 1.2), rate=rate)),)
     )
-    prepared = prepare_track_scene(source(), tracks=(configured,))
+    prepared = prepare_tracks(source(), tracks=(configured,))
     assert not calls
     with pytest.raises(SceneCompileError, match="budget"):
         prepared.scene.compile(budget=SceneBudget(max_events=1))
@@ -219,11 +227,11 @@ def test_editable_tracks_callbacks_wait_for_scene_budget_and_are_seekable():
     assert calls
     assert prepared.scene.compile().document.dumps() == first
     with pytest.raises(ValueError, match="object budget|layers|regions"):
-        prepare_track_scene(source(), tracks=(configured,), max_objects=1)
+        prepare_tracks(source(), tracks=(configured,), max_objects=1)
 
 
 def test_editable_track_groups_can_be_transformed_and_keep_diagnostics():
-    from kara_templater import Blur, ObjectGroup, prepare_track_scene
+    from kara_templater import Blur, ObjectGroup, prepare_tracks
 
     configured = Track(
         source=LineMatch(),
@@ -232,7 +240,7 @@ def test_editable_track_groups_can_be_transformed_and_keep_diagnostics():
             style=PaintStyle(fill=PINK, blur=Blur(color=PINK, radius=3, width=4))
         ),
     )
-    prepared = prepare_track_scene(source(), tracks=(configured,))
+    prepared = prepare_tracks(source(), tracks=(configured,))
     assert any("hard-clips" in message for message in prepared.diagnostics)
     assert any("per drawing layer" in message for message in prepared.diagnostics)
     group = prepared.scene.objects[0]
@@ -247,7 +255,7 @@ def test_editable_track_groups_can_be_transformed_and_keep_diagnostics():
 
 
 def test_editable_trackgroup_allocates_rows_and_restores_unselected_sources():
-    from kara_templater import DoubleLine, ObjectGroup, TrackGroup, prepare_track_scene
+    from kara_templater import DoubleLine, ObjectGroup, TrackGroup, prepare_tracks
 
     document = source()
     document.records.append(
@@ -256,7 +264,7 @@ def test_editable_trackgroup_allocates_rows_and_restores_unselected_sources():
     grouped = TrackGroup(
         Track(source=LineMatch()), layout=DoubleLine(position=(60, 80), gap=50)
     )
-    prepared = prepare_track_scene(document, tracks=(grouped,))
+    prepared = prepare_tracks(document, tracks=(grouped,))
     assert len(prepared.scene.objects) == 2
     groups = prepared.scene.objects
     assert all(isinstance(group, ObjectGroup) for group in groups)
@@ -267,7 +275,7 @@ def test_editable_trackgroup_allocates_rows_and_restores_unselected_sources():
     body2 = next(child for child in second.children if isinstance(child, TextObject))
     assert body2.state.position.y - body1.state.position.y == 50
     output = prepared.scene.compile().document
-    restored = prepare_track_scene(output, tracks=()).scene.compile().document
+    restored = prepare_tracks(output, tracks=()).scene.compile().document
     assert {line.text for line in restored.lines if not line.comment} == {
         r"{\k20}AB",
         r"{\k20}CD",

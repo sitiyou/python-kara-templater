@@ -8,11 +8,8 @@ include tests/fonts/KaraTestHangul.ttf tests/fonts/LICENSE-Sarasa
 include tests/fonts/KaraTestCJK.ttf tests/fonts/KaraTestMultiscript.ttf
 recursive-include vendor *.tar.gz *.patch LICENSE.*
 recursive-include vendor/runtime-licenses *
-include THIRD_PARTY.md docs/releasing.md
-include docs/karaoke-effects-plan.md docs/ass-builder-replacement.md
-include docs/effects-validation.md docs/effects-validation-baseline.json
-include docs/karaoke-effects-audit.md
+include THIRD_PARTY.md
 recursive-include examples *.ass *.py
-include docs/type-checking.md
-
-recursive-include docs *.md *.json *.png
+recursive-include docs *.md *.gif
+prune .dev
+prune build

@@ -1,6 +1,6 @@
 """Inventory bundled engine assets; verify subset coverage and sdist inclusion.
 
-uv run python -m tools.validate_engine_assets docs/engine-assets-validation.json
+uv run python -m tools.validate_engine_assets build/engine-assets-validation.json
 This checks repository assets, not which font a playback application selects.
 """
 
@@ -93,24 +93,6 @@ def validate(output: Path) -> None:
                 "regeneration": [
                     "tools/build_test_font.py",
                     "tools/build_hangul_test_font.py",
-                ],
-                "baseline_reports": [
-                    "docs/engine-backgrounds-validation.json",
-                    "docs/engine-backgrounds-writing-validation.json",
-                    "docs/engine-backgrounds-writing-final-validation.json",
-                    "docs/engine-backgrounds-sakura-validation.json",
-                    "docs/engine-backgrounds-sakura-final-validation.json",
-                    "docs/engine-backgrounds-cues-validation.json",
-                    "docs/engine-backgrounds-words-validation.json",
-                    "docs/engine-backgrounds-staggered-validation.json",
-                    "docs/engine-backgrounds-lyrics-validation.json",
-                    "docs/engine-backgrounds-fragments-validation.json",
-                    "docs/engine-backgrounds-round-validation.json",
-                    "docs/engine-backgrounds-outlines-validation.json",
-                    "docs/engine-backgrounds-morph-validation.json",
-                    "docs/engine-backgrounds-gradient-validation.json",
-                    "docs/engine-backgrounds-sweep-validation.json",
-                    "docs/whole-song-validation.json",
                 ],
             },
             ensure_ascii=False,

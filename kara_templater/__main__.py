@@ -1,29 +1,89 @@
 import argparse
 import runpy
+from collections.abc import Callable
 from pathlib import Path
+from typing import cast
 
+from .animation import Pulse
 from .ass import Document
 from .ass_output import OutputSettings
+from .components import Body, Ruby
 from .composition import Color
-from .effect import Body, Effect, Lyrics, Ruby
 from .engine import apply_templates
 from .import_ass import ImportSettings, paint_pair_from_style
+from .matching import LineMatch
+from .motion import (
+    Animate,
+    Animation,
+    FadeInAnimation,
+    FadeOutAnimation,
+    HighlightAnimation,
+    On,
+    Syllable,
+)
+from .properties import Transition, there_and_back
 from .raster_settings import RasterSettings
-from .render import render_karaoke
+from .render import RenderEstimate, prepare_tracks
+from .scene import Scene
 from .scene_output import SceneBudget
-from .track import Track, TrackGroup
+from .text_style import PaintStyle, TextStyle
+from .track import Overlay, Track, TrackGroup
+
+
+def _preset_tracks(
+    document: Document,
+    *,
+    before: Color | None,
+    after: Color | None,
+    pulse: str,
+    fade_in_ms: int,
+    fade_out_ms: int,
+) -> tuple[Track, ...]:
+    animations: list[Animation] = []
+    if fade_in_ms:
+        animations.append(FadeInAnimation(duration=fade_in_ms))
+    if fade_out_ms:
+        animations.append(FadeOutAnimation(duration=fade_out_ms))
+    if pulse in {"char", "chars"}:
+        trigger = Pulse() if pulse == "char" else Pulse.simultaneous_chars()
+        animations.append(HighlightAnimation(trigger=trigger))
+    elif pulse == "syllable":
+        animations.append(
+            On(Syllable.Singing, Animate(scale=Transition(1, 1.1, rate=there_and_back)))
+        )
+    return tuple(
+        Track(
+            source=LineMatch(style=name),
+            body=Body(
+                style=TextStyle(
+                    fill=paints.before.fill if before is None else before,
+                    opacity=paints.before.opacity,
+                )
+            ),
+            ruby=Ruby(),
+            overlay=Overlay(
+                style=PaintStyle(
+                    fill=paints.after.fill if after is None else after,
+                    opacity=paints.after.opacity,
+                )
+            ),
+            animations=animations,
+        )
+        for name, style in document.styles.items()
+        for paints in (paint_pair_from_style(style),)
+    )
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Render ASS karaoke using Python effect recipes"
+        description="Generate standard ASS from lyric Tracks, Scenes, or Python templates"
     )
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     parser.add_argument(
         "--effect",
         type=Path,
-        help="Python file exporting tracks, effect or build(item, context)",
+        help="Python file exporting tracks or build(document) -> Scene",
     )
     parser.add_argument(
         "--owner",
@@ -76,10 +136,18 @@ def main() -> None:
     parser.add_argument("--fade-in-ms", type=int, default=0)
     parser.add_argument("--fade-out-ms", type=int, default=0)
     parser.add_argument("--max-events", type=int, default=10000)
+    parser.add_argument("--max-bytes", type=int, default=10 * 1024 * 1024)
+    parser.add_argument("--max-active", type=int, default=1000)
     args = parser.parse_args()
+    requested_owner = args.owner
     if args.owner is None:
         args.owner = "legacy-templates" if args.templates else "default"
     try:
+        budget = SceneBudget(
+            max_events=args.max_events,
+            max_bytes=args.max_bytes,
+            max_active=args.max_active,
+        )
         if args.video_size is not None and not args.templates:
             raise ValueError("--video-size requires --templates")
         if args.templates:
@@ -108,7 +176,7 @@ def main() -> None:
                 Document.load(args.input),
                 video_size=size,
                 owner=args.owner,
-                budget=SceneBudget(max_events=args.max_events),
+                budget=budget,
             )
             result.save(args.output)
             return
@@ -120,6 +188,7 @@ def main() -> None:
             else None
         )
         document = Document.load(args.input)
+        scene: Scene | None = None
         tracks: tuple[Track | TrackGroup, ...] | None = None
         if args.effect:
             if (
@@ -133,8 +202,31 @@ def main() -> None:
                     "configure colors, pulses and fades in --effect rather than combining recipe and preset options"
                 )
             namespace = runpy.run_path(str(args.effect))
-            effect = namespace.get("effect", namespace.get("build"))
+            builder = namespace.get("build")
             declared_tracks = namespace.get("tracks")
+            if builder is not None and declared_tracks is not None:
+                raise ValueError(
+                    "effect file must export either tracks or build, not both"
+                )
+            if builder is not None:
+                if (
+                    args.raster
+                    or args.lead_ms
+                    or args.tail_ms
+                    or args.style
+                    or requested_owner is not None
+                ):
+                    raise ValueError(
+                        "configure input, timing, materials and owner inside build(document)"
+                    )
+                if not callable(builder):
+                    raise TypeError(
+                        "build must be callable as build(document) -> Scene"
+                    )
+                built = cast(Callable[[Document], object], builder)(document)
+                if not isinstance(built, Scene):
+                    raise TypeError("build(document) must return Scene")
+                scene = built
             if declared_tracks is not None:
                 if not isinstance(declared_tracks, (tuple, list)) or not all(
                     isinstance(track, (Track, TrackGroup)) for track in declared_tracks
@@ -147,39 +239,21 @@ def main() -> None:
                     assert isinstance(track, (Track, TrackGroup))
                     validated_tracks.append(track)
                 tracks = tuple(validated_tracks)
-            if effect is None and tracks is None:
+            if scene is None and tracks is None:
                 raise ValueError(
-                    "effect file must export tracks, effect or build(item, context)"
+                    "effect file must export tracks or build(document) -> Scene"
                 )
         else:
+            tracks = _preset_tracks(
+                document,
+                before=args.before,
+                after=args.after,
+                pulse=args.pulse,
+                fade_in_ms=args.fade_in_ms,
+                fade_out_ms=args.fade_out_ms,
+            )
 
-            class Preset(Effect):
-                def compose(self):
-                    yield Lyrics(Body(), Ruby())
-
-                def configure(self):
-                    paints = paint_pair_from_style(document.styles[self.source.style])
-                    self.ruby.style.stroke_width = paints.before.border
-                    self.ruby.style.opacity = paints.before.opacity
-                    self.ruby.style.sung.opacity = paints.after.opacity
-                    if args.before is not None:
-                        self.body.style.fill = args.before
-                    # A base fill applies to both states; explicitly retain the
-                    # source sung color when only --before was supplied.
-                    if args.before is not None and args.after is None:
-                        self.body.style.sung.fill = paints.after.fill
-                    self.text.sweep(fill=args.after)
-                    self.text.fade(in_ms=args.fade_in_ms, out_ms=args.fade_out_ms)
-                    if args.pulse == "char":
-                        self.characters.on_highlight(pulse=1.1)
-                    elif args.pulse == "chars":
-                        self.characters.on_singing(pulse=1.1)
-                    elif args.pulse == "syllable":
-                        self.syllables.on_singing(pulse=1.1)
-
-            effect = Preset
-
-        def report_estimate(estimate):
+        def report_estimate(estimate: RenderEstimate) -> None:
             if estimate.sampling or estimate.raster:
                 print(
                     f"Preflight: {estimate.target_samples} property samples, "
@@ -188,24 +262,31 @@ def main() -> None:
                     flush=True,
                 )
 
-        result = render_karaoke(
-            document,
-            effect=effect,
-            tracks=tracks,
-            owner=args.owner,
-            on_estimate=report_estimate,
-            import_settings=ImportSettings(
-                args.lead_ms, args.tail_ms, tuple(args.style) if args.style else None
-            ),
-            settings=OutputSettings(
-                (document.meta.res_x, document.meta.res_y),
-                max_events=args.max_events,
-                raster=raster_settings,
-            ),
-        )
+        if scene is not None:
+            result = scene.compile(budget=budget)
+        else:
+            assert tracks is not None
+            prepared = prepare_tracks(
+                document,
+                tracks=tracks,
+                mode="native",
+                owner=args.owner,
+                on_estimate=report_estimate,
+                import_settings=ImportSettings(
+                    args.lead_ms,
+                    args.tail_ms,
+                    tuple(args.style) if args.style else None,
+                ),
+                settings=OutputSettings(
+                    (document.meta.res_x, document.meta.res_y),
+                    max_events=args.max_events,
+                    raster=raster_settings,
+                ),
+            )
+            result = prepared.compile(budget=budget)
         result.document.save(args.output)
         print(
-            f"Generated {result.event_count} events ({result.layer_count} planned layers)"
+            f"Generated {result.event_count} events ({result.peak_active} active, {result.byte_count} bytes)"
         )
         for diagnostic in dict.fromkeys(result.diagnostics):
             print(diagnostic)

@@ -37,6 +37,12 @@ def _validate_number(value: NumberStyle, name: str, *, alpha: bool = False) -> N
 
 @dataclass(frozen=True, kw_only=True)
 class Blur:
+    """A configurable Track glow with color, pixel radius/width, and opacity.
+
+    Resolve against an inherited glow while preserving explicit UNSET/INHERIT
+    semantics.
+    """
+
     color: ColorStyle = UNSET
     radius: NumberStyle = UNSET
     width: NumberStyle = UNSET
@@ -50,6 +56,7 @@ class Blur:
         _validate_number(self.opacity, "blur opacity", alpha=True)
 
     def resolve(self, base: Glow, inherited: Glow) -> Glow:
+        """Resolve explicit, inherited, and unset glow fields against an optional existing glow."""
         return Glow(
             color=_color(self.color, base.color, inherited.color),
             blur=_number(self.radius, base.blur, inherited.blur),
@@ -60,6 +67,11 @@ class Blur:
 
 @dataclass(frozen=True, kw_only=True)
 class PaintStyle:
+    """Track paint-only declarations for fill, stroke, width, opacity, and glow.
+
+    It cannot change font layout; resolve produces a validated Paint.
+    """
+
     fill: ColorStyle = UNSET
     stroke: ColorStyle = UNSET
     stroke_width: NumberStyle = UNSET
@@ -76,6 +88,7 @@ class PaintStyle:
         _validate_number(self.opacity, "opacity", alpha=True)
 
     def resolve(self, base: Paint, *, inherited: Paint | None = None) -> Paint:
+        """Resolve this sparse paint declaration against a base Paint and explicit inheritance source."""
         inherited = base if inherited is None else inherited
         glow = base.glow
         if self.blur is None:
@@ -98,6 +111,11 @@ class PaintStyle:
 
 @dataclass(frozen=True, kw_only=True)
 class TextStyle(PaintStyle):
+    """Track text appearance with PaintStyle fields plus optional font size, family, and spacing.
+
+    Layout-changing values are applied before measurement.
+    """
+
     font_size: NumberStyle = UNSET
     font_name: str | None = None
     spacing: float | None = None
@@ -113,6 +131,7 @@ class TextStyle(PaintStyle):
             _finite(self.spacing, "spacing")
 
     def apply_to_style(self, style: Style) -> Style:
+        """Apply layout-affecting font size, family, and spacing before text measurement."""
         return replace(
             style,
             fontsize=_number(self.font_size, style.fontsize, style.fontsize),

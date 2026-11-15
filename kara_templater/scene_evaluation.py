@@ -11,6 +11,11 @@ from .sources import EventOrigin
 
 
 class SceneReferenceError(ValueError):
+    """An invalid dependency, reference cycle, or failed world-state evaluation.
+
+    object_id and optional origin locate the affected Scene object.
+    """
+
     def __init__(
         self, message: str, *, object_id: str, origin: EventOrigin | None = None
     ) -> None:
@@ -158,12 +163,15 @@ class SceneEvaluator:
             )
 
     def referenced(self, name: str) -> bool:
+        """Whether a node has effective animation dependencies requiring world-state evaluation."""
         return self._dependent[name]
 
     def breakpoints(self, name: str) -> tuple[float, ...]:
+        """Return declared absolute-seconds boundaries relevant to a node and its dependencies."""
         return self._breaks[name]
 
     def at(self, name: str, time: float) -> VisualState:
+        """Evaluate a node world state at absolute seconds independently of previous queries."""
         finite(time)
         cache: dict[tuple[str, float], VisualState] = {}
 

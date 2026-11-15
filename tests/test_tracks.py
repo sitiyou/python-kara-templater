@@ -2,8 +2,9 @@ from copy import deepcopy
 from dataclasses import replace
 
 import pytest
+from track_helpers import compile_tracks
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from kara_templater import (
     BLUE,
     CYAN,
@@ -47,11 +48,10 @@ from kara_templater import (
     compile_layers,
     layout_line,
     on,
-    render_karaoke,
     rule,
 )
+from kara_templater._track_types import TrackContext
 from kara_templater.behaviors import bind_property
-from kara_templater.recipe import EffectContext
 
 
 def item(
@@ -73,7 +73,7 @@ def build(track, source=None):
     style, ruby_style = bound.prepare_styles(
         style, replace(style, name="ruby", fontsize=24)
     )
-    context = EffectContext(
+    context = TrackContext(
         layout_line(
             source.source, style=style, ruby_style=ruby_style, resolution=(640, 480)
         ),
@@ -271,7 +271,7 @@ def test_three_colors_from_code_on_parsed_and_constructed_documents(parsed, tmp_
         ),
         overlay=Overlay(),
     )
-    result = render_karaoke(doc, tracks=(track,))
+    result = compile_tracks(doc, tracks=(track,))
     final = [
         line
         for line, _ in result.event_origins
@@ -286,8 +286,8 @@ def test_three_colors_from_code_on_parsed_and_constructed_documents(parsed, tmp_
 
 def test_unmatched_sources_preserved_and_restored_on_rerender():
     doc = document(fontname="DejaVu Sans", text="AB")
-    result = render_karaoke(doc, tracks=(Track(source=LineMatch()),), owner="track")
-    again = render_karaoke(result.document, tracks=(), owner="track")
+    result = compile_tracks(doc, tracks=(Track(source=LineMatch()),), owner="track")
+    again = compile_tracks(result.document, tracks=(), owner="track")
     assert again.event_count == 0
     lines = list(again.document.lines)
     assert len(lines) == 1 and not lines[0].comment
@@ -297,13 +297,11 @@ def test_unmatched_sources_preserved_and_restored_on_rerender():
 def test_dispatch_rejects_multiple_matches_and_mixed_entry_points():
     doc = document(fontname="DejaVu Sans", text="AB")
     with pytest.raises(ValueError, match="multiple Tracks"):
-        render_karaoke(
+        compile_tracks(
             doc, tracks=(Track(source=LineMatch()), Track(source=LineMatch()))
         )
-    with pytest.raises(ValueError, match="exactly one"):
-        render_karaoke(doc)
-    with pytest.raises(ValueError, match="exactly one"):
-        render_karaoke(doc, tracks=(), effect={})
+    with pytest.raises(TypeError, match="tracks"):
+        compile_tracks(doc)
 
 
 def test_explicit_items_and_repeated_render_are_isolated():
@@ -311,8 +309,8 @@ def test_explicit_items_and_repeated_render_are_isolated():
     track = Track(
         source=LineMatch(style="Default"), body=Body(style=TextStyle(fill=RED))
     )
-    first = render_karaoke(doc, items=(item(),), tracks=(track,))
-    second = render_karaoke(doc, items=(item(),), tracks=(track,))
+    first = compile_tracks(doc, items=(item(),), tracks=(track,))
+    second = compile_tracks(doc, items=(item(),), tracks=(track,))
     assert [line.text for line, _ in first.event_origins] == [
         line.text for line, _ in second.event_origins
     ]
@@ -614,14 +612,3 @@ def test_ruby_target_requires_a_visible_ruby_component():
     ruby.hide()
     with pytest.raises(ValueError, match="no visible Ruby"):
         build(Track(source=LineMatch(), ruby=ruby, animations=(animation,)))
-
-
-def test_new_declarations_are_not_silently_ignored_by_legacy_effect():
-    from kara_templater import Effect, Lyrics
-
-    class Legacy(Effect):
-        def compose(self):
-            yield Lyrics(Body(spans=(TextSpan(0, 1, style=PaintStyle(fill=RED)),)))
-
-    with pytest.raises(ValueError, match="require tracks="):
-        render_karaoke(document(fontname="DejaVu Sans", text="AB"), effect=Legacy)

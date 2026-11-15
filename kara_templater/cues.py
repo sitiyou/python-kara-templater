@@ -28,6 +28,11 @@ from .sources import EventOrigin, SourceRef
 
 @dataclass(frozen=True)
 class CueContext:
+    """Factory input containing a stable cue ID, absolute seconds lifetime, absolute step boundaries, and source origin.
+
+    Factories create local objects for that interval.
+    """
+
     id: str
     lifetime: Lifetime
     steps: tuple[float, ...]
@@ -49,11 +54,24 @@ class CueContent:
 
 
 class CueFactory(Protocol):
-    def __call__(self, context: CueContext, /) -> CueContent: ...
+    """A typed callable that maps CueContext to local CueContent.
+
+    Implement it with an ordinary function or callable object to customize cue text,
+    geometry, and animation.
+    """
+
+    def __call__(self, context: CueContext, /) -> CueContent:
+        """Return custom local objects and reserved dimensions for the supplied cue context."""
+        ...
 
 
 @dataclass(frozen=True, kw_only=True)
 class CuePreset:
+    """A cue factory with lead/duration in seconds, normalized step fractions, gap, position, and reservation policy.
+
+    An explicit trigger overrides the relevant singing interval default.
+    """
+
     factory: CueFactory
     lead: float = 1
     duration: float = 1
@@ -80,6 +98,12 @@ class CuePreset:
 
 @dataclass(frozen=True)
 class BarsCue:
+    """A CueFactory producing a stepwise bar countdown from vector objects.
+
+    Width, height, border, and colors are explicit and the returned content reserves
+    its own layout dimensions.
+    """
+
     width: float = 72
     height: float = 48
     color: Color = CYAN
@@ -87,6 +111,7 @@ class BarsCue:
     outline: Color = WHITE
 
     def __call__(self, context: CueContext) -> CueContent:
+        """Create local bar objects and explicit reserved dimensions for the supplied cue clock."""
         count = len(context.steps) - 1
         cell = self.width / count
         objects: list[SceneObject] = []
@@ -111,12 +136,19 @@ class BarsCue:
 
 @dataclass(frozen=True)
 class TextCue:
+    """A CueFactory displaying configurable countdown text for each step.
+
+    It measures the requested font and returns objects plus explicit reserved width
+    and height.
+    """
+
     labels: tuple[str, ...] = ("3", "2", "1")
     font: str = "DejaVu Sans"
     font_size: float = 48
     color: Color = CYAN
 
     def __call__(self, context: CueContext) -> CueContent:
+        """Create the configured step text objects and measured reserved dimensions for this cue."""
         if len(self.labels) != len(context.steps) - 1:
             raise ValueError("countdown labels must match the explicit step intervals")
         metrics = tuple(
@@ -146,6 +178,11 @@ class TextCue:
 
 @dataclass(frozen=True)
 class CuePlacement:
+    """A bound marker, preset, content, and trigger placement in the lyric layout.
+
+    It retains the data needed to reserve or release inline space.
+    """
+
     marker: CueMarker
     content: CueContent
     preset: CuePreset
@@ -155,6 +192,11 @@ class CuePlacement:
 
 @dataclass(frozen=True)
 class CuedLayout:
+    """A plain-text layout after cue binding, with inline and independent cue groups.
+
+    Its group combines the adjusted text and reserved-space behavior.
+    """
+
     text: DocumentLayout
     cues: tuple[CuePlacement, ...]
     inline: tuple[ObjectGroup, ...]
@@ -357,6 +399,7 @@ class CuedLyrics:
     independent: tuple[ObjectGroup, ...]
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
+        """Build the adjusted body, readings, and cue content as one editable object hierarchy."""
         group = self.lyrics.group(position=position)
         return replace(
             group,

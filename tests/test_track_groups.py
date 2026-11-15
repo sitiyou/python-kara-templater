@@ -3,8 +3,9 @@ from dataclasses import replace
 
 import pytest
 from test_tracks import build, item
+from track_helpers import compile_tracks
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from kara_templater import (
     BLUE,
     RED,
@@ -19,7 +20,6 @@ from kara_templater import (
     TextStyle,
     Track,
     TrackGroup,
-    render_karaoke,
 )
 from kara_templater.track import bind_tracks
 
@@ -44,7 +44,7 @@ def test_shared_rows_follow_source_order_across_tracks_and_keep_styles():
     assert bound["b"].config.body.text_style.fill == BLUE
     assert all(track.layout is None for track in group.tracks)
     # Independent source placement is replaced by the group's common origin.
-    result = render_karaoke(
+    result = compile_tracks(
         document(fontname="DejaVu Sans", text="AB"),
         items=(first, second),
         tracks=(group,),
@@ -131,7 +131,7 @@ def test_separate_groups_allocate_independently_and_unmatched_input_survives():
     empty = TrackGroup(
         Track(source=LineMatch(style="missing")), layout=SingleLine(position=(0, 0))
     )
-    result = render_karaoke(source, tracks=(empty,))
+    result = compile_tracks(source, tracks=(empty,))
     assert result.event_count == 0
     assert result.document.records == source.records
     groups = (

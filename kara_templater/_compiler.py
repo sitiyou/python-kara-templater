@@ -3,6 +3,7 @@
 from dataclasses import replace
 
 from . import _metrics
+from ._track_types import TrackPlan
 from .animation import plan_pulses
 from .appearance import (
     resolve_paints,
@@ -10,7 +11,6 @@ from .appearance import (
 from .ass_output import OutputCapabilityError, TextLayer, quantize
 from .characters import layout_characters
 from .masks import PaintedMask, compose_masks, track_spans
-from .recipe import EffectPlan
 from .sources import EventOrigin
 from .targets import PreparedLyrics, layout_targets
 from .timeline import (
@@ -105,7 +105,7 @@ def _compile_targets(
     order_offset=0,
     origin_effect,
     fade_window=None,
-) -> EffectPlan:
+) -> TrackPlan:
     styles = {s.track_id: s for s in track_styles}
     window = prepared.window
     layers = []
@@ -362,4 +362,4 @@ def _compile_targets(
             visual.ink,
             visual.fade,
         )
-    return EffectPlan(tuple(layers), tuple(diagnostics))
+    return TrackPlan(tuple(layers), tuple(diagnostics))

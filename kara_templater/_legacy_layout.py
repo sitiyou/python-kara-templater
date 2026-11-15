@@ -17,6 +17,11 @@ class LegacyHighlight(Record):
 
 
 class LegacySyllable(Record):
+    """Template syllable or reading context with millisecond timing, measured text bounds, source links, and repeated highlights.
+
+    These fields retain the explicit Python-template frontend semantics.
+    """
+
     text: str
     text_stripped: str
     text_spacestripped: str
@@ -136,6 +141,10 @@ def _raw_syllables(text: str) -> list[LegacySyllable]:
 
 
 def split_karaoke(text: str) -> tuple[list[LegacySyllable], list[LegacySyllable]]:
+    """Split template text into its syllable and ruby contexts using the preserved karaoke notation.
+
+    Timing values in the resulting contexts are milliseconds.
+    """
     syllables: list[LegacySyllable] = []
     furigana: list[LegacySyllable] = []
     inline_fx = ""

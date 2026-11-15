@@ -49,6 +49,11 @@ def _mix(start: Color, end: Color, progress: float) -> Color:
 
 @dataclass(frozen=True)
 class ColorTransition:
+    """Interpolate RGB channels between two colors using normalized progress and an optional easing rate.
+
+    Result channels are rounded into the valid integer range.
+    """
+
     start: Color
     end: Color
     rate: Callable[[float], float] = linear
@@ -60,11 +65,17 @@ class ColorTransition:
             raise TypeError("color transition rate must be callable")
 
     def __call__(self, progress: float) -> Color:
+        """Evaluate eased normalized progress and return an RGB color with rounded channels."""
         return _mix(self.start, self.end, self.rate(progress))
 
 
 @dataclass(frozen=True)
 class ColorKeyframe:
+    """A color target at a normalized fraction or a millisecond TimeRef, with an incoming easing curve.
+
+    It is resolved against the selected singing/display interval.
+    """
+
     at: float | TimeRef
     value: Color
     rate: Callable[[float], float] = linear
@@ -80,6 +91,11 @@ class ColorKeyframe:
 
 @dataclass(frozen=True, init=False)
 class ColorKeyframes:
+    """An ordered sequence of color targets resolved for a material animation interval.
+
+    Keyframe timing and source clocks remain explicit.
+    """
+
     frames: tuple[ColorKeyframe, ...]
 
     def __init__(self, *frames: ColorKeyframe) -> None:
@@ -95,6 +111,7 @@ class ColorKeyframes:
         segments: tuple[Segment, ...],
         window: DisplayWindow,
     ) -> tuple[tuple[float, Color, Callable[[float], float]], ...]:
+        """Resolve normalized fractions and TimeRef anchors against the selected millisecond interval."""
         start, end = interval
         points = []
         for frame in self.frames:
@@ -156,6 +173,7 @@ class PaintBounds:
                     raise ValueError("paint bounds must be nonnegative")
 
     def for_property(self, name: MaterialProperty) -> float | None:
+        """Return the declared maximum for a bounded material property, if supplied."""
         return {
             "stroke_width": self.stroke_width,
             "blur_radius": self.blur_radius,

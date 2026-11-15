@@ -3,8 +3,9 @@
 from dataclasses import replace
 
 import pytest
+from track_helpers import compile_tracks
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from kara_templater import (
     BLUE,
     RED,
@@ -26,6 +27,7 @@ from kara_templater import (
     PaintStyle,
     RasterSettings,
     Ruby,
+    SceneBudget,
     Segment,
     SingleLine,
     Syllable,
@@ -33,7 +35,6 @@ from kara_templater import (
     TextUnit,
     Track,
     layout_line,
-    render_karaoke,
 )
 from kara_templater._raster import RasterBudget, RasterCanvas, RasterFrame, rasterize
 
@@ -69,12 +70,15 @@ def track(**kwargs):
 def render(config, source=None, item=None, **kwargs):
     if source is None or item is None:
         source, item = scene()
-    return render_karaoke(
+    return compile_tracks(
         source,
         items=(item,),
         tracks=(config,),
         settings=OutputSettings(
             resolution=(640, 480), max_events=20000, raster=RasterSettings()
+        ),
+        budget=SceneBudget(
+            max_events=40000, max_active=20000, max_bytes=128 * 1024 * 1024
         ),
         **kwargs,
     )
@@ -157,7 +161,7 @@ def test_frame_budget_rejects_before_user_code_and_input_stays_unchanged():
         )
     )
     with pytest.raises(OutputCapabilityError, match="preflight"):
-        render_karaoke(
+        compile_tracks(
             source,
             items=(item,),
             tracks=(config,),
@@ -167,7 +171,7 @@ def test_frame_budget_rejects_before_user_code_and_input_stays_unchanged():
         )
     assert not calls and source.dumps() == before
     with pytest.raises(OutputCapabilityError, match="event budget"):
-        render_karaoke(
+        compile_tracks(
             source,
             items=(item,),
             tracks=(track(),),
@@ -215,8 +219,8 @@ def test_raster_rerender_uses_owned_sources_and_stable_neutral_style():
     settings = OutputSettings(
         resolution=(640, 480), raster=RasterSettings(), max_events=20000
     )
-    first = render_karaoke(source, tracks=(track(),), settings=settings)
-    second = render_karaoke(first.document, tracks=(track(),), settings=settings)
+    first = compile_tracks(source, tracks=(track(),), settings=settings)
+    second = compile_tracks(first.document, tracks=(track(),), settings=settings)
     assert first.document.dumps() == second.document.dumps()
 
 
@@ -304,12 +308,15 @@ def test_offscreen_glow_matches_crop_of_complete_scene(position):
                 style=TextStyle(fill=WHITE, blur=Blur(color=RED, radius=10, width=4))
             ),
         )
-        return render_karaoke(
+        return compile_tracks(
             resized,
             items=(item,),
             tracks=(config,),
             settings=OutputSettings(
                 resolution=resolution, max_events=50000, raster=RasterSettings()
+            ),
+            budget=SceneBudget(
+                max_events=100000, max_active=20000, max_bytes=128 * 1024 * 1024
             ),
         )
 
@@ -345,7 +352,7 @@ def test_output_character_budget_is_shared_by_all_source_lines():
     )
     before = source.dumps()
     with pytest.raises(OutputCapabilityError, match="output character budget") as error:
-        render_karaoke(
+        compile_tracks(
             source,
             items=(item, second_item),
             tracks=(config,),
@@ -396,7 +403,7 @@ def test_explicit_color_budget_reduces_output_with_bounded_composite_error():
     config = track()
     exact = render(config, source, item)
     estimates = []
-    reduced = render_karaoke(
+    reduced = compile_tracks(
         source,
         items=(item,),
         tracks=(config,),
@@ -439,7 +446,7 @@ def test_unequal_material_opacity_runs_with_custom_group_animation():
 def test_native_alpha_limit_is_explicit_and_absent_from_material_backend():
     source, item = scene()
     config = track(animations=(On(Display.Start, Animate(opacity=0.5, duration=320)),))
-    native = render_karaoke(source, items=(item,), tracks=(config,))
+    native = compile_tracks(source, items=(item,), tracks=(config,))
     material = render(config, source, item)
     assert any(
         "post-composite group alpha" in message for message in native.diagnostics
@@ -457,7 +464,7 @@ def test_frame_character_budget_includes_native_opacity_transform_tags():
     characters = sum(len(line.text) for line, _ in plain.event_origins)
     config.animations = (On(Display.Start, Animate(opacity=(0, 1), duration=320)),)
     with pytest.raises(OutputCapabilityError, match="frame character budget") as error:
-        render_karaoke(
+        compile_tracks(
             source,
             items=(item,),
             tracks=(config,),

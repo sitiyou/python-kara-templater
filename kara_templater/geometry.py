@@ -14,6 +14,11 @@ def finite(*values: float) -> None:
 
 @dataclass(frozen=True)
 class Vec2:
+    """A finite two-dimensional vector used for script-space positions, offsets, and scales.
+
+    Vector operations return new values.
+    """
+
     x: float = 0
     y: float = 0
 
@@ -30,10 +35,12 @@ class Vec2:
         return Vec2(self.x * factor, self.y * factor)
 
     def lerp(self, other: Vec2, progress: float) -> Vec2:
+        """Interpolate this vector toward another vector by the supplied fraction."""
         return self + (other - self) * progress
 
     @property
     def length(self) -> float:
+        """The Euclidean vector magnitude."""
         return hypot(self.x, self.y)
 
     def rotated(self, degrees: float) -> Vec2:
@@ -60,6 +67,7 @@ class Affine2D:
         finite(self.a, self.b, self.c, self.d, self.tx, self.ty)
 
     def apply(self, point: Vec2) -> Vec2:
+        """Transform a local Vec2 by this affine matrix and return the resulting Vec2."""
         return Vec2(
             self.a * point.x + self.c * point.y + self.tx,
             self.b * point.x + self.d * point.y + self.ty,
@@ -78,19 +86,31 @@ class Affine2D:
 
 @dataclass(frozen=True)
 class LineSegment:
+    """A straight path segment from start to end.
+
+    Coordinates are in the containing path space.
+    """
+
     end: Vec2
 
     def point(self, start: Vec2, progress: float) -> Vec2:
+        """Interpolate between segment endpoints at normalized progress."""
         return start.lerp(self.end, progress)
 
 
 @dataclass(frozen=True)
 class CubicSegment:
+    """A cubic Bezier segment defined by start, two control points, and end.
+
+    Evaluation and splitting use normalized path progress.
+    """
+
     control1: Vec2
     control2: Vec2
     end: Vec2
 
     def point(self, start: Vec2, progress: float) -> Vec2:
+        """Evaluate this cubic segment at normalized progress."""
         u = 1 - progress
         return (
             start * (u**3)
@@ -105,6 +125,12 @@ type Segment2D = LineSegment | CubicSegment
 
 @dataclass(frozen=True)
 class Contour:
+    """An ordered contour of line/cubic segments with explicit closure.
+
+    Geometry algorithms validate connectivity and require suitable topology for each
+    operation.
+    """
+
     start: Vec2
     segments: tuple[Segment2D, ...]
     closed: bool = True
@@ -127,6 +153,12 @@ class Contour:
 
 @dataclass(frozen=True)
 class VectorPath:
+    """An immutable collection of contours for drawings, masks, glyph outlines, and motion paths.
+
+    Shape factories and transformations retain explicit geometry rather than player-
+    side callbacks.
+    """
+
     contours: tuple[Contour, ...]
 
     def __post_init__(self) -> None:
@@ -135,12 +167,14 @@ class VectorPath:
 
     @classmethod
     def polygon(cls, *points: Vec2) -> VectorPath:
+        """Construct a closed polygon from ordered points."""
         if len(points) < 3:
             raise ValueError("a polygon requires at least three vertices")
         return cls((Contour(points[0], tuple(LineSegment(p) for p in points[1:])),))
 
     @classmethod
     def rectangle(cls, width: float, height: float) -> VectorPath:
+        """Construct a positive width/height rectangle starting at local (0, 0)."""
         finite(width, height)
         if width <= 0 or height <= 0:
             raise ValueError("rectangle dimensions must be positive")
@@ -169,6 +203,8 @@ class VectorPath:
         )
 
     def map(self, transform: Callable[[Vec2], Vec2]) -> VectorPath:
+        """Apply a point function to all segment endpoints/control points and return a new path."""
+
         def segment(value: Segment2D) -> Segment2D:
             if isinstance(value, LineSegment):
                 return LineSegment(transform(value.end))
@@ -189,6 +225,7 @@ class VectorPath:
 
     @property
     def point_count(self) -> int:
+        """The contour control-point count used for geometry complexity budgets."""
         return sum(
             1 + sum(1 if isinstance(s, LineSegment) else 3 for s in c.segments)
             for c in self.contours

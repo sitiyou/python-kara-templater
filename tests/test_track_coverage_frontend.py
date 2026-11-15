@@ -190,7 +190,10 @@ def test_explicit_items_and_nested_alpha_match_existing_track_coverage():
         # the scoped scene carries weighted planes throughout. At 1.85s this
         # fixture differs by one rounding unit, including alpha. Compare actual
         # displayed RGB on both extreme backgrounds, not just raw color bytes.
-        assert max(abs(a - b) for a, b in zip(actual.rgba, expected.rgba, strict=True)) <= 1
+        assert (
+            max(abs(a - b) for a, b in zip(actual.rgba, expected.rgba, strict=True))
+            <= 1
+        )
         for background in (0, 255):
             for offset in range(0, len(actual.rgba), 4):
                 aa, ea = actual.rgba[offset + 3], expected.rgba[offset + 3]

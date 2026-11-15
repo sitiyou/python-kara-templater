@@ -20,10 +20,10 @@ from kara_templater import (
     TextSpan,
     TextStyle,
     Track,
-    render_karaoke,
+    prepare_tracks,
 )
 
-from .alternating_colors import document
+from ._lyrics import document
 
 tracks = (
     Track(
@@ -49,9 +49,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    result = render_karaoke(
-        document(fontname="DejaVu Sans", text="ABCABC"), tracks=tracks
-    )
+    result = prepare_tracks(
+        document(fontname="DejaVu Sans", text="ABCABC"), tracks=tracks, mode="native"
+    ).compile()
     result.document.save(args.output)
     print(f"{result.event_count} events → {args.output}")
 

@@ -13,11 +13,25 @@ from .scene_animation import linear_rate
 
 
 class GeometryAnimation(Protocol):
+    """Protocol for pure path deformation at local seconds.
+
+    Declare breakpoints and max_points before evaluation for deterministic sampling
+    and preflight.
+    """
+
     @property
-    def max_points(self) -> int: ...
+    def max_points(self) -> int:
+        """Declared path complexity bound used before sampling the geometry callback."""
+        ...
+
     @property
-    def breakpoints(self) -> tuple[float, ...]: ...
-    def sample(self, base: VectorPath, time: float) -> VectorPath | None: ...
+    def breakpoints(self) -> tuple[float, ...]:
+        """Object-local seconds at which deformation has a declared boundary."""
+        ...
+
+    def sample(self, base: VectorPath, time: float) -> VectorPath | None:
+        """Evaluate path deformation at object-local seconds; return None for an empty path when supported."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -38,11 +52,17 @@ class PathFunction:
             raise ValueError("geometry breakpoints must be nonnegative")
 
     def sample(self, base: VectorPath, time: float) -> VectorPath | None:
+        """Evaluate the custom path callback at local seconds and enforce its declared point bound."""
         return self.function(base, time)
 
 
 @dataclass(frozen=True)
 class MorphPath:
+    """Interpolate a path toward an explicitly corresponding target over local seconds.
+
+    Contours and segment topology must match; shape correspondence is not inferred.
+    """
+
     target: VectorPath
     start: float = 0
     duration: float = 1
@@ -55,19 +75,27 @@ class MorphPath:
 
     @property
     def max_points(self) -> int:
+        """Declared point bound of the corresponding source/target interpolation."""
         return self.target.point_count
 
     @property
     def breakpoints(self) -> tuple[float, ...]:
+        """Local start and completion times used to split geometry sampling."""
         return (self.start, self.start + self.duration)
 
     def sample(self, base: VectorPath, time: float) -> VectorPath:
+        """Evaluate corresponding path interpolation at local seconds, retaining endpoint geometry outside the morph interval."""
         progress = max(0, min(1, (time - self.start) / self.duration))
         return morph(base, self.target, self.rate(progress))
 
 
 @dataclass(frozen=True)
 class WritingStroke:
+    """An authored contour with local start and positive duration in seconds.
+
+    WritePath uses these stroke clocks for progressive reveal and lift gaps.
+    """
+
     path: Contour
     start: float
     duration: float
@@ -110,6 +138,7 @@ class WritePath:
 
     @cached_property
     def lines(self) -> tuple[Polyline, ...]:
+        """The stroke contours flattened with the declared tolerance and point budget."""
         return tuple(
             flatten(s.path, tolerance=self.tolerance, max_points=self.max_points)
             for s in self.strokes
@@ -117,6 +146,7 @@ class WritePath:
 
     @property
     def breakpoints(self) -> tuple[float, ...]:
+        """The local stroke boundaries and explicit lift gaps needed for reveal sampling."""
         return tuple(t for s in self.strokes for t in (s.start, s.start + s.duration))
 
     def tip(self, time: float) -> Vec2:
@@ -131,15 +161,18 @@ class WritePath:
 
     @cached_property
     def full_path(self) -> VectorPath:
+        """The complete stroked writing geometry after the final stroke finishes."""
         result = self._render(self.strokes[-1].start + self.strokes[-1].duration)
         assert result is not None
         return result
 
     def pen_down(self, time: float) -> bool:
+        """Whether the authored writing schedule has an active stroke at local seconds."""
         finite(time)
         return any(s.start <= time < s.start + s.duration for s in self.strokes)
 
     def sample(self, base: VectorPath, time: float) -> VectorPath | None:
+        """Return the revealed stroke geometry at local seconds, including completed stroke prefixes."""
         return self._render(time)
 
     def _render(self, time: float) -> VectorPath | None:

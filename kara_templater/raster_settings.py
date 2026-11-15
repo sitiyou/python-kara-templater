@@ -9,6 +9,11 @@ from .sources import EventOrigin
 
 @dataclass(frozen=True, kw_only=True)
 class RasterSettings:
+    """Explicit limits for coverage/raster work, cached masks, frames, rectangles, output size, and spatial channel approximation.
+
+    max_channel_error is in 0 through 255; temporal sampling is separate.
+    """
+
     max_channel_error: int = 0
     max_pixels: int = 4_000_000
     max_images: int = 50_000
@@ -41,6 +46,11 @@ class RasterSettings:
 
 @dataclass(frozen=True)
 class RasterEstimate:
+    """Preflight raster frames, target samples, canvas pixels, per-frame event limit, and declared spatial channel error.
+
+    Final encoded output is checked separately.
+    """
+
     frames: int
     target_samples: int
     canvas_pixels: int

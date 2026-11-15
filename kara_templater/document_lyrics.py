@@ -18,6 +18,11 @@ class LyricMapping:
 
 @dataclass(frozen=True)
 class RubyText:
+    """A reading text view with mappings back to source text and join/break/spill mode.
+
+    Its source indices are local to the reading view.
+    """
+
     source: DocumentText
     mapping: tuple[LyricMapping, ...]
     mode: Literal["join", "break", "spill"] = "join"
@@ -25,6 +30,11 @@ class RubyText:
 
 @dataclass(frozen=True)
 class LyricSegment:
+    """One absolute-seconds singing interval and its optional RubyText, retaining source text bounds.
+
+    Repeated singing adds segments without duplicating the body.
+    """
+
     singing: SingingSpan
     source_start: int
     source_end: int
@@ -33,6 +43,12 @@ class LyricSegment:
 
 @dataclass(frozen=True)
 class LyricUnit:
+    """A decoded body range and its ordered singing segments.
+
+    Ranges count Unicode code points and must later respect shaped cluster
+    boundaries.
+    """
+
     start: int
     end: int
     segments: tuple[LyricSegment, ...] = ()
@@ -40,6 +56,11 @@ class LyricUnit:
 
 @dataclass(frozen=True)
 class DocumentLyrics:
+    """A decoded body/ruby projection with source mappings and ordered lyric units.
+
+    Original DocumentText remains available for diagnostics and round trips.
+    """
+
     source: DocumentText
     body: DocumentText
     mapping: tuple[LyricMapping, ...]

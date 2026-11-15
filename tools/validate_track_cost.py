@@ -17,8 +17,10 @@ from kara_templater import (
     OutputCapabilityError,
     OutputSettings,
     RasterSettings,
+    SceneBudget,
+    SceneCompileError,
     load_font,
-    render_karaoke,
+    prepare_tracks,
 )
 
 
@@ -106,7 +108,7 @@ def main():
         estimates = []
         start = perf_counter()
         try:
-            result = render_karaoke(
+            result = prepare_tracks(
                 source,
                 tracks=tracks,
                 settings=OutputSettings(
@@ -115,6 +117,13 @@ def main():
                     raster=settings,
                 ),
                 on_estimate=estimates.append,
+                mode="native",
+            ).compile(
+                budget=SceneBudget(
+                    max_events=args.max_events,
+                    max_bytes=args.max_output_chars,
+                    max_active=args.max_events,
+                )
             )
             compile_seconds = perf_counter() - start
             destination = args.output / f"{mode}.ass"
@@ -123,14 +132,14 @@ def main():
                 "status": "generated",
                 "compile_seconds": compile_seconds,
                 "events": result.event_count,
-                "layers": result.layer_count,
+                "objects": len(result.objects),
                 "ass_bytes": destination.stat().st_size,
                 "ass_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
                 "diagnostics": result.diagnostics,
             }
             if args.capture:
                 output["capture"] = capture_output(args.output.resolve(), mode)
-        except OutputCapabilityError as error:
+        except (OutputCapabilityError, SceneCompileError) as error:
             output = {
                 "status": "budget_rejected",
                 "compile_seconds": perf_counter() - start,

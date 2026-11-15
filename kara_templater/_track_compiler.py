@@ -4,17 +4,19 @@ from __future__ import annotations
 
 from copy import deepcopy
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from ._compiler import _compile_targets, _prepare_targets
 from ._track_raster import TrackRasterPlan
 from ._track_styles import base_paint, prepare_style, range_paints, sung_paint
+from ._track_types import RubyPolicy, TrackContext, TrackPlan
 from .appearance import ColorSpan, PaintPair, RubyPaint
 from .ass import Style
 from .ass_output import Fade, OutputCapabilityError
 from .behaviors import BoundProperty, MotionRule, resolve_behaviors, sample_hierarchy
 from .characters import TextRange, layout_characters, select_characters
 from .components import Body, Lyrics, Ruby
+from .karaoke import HighlightStyle, KaraokeItem, Sweep
 from .lowering import lower_offsets, lower_opacity
 from .material_animation import (
     BoundMaterial,
@@ -27,7 +29,6 @@ from .material_animation import (
 from .model import LaidOutLine, LaidOutUnit, TextUnit
 from .motion import AnimationContext
 from .properties import PropertyTarget
-from .recipe import EffectContext, EffectPlan, KaraokeItem, RubyPolicy, Sweep
 from .sampling import DynamicEffect, DynamicProperties, SampleContext
 from .targets import PreparedLyrics, VisualTarget
 from .timeline import DisplayWindow, HighlightTrack, SingingPass
@@ -90,8 +91,10 @@ class PreparedTrack:
     properties: dict[str, tuple[BoundProperty, ...]]
     materials: dict[str, tuple[BoundMaterial, ...]]
     bounds: PaintBounds
-    context: EffectContext
+    context: TrackContext
     sweep: Sweep
+    highlight_styles: tuple[HighlightStyle, ...] = ()
+    overlap: Literal["union", "priority", "layer"] = "union"
 
 
 @dataclass(frozen=True)
@@ -113,7 +116,7 @@ class BoundTrack:
         self,
         visual: VisualTarget,
         item: KaraokeItem,
-        context: EffectContext,
+        context: TrackContext,
     ) -> tuple[VisualTarget, ...]:
         ruby, overlay = self.config.ruby, self.config.overlay
         if ruby is None or visual.kind != "ruby":
@@ -297,7 +300,7 @@ class BoundTrack:
     def prepare(
         self,
         item: KaraokeItem,
-        context: EffectContext,
+        context: TrackContext,
         *,
         lower_native: bool = False,
     ) -> PreparedTrack:
@@ -396,7 +399,12 @@ class BoundTrack:
             spans=tuple(spans),
             ruby_paints=tuple(ruby_paints),
             sweep=sweep,
-            tracks=() if overlay is None else None,
+            tracks=()
+            if overlay is None
+            else overlay.highlights(context.layout)
+            if callable(overlay.highlights)
+            else overlay.highlights,
+            track_styles=() if overlay is None else overlay.styles,
             ruby=RubyPolicy(enabled=False) if ruby is None else ruby.policy,
             origin_effect=type(config).__name__,
         )
@@ -440,20 +448,29 @@ class BoundTrack:
             hierarchical=True,
             lower_native=lower_native,
         )
-        return PreparedTrack(prepared, properties, materials, bounds, context, sweep)
+        return PreparedTrack(
+            prepared,
+            properties,
+            materials,
+            bounds,
+            context,
+            sweep,
+            () if overlay is None else overlay.styles,
+            "union" if overlay is None else overlay.overlap,
+        )
 
-    def build(self, item: KaraokeItem, context: EffectContext) -> EffectPlan:
+    def build(self, item: KaraokeItem, context: TrackContext) -> TrackPlan:
         binding = self.prepare(item, context, lower_native=context.raster is None)
         return self.lower(item, binding)
 
-    def lower(self, item: KaraokeItem, binding: PreparedTrack) -> EffectPlan:
+    def lower(self, item: KaraokeItem, binding: PreparedTrack) -> TrackPlan:
         """Compile an existing preparation without rerunning layout or binding."""
         prepared, properties = binding.lyrics, binding.properties
         materials, bounds = binding.materials, binding.bounds
         context, sweep = binding.context, binding.sweep
         config = self.config
         if context.raster is not None:
-            return EffectPlan(
+            return TrackPlan(
                 diagnostics=prepared.diagnostics,
                 raster=TrackRasterPlan(
                     prepared,
@@ -472,6 +489,8 @@ class BoundTrack:
             prepared,
             sweep=sweep,
             fade=Fade(),
+            track_styles=binding.highlight_styles,
+            overlap=binding.overlap,
             origin_effect=type(config).__name__,
             max_glow_blur=bounds.blur_radius,
             max_border=bounds.stroke_width,

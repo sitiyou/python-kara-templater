@@ -62,6 +62,11 @@ def track_coverage(
     """
     window = prepared.lyrics.window
     lifetime = Lifetime(window.start_ms / 1000, window.end_ms / 1000)
+    if prepared.highlight_styles or prepared.overlap != "union":
+        raise ValueError(
+            "Track coverage supports union highlights with a shared paint; "
+            "use native or editable output for per-highlight paints and priority/layer composition"
+        )
     geometry = replace(
         prepared,
         properties={

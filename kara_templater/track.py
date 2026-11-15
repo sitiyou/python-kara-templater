@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from copy import deepcopy
 from dataclasses import replace
 from typing import Literal
@@ -10,13 +10,14 @@ from typing import Literal
 from ._track_compiler import BoundTrack, bind_track
 from .components import Body, Ruby
 from .composition import Paint
+from .karaoke import HighlightStyle, KaraokeItem, Sweep
 from .matching import SourceMatch
+from .model import LaidOutLine
 from .motion import Animation
-from .recipe import KaraokeItem, Sweep
 from .sampling import SamplingSettings
 from .stylesheet import UNSET, StyleKeyword, StyleSheet
 from .text_style import PaintStyle, TextStyle
-from .timeline import EdgeSweep
+from .timeline import EdgeSweep, HighlightTrack
 from .track_layout import Layout
 
 _DEFAULT_PAINT = PaintStyle()
@@ -25,6 +26,12 @@ _DEFAULT_SAMPLING = SamplingSettings()
 
 
 class Overlay:
+    """A sung paint/reveal declaration for Body and Ruby roles.
+
+    Optional named highlights, styles, and overlap policy provide explicit parallel
+    composition.
+    """
+
     def __init__(
         self,
         *,
@@ -33,6 +40,11 @@ class Overlay:
         targets: tuple[type[Body] | type[Ruby], ...] | None = None,
         body: PaintStyle | None | Literal[StyleKeyword.UNSET] = UNSET,
         ruby: PaintStyle | None | Literal[StyleKeyword.UNSET] = UNSET,
+        highlights: tuple[HighlightTrack, ...]
+        | Callable[[LaidOutLine], tuple[HighlightTrack, ...]]
+        | None = None,
+        styles: tuple[HighlightStyle, ...] = (),
+        overlap: Literal["union", "priority", "layer"] = "union",
     ) -> None:
         if (
             isinstance(style, TextStyle)
@@ -51,13 +63,18 @@ class Overlay:
             )
         self.style, self.reveal, self.targets = style, reveal, targets
         self.body, self.ruby = body, ruby
+        if overlap not in {"union", "priority", "layer"}:
+            raise ValueError("overlay overlap must be union, priority or layer")
+        self.highlights, self.styles, self.overlap = highlights, styles, overlap
 
     def enabled(self, role: type[Body] | type[Ruby]) -> bool:
+        """Whether this overlay applies to the requested Body or Ruby role."""
         return (self.targets is None or role in self.targets) and (
             self.body if role is Body else self.ruby
         ) is not None
 
     def resolve(self, role: type[Body] | type[Ruby], base: Paint) -> Paint:
+        """Resolve shared and role-specific sung paint against the selected base Paint."""
         if not self.enabled(role):
             return base
         result = self.style.resolve(base)
@@ -70,6 +87,12 @@ class Overlay:
 
 
 class Track:
+    """Reusable lyric selection, body/ruby appearance, overlay, layout, and animation declarations.
+
+    prepare_tracks binds a fresh configuration per source and produces composable
+    Scene content.
+    """
+
     def __init__(
         self,
         *,
@@ -98,6 +121,10 @@ class Track:
             )
 
     def bind(self, items: tuple[KaraokeItem, ...]) -> dict[str, BoundTrack]:
+        """Bind fresh Track configurations to structured source items for internal/backend inspection.
+
+        Use prepare_tracks for normal Document authoring.
+        """
         return bind_track(self, items)
 
 
@@ -120,6 +147,7 @@ class TrackGroup:
         self.layout = layout
 
     def bind(self, items: tuple[KaraokeItem, ...]) -> dict[str, BoundTrack]:
+        """Bind child configurations with shared row allocation for internal/backend inspection."""
         return bind_tracks((self,), items)
 
 

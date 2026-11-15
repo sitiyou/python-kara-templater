@@ -1,7 +1,8 @@
 import pytest
 from test_tracks import build, item
+from track_helpers import compile_tracks
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from kara_templater import (
     BLUE,
     CYAN,
@@ -36,7 +37,6 @@ from kara_templater import (
     display,
     on,
     prepare_sampling,
-    render_karaoke,
     there_and_back,
 )
 
@@ -258,7 +258,7 @@ def test_material_callbacks_are_not_evaluated_before_render_preflight():
         raise RuntimeError("cancel")
 
     with pytest.raises(RuntimeError, match="cancel"):
-        render_karaoke(
+        compile_tracks(
             document(fontname="DejaVu Sans", text="AB"),
             tracks=(track_for(Animate(fill=color_at)),),
             on_estimate=cancel,

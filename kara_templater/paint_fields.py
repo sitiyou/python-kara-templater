@@ -25,6 +25,11 @@ def _mix(a: Color, b: Color, progress: float) -> Color:
 
 @dataclass(frozen=True)
 class PaintBand:
+    """A half-open integer interval with resolved fill and outline colors.
+
+    Paint fields return these bounded bands for standard ASS compilation.
+    """
+
     start: int
     end: int
     fill: Color
@@ -39,18 +44,34 @@ class PaintField(Protocol):
     """
 
     @property
-    def axis(self) -> Literal["x", "y"]: ...
+    def axis(self) -> Literal["x", "y"]:
+        """The x or y script-space axis along which bands are encoded."""
+        ...
+
     @property
-    def max_bands(self) -> int: ...
+    def max_bands(self) -> int:
+        """The maximum band count promised by this paint field for preflight."""
+        ...
+
     @property
-    def breakpoints(self) -> tuple[float, ...]: ...
+    def breakpoints(self) -> tuple[float, ...]:
+        """Declared seconds boundaries required for deterministic material sampling."""
+        ...
+
     def bands(
         self, start: int, end: int, time: float, base: VisualState
-    ) -> tuple[PaintBand, ...]: ...
+    ) -> tuple[PaintBand, ...]:
+        """Evaluate bounded colored bands for the supplied visual state and seconds time."""
+        ...
 
 
 @dataclass(frozen=True)
 class ColorStop:
+    """An RGB color at a finite script-space position along a paint field axis.
+
+    ColorRamp requires ordered stops.
+    """
+
     position: float
     color: Color
 
@@ -72,6 +93,7 @@ class ColorRamp:
             raise ValueError("a color ramp needs at least two strictly ordered stops")
 
     def at(self, position: float) -> Color:
+        """Evaluate the RGB ramp at a script-space position, extending endpoint colors outside its stops."""
         finite(position)
         for a, b in zip(self.stops, self.stops[1:], strict=False):
             if position <= b.position:
@@ -112,6 +134,11 @@ def _bands(
 
 @dataclass(frozen=True, kw_only=True)
 class LinearGradient:
+    """A script-space x/y gradient for fill, outline, or both.
+
+    Integer step controls color band width and the declared maximum band count.
+    """
+
     fill: ColorRamp | None = None
     outline: ColorRamp | None = None
     axis: Literal["x", "y"] = "x"
@@ -124,6 +151,7 @@ class LinearGradient:
 
     @property
     def bounds(self) -> tuple[float, float]:
+        """The script-space interval covered by the configured color ramps."""
         ramps = [r for r in (self.fill, self.outline) if r is not None]
         return min(r.stops[0].position for r in ramps), max(
             r.stops[-1].position for r in ramps
@@ -131,16 +159,19 @@ class LinearGradient:
 
     @property
     def max_bands(self) -> int:
+        """Declared upper bound on emitted color bands at the configured step."""
         left, right = self.bounds
         return ceil((right - left) / self.step) + 4
 
     @property
     def breakpoints(self) -> tuple[float, ...]:
+        """Time boundaries required by this field; a static gradient has none."""
         return ()
 
     def bands(
         self, start: int, end: int, time: float, base: VisualState
     ) -> tuple[PaintBand, ...]:
+        """Resolve fill/outline colors into bounded integer bands for the evaluated drawing state."""
         left, right = self.bounds
         return _bands(
             start,
@@ -161,6 +192,7 @@ class SoftSweep:
 
     Widths are script pixels. The front travels past both ends so the declared
     span is completely unsung at start and completely sung at start+duration.
+    start and duration are local seconds from the owning object's birth.
     """
 
     left: float
@@ -196,10 +228,12 @@ class SoftSweep:
 
     @property
     def effective_outline_width(self) -> float:
+        """The explicit outline front width or the fill width when none was supplied."""
         return self.width if self.outline_width is None else self.outline_width
 
     @property
     def max_width(self) -> float:
+        """The larger fill/outline transition width used to cover both sweep endpoints."""
         return max(
             self.width if self.fill else 0,
             self.effective_outline_width if self.outline else 0,
@@ -207,10 +241,12 @@ class SoftSweep:
 
     @property
     def max_bands(self) -> int:
+        """Declared worst-case color-band count at the selected spatial step."""
         return ceil(self.max_width / self.step) + 4
 
     @property
     def breakpoints(self) -> tuple[float, ...]:
+        """The local start and end seconds required by material sampling."""
         return (self.start, self.start + self.duration)
 
     def front_at(self, time: float) -> float:
@@ -236,6 +272,7 @@ class SoftSweep:
     def bands(
         self, start: int, end: int, time: float, base: VisualState
     ) -> tuple[PaintBand, ...]:
+        """Evaluate the independent fill/outline fronts into integer color bands at seconds time."""
         finite(time)
         if time <= self.start or time >= self.start + self.duration:
             index = int(time >= self.start + self.duration)

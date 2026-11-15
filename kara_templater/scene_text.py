@@ -19,6 +19,11 @@ from .sources import EventOrigin, SourceRef
 
 @dataclass(frozen=True)
 class PositionedText:
+    """A drawable text cluster, decoded source range, measured advance/ink bounds, and selected font faces.
+
+    Layout scale is retained when used for range measurements.
+    """
+
     start: int
     end: int
     object: TextObject
@@ -38,6 +43,11 @@ class PositionedText:
 
 @dataclass(frozen=True)
 class DocumentLayout:
+    """Measured editable text objects with decoded source ranges, singing spans, bounds, and source-record identity.
+
+    Range backgrounds can optionally follow local text animation.
+    """
+
     id: str
     record_index: int
     source: DocumentText
@@ -47,6 +57,7 @@ class DocumentLayout:
     bounds: Box
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
+        """Collect measured text objects into an editable group with the layout lifetime."""
         return ObjectGroup(
             id=self.id,
             lifetime=self.lifetime,
@@ -102,6 +113,7 @@ class DocumentLayout:
         layer: int = -1,
         follow: bool = False,
     ) -> PathObject:
+        """Create a measured range background with padding and optional local animation following."""
         box = self.range_bounds(start, end)
         padding = Vec2(8, 4) if padding is None else padding
         if min(padding.x, padding.y) < 0:

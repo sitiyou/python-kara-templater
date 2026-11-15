@@ -80,7 +80,7 @@ jobs:
               check.mkdir()
               for name in ("tests", "examples", "tools", "docs"):
                   shutil.copytree(package / name, check / name)
-              for name in ("setup.py", "README.md", "pyproject.toml"):
+              for name in ("setup.py", "README.md", "THIRD_PARTY.md", "pyproject.toml"):
                   shutil.copy2(package / name, check / name)
               # No kara_templater source directory is copied into the test cwd.
               subprocess.run([sys.executable, "-m", "pytest", "tests", "-v"], cwd=check, check=True)

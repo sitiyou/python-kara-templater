@@ -71,7 +71,10 @@ def build() -> CoverageResult:
         overlay=Overlay(style=PaintStyle(fill=PINK)),
         layout=SingleLine(position=(50, 64)),
         animations=(
-            On(Display.Start, Animate(blur_color=(CYAN, PINK), duration=2500, keep=True)),
+            On(
+                Display.Start,
+                Animate(blur_color=(CYAN, PINK), duration=2500, keep=True),
+            ),
         ),
     )
     prepared = prepare_track_coverage(

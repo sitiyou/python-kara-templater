@@ -1,7 +1,8 @@
-"""Track 辉光与整音节强调：python -m examples.layered_glow input.ass output.ass。
+"""Layered lyric glow and syllable emphasis on a fixed K1/K2/LEAD input.
 
-固定输入见 tests/fixtures/layered_glow.ass；无需输入文件的场景版见 scene_lyrics。
-Track 的变色 Blur 与旧双 Halo 不逐像素等价，详见 docs/scene-authoring.md。
+python -m examples.layered_glow tests/fixtures/layered_glow.ass output.ass
+The direct script reframes this fixture at 1920x1080. The exported tracks also
+work with the CLI; scene_lyrics demonstrates fully editable Scene objects.
 """
 
 import argparse
@@ -16,19 +17,18 @@ from kara_templater import (
     Document,
     FadeInAnimation,
     FadeOutAnimation,
-    Line,
     LineMatch,
     OutputSettings,
     Overlay,
     PaintStyle,
     ProgressCurve,
-    RenderResult,
     Ruby,
+    SceneResult,
     SingingPulseAnimation,
     Sweep,
     TextStyle,
     Track,
-    render_karaoke,
+    prepare_tracks,
 )
 
 BASE_GLOW = Color.hex("#9e6d64")
@@ -61,8 +61,8 @@ def glow_ruby() -> Ruby:
     )
 
 
-# 配置直接使用普通实例；共享不可变颜色，逐次构造文字组件。
-# 省略 layout 保留输入位置。子类版本见 layered_glow_classes.py。
+# Share immutable colors and construct fresh text components for each Track.
+# Omit layout to retain source placement; see layered_glow_classes for subclasses.
 tracks = (
     *(
         Track(
@@ -72,7 +72,7 @@ tracks = (
             overlay=Overlay(
                 style=SUNG,
                 reveal=Sweep(
-                    curve=ProgressCurve.two_stage(
+                    progress_curve=ProgressCurve.two_stage(
                         time_fraction=3 / 17,
                         progress_fraction=0.3,
                     )
@@ -95,13 +95,14 @@ tracks = (
 )
 
 
-def apply(input_path: str | Path, output_path: str | Path) -> RenderResult:
-    document = Document.load(input_path)
-    # 仅读取歌词时间，不保留或执行输入中的 template/code 注释。
-    document.records = [
-        r for r in document.records if not isinstance(r, Line) or not r.comment
-    ]
-    # 字体沿用输入中各个样式的设置，由系统字体提供器查找。
+def apply(input_path: str | Path, output_path: str | Path) -> SceneResult:
+    source = Document.load(input_path)
+    document = Document.create(
+        width=1920, height=1080, styles=tuple(source.styles.values())
+    )
+    # This fixture uses dialogue only; template/code comments are not executed.
+    document.records.extend(line for line in source.lines if not line.comment)
+    # Keep source font families and use fixed presentation coordinates.
     for name, style in document.styles.items():
         style.fontsize, style.spacing, style.shadow = 96, 0, 0
         style.margin_l = style.margin_r = 64
@@ -109,12 +110,13 @@ def apply(input_path: str | Path, output_path: str | Path) -> RenderResult:
             name
         ]
 
-    result = render_karaoke(
+    result = prepare_tracks(
         document,
         tracks=tracks,
         owner="layered-glow",
         settings=OutputSettings(resolution=(1920, 1080), max_events=1_000_000),
-    )
+        mode="native",
+    ).compile()
     result.document.save(output_path)
     return result
 
@@ -125,9 +127,7 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     result = apply(args.input, args.output)
-    print(
-        f"已生成 {args.output}：{result.event_count} 个事件，{len(result.diagnostics)} 条诊断。"
-    )
+    print(f"{result.event_count} events, {len(result.diagnostics)} diagnostics")
 
 
 if __name__ == "__main__":

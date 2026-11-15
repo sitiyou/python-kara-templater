@@ -6,7 +6,10 @@ from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, replace
 from typing import Literal, cast, overload
 
+from .animation import Pulse
 from .behaviors import MotionRule, declare_properties
+from .characters import TextRange
+from .karaoke import KaraokeItem
 from .matching import SourceMatch
 from .material_animation import ColorValue, MaterialProperty, MaterialRule, PaintBounds
 from .properties import (
@@ -19,8 +22,9 @@ from .properties import (
     TimeRef,
     Transition,
     linear,
+    singing,
+    there_and_back,
 )
-from .recipe import KaraokeItem
 from .stylesheet import UNSET, StyleKeyword
 from .timeline import DisplayWindow, _finite, _milliseconds
 
@@ -29,9 +33,17 @@ type RateFunction = Callable[[float], float]
 type _Unset = Literal[StyleKeyword.UNSET]
 type AnimationRule = MotionRule | MaterialRule
 
+_DEFAULT_HIGHLIGHT = Pulse()
+
 
 @dataclass(frozen=True)
 class AnimationTarget:
+    """A stable source item and unit/segment selection for a Track animation.
+
+    kind determines whether the transform affects a group, syllable, reading, or
+    segment.
+    """
+
     item_id: str
     units: tuple[int, ...]
     kind: Literal["group", "syllable", "ruby", "segment"] = "syllable"
@@ -60,6 +72,11 @@ class AnimationTarget:
 
 @dataclass(frozen=True)
 class AnimationEvent:
+    """A resolved Track trigger with target, millisecond start/end, source index, and display window.
+
+    Subclasses identify singing or display events.
+    """
+
     target: AnimationTarget
     start: Milliseconds
     end: Milliseconds
@@ -68,11 +85,19 @@ class AnimationEvent:
 
 
 class Syllable:
+    """Namespace for a Singing event spanning the first through last segment of each timed source unit, including its internal pauses."""
+
     class Singing(AnimationEvent):
         """One event per timed syllable; the interval includes internal pauses."""
 
 
 class Display:
+    """Namespace for display Start and End events.
+
+    These refer to original visibility boundaries, independently of optional
+    animation extensions.
+    """
+
     class Start(AnimationEvent):
         """Original display start, independent of animation window extensions."""
 
@@ -102,6 +127,7 @@ class Transform:
                 raise ValueError("opacity must be in 0..1")
 
     def values(self) -> dict[str, float]:
+        """Return only explicitly written geometry values as a typed scalar mapping."""
         return {
             name: value
             for name, value in (
@@ -129,15 +155,23 @@ class TimeSpan:
 
     @property
     def duration(self) -> float:
+        """The seconds difference between end and start."""
         return self.end - self.start
 
     @property
     def interval(self) -> TimeSpan:
+        """This seconds interval, suitable for Timeline.play(during=...)."""
         return self
 
 
 @dataclass(frozen=True)
 class AnimationContext:
+    """A Track item, current event, and local composition clock.
+
+    syllable/next_syllable expose seconds-based TimeSpan values while event fields
+    retain milliseconds.
+    """
+
     item: KaraokeItem
     event: AnimationEvent | None = None
     origin: float = 0.0
@@ -146,6 +180,7 @@ class AnimationContext:
 
     @property
     def target(self) -> AnimationTarget:
+        """Return the current event target; raise when the context is not event-bound."""
         if self.event is None:
             raise ValueError("animation context is not bound to an event")
         return self.event.target
@@ -163,6 +198,10 @@ class AnimationContext:
 
     @property
     def syllable(self) -> TimeSpan:
+        """Return the selected source syllable interval as local seconds.
+
+        A single timed syllable is required.
+        """
         if self.event is None or len(self.event.target.units) != 1:
             raise ValueError("a single syllable target is required")
         timing = self._syllable_time(self.event.target.units[0])
@@ -172,11 +211,13 @@ class AnimationContext:
 
     @property
     def next_syllable(self) -> TimeSpan | None:
+        """Return the following source syllable interval in local seconds, or None if unavailable."""
         if self.event is None or len(self.event.target.units) != 1:
             raise ValueError("a single syllable target is required")
         return self._syllable_time(self.event.target.units[0] + 1)
 
     def events[E: AnimationEvent](self, event_type: type[E]) -> Iterator[E]:
+        """Enumerate supported display, syllable, or segment events from the original source clocks."""
         item = self.item
         units = tuple(range(len(item.source.units)))
         if event_type in (Display.Start, Display.End):
@@ -213,6 +254,12 @@ class AnimationContext:
 
 
 class Animate:
+    """A sparse Track event animation declaration for geometry or material properties.
+
+    Duration and offset are milliseconds; sampled functions receive normalized
+    progress, and bounds declare costly material extents.
+    """
+
     def __init__(
         self,
         target: AnimationTarget | None = None,
@@ -364,6 +411,12 @@ class Animate:
 
 
 class Parallel:
+    """Run Track event animation declarations simultaneously.
+
+    Conflicting writes require a supported composition rule rather than implicit
+    ordering.
+    """
+
     def __init__(self, *animations: AnimationResult) -> None:
         if not animations:
             raise ValueError("Parallel requires at least one animation")
@@ -378,6 +431,11 @@ class Parallel:
 
 
 class Sequence:
+    """Run Track event animation declarations consecutively. Child durations and event-
+
+    relative offsets determine the composed schedule.
+    """
+
     def __init__(self, *animations: AnimationResult) -> None:
         if not animations:
             raise ValueError("Sequence requires at least one animation")
@@ -450,10 +508,21 @@ class _EventDecorator[E: AnimationEvent]:
 def on[E: AnimationEvent](
     event_type: type[E], *, where: SourceMatch | None = None
 ) -> _EventDecorator[E]:
+    """Declare a typed event handler on an Animation subclass.
+
+    The handler receives the requested event type and returns supported animation
+    declarations.
+    """
     return _EventDecorator(event_type, where)
 
 
 class Animation:
+    """A reusable Track animation implemented by a typed sample function or @on event handlers.
+
+    Sampled time and duration are seconds; event declarations are resolved to source
+    targets before compilation.
+    """
+
     def __init__(
         self,
         function: Callable[[float, AnimationContext], Transform] | None = None,
@@ -478,12 +547,17 @@ class Animation:
         self.extend_display = extend_display
 
     def sample(self, t: float, context: AnimationContext) -> Transform:
-        """Evaluate local seconds, independently of previously sampled frames."""
+        """Evaluate local seconds, independently of previously sampled frames.
+
+        Without a function or override this raises NotImplementedError.
+        Event-only animations use bind() instead.
+        """
         if self.function is not None:
             return self.function(t, context)
         raise NotImplementedError("implement sample() or use event handlers")
 
     def actions(self, context: AnimationContext) -> Iterable[AnimationResultWithEvent]:
+        """Yield typed event-bound declarations from this animation and its inherited handlers."""
         seen: set[str] = set()
         for cls in type(self).__mro__:
             for name, member in vars(cls).items():
@@ -494,6 +568,7 @@ class Animation:
                     yield from member.dispatch(self, context)
 
     def bind(self, context: AnimationContext) -> tuple[AnimationRule, ...]:
+        """Resolve this animation against the source context without changing the original lyric."""
         if type(self).sample is not Animation.sample or self.function is not None:
             from .choreography import bind_sampled
 
@@ -559,6 +634,11 @@ class Animation:
 
 
 class On(Animation):
+    """Bind an Animate, Sequence, or Parallel declaration to a selected Track event type.
+
+    Optional source filtering and display extension are explicit.
+    """
+
     def __init__(
         self,
         event: type[AnimationEvent],
@@ -573,6 +653,7 @@ class On(Animation):
         self.event, self.animation = event, animation
 
     def bind(self, context: AnimationContext) -> tuple[AnimationRule, ...]:
+        """Resolve the configured event declaration into Track motion and material rules."""
         animation = self.animation
         if isinstance(animation, Animation):
             return tuple(
@@ -583,6 +664,7 @@ class On(Animation):
         return super().bind(context)
 
     def actions(self, context: AnimationContext) -> Iterable[AnimationResultWithEvent]:
+        """Enumerate declarations for matching source events without changing the source clocks."""
         animation = self.animation
         if isinstance(animation, Animation):
             raise TypeError("sampled animations are resolved by bind()")
@@ -590,6 +672,11 @@ class On(Animation):
 
 
 class FadeInAnimation(On):
+    """Fade a Track group from transparent to opaque after display start.
+
+    duration is milliseconds and rate receives normalized progress.
+    """
+
     def __init__(
         self, *, duration: Milliseconds = 400, rate: RateFunction = linear
     ) -> None:
@@ -599,6 +686,12 @@ class FadeInAnimation(On):
 
 
 class FadeOutAnimation(On):
+    """Fade a Track group to transparent ending at display end.
+
+    duration is milliseconds and the declaration starts that duration before the
+    end.
+    """
+
     def __init__(
         self, *, duration: Milliseconds = 200, rate: RateFunction = linear
     ) -> None:
@@ -609,6 +702,11 @@ class FadeOutAnimation(On):
 
 
 class SingingPulseAnimation(Animation):
+    """Apply a syllable scale envelope around singing with millisecond attack/release and configurable rise/fall rates.
+
+    Optional extension affects display, not original singing time.
+    """
+
     def __init__(
         self,
         *,
@@ -627,3 +725,59 @@ class SingingPulseAnimation(Animation):
     @on(Syllable.Singing)
     def pulse(self, event: Syllable.Singing) -> Animate:
         return Animate(event.target, scale=self.envelope)
+
+
+class HighlightAnimation(Animation):
+    """Animate drawable characters at a highlight or syllable trigger.
+
+    ``trigger`` controls threshold, duration in milliseconds, and retriggering.
+    Properties receive normalized progress, including traversal across pauses.
+    With no properties, apply a scale pulse using ``trigger.scale``. Optional
+    ranges select source text; layout validates their drawable cluster bounds.
+    """
+
+    def __init__(
+        self,
+        *,
+        trigger: Pulse = _DEFAULT_HIGHLIGHT,
+        ranges: tuple[TextRange, ...] | None = None,
+        keep: bool = False,
+        compose: CompositionMode = "replace",
+        scale: PropertyValue | _Unset = UNSET,
+        opacity: PropertyValue | _Unset = UNSET,
+        offset_x: PropertyValue | _Unset = UNSET,
+        offset_y: PropertyValue | _Unset = UNSET,
+    ) -> None:
+        super().__init__()
+        if trigger.target == "syllable":
+            raise ValueError(
+                "HighlightAnimation targets characters; use SingingPulseAnimation for syllables"
+            )
+        self.trigger = trigger
+        self.ranges = ranges
+        values: AnimatedProperties = {}
+        if scale is not UNSET:
+            values["scale"] = scale
+        if opacity is not UNSET:
+            values["opacity"] = opacity
+        if offset_x is not UNSET:
+            values["offset_x"] = offset_x
+        if offset_y is not UNSET:
+            values["offset_y"] = offset_y
+        if not values:
+            values["scale"] = Transition(1, trigger.scale, rate=there_and_back)
+        # Validate declarations before binding to a specific lyric.
+        self.rules = declare_properties(
+            values,
+            during=(singing.start, singing.end),
+            mode="character",
+            ranges=ranges,
+            arrival=trigger,
+            keep=keep,
+            compose=compose,
+        )
+
+    def bind(self, context: AnimationContext) -> tuple[AnimationRule, ...]:
+        """Bind character rules without measuring text or evaluating callbacks."""
+        units = tuple(range(len(context.item.source.units)))
+        return tuple(replace(rule, units=units) for rule in self.rules)

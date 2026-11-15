@@ -2,12 +2,18 @@
 
 from dataclasses import replace
 
+from .karaoke import KaraokeItem
 from .model import Box, LaidOutLine
-from .recipe import KaraokeItem
 from .timeline import _finite
 
 
 class Layout:
+    """Base interface for reusable lyric row allocation and placement.
+
+    Explicit layouts operate on measured lines without changing source text or
+    singing clocks.
+    """
+
     def __init__(
         self,
         *,
@@ -26,6 +32,7 @@ class Layout:
         self.rows, self.position, self.gap = rows, position, gap
 
     def allocate(self, items: tuple[KaraokeItem, ...]) -> dict[str, int]:
+        """Assign source items to rows without modifying their lyric text or singing clocks."""
         ends = [-1] * self.rows
         result: dict[str, int] = {}
         next_row = 0
@@ -46,6 +53,7 @@ class Layout:
         return result
 
     def place(self, layout: LaidOutLine, row: int) -> LaidOutLine:
+        """Apply the configured row placement to a measured lyric line."""
         if not 0 <= row < self.rows:
             raise ValueError("layout row is outside its capacity")
         dx, dy = 0.0, row * self.gap
@@ -79,11 +87,22 @@ class Layout:
 
 
 class SingleLine(Layout):
+    """Place selected lyric lines on one configured row.
+
+    Omitted position retains source positioning; explicit offsets and layout
+    settings affect presentation only.
+    """
+
     def __init__(self, *, position: tuple[float, float] | None = None) -> None:
         super().__init__(rows=1, position=position)
 
 
 class DoubleLine(Layout):
+    """Allocate two alternating lyric rows with explicit position and gap.
+
+    TrackGroup can share this allocation across independently selected children.
+    """
+
     def __init__(
         self,
         *,

@@ -10,6 +10,11 @@ from .sources import _source_location
 
 @dataclass(frozen=True)
 class PaintPair:
+    """The unsung and sung Paint values for one visual target.
+
+    Paint changes do not rewrite its source singing clock.
+    """
+
     before: Paint = field(default_factory=Paint)
     after: Paint = field(default_factory=Paint)
 
@@ -19,6 +24,11 @@ DEFAULT_PAINTS = PaintPair()
 
 @dataclass(frozen=True)
 class ColorSpan:
+    """Override before/after paint for a unit-local TextRange with explicit priority.
+
+    Selected boundaries must preserve independently drawable clusters.
+    """
+
     source: TextRange
     before: Paint | None = None
     after: Paint | None = None
@@ -33,10 +43,16 @@ class ColorSpan:
 
 @dataclass(frozen=True)
 class CharacterPaint:
+    """A drawable character paired with its resolved unsung and sung paints.
+
+    Character geometry and source range remain unchanged by paint selection.
+    """
+
     character: DrawableCharacter
     paints: PaintPair
 
     def highlighted(self, track_override: Paint | None = None) -> Paint:
+        """Return the sung paint or an explicit highlight-track paint override."""
         return self.paints.after if track_override is None else track_override
 
 
@@ -83,6 +99,11 @@ def resolve_paints(
 
 @dataclass(frozen=True)
 class RubyPaint:
+    """An explicit paint pair for the reading at a unit and segment index.
+
+    It overrides inherited body paint for that complete reading.
+    """
+
     unit_index: int
     segment_index: int
     paints: PaintPair

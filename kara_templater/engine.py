@@ -20,7 +20,11 @@ from .sources import EventOrigin, SourceRef
 
 
 class TemplateError(ValueError):
-    pass
+    """A malformed or invalid Python-template declaration with event context.
+
+    It is raised during explicit template parsing or execution, not ordinary
+    Document loading.
+    """
 
 
 MODIFIERS = {
@@ -287,6 +291,12 @@ type _Decorator = Callable[[str], object] | str | None
 
 
 class Engine:
+    """The explicit Python ASS-template frontend.
+
+    to_scene prepares source-mapped NativeEvents; apply compiles them while
+    retaining template helper and preprocessing behavior.
+    """
+
     def __init__(
         self,
         *,
@@ -311,6 +321,7 @@ class Engine:
         self.video_size = video_size
 
     def apply(self, document: Document) -> Document:
+        """Execute templates and compile their Scene to a new Document with the configured budget."""
         return self.to_scene(document).compile(budget=self.budget).document
 
     def to_scene(self, document: Document) -> Scene:

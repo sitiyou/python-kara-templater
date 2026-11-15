@@ -32,7 +32,7 @@ def _resolve(
     resolved_parent: Component | None = None,
     check_geometry: bool = True,
 ) -> Paint:
-    values = sheet.resolve(
+    values = sheet._resolve(
         node,
         _values(paint, font_size),
         sung=sung,
@@ -53,9 +53,9 @@ def prepare_style(node: Body | Ruby, source: Style, sheet: StyleSheet) -> Style:
     style = node.text_style.apply_to_style(source)
     defaults: dict[str, Color | float] = {"font_size": style.fontsize}
     if node.parent is not None:
-        defaults = sheet.resolve(node.parent, defaults)
-    values = sheet.resolve(node, defaults)
-    sung = sheet.resolve(node, values, sung=True, state_only=True)
+        defaults = sheet._resolve(node.parent, defaults)
+    values = sheet._resolve(node, defaults)
+    sung = sheet._resolve(node, values, sung=True, state_only=True)
     if values["font_size"] != sung["font_size"]:
         raise ValueError("sung font_size cannot change layout; use scale")
     size = values["font_size"]

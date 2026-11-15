@@ -1,4 +1,6 @@
-Windows wheels bundle selected native DLLs and include license texts for those DLLs and their bundled dependencies. Linux wheels link against system-provided native libraries and do not bundle them; relevant dependency license texts are included as notices.
+This directory contains a fixed, version-controlled set of native dependency license texts. Builds copy these files directly; they do not scan the host or collect license files automatically.
+
+The snapshots cover the reviewed Windows runtime DLL bundle. Linux wheels link against system-provided native libraries rather than bundling them. See README.md in this directory for component versions and update instructions.
 
 Dependency sources:
 https://github.com/msys2/MINGW-packages

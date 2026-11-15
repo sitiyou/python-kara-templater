@@ -13,20 +13,46 @@ type StateLookup = Callable[[str, float], VisualState]
 
 
 class StateReference(Protocol):
+    """Protocol for seekable state relationships evaluated through a world-state lookup.
+
+    Declare dependencies and channels so references can be ordered and checked for
+    cycles.
+    """
+
     @property
-    def dependencies(self) -> tuple[str, ...]: ...
+    def dependencies(self) -> tuple[str, ...]:
+        """Object identities that the world-state evaluator must resolve first."""
+        ...
+
     @property
-    def channels(self) -> frozenset[Channel]: ...
+    def channels(self) -> frozenset[Channel]:
+        """The state channels this reference may change."""
+        ...
+
     @property
-    def breakpoints(self) -> tuple[float, ...]: ...
+    def breakpoints(self) -> tuple[float, ...]:
+        """Declared seconds boundaries used when sampling dependent objects."""
+        ...
+
     def sample(
         self, base: VisualState, time: float, lookup: StateLookup
-    ) -> VisualState: ...
-    def shifted(self, seconds: float) -> StateReference: ...
-    def translated(self, offset: Vec2) -> StateReference: ...
+    ) -> VisualState:
+        """Evaluate a pure state relationship using the supplied world-state lookup."""
+        ...
+
+    def shifted(self, seconds: float) -> StateReference:
+        """Return a reference with a seconds clock shift for delayed copying."""
+        ...
+
+    def translated(self, offset: Vec2) -> StateReference:
+        """Return a reference adjusted for a spatial translation."""
+        ...
+
     def retarget(
         self, names: Mapping[str, str], time_shift: float = 0
-    ) -> StateReference: ...
+    ) -> StateReference:
+        """Remap dependencies and delay for a copied object hierarchy."""
+        ...
 
 
 @dataclass(frozen=True)
@@ -52,15 +78,18 @@ class FollowObject:
 
     @property
     def dependencies(self) -> tuple[str, ...]:
+        """The source object IDs required for world-state evaluation."""
         return (self.target,)
 
     @property
     def breakpoints(self) -> tuple[float, ...]:
+        """Declared time boundaries that must be considered while sampling this reference."""
         return ()
 
     def sample(
         self, base: VisualState, time: float, lookup: StateLookup
     ) -> VisualState:
+        """Resolve the followed object through the supplied world-state lookup and apply the requested relationship."""
         target = lookup(self.target, time - self.delay)
         return replace(
             base,
@@ -75,6 +104,7 @@ class FollowObject:
         )
 
     def translated(self, offset: Vec2) -> FollowObject:
+        """Return a reference with its coordinate offset translated for object copying."""
         return (
             replace(self, offset=self.offset + offset)
             if "position" in self.channels
@@ -82,9 +112,11 @@ class FollowObject:
         )
 
     def shifted(self, seconds: float) -> FollowObject:
+        """Return a reference with its time relationship shifted by a seconds delay."""
         return replace(self, delay=self.delay + seconds)
 
     def retarget(self, names: Mapping[str, str], time_shift: float = 0) -> FollowObject:
+        """Remap dependency IDs and time shifts when copying a referenced hierarchy."""
         return replace(
             self,
             target=names.get(self.target, self.target),
@@ -94,6 +126,11 @@ class FollowObject:
 
 @dataclass(frozen=True)
 class ReferenceFunction:
+    """A pure world-state callback with explicit dependency IDs, written channels, and second-based breakpoints.
+
+    Retargeting and clock translation support copied groups.
+    """
+
     function: Callable[[VisualState, float, StateLookup], VisualState]
     dependencies: tuple[str, ...]
     channels: frozenset[Channel]
@@ -113,9 +150,11 @@ class ReferenceFunction:
     def sample(
         self, base: VisualState, time: float, lookup: StateLookup
     ) -> VisualState:
+        """Evaluate the pure reference callback with the incoming state, seconds time, and world-state lookup."""
         return self.function(base, time, lookup)
 
     def translated(self, offset: Vec2) -> ReferenceFunction:
+        """Return a reference adjusted for a spatial translation."""
         if offset == Vec2() or "position" not in self.channels:
             return self
 
@@ -126,6 +165,7 @@ class ReferenceFunction:
         return replace(self, function=sample)
 
     def shifted(self, seconds: float) -> ReferenceFunction:
+        """Return a reference adjusted for a seconds clock shift."""
         if seconds == 0:
             return self
         return replace(
@@ -139,6 +179,7 @@ class ReferenceFunction:
     def retarget(
         self, names: Mapping[str, str], time_shift: float = 0
     ) -> ReferenceFunction:
+        """Remap dependency identities and delay when copying a group."""
         mapping = dict(names)
 
         def sample(base: VisualState, time: float, lookup: StateLookup) -> VisualState:

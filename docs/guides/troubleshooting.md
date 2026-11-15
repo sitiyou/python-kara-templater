@@ -1,0 +1,35 @@
+# Troubleshooting
+
+Start from the error's object/source context and the smallest input that
+reproduces it. Keep the traceback and exception cause when debugging callbacks.
+
+| Symptom | What to inspect and change |
+| --- | --- |
+| Unknown public import | Ensure the installed package matches these current-checkout docs; use the final API reference rather than old implementation plans |
+| `No module named examples` or `tools` | These are checkout utilities; standalone tutorial scripts use only kara_templater |
+| Native extension fails to load | Install the matching Python/platform wheel and required native runtime libraries; see development setup |
+| Missing or substituted glyph | Check the actual font family, fallback faces, and load_font registration; supply the same font to playback |
+| A text range or cue splits a cluster | Select complete independently drawable clusters, not arbitrary Python character boundaries |
+| Unsupported ASS override | Use the frontend that supports the needed input semantics, or declare the appearance in Python; loading ASS does not imply every override is understood by a lyric binder |
+| Unknown cue preset/invalid marker | Match preset names, marker keys, quoting, offsets, and cluster boundaries to the input marker contract |
+| Multiple Tracks match a source | Make selectors disjoint, or combine the intended appearance into one Track |
+| Animation writes conflict | Check channel declarations, overlapping intervals, hold/release, and composition rules |
+| Unexpected time offset | Check seconds versus milliseconds, object birth versus absolute time, and separate display/singing clocks |
+| Object follows the wrong position | Distinguish local object evaluation from world-space SceneEvaluator references |
+| PlayRes mismatch | Keep Document script dimensions and native OutputSettings.resolution identical |
+| Editable Track rejects source style | Use native mode for unsupported underline/strikeout/angle/BorderStyle, or author the desired geometry explicitly |
+| Glow is cut off at a color front | Native clipping is post-render; use explicit coverage/raster material semantics for color-before-blur |
+| Group alpha looks too dense | Ordinary groups apply alpha per drawing layer; choose explicit offscreen/coverage composition when required |
+| Event, byte, active, path, band, or boolean budget fails | Inspect SceneResult/ObjectReport, simplify the effect, or deliberately raise the relevant SceneBudget/RasterSettings limit |
+| Raster colors differ by tiny rectangles | Check RGB/full-resolution chroma composition, color matrix, and spatial error settings before comparing YUV420 output |
+| Regeneration duplicates or leaves effects | Use a stable owner and preserve generated source/provenance markers |
+| Same callback differs after seeking | Remove previous-frame state and global random draws; declare dependencies and breakpoints |
+| Another player renders differently | Verify fonts, ASS support, and the known renderer differences in ASS and playback |
+
+AssImportError identifies a Document record index, style, and optional origin.
+SceneCompileError identifies an object_id and optional origin. Native output
+errors can identify source references and time_ms. These indices refer to the
+structured source model, not physical ASS file line numbers.
+
+See [compilation](compilation.md), [fonts and preview](fonts-and-preview.md), and
+[ASS and playback](../ass-and-playback.md) for reproduction steps.

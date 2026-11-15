@@ -12,7 +12,7 @@ from kara_templater import (
     ScaleTo,
     Timeline,
     Track,
-    render_karaoke,
+    prepare_tracks,
     smooth,
 )
 
@@ -51,7 +51,9 @@ def main() -> None:
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    result = render_karaoke(Document.load(args.input), tracks=(track,))
+    result = prepare_tracks(
+        Document.load(args.input), tracks=(track,), mode="native"
+    ).compile()
     result.document.save(args.output)
 
 

@@ -50,22 +50,25 @@ class Timeline:
         self,
         *animations: Animation,
         at: float | None = None,
-        t: float | None = None,
         during: TimeSpan | None = None,
         duration: float | None = None,
     ) -> None:
+        """Schedule composed animations at local seconds or during an explicit TimeSpan.
+
+        Omitted start uses the composition cursor.
+        """
         if not animations:
             raise ValueError("play requires at least one animation")
         if any(not isinstance(animation, Animation) for animation in animations):
             raise TypeError("play accepts Animation instances")
-        if sum(value is not None for value in (at, t, during)) > 1:
-            raise ValueError("use only one of at, t or during")
+        if at is not None and during is not None:
+            raise ValueError("use only one of at or during")
         if during is not None and duration is not None:
             raise ValueError("during already defines duration")
         if during is not None:
             start, duration = during.start, during.duration
         else:
-            start = at if at is not None else t if t is not None else self._cursor
+            start = self._cursor if at is None else at
         start = _seconds(start, "animation start")
         if duration is not None:
             duration = _seconds(duration, "play duration", positive=True)
@@ -132,15 +135,18 @@ class Composition(Animation):
         self.builder = builder
 
     def compose(self, timeline: Timeline, context: AnimationContext) -> None:
+        """Override to schedule seconds-based child animations on the supplied Timeline."""
         if self.builder is None:
             raise NotImplementedError("implement compose() or supply a builder")
         self.builder(timeline, context)
 
     def sample(self, t: float, context: AnimationContext) -> Transform:
+        """Evaluate this composition at local seconds and return a sparse Transform."""
         record = _record(self, context)
         return _prepare(record, context).value(t)
 
     def bind(self, context: AnimationContext) -> tuple[AnimationRule, ...]:
+        """Resolve the composed schedule into Track property declarations with source-local timing."""
         return bind_sampled(self, context)
 
 
@@ -162,6 +168,7 @@ class TransformTo(Animation):
         self.transform, self.rate = transform, rate
 
     def sample(self, t: float, context: AnimationContext) -> Transform:
+        """Interpolate the configured sparse geometry target at local seconds."""
         progress = self.rate(t / context.duration)
         _finite(progress, "animation rate result")
         initial = context.initial.values()
@@ -174,6 +181,11 @@ class TransformTo(Animation):
 
 
 class ScaleTo(TransformTo):
+    """A seconds-based composition transition to a target uniform scale.
+
+    The enclosing Timeline determines its start and duration.
+    """
+
     def __init__(
         self,
         scale: float,
@@ -185,6 +197,11 @@ class ScaleTo(TransformTo):
 
 
 class OpacityTo(TransformTo):
+    """A seconds-based composition transition to a target opacity.
+
+    Use it with Timeline.play and a duration or TimeSpan.
+    """
+
     def __init__(
         self,
         opacity: float,

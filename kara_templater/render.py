@@ -1,36 +1,25 @@
 """Render structured karaoke items into a copied ASS document."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, replace
-from typing import Protocol, runtime_checkable
+from typing import Literal
 from urllib.parse import quote
 
 from ._track_compiler import PreparedTrack
 from ._track_scene import track_objects
+from ._track_types import TrackContext
 from .ass import Document, Line, Style
-from .ass_output import OutputCapabilityError, OutputSettings, compile_layers, quantize
-from .effect import Effect
+from .ass_output import OutputCapabilityError, OutputSettings, compile_layers
 from .import_ass import ImportSettings, import_karaoke, source_marker
+from .karaoke import KaraokeItem
 from .layout import layout_line
 from .raster_settings import RasterEstimate, RasterPlan
-from .recipe import EffectContext, EffectPlan, KaraokeItem
 from .sampling import SamplingEstimate, prepare_sampling
 from .scene import NativeEvent, ObjectGroup, Scene, SceneObject
-from .scene_output import _insert_events, _scene_source_records
+from .scene_output import SceneBudget, SceneResult, _scene_source_records
 from .sources import EventOrigin, SourceRef, _source_context
-from .track import BoundTrack, Track, TrackGroup, bind_tracks
-
-
-@runtime_checkable
-class EffectBuilder(Protocol):
-    def build(self, item: KaraokeItem, context: EffectContext) -> EffectPlan: ...
-
-
-type EffectFactory = (
-    type[Effect] | EffectBuilder | Callable[[KaraokeItem, EffectContext], EffectPlan]
-)
-type EffectInput = EffectFactory | Mapping[str, EffectFactory]
+from .track import Track, TrackGroup, bind_tracks
 
 
 @dataclass(frozen=True)
@@ -42,108 +31,99 @@ class RenderEstimate:
     """
 
     static_events: int
-    raw_events: int
     sampling: tuple[SamplingEstimate, ...]
     event_limit: int
     raster: tuple[RasterEstimate, ...] = ()
 
     @property
     def estimated_events(self) -> int:
+        """Sum static, sampled, and raster estimates before merging and native subdivision.
+
+        This is not a final upper bound.
+        """
         return (
             self.static_events
-            + self.raw_events
             + sum(s.estimated_events for s in self.sampling)
             + sum(r.frames * r.frame_event_limit for r in self.raster)
         )
 
     @property
     def target_samples(self) -> int:
+        """Total declared target samples across native dynamic and raster preparations."""
         return sum(s.target_samples for s in self.sampling) + sum(
             r.target_samples for r in self.raster
         )
 
 
 @dataclass(frozen=True)
-class RenderResult:
-    document: Document
-    diagnostics: tuple[str, ...]
-    event_count: int
-    layer_count: int
-    # Entries refer to the actual generated Line objects in document order.
-    event_origins: tuple[tuple[Line, EventOrigin], ...] = ()
+class PreparedTracks:
+    """A composable Scene with Track preparation diagnostics and layer count.
 
-
-@dataclass(frozen=True)
-class PreparedKaraoke:
-    """Prepared karaoke scene plus frontend diagnostics and layer count.
-
-    prepare_karaoke supplies already-lowered NativeEvents; prepare_track_scene
-    supplies editable objects whose property callbacks run at Scene compilation.
+    Native preparation lowers callbacks before returning. Editable preparation
+    defers their evaluation until Scene compilation. Both retain source records
+    and support adding independent Scene objects before compilation.
     """
 
     scene: Scene
     diagnostics: tuple[str, ...]
     layer_count: int
 
+    def compile(
+        self, *, budget: SceneBudget | None = None, native_tweens: bool = False
+    ) -> SceneResult:
+        """Compile through Scene, including frontend diagnostics in the result."""
+        return replace(
+            self.scene.compile(budget=budget, native_tweens=native_tweens),
+            diagnostics=self.diagnostics,
+        )
 
-def prepare_karaoke(
+
+def prepare_tracks(
     document: Document,
     items: tuple[KaraokeItem, ...] | None = None,
     *,
-    effect: EffectInput | None = None,
-    tracks: tuple[Track | TrackGroup, ...] | None = None,
+    tracks: tuple[Track | TrackGroup, ...],
+    mode: Literal["editable", "native"] = "editable",
     owner: str = "default",
     settings: OutputSettings | None = None,
     import_settings: ImportSettings | None = None,
     on_estimate: Callable[[RenderEstimate], None] | None = None,
-) -> PreparedKaraoke:
-    """Prepare existing Track/recipe output as source-mapped NativeEvents.
+    max_objects: int = 25_000,
+) -> PreparedTracks:
+    """Bind lyric configurations to a Scene while preserving unselected records.
 
-    Property/raster callbacks run during preparation; Scene compilation does
-    not rerun them. Use prepare_track_scene for editable Track objects instead.
+    ``editable`` produces ObjectGroups whose callbacks run during compilation;
+    SceneBudget controls sampling. ``native`` lowers to NativeEvents, retains
+    native interpolation/style semantics, and uses Track.sampling for callbacks.
+    Explicit raster settings require native mode; material coverage is exposed
+    separately by prepare_track_coverage. Source times and margins use milliseconds.
     """
-    return _prepare_karaoke(
+    if mode not in {"editable", "native"}:
+        raise ValueError("Track mode must be editable or native")
+    if type(max_objects) is not int or max_objects < 1:
+        raise ValueError("max_objects must be a positive integer")
+    if mode == "editable":
+        if settings is not None:
+            raise ValueError(
+                "editable Track output uses SceneBudget, not OutputSettings"
+            )
+        if on_estimate is not None:
+            raise ValueError(
+                "on_estimate is for native preparation; editable costs are checked by Scene"
+            )
+        settings = OutputSettings(
+            resolution=(document.meta.res_x, document.meta.res_y),
+            max_events=max_objects,
+        )
+    return _prepare_tracks(
         document,
         items,
-        effect=effect,
         tracks=tracks,
         owner=owner,
         settings=settings,
         import_settings=import_settings,
         on_estimate=on_estimate,
-    )
-
-
-def prepare_track_scene(
-    document: Document,
-    items: tuple[KaraokeItem, ...] | None = None,
-    *,
-    tracks: tuple[Track | TrackGroup, ...],
-    owner: str = "default",
-    import_settings: ImportSettings | None = None,
-    max_objects: int = 25_000,
-) -> PreparedKaraoke:
-    """Bind Tracks to editable ObjectGroups without sampling property callbacks.
-
-    Input and ownership rules match prepare_karaoke. SceneBudget controls output
-    sampling and cost; Track.sampling belongs to the legacy output path. Native
-    per-layer opacity and hard-clipped sweep decorations remain explicit limits.
-    max_objects bounds generated text nodes as well as per-item mask partitions.
-    """
-    if type(max_objects) is not int or max_objects < 1:
-        raise ValueError("max_objects must be a positive integer")
-    settings = OutputSettings(
-        resolution=(int(document.meta.res_x), int(document.meta.res_y)),
-        max_events=max_objects,
-    )
-    return _prepare_karaoke(
-        document,
-        items,
-        tracks=tracks,
-        owner=owner,
-        settings=settings,
-        import_settings=import_settings,
-        editable_tracks=True,
+        editable_tracks=mode == "editable",
     )
 
 
@@ -156,32 +136,21 @@ def _object_layers(node: SceneObject) -> tuple[int, int]:
     )
 
 
-def _prepare_karaoke(
+def _prepare_tracks(
     document: Document,
     items: tuple[KaraokeItem, ...] | None = None,
     *,
-    effect: EffectInput | None = None,
-    tracks: tuple[Track | TrackGroup, ...] | None = None,
+    tracks: tuple[Track | TrackGroup, ...],
     owner: str = "default",
     settings: OutputSettings | None = None,
     import_settings: ImportSettings | None = None,
     on_estimate: Callable[[RenderEstimate], None] | None = None,
     editable_tracks: bool = False,
     track_builder: Callable[[str, PreparedTrack, list[str]], ObjectGroup] | None = None,
-) -> PreparedKaraoke:
-    """Prepare only this owner's events; preserve sources and other owners.
-
-    effect is a recipe with build(item, context), a callable, or a mapping from
-    ASS style names to either. With items omitted, import timed ASS dialogue and
-    retain it as owned source comments. Explicit structured items leave dialogue
-    unchanged. Both paths preserve the input document.
-    on_estimate runs once after preflight and before dynamic property functions.
-    It may raise to cancel rendering. Recipe builders have already run by then.
-    """
+) -> PreparedTracks:
+    """Shared ownership, source import, and preparation for Track output modes."""
     if not isinstance(owner, str) or not owner:
         raise ValueError("render owner must be a nonempty string")
-    if (effect is None) == (tracks is None):
-        raise ValueError("provide exactly one of effect or tracks")
     if on_estimate is not None and not callable(on_estimate):
         raise TypeError("on_estimate must be callable")
     scene_owner = "karaoke:" + owner
@@ -201,15 +170,13 @@ def _prepare_karaoke(
     assert items is not None
     if len({item.id for item in items}) != len(items):
         raise ValueError("duplicate karaoke item ids")
-    selected_tracks: dict[str, BoundTrack] = {}
-    if tracks is not None:
-        selected_tracks = bind_tracks(tracks, items)
+    selected_tracks = bind_tracks(tracks, items)
     result = document
     if imported is not None:
         for source in imported.sources:
             line = result.records[source.record_index]
             assert isinstance(line, Line)
-            if tracks is not None and source.item_id not in selected_tracks:
+            if source.item_id not in selected_tracks:
                 # Restore previously owned sources when the selection changes.
                 line.comment = False
                 line.effect = source.original_effect
@@ -226,29 +193,18 @@ def _prepare_karaoke(
         for r in result.records
         if not isinstance(r, Line) or not r.effect.startswith(prefix)
     ]
-    layers, raw_lines, diagnostics = [], [], []
+    layers, diagnostics = [], []
     editable_groups: list[ObjectGroup] = []
     object_count = 0
     dynamic_groups = []
     raster_groups: list[tuple[RasterPlan, int]] = []
     next_order = 0
     for item in items:
-        if tracks is not None and item.id not in selected_tracks:
+        if item.id not in selected_tracks:
             continue
-        selected = (
-            selected_tracks[item.id]
-            if tracks is not None
-            else effect.get(item.style)
-            if isinstance(effect, Mapping)
-            else effect
-        )
+        selected = selected_tracks[item.id]
         fallback_origin = EventOrigin(
-            (SourceRef(item.id),),
-            (
-                "style dispatch"
-                if isinstance(effect, Mapping) and item.style not in effect
-                else getattr(selected, "__qualname__", type(selected).__name__)
-            ),
+            (SourceRef(item.id),), type(selected.config).__name__
         )
         with _source_context(fallback_origin):
             styles = result.styles
@@ -278,21 +234,11 @@ def _prepare_karaoke(
                 shadow=style.shadow / 2,
                 fields={},
             )
-            if isinstance(effect, Mapping) and item.style not in effect:
-                raise ValueError(
-                    f"{item.id}: no effect configured for style {item.style!r}"
-                )
-            # Author configuration runs on source targets before measurement.
-            if isinstance(selected, type) and issubclass(selected, Effect):
-                selected = selected()
-            if isinstance(selected, Effect):
-                selected, style, ruby_style = selected._prepare(item, style, ruby_style)
-            elif isinstance(selected, BoundTrack):
-                style, ruby_style = selected.prepare_styles(style, ruby_style)
+            style, ruby_style = selected.prepare_styles(style, ruby_style)
             layout = layout_line(
                 item.source, style=style, ruby_style=ruby_style, resolution=resolution
             )
-            context = EffectContext(
+            context = TrackContext(
                 layout,
                 style,
                 ruby_style,
@@ -301,7 +247,6 @@ def _prepare_karaoke(
                 settings.raster,
             )
             if editable_tracks:
-                assert isinstance(selected, BoundTrack)
                 prepared_track = selected.prepare(item, context)
                 group = (
                     track_objects(item.id, prepared_track, diagnostics=diagnostics)
@@ -317,16 +262,7 @@ def _prepare_karaoke(
                 editable_groups.append(replace(group, layer=next_order))
                 next_order += highest + 1
                 continue
-            builder = (
-                selected.build if isinstance(selected, EffectBuilder) else selected
-            )
-            if not callable(builder):
-                raise TypeError(
-                    f"{item.id}: effect must be callable or provide build()"
-                )
-            plan = builder(item, context)
-            if not isinstance(plan, EffectPlan):
-                raise TypeError(f"{item.id}: effect must return EffectPlan")
+            plan = selected.build(item, context)
             if settings.raster is not None and plan.raster is None:
                 raise OutputCapabilityError(
                     "raster output requires prepared Track targets",
@@ -343,10 +279,8 @@ def _prepare_karaoke(
                 for layer in plan.layers
             )
             if plan.raster is not None:
-                if shifted or plan.dynamic is not None or plan.raw_lines:
-                    raise ValueError(
-                        "raster plans cannot also declare native layers or raw events"
-                    )
+                if shifted or plan.dynamic is not None:
+                    raise ValueError("raster plans cannot also declare native layers")
                 raster_groups.append((plan.raster, next_order * 2))
                 next_order += 1
             elif plan.dynamic is None:
@@ -355,9 +289,6 @@ def _prepare_karaoke(
                 dynamic_groups.append((shifted, plan.dynamic))
             next_order = max((layer.order + 1 for layer in shifted), default=next_order)
             diagnostics.extend(plan.diagnostics)
-            raw_lines.extend(
-                (line, fallback_origin) for line in deepcopy(plan.raw_lines)
-            )
             if (
                 any(layer.style.name == ruby_name for layer in plan.layers)
                 and ruby_name not in styles
@@ -387,7 +318,7 @@ def _prepare_karaoke(
             diagnostics.append(
                 "editable Track opacity is applied per drawing layer, not after group compositing"
             )
-        return PreparedKaraoke(
+        return PreparedTracks(
             Scene(result, owner=scene_owner).add(*editable_groups),
             tuple(dict.fromkeys(diagnostics)),
             object_count,
@@ -405,29 +336,9 @@ def _prepare_karaoke(
     origins = list(compiled.origins)
     diagnostics.extend(compiled.diagnostics)
     static_events = len(generated)
-    for line, origin in raw_lines:
-        with _source_context(origin):
-            if line.start_time < 0 or line.end_time <= line.start_time:
-                raise ValueError(
-                    "raw effect event must have a nonnegative, positive-duration interval"
-                )
-            if line.style not in result.styles:
-                raise ValueError(f"raw effect event: missing style {line.style!r}")
-            line.start_time, line.end_time = (
-                quantize(line.start_time),
-                quantize(line.end_time),
-            )
-            if line.end_time <= line.start_time:
-                diagnostics.append(
-                    "raw effect event vanished during centisecond quantization"
-                )
-            else:
-                generated.append(line)
-                origins.append(origin)
-    raw_events = len(generated) - static_events
     if len(generated) > settings.max_events:
         raise OutputCapabilityError(
-            f"owner {owner}: static events plus raw lines exceed {settings.max_events}"
+            f"owner {owner}: static events exceed {settings.max_events}"
         )
     remaining = settings.max_events - len(generated)
     sampling_plans = []
@@ -440,7 +351,6 @@ def _prepare_karaoke(
         on_estimate(
             RenderEstimate(
                 static_events,
-                raw_events,
                 tuple(p.estimate for p in sampling_plans),
                 settings.max_events,
                 tuple(plan.estimate for plan, _ in raster_groups),
@@ -515,7 +425,7 @@ def _prepare_karaoke(
             origins.extend(prepared.origin for _ in output)
     if len(generated) > settings.max_events:
         raise OutputCapabilityError(
-            f"owner {owner}: generated events plus raw lines exceed {settings.max_events}"
+            f"owner {owner}: generated events exceed {settings.max_events}"
         )
     for index, line in enumerate(generated):
         with _source_context(origins[index]):
@@ -528,53 +438,8 @@ def _prepare_karaoke(
     for index, (event, origin) in enumerate(zip(generated, origins, strict=True)):
         assert origin is not None
         scene.add(NativeEvent(f"karaoke:{index}", event, origin))
-    return PreparedKaraoke(
+    return PreparedTracks(
         scene,
         tuple(diagnostics),
         len(layers) + sum(plan.layer_count for plan, _ in raster_groups),
-    )
-
-
-def render_karaoke(
-    document: Document,
-    items: tuple[KaraokeItem, ...] | None = None,
-    *,
-    effect: EffectInput | None = None,
-    tracks: tuple[Track | TrackGroup, ...] | None = None,
-    owner: str = "default",
-    settings: OutputSettings | None = None,
-    import_settings: ImportSettings | None = None,
-    on_estimate: Callable[[RenderEstimate], None] | None = None,
-) -> RenderResult:
-    """Render Track/recipe output with the historical ownership and report format.
-
-    Use prepare_karaoke(...).scene to combine this output with new scene objects
-    and apply SceneBudget to the whole composition. Both entrances preserve the
-    input Document and evaluate Track property callbacks only once.
-    """
-    prepared = prepare_karaoke(
-        document,
-        items,
-        effect=effect,
-        tracks=tracks,
-        owner=owner,
-        settings=settings,
-        import_settings=import_settings,
-        on_estimate=on_estimate,
-    )
-    result = prepared.scene.document
-    generated: list[Line] = []
-    event_origins: list[tuple[Line, EventOrigin]] = []
-    for node in prepared.scene.objects:
-        assert isinstance(node, NativeEvent) and node.origin is not None
-        generated.append(node.event)
-        event_origins.append((node.event, node.origin))
-    if generated:
-        _insert_events(result, generated, None)
-    return RenderResult(
-        result,
-        prepared.diagnostics,
-        len(generated),
-        prepared.layer_count,
-        tuple(event_origins),
     )

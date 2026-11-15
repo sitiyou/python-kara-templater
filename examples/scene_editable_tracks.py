@@ -33,7 +33,7 @@ from kara_templater import (
     Vec2,
     VectorPath,
     VisualState,
-    prepare_track_scene,
+    prepare_tracks,
 )
 
 
@@ -62,7 +62,7 @@ def build() -> Scene:
         layout=SingleLine(position=(410, 330)),
         animations=(SingingPulseAnimation(peak=1.1),),
     )
-    prepared = prepare_track_scene(document, tracks=(track,))
+    prepared = prepare_tracks(document, tracks=(track,))
     scene = prepared.scene
     group = scene.objects[0]
     assert isinstance(group, ObjectGroup)

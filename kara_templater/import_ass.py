@@ -8,8 +8,8 @@ from urllib.parse import quote, unquote
 from .appearance import PaintPair
 from .ass import Document, Line, Style
 from .composition import Color, Paint
+from .karaoke import KaraokeItem
 from .model import KaraokeLine, Segment, TextUnit
-from .recipe import KaraokeItem
 from .sources import EventOrigin, SourceRef
 from .timeline import DisplayWindow, _milliseconds
 
@@ -36,6 +36,12 @@ class AssImportError(ValueError):
 
 @dataclass(frozen=True)
 class ImportSettings:
+    """Track ASS-import display padding and optional style selection.
+
+    lead_ms/tail_ms extend visibility independently of the original singing
+    intervals.
+    """
+
     lead_ms: int = 0
     tail_ms: int = 0
     styles: tuple[str, ...] | None = None
@@ -54,6 +60,11 @@ class SourceBinding:
 
 @dataclass(frozen=True)
 class ImportedKaraoke:
+    """Structured lyric items plus source-record bindings for owner-aware regeneration.
+
+    Importing does not itself replace or execute source events.
+    """
+
     items: tuple[KaraokeItem, ...]
     sources: tuple[SourceBinding, ...]
 
@@ -167,6 +178,10 @@ def import_karaoke(
     owner: str = "default",
     settings: ImportSettings | None = None,
 ) -> ImportedKaraoke:
+    """Import supported timed ASS lyrics into KaraokeItem values with stable source bindings.
+
+    Preserve source timing and report unsupported tags with record/style context.
+    """
     settings = settings or ImportSettings()
     prefix = source_prefix(owner)
     items, bindings, seen = [], [], set()

@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Literal, overload
 from .model import KaraokeLine, Segment, TextUnit
 
 if TYPE_CHECKING:
-    from .recipe import KaraokeItem
+    from .karaoke import KaraokeItem
 
 
 @contextmanager

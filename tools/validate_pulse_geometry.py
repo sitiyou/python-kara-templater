@@ -128,7 +128,9 @@ def main():
                 phase = (
                     0
                     if time <= a or time >= b
-                    else (time - a) / (m - a) if time < m else (b - time) / (b - m)
+                    else (time - a) / (m - a)
+                    if time < m
+                    else (b - time) / (b - m)
                 )
                 scale = 1 + 0.4 * phase
                 px = layout.box.center if mode == "whole" else char.box.center

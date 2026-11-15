@@ -31,7 +31,7 @@ class LayeredGlow(Track):
             overlay=Overlay(
                 style=SUNG,
                 reveal=Sweep(
-                    curve=ProgressCurve.two_stage(
+                    progress_curve=ProgressCurve.two_stage(
                         time_fraction=3 / 17,
                         progress_fraction=0.3,
                     )

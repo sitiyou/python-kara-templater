@@ -14,7 +14,7 @@ from time import perf_counter
 
 from PIL import Image, ImageChops
 
-from examples.alternating_colors import document
+from examples._lyrics import document
 from kara_templater import (
     BLUE,
     RED,

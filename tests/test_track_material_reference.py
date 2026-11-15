@@ -10,6 +10,7 @@ from math import floor
 import pytest
 from PIL import Image, ImageChops
 from test_track_raster import frame, render, scene
+from track_helpers import compile_tracks
 
 from kara_templater import (
     RED,
@@ -228,7 +229,6 @@ def test_sweep_materials_match_independent_gaussian_reference(time, after_opacit
 
 @pytest.mark.parametrize("radius", (0.1, 1, 10, 50))
 def test_native_blur_bounds_preserve_independent_whole_glyph(radius):
-    from kara_templater import render_karaoke
 
     source, item = scene(text="A", ruby="")
     layout = layout_line(
@@ -242,7 +242,7 @@ def test_native_blur_bounds_preserve_independent_whole_glyph(radius):
             )
         ),
     )
-    actual = frame(render_karaoke(source, items=(item,), tracks=(config,)), 160)
+    actual = frame(compile_tracks(source, items=(item,), tracks=(config,)), 160)
     reference = Document.parse(source.dumps())
     for layer, color, width, blur in ((0, "0000FF", 2, radius), (1, "FFFFFF", 0, 0)):
         reference.records.append(

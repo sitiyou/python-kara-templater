@@ -12,6 +12,11 @@ from .scene import PathObject, TextObject
 
 @dataclass(frozen=True)
 class TextOutline:
+    """Measured text geometry with layout bounds and actual font faces.
+
+    path can be None for whitespace or empty ink; layout advance remains meaningful.
+    """
+
     path: VectorPath | None
     layout_bounds: Box
     fonts: tuple[FontFace, ...]

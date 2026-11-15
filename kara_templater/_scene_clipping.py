@@ -200,7 +200,9 @@ class ClipResolver:
             path = clip.path
             if clip.deform is not None:
                 try:
-                    path = clip.deform.sample(path, local_seconds(time, node.lifetime.start))
+                    path = clip.deform.sample(
+                        path, local_seconds(time, node.lifetime.start)
+                    )
                 except Exception as error:
                     raise ValueError(
                         f"clip callback: {type(error).__name__}: {error}"

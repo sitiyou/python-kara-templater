@@ -13,6 +13,12 @@ from . import _metrics
 
 @dataclass(frozen=True)
 class LoadedFont:
+    """The registered metrics font family and SHA-256 digest of the loaded bytes.
+
+    Registration does not configure a playback application or embed fonts into
+    output.
+    """
+
     family: str
     sha256: str
 

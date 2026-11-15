@@ -19,8 +19,9 @@ from kara_templater import (
     Line,
     OutputSettings,
     RasterSettings,
+    SceneBudget,
     load_font,
-    render_karaoke,
+    prepare_tracks,
 )
 from kara_templater._track_raster import TrackRasterPlan
 from tools.capture_layered_glow import TIMES
@@ -93,7 +94,7 @@ def main():
                 "evaluate",
                 snapshot_evaluator(time, mode == "held", ages[time]),
             ):
-                result = render_karaoke(
+                result = prepare_tracks(
                     source,
                     tracks=tracks,
                     settings=OutputSettings(
@@ -101,6 +102,13 @@ def main():
                         max_events=1_000_000,
                         raster=RasterSettings(max_output_chars=256_000_000),
                     ),
+                    mode="native",
+                ).compile(
+                    budget=SceneBudget(
+                        max_events=1_000_000,
+                        max_bytes=256_000_000,
+                        max_active=50_000,
+                    )
                 )
             if combined is None:
                 combined = result.document

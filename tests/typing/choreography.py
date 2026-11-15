@@ -39,7 +39,7 @@ def contracts(context: AnimationContext, timeline: Timeline) -> None:
     assert_type(Accent().sample(0.1, context), Transform)
     Animation(lambda t, ctx: Transform(scale=1 + t), duration=0.3)
     On(Display.Start, ScaleTo(1.1, duration=0.3))
-    timeline.play(Pulse(), Accent(), t=0.5)
+    timeline.play(Pulse(), Accent(), at=0.5)
     timeline.play(ScaleTo("large"))  # ty: ignore[invalid-argument-type]
     timeline.play("pulse")  # ty: ignore[invalid-argument-type]
     timeline.play(Pulse(), during=(0, 1))  # ty: ignore[invalid-argument-type]

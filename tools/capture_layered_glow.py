@@ -1,4 +1,4 @@
-"""Capture the layered glow migration baseline on a self-contained input.
+"""Capture the layered glow effect on a self-contained input.
 
 python -m tools.capture_layered_glow /tmp/layered-glow-baseline
 Requires ffmpeg with libass and Pillow, as do the other visual validators.
@@ -14,7 +14,7 @@ from pathlib import Path
 from PIL import Image
 
 from examples.layered_glow import tracks
-from kara_templater import Document, load_font, render_karaoke
+from kara_templater import Document, load_font, prepare_tracks
 
 TIMES = (0, 500, 800, 1000, 1300, 1600, 1700, 1800, 1850, 2400, 2700, 3000, 3900)
 
@@ -35,7 +35,9 @@ def main():
     (output / "fonts").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(font, output / "fonts" / font.name)
     source = root / "tests/fixtures/layered_glow.ass"
-    result = render_karaoke(Document.load(source), tracks=tracks)
+    result = prepare_tracks(
+        Document.load(source), tracks=tracks, mode="native"
+    ).compile()
     result.document.save(output / "layered-glow.ass")
     selection = "+".join(f"eq(n,{t // 10})" for t in TIMES)
     process = subprocess.run(
@@ -82,7 +84,7 @@ def main():
             ["ffmpeg", "-version"], capture_output=True, text=True, check=True
         ).stdout.splitlines()[0],
         "event_count": result.event_count,
-        "layer_count": result.layer_count,
+        "objects": len(result.objects),
         "diagnostics": result.diagnostics,
         "events_by_style": {
             style: sum(event.style == style for event, _ in result.event_origins)
@@ -117,7 +119,7 @@ def main():
         json.dumps(
             {
                 "events": result.event_count,
-                "layers": result.layer_count,
+                "objects": len(result.objects),
                 "frames": len(frames),
                 "output": str(output),
             },

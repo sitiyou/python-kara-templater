@@ -2,32 +2,25 @@ from dataclasses import replace
 
 import pytest
 from source_assertions import require_origin
+from track_helpers import compile_tracks
 
 from kara_templater import (
     Body,
     Color,
     Document,
-    Effect,
     ImportSettings,
     Line,
-    Lyrics,
+    LineMatch,
+    Overlay,
     Ruby,
     Segment,
     Style,
+    Track,
     import_karaoke,
     paint_pair_from_style,
     parse_karaoke,
-    render_karaoke,
 )
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
-
-
-class ImportedLyrics(Effect):
-    def compose(self):
-        yield Lyrics(Body(), Ruby())
-
-    def configure(self):
-        self.text.sweep()
 
 
 def document(*lines):
@@ -58,7 +51,12 @@ def test_import_failure_identifies_actual_record_without_inventing_segment():
         if isinstance(r, Line) and "blur" in r.text
     )
     with pytest.raises(AssImportError, match="unsupported ASS override") as caught:
-        render_karaoke(source, effect=ImportedLyrics())
+        compile_tracks(
+            source,
+            tracks=(
+                Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
+            ),
+        )
     error = caught.value
     assert error.record_index == index
     assert source.records[error.record_index].text == r"{\k20\blur4}B"
@@ -124,7 +122,13 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
         lyric(comment=True, effect="notes"),
     )
     original = source.dumps()
-    result = render_karaoke(source, effect=ImportedLyrics(), owner="a:b%")
+    result = compile_tracks(
+        source,
+        tracks=(
+            Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
+        ),
+        owner="a:b%",
+    )
     assert source.dumps() == original
     marked = [
         line
@@ -135,8 +139,12 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
     assert marked[0].text == source.lines[0].text
     imported = import_karaoke(Document.parse(result.document.dumps()), owner="a:b%")
     assert imported.sources[0].original_effect == "original:effect"
-    again = render_karaoke(
-        Document.parse(result.document.dumps()), effect=ImportedLyrics(), owner="a:b%"
+    again = compile_tracks(
+        Document.parse(result.document.dumps()),
+        tracks=(
+            Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
+        ),
+        owner="a:b%",
     )
     assert again.document.dumps() == result.document.dumps()
     assert any(
@@ -149,7 +157,12 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
 def test_identical_sources_get_distinct_stable_ids():
     imported = import_karaoke(document(lyric(), lyric()))
     assert len({item.id for item in imported.items}) == 2
-    result = render_karaoke(document(lyric(), lyric()), effect=ImportedLyrics())
+    result = compile_tracks(
+        document(lyric(), lyric()),
+        tracks=(
+            Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
+        ),
+    )
     assert tuple(item.id for item in import_karaoke(result.document).items) == tuple(
         item.id for item in imported.items
     )

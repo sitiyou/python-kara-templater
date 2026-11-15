@@ -5,6 +5,11 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Follow:
+    """Choose which body motion properties a reading or decoration follows.
+
+    Position, scale, opacity, and fade are independent switches.
+    """
+
     position: bool = True
     scale: bool = True
     opacity: bool = True
@@ -18,6 +23,7 @@ class Follow:
             raise TypeError("follow switches must be bool")
 
     def allows(self, property: str) -> bool:
+        """Whether this following policy enables the requested motion property."""
         return (
             self.position
             if property in {"offset_x", "offset_y"}

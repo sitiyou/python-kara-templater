@@ -30,6 +30,11 @@ def _milliseconds(value, name) -> int:
 
 @dataclass(frozen=True)
 class DisplayWindow:
+    """An absolute millisecond visibility interval independent of source singing time.
+
+    Animation padding changes this window rather than lyric segment clocks.
+    """
+
     start_ms: int
     end_ms: int
 
@@ -55,13 +60,16 @@ class Region:
 
     @property
     def width(self) -> float:
+        """The horizontal region extent in script pixels."""
         return self.right - self.left
 
     @property
     def center(self) -> float:
+        """The midpoint of the horizontal region."""
         return (self.left + self.right) / 2
 
     def at(self, progress: float) -> float:
+        """Interpolate a position across the region using normalized progress."""
         return self.left + self.width * progress
 
 
@@ -94,11 +102,13 @@ class ProgressCurve:
 
     @classmethod
     def two_stage(cls, *, time_fraction: float, progress_fraction: float) -> Self:
+        """Construct a piecewise-linear progress curve through one explicit time/progress breakpoint."""
         if not 0 < time_fraction < 1 or not 0 < progress_fraction < 1:
             raise ValueError("stage fractions must be strictly within 0..1")
         return cls(((0, 0), (time_fraction, progress_fraction), (1, 1)))
 
     def at(self, time_fraction: float) -> float:
+        """Evaluate normalized sweep progress from this piecewise-linear curve."""
         _finite(time_fraction, "time fraction")
         t = min(1, max(0, time_fraction))
         for (t0, p0), (t1, p1) in pairwise(self.knots):
@@ -138,6 +148,7 @@ class SingingPass:
             raise ValueError("round_id must be a nonnegative integer")
 
     def progress_at(self, time_ms: float) -> float:
+        """Evaluate normalized singing progress at an absolute millisecond time."""
         _finite(time_ms, "time")
         if time_ms < self.start_ms:
             return 0.0
@@ -146,9 +157,11 @@ class SingingPass:
         return self.curve.at((time_ms - self.start_ms) / (self.end_ms - self.start_ms))
 
     def position_at(self, time_ms: float) -> float:
+        """Evaluate the sweep cursor in script pixels at a millisecond time."""
         return self.region.at(self.progress_at(time_ms))
 
     def arrival(self, x: float) -> float | None:
+        """Invert this pass to find when its cursor reaches a script-space position."""
         _finite(x, "position")
         if not self.region.width or not self.region.left <= x <= self.region.right:
             return None
@@ -158,6 +171,11 @@ class SingingPass:
 
 @dataclass(frozen=True)
 class EdgeSweep:
+    """Low-level spatial padding and millisecond lead/tail compensation around a singing front.
+
+    It preserves the cursor on the original body domain.
+    """
+
     padding_px: float = 0
     lead_ms: int = 0
     tail_ms: int = 0
@@ -208,6 +226,11 @@ def union_regions(regions: Iterable[Region]) -> tuple[Region, ...]:
 
 @dataclass(frozen=True)
 class HighlightTrack:
+    """A named sequence of singing passes for one source unit with explicit completion behavior.
+
+    Regions are evaluated in script pixels at millisecond time.
+    """
+
     id: str
     unit_index: int
     passes: tuple[SingingPass, ...]
@@ -245,6 +268,7 @@ class HighlightTrack:
                     )
 
     def regions_at(self, time_ms: float) -> tuple[Region, ...]:
+        """Return the active highlighted horizontal regions at a millisecond time, including completion policy."""
         _finite(time_ms, "time")
         if self.end_behavior == "hide" and time_ms >= self.passes[-1].end_ms:
             return ()

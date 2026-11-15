@@ -4,12 +4,10 @@
 /*.egg-info/
 /.venv/
 /.ruff_cache/
-/docs/releasing.md
-/vendor/runtime-licenses/*
-!/vendor/runtime-licenses/NOTICE.txt
 __pycache__/
 *.so
 *.pyd
 /refs/
 /.firecrawl/
+/.dev/
 /AGENTS.md

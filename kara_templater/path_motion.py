@@ -23,6 +23,7 @@ class MoveAlong:
 
     @property
     def channels(self) -> frozenset[Channel]:
+        """The position and optional rotation channels written by this motion."""
         return (
             frozenset(("position", "rotation"))
             if self.orient
@@ -31,6 +32,7 @@ class MoveAlong:
 
     @property
     def native_linear(self) -> bool:
+        """Whether the declared path and rate support the compiler native linear-motion strategy."""
         if self.orient or self.rate is not linear_rate or self.path.point(0) != Vec2():
             return False
         if isinstance(self.path, Polyline):
@@ -42,6 +44,7 @@ class MoveAlong:
         )
 
     def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Evaluate path position and optional tangent orientation at normalized progress."""
         value = self.rate(progress)
         finite(value)
         value = max(0, min(1, value))

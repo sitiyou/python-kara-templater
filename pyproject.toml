@@ -25,8 +25,7 @@ testpaths = ["tests"]
 
 [tool.cibuildwheel]
 build = ["cp3{12,13,14}-manylinux_x86_64", "cp3{12,13,14}-win_amd64"]
-before-build = 'python "{package}/tools/collect_licenses.py"'
-test-sources = ["tests", "examples", "tools", "docs", "README.md", "pyproject.toml", "setup.py"]
+test-sources = ["tests", "examples", "tools", "docs", "README.md", "THIRD_PARTY.md", "pyproject.toml", "setup.py"]
 test-requires = ["pytest", "setuptools>=77", "Pillow>=10", "ty==0.0.100"]
 test-command = "python -m pytest tests -v && python -m kara_templater examples/karaoke.ass output.ass"
 

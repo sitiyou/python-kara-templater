@@ -12,6 +12,12 @@ if TYPE_CHECKING:
 
 class Record(dict[str, object]):
     # Standard document metadata, in addition to arbitrary ASS metadata keys.
+    """An attribute-backed record used by script metadata and template contexts.
+
+    Document metadata exposes script resolution and the template aspect-correction
+    factor.
+    """
+
     res_x: int
     res_y: int
     video_x_correct_factor: float
@@ -68,6 +74,12 @@ def format_time(value: float) -> str:
 
 @dataclass
 class Style:
+    """An ASS style with typed font/layout fields and preserved raw style columns.
+
+    Font scales are percentages, alignment uses ASS 1 through 9, and sizes/margins
+    use script pixels.
+    """
+
     name: str = "Default"
     fontname: str = "Arial"
     fontsize: float = 20
@@ -87,13 +99,16 @@ class Style:
 
     @property
     def margin_t(self) -> int:
+        """Template-facing top-margin alias using the style vertical margin."""
         return self.margin_v
 
     @property
     def margin_b(self) -> int:
+        """Template-facing bottom-margin alias using the style vertical margin."""
         return self.margin_v
 
     def serialize(self) -> str:
+        """Serialize this ASS style while preserving extra fields and updating typed values."""
         defaults = dict(
             zip(
                 STYLE_FORMAT.split(", "),
@@ -138,6 +153,12 @@ class Style:
 
 @dataclass
 class Line:
+    """An ASS Dialogue or Comment event with millisecond start/end times and preserved extra fields.
+
+    Actor, effect, margins, layer, and source style remain distinct event
+    attributes.
+    """
+
     text: str = ""
     start_time: float = 0
     end_time: float = 0
@@ -153,13 +174,16 @@ class Line:
 
     @property
     def margin_t(self) -> int:
+        """Template-facing top-margin alias using the event vertical margin."""
         return self.margin_v
 
     @property
     def margin_b(self) -> int:
+        """Template-facing bottom-margin alias using the event vertical margin."""
         return self.margin_v
 
     def serialize(self) -> str:
+        """Serialize this Dialogue or Comment in its preserved event field order."""
         values = self.fields or dict.fromkeys(EVENT_FORMAT.split(", "), "")
         result = []
         for key, value in values.items():
@@ -207,6 +231,12 @@ def _parse_record(cls, text, columns, names):
 
 @dataclass
 class Document:
+    """An ordered ASS record collection with parsed script metadata.
+
+    Load/parse preserve source content without executing code; create builds a new
+    script, and save/dumps serialize standard ASS.
+    """
+
     records: list[str | Style | Line]
     meta: Record
 
@@ -245,6 +275,7 @@ class Document:
 
     @classmethod
     def parse(cls, text: str) -> Document:
+        """Parse ASS text into ordered records and script metadata without executing templates."""
         records = []
         meta = Record()
         section = ""
@@ -295,23 +326,28 @@ class Document:
 
     @classmethod
     def load(cls, path: str | Path) -> Document:
+        """Read an ASS file and parse its records, preserving source fields and unknown sections."""
         return cls.parse(Path(path).read_text(encoding="utf-8-sig"))
 
     @property
     def styles(self) -> dict[str, Style]:
+        """Return the current style-name mapping from ordered Style records."""
         return {x.name: x for x in self.records if isinstance(x, Style)}
 
     @property
     def lines(self) -> list[Line]:
+        """Return Dialogue and Comment records in source order."""
         return [x for x in self.records if isinstance(x, Line)]
 
     def dumps(self) -> str:
+        """Serialize the current records and preserved fields as standard ASS text."""
         return (
             "\n".join(x if isinstance(x, str) else x.serialize() for x in self.records)
             + "\n"
         )
 
     def save(self, path: str | Path) -> None:
+        """Serialize ASS to the requested file using UTF-8 with a byte-order mark."""
         Path(path).write_text(self.dumps(), encoding="utf-8-sig")
 
     def lyrics_at(self, record_index: int) -> DocumentLyrics:

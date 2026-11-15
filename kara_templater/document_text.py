@@ -19,6 +19,11 @@ from .geometry import finite
 
 @dataclass(frozen=True)
 class TextToken:
+    """An original literal or override token with its source Text-string offset.
+
+    Raw text is retained even if a particular effect cannot interpret it.
+    """
+
     raw: str
     offset: int
     override: bool = False
@@ -26,6 +31,11 @@ class TextToken:
 
 @dataclass(frozen=True)
 class TextAppearance:
+    """The active style and resolved RGB channel colors for a text run.
+
+    inline_colors records channels explicitly supplied by override tags.
+    """
+
     style: str
     primary: Color
     secondary: Color
@@ -36,6 +46,11 @@ class TextAppearance:
 
 @dataclass(frozen=True)
 class TextRun:
+    """A half-open decoded text range with its resolved appearance.
+
+    It preserves color/reset scopes independently of later glyph shaping.
+    """
+
     text: str
     start: int
     end: int
@@ -44,6 +59,12 @@ class TextRun:
 
 @dataclass(frozen=True)
 class SingingTag:
+    """A decoded karaoke timing tag at a text offset.
+
+    Its seconds value is a duration for k/K/kf/ko and an absolute cursor offset for
+    kt.
+    """
+
     offset: int
     kind: Literal["k", "K", "kf", "ko", "kt"]
     seconds: float
@@ -51,6 +72,12 @@ class SingingTag:
 
 @dataclass(frozen=True)
 class CueMarker:
+    """A non-executable cue anchor with ID, preset key, decoded body offset, and inline/independent placement.
+
+    markup quotes the declaration; its insertion point carries the serialized
+    offset.
+    """
+
     id: str
     preset: str
     offset: int = 0
@@ -77,6 +104,11 @@ class CueMarker:
 
 @dataclass(frozen=True)
 class TextIssue:
+    """A source offset and diagnostic message for text semantics a binder may reject.
+
+    Parsing retains the original tokens for unsupported overrides.
+    """
+
     record_index: int
     raw_offset: int
     raw: str
@@ -85,6 +117,11 @@ class TextIssue:
 
 @dataclass(frozen=True)
 class DocumentText:
+    """A source-preserving decoded ASS text view with tokens, appearance runs, karaoke tags, cues, and issues.
+
+    Offsets count Unicode code points rather than bytes or shaped glyphs.
+    """
+
     record_index: int
     tokens: tuple[TextToken, ...]
     runs: tuple[TextRun, ...]
@@ -94,12 +131,15 @@ class DocumentText:
 
     @property
     def text(self) -> str:
+        """Concatenate decoded text runs without override/comment markup."""
         return "".join(run.text for run in self.runs)
 
     def original(self) -> str:
+        """Reconstruct the original source Text from its preserved raw tokens."""
         return "".join(token.raw for token in self.tokens)
 
     def require_supported(self) -> None:
+        """Raise a contextual error when the text contains unsupported semantics for a binder."""
         if self.unsupported:
             issue = self.unsupported[0]
             raise ValueError(

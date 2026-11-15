@@ -42,6 +42,7 @@ class CoverageResult:
 
     @property
     def document(self) -> Document:
+        """The standard ASS Document produced by coverage compilation."""
         return self.output.document
 
 

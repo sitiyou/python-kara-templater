@@ -26,14 +26,14 @@ from kara_templater import (
     PaintBounds,
     PaintStyle,
     Parallel,
-    PreparedKaraoke,
+    PreparedTracks,
     RasterEstimate,
     RasterSettings,
     RenderEstimate,
-    RenderResult,
     Ruby,
     RubySpan,
     Scene,
+    SceneResult,
     Sequence,
     SingingPulseAnimation,
     SourceMatch,
@@ -44,9 +44,7 @@ from kara_templater import (
     Track,
     TrackGroup,
     on,
-    prepare_karaoke,
-    prepare_track_scene,
-    render_karaoke,
+    prepare_tracks,
 )
 
 
@@ -91,7 +89,9 @@ def check(
     Track(source=lambda source: source.style == "K1")
     group = TrackGroup(Lead(source=LineMatch()), layout=DoubleLine(position=(20, 40)))
     assert_type(group.tracks, tuple[Track, ...])
-    assert_type(render_karaoke(document, tracks=(group,)), RenderResult)
+    assert_type(
+        prepare_tracks(document, tracks=(group,), mode="native").compile(), SceneResult
+    )
     TrackGroup(body, layout=DoubleLine())  # ty: ignore[invalid-argument-type]
     assert_type(track.body, Body)
     assert_type(track.ruby, Ruby | None)
@@ -102,7 +102,9 @@ def check(
     assert_type(track.styles, StyleSheet)
     assert_type(Accent().accent, Callable[[Syllable.Singing], Animate])
     assert_type(Accent().accent(event), Animate)
-    assert_type(render_karaoke(document, tracks=(track,)), RenderResult)
+    assert_type(
+        prepare_tracks(document, tracks=(track,), mode="native").compile(), SceneResult
+    )
     assert_type(Lead(source=LineMatch()), Lead)
     assert_type(next(context.events(Display.Start)), Display.Start)
     On(Display.Start, Animate(opacity=(0, 1), duration=200))
@@ -140,8 +142,8 @@ def raster_types(estimate: RenderEstimate) -> None:
 
 
 def prepared_track_scene(document: Document, track: Track) -> Scene:
-    prepared = prepare_karaoke(document, tracks=(track,))
-    assert_type(prepared, PreparedKaraoke)
+    prepared = prepare_tracks(document, tracks=(track,), mode="native")
+    assert_type(prepared, PreparedTracks)
     assert_type(prepared.diagnostics, tuple[str, ...])
     assert_type(prepared.layer_count, int)
     assert_type(prepared.scene, Scene)
@@ -149,7 +151,7 @@ def prepared_track_scene(document: Document, track: Track) -> Scene:
 
 
 def editable_contract(document: Document, track: Track) -> Scene:
-    result = prepare_track_scene(document, tracks=(track,))
-    assert_type(result, PreparedKaraoke)
+    result = prepare_tracks(document, tracks=(track,))
+    assert_type(result, PreparedTracks)
     assert_type(result.scene, Scene)
     return result.scene
