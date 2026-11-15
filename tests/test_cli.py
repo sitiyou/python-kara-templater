@@ -176,7 +176,68 @@ def test_cli_declarative_layered_glow_and_owner_repeat(tmp_path):
     first, second = tmp_path / "first.ass", tmp_path / "second.ass"
     run = cli(source, first, "--effect", script)
     assert run.returncode == 0, run.stderr
-    assert "Generated 389 events" in run.stdout
+    # Track materials replace the old pair of independently animated Halos.
+    assert "Generated 302 events" in run.stdout
     again = cli(first, second, "--effect", script)
     assert again.returncode == 0, again.stderr
     assert first.read_bytes() == second.read_bytes()
+
+
+def test_layered_glow_direct_and_subclass_examples_are_equivalent(tmp_path):
+    root = EXAMPLE.parents[1]
+    source = root / "tests/fixtures/layered_glow.ass"
+    direct, classes = tmp_path / "direct.ass", tmp_path / "classes.ass"
+    for script, destination in (
+        ("layered_glow.py", direct),
+        ("layered_glow_classes.py", classes),
+    ):
+        result = cli(source, destination, "--effect", root / "examples" / script)
+        assert result.returncode == 0, result.stderr
+    assert direct.read_bytes() == classes.read_bytes()
+
+
+def test_cli_loads_explicit_track_group(tmp_path):
+    script = tmp_path / "group.py"
+    script.write_text(
+        "from kara_templater import Track, TrackGroup, LineMatch, DoubleLine\n"
+        "tracks = (TrackGroup(Track(source=LineMatch()), "
+        "layout=DoubleLine(position=(30, 60))),)\n"
+    )
+    output = tmp_path / "group.ass"
+    run = cli(EXAMPLE, output, "--effect", script)
+    assert run.returncode == 0, run.stderr
+    assert output.exists()
+
+
+def test_cli_raster_color_budget_is_explicit_and_validated(tmp_path):
+    from examples.alternating_colors import document
+    from kara_templater import Line
+
+    source = document(fontname="DejaVu Sans", text="A")
+    source.styles["Default"].fontsize = 20
+    source.records = [
+        record for record in source.records if not isinstance(record, Line)
+    ]
+    source.records.append(Line(text=r"{\k10}A", start_time=0, end_time=200))
+    input_path = tmp_path / "source.ass"
+    source.save(input_path)
+    script = tmp_path / "track.py"
+    script.write_text(
+        "from kara_templater import Track, LineMatch, Body, TextStyle, Blur, RED\n"
+        "tracks = (Track(source=LineMatch(), body=Body(style=TextStyle(blur=Blur(color=RED, radius=2)))),)\n"
+    )
+    output = tmp_path / "pixels.ass"
+    for flags, message in (
+        (("--raster-color-error", "4"), "requires --raster"),
+        (("--raster", "--raster-color-error", "-1"), "0..255"),
+    ):
+        rejected = cli(input_path, output, "--effect", script, *flags)
+        assert rejected.returncode == 1
+        assert message in rejected.stderr
+        assert not output.exists()
+    accepted = cli(
+        input_path, output, "--effect", script, "--raster", "--raster-color-error", "4"
+    )
+    assert accepted.returncode == 0, accepted.stderr
+    assert "4/255" in accepted.stdout and "YUV420" in accepted.stdout
+    assert output.exists()

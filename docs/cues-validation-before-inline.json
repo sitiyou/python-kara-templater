@@ -1,0 +1,228 @@
+{
+  "scope": "E12 independent READY/SET/GO vs hand-authored native text; body/ruby/inline cue group translated 40x20 without moving independent labels",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "ass_sha256": "216b3c7e6b264fdff606e9ae4b645caa85f1d32591a55efdbb54787dd097b3b0",
+  "reference_sha256": "7036ab0172a73d3e9b820dac4504e5138c7d6e617f342ba0d61f276d55928dbd",
+  "checks": [
+    {
+      "time_ms": 0,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 329,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 330,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 331,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 669,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 670,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 671,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 990,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 999,
+      "label_geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      },
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1000,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1001,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1499,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1500,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1501,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1829,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1830,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 1831,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 2169,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 2170,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 2171,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 2499,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 2500,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 2501,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 3999,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 4000,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 4999,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 5000,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    },
+    {
+      "time_ms": 5001,
+      "label_geometry": null,
+      "independent_unchanged": true,
+      "lyric_translation_exact": true
+    }
+  ],
+  "generated_dialogue_without_source_markers": true,
+  "remaining": [
+    "full body/ruby baseline independent geometry",
+    "all inline component pixel references",
+    "other renderers"
+  ]
+}

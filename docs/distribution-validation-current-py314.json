@@ -1,0 +1,195 @@
+{
+  "scope": "local platform wheel rebuilt from source archive, isolated import, full shipped tests and fixed scene examples; repaired cross-platform release wheels are separate",
+  "archive": {
+    "name": "kara_templater-0.2.1.tar.gz",
+    "bytes": 4658218,
+    "sha256": "ae5f3f93d7f9c397960893f5514c0eae15a861085404986c184a6c8e2b765a25"
+  },
+  "wheel": {
+    "name": "kara_templater-0.2.1-cp314-cp314-linux_x86_64.whl",
+    "bytes": 834802,
+    "sha256": "170974c8d08f264900738be37d9e6bc728237943c84dcc64b89488b169339a4e"
+  },
+  "installed": {
+    "python": "3.14.8 (main, Oct  3 2026, 01:04:31) [Clang 22.1.3 ]",
+    "package": "/tmp/kara-engine-release-current/check-py314-fixed/venv/lib/python3.14/site-packages/kara_templater/__init__.py",
+    "native": "/tmp/kara-engine-release-current/check-py314-fixed/venv/lib/python3.14/site-packages/kara_templater/_metrics.cpython-314-x86_64-linux-gnu.so"
+  },
+  "python_modules_and_typing_files": 77,
+  "wheel_python_sources_match_archive": true,
+  "public_typing_passed": true,
+  "negative_typing_summary": "24 invalid public extension contracts correctly rejected",
+  "pytest_seconds": 38.576991584995994,
+  "pytest_summary": "1027 passed, 16 subtests passed in 37.86s",
+  "scene_examples": [
+    {
+      "module": "examples.scene_affine",
+      "seconds": 0.1927449000068009,
+      "bytes": 476581,
+      "sha256": "0a154e55422dec75a2699474aabd9c68b6e89aff3fac64074113d1981aaf70e5"
+    },
+    {
+      "module": "examples.scene_boolean",
+      "seconds": 6.837328021996655,
+      "bytes": 1051514,
+      "sha256": "a3f446c3ec2db279e26c1fd210a9448a987bcf666bcda2c6c42e692a4b01ce85"
+    },
+    {
+      "module": "examples.scene_composite",
+      "seconds": 7.141737480997108,
+      "bytes": 23476844,
+      "sha256": "bb9f3101d3073bf1790240dcd0dd077bd296218352b07b03644f764bc56f6802"
+    },
+    {
+      "module": "examples.scene_coverage",
+      "seconds": 11.557099447003566,
+      "bytes": 32676006,
+      "sha256": "c689cee62d23c6901abdaf69abb066925a296994dae418c28fc4b2159f7f8590"
+    },
+    {
+      "module": "examples.scene_coverage_tracks",
+      "seconds": 6.531325892021414,
+      "bytes": 21745391,
+      "sha256": "a13e626a51a4cd46d614e0087e1e14fd493f37b1a96a0efe777d8f33916c38f5"
+    },
+    {
+      "module": "examples.scene_cues",
+      "seconds": 0.2029552860185504,
+      "bytes": 36599,
+      "sha256": "ae1f79785d70472faa21edccd859cf5086852df9f8faddb842687ff50f754187"
+    },
+    {
+      "module": "examples.scene_editable_tracks",
+      "seconds": 0.9551025180262513,
+      "bytes": 3496927,
+      "sha256": "8915c4a72ad73459aa7a153183179929c8458abc34c5fece27d01e14d1ac9f67"
+    },
+    {
+      "module": "examples.scene_follow",
+      "seconds": 0.22123865701723844,
+      "bytes": 758353,
+      "sha256": "3d14818fbc04f54ef7d64c3fd3676745923670441fa7460cc2a51a14febd3308"
+    },
+    {
+      "module": "examples.scene_fragments",
+      "seconds": 0.19267842601402663,
+      "bytes": 576878,
+      "sha256": "5b2c41306b715c60c2e6e6acd356fbc55997ad2998b289d6da2651d32b582efa"
+    },
+    {
+      "module": "examples.scene_gradient",
+      "seconds": 0.2774597090028692,
+      "bytes": 1364810,
+      "sha256": "90bdbb5895080ce1c1806c7437939dc814af8d5269abe194ad779bc0879b1b49"
+    },
+    {
+      "module": "examples.scene_group_masks",
+      "seconds": 1.2286610450246371,
+      "bytes": 567618,
+      "sha256": "d009418c9123907326933175d570da72bcc8ebdacef604675924a6116961e6d9"
+    },
+    {
+      "module": "examples.scene_legacy",
+      "seconds": 0.1576432520232629,
+      "bytes": 25963,
+      "sha256": "649f8bb2009b663860953a8f3e81419d9e54d7638db668a4122d15ea7802be41"
+    },
+    {
+      "module": "examples.scene_lyric_cues",
+      "seconds": 0.16325671499362215,
+      "bytes": 25842,
+      "sha256": "3886d42d291ca416af2f5783c0b563760242579cf4c50a974011e820d9be9018"
+    },
+    {
+      "module": "examples.scene_lyrics",
+      "seconds": 0.6986197819933295,
+      "bytes": 7567332,
+      "sha256": "22c18e61aced05a36bf4bdf80e51899ff4db0dcd4be10223afc6c1f584fb5553"
+    },
+    {
+      "module": "examples.scene_masks",
+      "seconds": 0.7849560549948364,
+      "bytes": 453693,
+      "sha256": "2512e25896919a6897466ad7aa97146056524bb5eb34101931dbbfc2e28769a4"
+    },
+    {
+      "module": "examples.scene_mirror",
+      "seconds": 0.262931720004417,
+      "bytes": 770217,
+      "sha256": "e4e7267355ba53b55096663f1f514850f4b69038e5cc590dbda491208971e10c"
+    },
+    {
+      "module": "examples.scene_morph",
+      "seconds": 0.2873444659926463,
+      "bytes": 647428,
+      "sha256": "b4926e109c4a1d312ce1a3078b178e8e081b1d91c4a918b1a74b67e58a9c2648"
+    },
+    {
+      "module": "examples.scene_outlines",
+      "seconds": 0.18574339401675388,
+      "bytes": 204488,
+      "sha256": "f2401cc2249cddf16276daf8f5abb68437177685334c979da45519268e8d3dca"
+    },
+    {
+      "module": "examples.scene_rectangle",
+      "seconds": 0.16450476899626665,
+      "bytes": 230596,
+      "sha256": "34b8da706cd89cd8fcf96985460b0e1f2c8b8c75ba15559adeca05532434fd16"
+    },
+    {
+      "module": "examples.scene_round",
+      "seconds": 0.19430541901965626,
+      "bytes": 143611,
+      "sha256": "75051de36042441c8115ea41285373e760a2b6a05b16cbaaad332204c4613b81"
+    },
+    {
+      "module": "examples.scene_sakura",
+      "seconds": 0.49533314298605546,
+      "bytes": 2656667,
+      "sha256": "4f4233bfa6470691db9f7480a8982293afdcf51757f321611561a62a350d86be"
+    },
+    {
+      "module": "examples.scene_staggered",
+      "seconds": 0.2413700479955878,
+      "bytes": 334556,
+      "sha256": "a847d4b0f113356ee0f0850cc8551f6d544fb15622d62112801cae42ea4769f8"
+    },
+    {
+      "module": "examples.scene_sweep",
+      "seconds": 0.3694524019956589,
+      "bytes": 2455343,
+      "sha256": "5c0d65fbc7db7233d256e4e6257f38aa610f7553692458eda7d85f8b00d2cf6b"
+    },
+    {
+      "module": "examples.scene_tracks",
+      "seconds": 0.3355145349923987,
+      "bytes": 987298,
+      "sha256": "f6259bbf605880436467af97e4510488dbe3ef9669a7a6c13382af0862cceb81"
+    },
+    {
+      "module": "examples.scene_whole_song",
+      "seconds": 4.981513520993758,
+      "bytes": 50593439,
+      "sha256": "4546837c350229595e2329c65d3934ba597b6e482742e1cb59b955c9871aeb3c"
+    },
+    {
+      "module": "examples.scene_word_glow",
+      "seconds": 0.1730240639881231,
+      "bytes": 522028,
+      "sha256": "036eff687d36458e69470a683490f45f0218b36a6167a753df448c1a29c27d19"
+    },
+    {
+      "module": "examples.scene_writing",
+      "seconds": 0.1867431300051976,
+      "bytes": 460149,
+      "sha256": "c3aae23716c6adb0576167f3a755498b4d6cdab621a3dbef65706d1e2bb30b42"
+    }
+  ],
+  "legacy_cli_passed": true,
+  "metadata_check": "twine check --strict passed",
+  "remaining": [
+    "Local Linux wheel, not a repaired manylinux_2_28 or Windows artifact.",
+    "Host build needs newer system symbols; auditwheel reports manylinux_2_38 for CPython 3.12.",
+    "Cross-background and independent visual reference acceptance is separate."
+  ]
+}

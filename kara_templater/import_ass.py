@@ -176,7 +176,7 @@ def import_karaoke(
         marked = line.comment and line.effect.startswith(prefix)
         if line.comment and not marked:
             continue
-        if line.effect.startswith("karaoke:v1:") or (
+        if line.effect.startswith(("karaoke:v1:", "kara:scene:v1:")) or (
             line.effect.startswith(SOURCE_PREFIX) and not marked
         ):
             continue

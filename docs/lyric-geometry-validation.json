@@ -1,0 +1,374 @@
+{
+  "scope": "E01 opaque foreground geometry only, independently measured native whole body/ruby strings and scalar shared pulse; excludes glow/outline/color",
+  "font_sha256": [
+    "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+    "0739a1972cc3a9caa690f13e94de37065d34b5662df9ddd3d3fd3a90ad4297e2"
+  ],
+  "ass_sha256": "1cd2eb529914002baff8fa50309969583afd2969bfea46ce3b25744170ed3bac",
+  "geometry_tolerance": "one pixel symmetric Chebyshev distance at half coverage",
+  "checks": [
+    {
+      "time_ms": 0,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 1000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 1001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 1100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 38,
+      "coverage_l1_over_reference_mass": 0.00739650659100086
+    },
+    {
+      "time_ms": 1200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.0044611072679742615
+    },
+    {
+      "time_ms": 1300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.008670745962435738
+    },
+    {
+      "time_ms": 1400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.007577914582531743
+    },
+    {
+      "time_ms": 1500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.0070444655528718895
+    },
+    {
+      "time_ms": 1600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.005494904020508973
+    },
+    {
+      "time_ms": 1700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004178865276866387
+    },
+    {
+      "time_ms": 1800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 39,
+      "coverage_l1_over_reference_mass": 0.0077817275370687345
+    },
+    {
+      "time_ms": 1900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004370059516739908
+    },
+    {
+      "time_ms": 2000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.006982809881615222
+    },
+    {
+      "time_ms": 2100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.005803363846219456
+    },
+    {
+      "time_ms": 2199,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2201,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2799,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2801,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 2900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 32,
+      "coverage_l1_over_reference_mass": 0.001913303152482417
+    },
+    {
+      "time_ms": 3100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.0042344577909650995
+    },
+    {
+      "time_ms": 3200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 32,
+      "coverage_l1_over_reference_mass": 0.0028864561197044364
+    },
+    {
+      "time_ms": 3300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.0031661521942483537
+    },
+    {
+      "time_ms": 3400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.001253650489041343
+    },
+    {
+      "time_ms": 3500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 37,
+      "coverage_l1_over_reference_mass": 0.003298755854618225
+    },
+    {
+      "time_ms": 3600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.0035446489434219496
+    },
+    {
+      "time_ms": 3700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.0025382216003601767
+    },
+    {
+      "time_ms": 3800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.002919772898956443
+    },
+    {
+      "time_ms": 3900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 51,
+      "coverage_l1_over_reference_mass": 0.0039003633205691355
+    },
+    {
+      "time_ms": 3999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    },
+    {
+      "time_ms": 4999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 36,
+      "coverage_l1_over_reference_mass": 0.004586533334256688
+    }
+  ],
+  "blank_times_ms": [
+    5000,
+    5001
+  ],
+  "remaining": [
+    "sweep colors and glow/outline composition",
+    "continuous-time error",
+    "other renderers"
+  ]
+}

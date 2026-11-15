@@ -1,0 +1,45 @@
+{
+  "scope": "manylinux 2.28 CPython 3.12 diagnostic trial; fixture-corrected check tree is not final archive acceptance",
+  "image": "d0a27a8f3f48",
+  "prepared_image": "localhost/kara-engine-manylinux-audit:validation",
+  "environment": {
+    "python": "3.12.14",
+    "glibc": "2.28",
+    "harfbuzz": "1.7.5",
+    "fribidi": "1.0.4",
+    "fontconfig": "2.13.1"
+  },
+  "archive": {
+    "name": "kara_templater-0.2.1.tar.gz",
+    "bytes": 5654424,
+    "sha256": "4acc97d2eab62a2039efa97e5629b7e14d3424f2590ea3b5b205cc7e23cd9ce0"
+  },
+  "wheel": {
+    "name": "kara_templater-0.2.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl",
+    "bytes": 831566,
+    "sha256": "a0d3c51a2ba9a91494835dada988f81eb9a8ef2614e1b50d7d09345e1d5bfc6d"
+  },
+  "metadata_strict_passed": true,
+  "repair_policy": "existing pyproject auditwheel command excludes documented native system libraries",
+  "auditwheel_after": "\nkara_templater-0.2.1-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl\nis consistent with the following platform tag: \"linux_x86_64\".\n\nThe wheel references external versioned symbols in these\nsystem-provided shared libraries: libgcc_s.so.1 with versions\n{'GCC_3.0'}, libstdc++.so.6 with versions {'GLIBCXX_3.4.9',\n'CXXABI_1.3', 'GLIBCXX_3.4.21', 'CXXABI_1.3.9', 'GLIBCXX_3.4'},\nlibpthread.so.0 with versions {'GLIBC_2.2.5'}, libm.so.6 with versions\n{'GLIBC_2.2.5'}, libc.so.6 with versions {'GLIBC_2.28', 'GLIBC_2.25',\n'GLIBC_2.3.4', 'GLIBC_2.11', 'GLIBC_2.7', 'GLIBC_2.2.5', 'GLIBC_2.3',\n'GLIBC_2.4', 'GLIBC_2.14'}, libz.so.1 with versions {'ZLIB_1.2.3.4',\n'ZLIB_1.2.9'}, libuuid.so.1 with versions {'UUID_1.0'}, libpng16.so.16\nwith versions {'PNG16_0'}\n\nThis constrains the platform tag to \"manylinux_2_28_x86_64\". In order\nto achieve a more compatible tag, you would need to recompile a new\nwheel from source on a system with earlier versions of these\nlibraries, such as a recent manylinux image.\n",
+  "initial_pytest": "2 failed, 1040 passed, 19 subtests passed in 62.77s",
+  "failure": "test_characters CJK/kana fixtures depended on host fonts; missing U+4ECA",
+  "fix": {
+    "font": {
+      "name": "KaraTestMultiscript.ttf",
+      "bytes": 37428,
+      "sha256": "7e7e4e089da63f6eefda38c46ffc5004e535bac060446dd08eae1bed6f4f4f52"
+    },
+    "explicit_fixture_selection": true,
+    "source_archive_contains_fix": false
+  },
+  "corrected_test_tree_pytest": "1041 passed, 1 skipped, 19 subtests passed in 61.17s (0:01:01)",
+  "typing_followup": "..                                                                       [100%]\n2 passed in 0.08s\n24 invalid public extension contracts correctly rejected",
+  "remaining": [
+    "rebuild source archive containing fixed font/tests and validator",
+    "rerun isolated installed-package validation including all 27 examples",
+    "CPython 3.13 and 3.14 container builds",
+    "Windows repaired wheel matrix",
+    "final source/licenses and metadata audit"
+  ]
+}

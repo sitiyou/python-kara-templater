@@ -28,6 +28,8 @@ class VisualTarget:
     singing: tuple[Segment, ...] = ()
     text_range: TextRange | None = None
     fade: Fade | None = None
+    # A split reading keeps its original transform origin and sweep geometry.
+    transform_box: Box | None = None
 
 
 @dataclass(frozen=True)

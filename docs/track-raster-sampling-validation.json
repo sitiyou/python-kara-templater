@@ -1,0 +1,582 @@
+{
+  "scope": "Same material renderer; exact-time vs held states isolates sampling. Full raster vs held lossless states isolates quantization plus final ASS/video conversion.",
+  "references": {
+    "held": {
+      "state_age_ms": {
+        "0": [
+          0,
+          0,
+          0
+        ],
+        "500": [
+          20,
+          20,
+          20
+        ],
+        "800": [
+          0,
+          0,
+          0
+        ],
+        "1000": [
+          0,
+          0,
+          0
+        ],
+        "1300": [
+          0,
+          20,
+          20
+        ],
+        "1600": [
+          0,
+          0,
+          0
+        ],
+        "1700": [
+          20,
+          20,
+          20
+        ],
+        "1800": [
+          0,
+          0,
+          0
+        ],
+        "1850": [
+          10,
+          10,
+          10
+        ],
+        "2400": [
+          0,
+          0,
+          0
+        ],
+        "2700": [
+          0,
+          20,
+          0
+        ],
+        "3000": [
+          0,
+          0,
+          0
+        ],
+        "3900": [
+          20,
+          20,
+          20
+        ]
+      },
+      "capture": {
+        "compositing_format": "rgb24",
+        "background": "black",
+        "renderer_seconds": 4.191892779999762,
+        "frames": [
+          {
+            "time_ms": 0,
+            "pixel_sha256": "0b150fd32588b1daca5569992ebe559c0102c837306b1af4c44d35128ec58366",
+            "bbox": null
+          },
+          {
+            "time_ms": 500,
+            "pixel_sha256": "a4f23058eaceb3618b1e7f0158acd6c0af8b37d680540f90030a31f2062db6d1",
+            "bbox": [
+              224,
+              64,
+              415,
+              439
+            ]
+          },
+          {
+            "time_ms": 800,
+            "pixel_sha256": "95b94c1c4df8cc2dbae10dc89a1840c71e0098c5d2527b1c3c6b4f014da78aab",
+            "bbox": [
+              224,
+              64,
+              415,
+              439
+            ]
+          },
+          {
+            "time_ms": 1000,
+            "pixel_sha256": "95b94c1c4df8cc2dbae10dc89a1840c71e0098c5d2527b1c3c6b4f014da78aab",
+            "bbox": [
+              224,
+              64,
+              415,
+              439
+            ]
+          },
+          {
+            "time_ms": 1300,
+            "pixel_sha256": "d6e85dd0e041c2bda1fba82b6c45388f1d9420a007d83e807442901faf9b11ab",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1600,
+            "pixel_sha256": "386dc6dcedad6c2156f55c60f3c7dcb45f5db3ca86a39f284d0d8a14d37e38ad",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1700,
+            "pixel_sha256": "41759bcb021746285a85226e1971d97818b304548e874572993546914cb1c20e",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1800,
+            "pixel_sha256": "c8d7e945f884c5a679c1819a328074a27abcf7567c97da3ae4d65c4f7dbe872d",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1850,
+            "pixel_sha256": "4d6940f85e976dd337726c89aa4f332a1254d5eea1f179a6a39f5a6c10c1cd3a",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 2400,
+            "pixel_sha256": "070f43e269df9a54f0cbcd6f86b39ba777298d5919a6372f87a098a991d774c2",
+            "bbox": [
+              217,
+              63,
+              415,
+              445
+            ]
+          },
+          {
+            "time_ms": 2700,
+            "pixel_sha256": "7950eab84b285c5ff75db9f462a06f3e5cce6e6693ff69218968d1eac15378dc",
+            "bbox": [
+              217,
+              63,
+              415,
+              445
+            ]
+          },
+          {
+            "time_ms": 3000,
+            "pixel_sha256": "69c3353ef0883ce66827aaa68a456e65468ec6cc02c4611d22e6dd35e7557245",
+            "bbox": [
+              222,
+              63,
+              423,
+              445
+            ]
+          },
+          {
+            "time_ms": 3900,
+            "pixel_sha256": "cf953c8611f0433ea32c5012216297bda9aef7e77d269c4dcd04e06a1be494ae",
+            "bbox": [
+              224,
+              64,
+              414,
+              438
+            ]
+          }
+        ],
+        "ffmpeg": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers"
+      }
+    },
+    "exact": {
+      "state_age_ms": {
+        "0": [
+          0,
+          0,
+          0
+        ],
+        "500": [
+          0,
+          0,
+          0
+        ],
+        "800": [
+          0,
+          0,
+          0
+        ],
+        "1000": [
+          0,
+          0,
+          0
+        ],
+        "1300": [
+          0,
+          0,
+          0
+        ],
+        "1600": [
+          0,
+          0,
+          0
+        ],
+        "1700": [
+          0,
+          0,
+          0
+        ],
+        "1800": [
+          0,
+          0,
+          0
+        ],
+        "1850": [
+          0,
+          0,
+          0
+        ],
+        "2400": [
+          0,
+          0,
+          0
+        ],
+        "2700": [
+          0,
+          0,
+          0
+        ],
+        "3000": [
+          0,
+          0,
+          0
+        ],
+        "3900": [
+          0,
+          0,
+          0
+        ]
+      },
+      "capture": {
+        "compositing_format": "rgb24",
+        "background": "black",
+        "renderer_seconds": 3.7566009130023303,
+        "frames": [
+          {
+            "time_ms": 0,
+            "pixel_sha256": "0b150fd32588b1daca5569992ebe559c0102c837306b1af4c44d35128ec58366",
+            "bbox": null
+          },
+          {
+            "time_ms": 500,
+            "pixel_sha256": "a4f23058eaceb3618b1e7f0158acd6c0af8b37d680540f90030a31f2062db6d1",
+            "bbox": [
+              224,
+              64,
+              415,
+              439
+            ]
+          },
+          {
+            "time_ms": 800,
+            "pixel_sha256": "95b94c1c4df8cc2dbae10dc89a1840c71e0098c5d2527b1c3c6b4f014da78aab",
+            "bbox": [
+              224,
+              64,
+              415,
+              439
+            ]
+          },
+          {
+            "time_ms": 1000,
+            "pixel_sha256": "95b94c1c4df8cc2dbae10dc89a1840c71e0098c5d2527b1c3c6b4f014da78aab",
+            "bbox": [
+              224,
+              64,
+              415,
+              439
+            ]
+          },
+          {
+            "time_ms": 1300,
+            "pixel_sha256": "08ed33c61d9fa187f2a62a0d829ce75394b36a9f55e8ebeaaf7ffcd5491f7dc1",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1600,
+            "pixel_sha256": "386dc6dcedad6c2156f55c60f3c7dcb45f5db3ca86a39f284d0d8a14d37e38ad",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1700,
+            "pixel_sha256": "401017a684e3f05d1a1bd59990235f19dd1ebeae3fd5b8d80ea61c50db3bd5cd",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1800,
+            "pixel_sha256": "c8d7e945f884c5a679c1819a328074a27abcf7567c97da3ae4d65c4f7dbe872d",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1850,
+            "pixel_sha256": "5d9bb9f79a9bf2d41fa1df918bdeb8d6e71a039555711023e7539c2308cdba49",
+            "bbox": [
+              217,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 2400,
+            "pixel_sha256": "070f43e269df9a54f0cbcd6f86b39ba777298d5919a6372f87a098a991d774c2",
+            "bbox": [
+              217,
+              63,
+              415,
+              445
+            ]
+          },
+          {
+            "time_ms": 2700,
+            "pixel_sha256": "7950eab84b285c5ff75db9f462a06f3e5cce6e6693ff69218968d1eac15378dc",
+            "bbox": [
+              217,
+              63,
+              415,
+              445
+            ]
+          },
+          {
+            "time_ms": 3000,
+            "pixel_sha256": "69c3353ef0883ce66827aaa68a456e65468ec6cc02c4611d22e6dd35e7557245",
+            "bbox": [
+              222,
+              63,
+              423,
+              445
+            ]
+          },
+          {
+            "time_ms": 3900,
+            "pixel_sha256": "cf953c8611f0433ea32c5012216297bda9aef7e77d269c4dcd04e06a1be494ae",
+            "bbox": [
+              224,
+              64,
+              414,
+              438
+            ]
+          }
+        ],
+        "ffmpeg": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers"
+      }
+    }
+  },
+  "comparisons": [
+    {
+      "time_ms": 0,
+      "spatial_and_output": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 500,
+      "spatial_and_output": {
+        "max_channel_error": 2,
+        "mean_channel_error": 0.059698350694444444,
+        "changed_pixels": 27515
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 800,
+      "spatial_and_output": {
+        "max_channel_error": 3,
+        "mean_channel_error": 0.08653645833333333,
+        "changed_pixels": 32066
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 1000,
+      "spatial_and_output": {
+        "max_channel_error": 3,
+        "mean_channel_error": 0.08653645833333333,
+        "changed_pixels": 32066
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 1300,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.10644097222222222,
+        "changed_pixels": 36118
+      },
+      "temporal_hold": {
+        "max_channel_error": 158,
+        "mean_channel_error": 0.05717447916666667,
+        "changed_pixels": 3754
+      }
+    },
+    {
+      "time_ms": 1600,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.10922092013888889,
+        "changed_pixels": 36435
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 1700,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.10990668402777778,
+        "changed_pixels": 36538
+      },
+      "temporal_hold": {
+        "max_channel_error": 170,
+        "mean_channel_error": 0.04521050347222222,
+        "changed_pixels": 3046
+      }
+    },
+    {
+      "time_ms": 1800,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.11036458333333334,
+        "changed_pixels": 36591
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 1850,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.11095377604166666,
+        "changed_pixels": 36676
+      },
+      "temporal_hold": {
+        "max_channel_error": 133,
+        "mean_channel_error": 0.04058919270833333,
+        "changed_pixels": 4476
+      }
+    },
+    {
+      "time_ms": 2400,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.1165115017361111,
+        "changed_pixels": 37435
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 2700,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.111591796875,
+        "changed_pixels": 35724
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 3000,
+      "spatial_and_output": {
+        "max_channel_error": 4,
+        "mean_channel_error": 0.12444010416666666,
+        "changed_pixels": 37658
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    },
+    {
+      "time_ms": 3900,
+      "spatial_and_output": {
+        "max_channel_error": 2,
+        "mean_channel_error": 0.059039713541666664,
+        "changed_pixels": 27709
+      },
+      "temporal_hold": {
+        "max_channel_error": 0,
+        "mean_channel_error": 0.0,
+        "changed_pixels": 0
+      }
+    }
+  ],
+  "full_output_ass_sha256": "03bf59d039ace4c40ccd4e2f30ba343b93405d5decde88b3c33a81fb1a69cbf3",
+  "reference_output_equivalence": "Regenerated full output after coverage-stack integration is byte-identical and all 13 captured frames match the sampled reference run."
+}

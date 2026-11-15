@@ -4,48 +4,67 @@ A Python library for adding effects to existing karaoke lyrics and exporting ASS
 with native libass text measurement. Source lyrics retain their text, layout and
 singing timeline; Python code supplies appearance and animation.
 
-## Define an effect
+## Documents, scenes and historical templates
 
-Declare visual components in `compose()`, then select source targets and configure
-styles and behavior in `configure()`. Each source line receives its own bound
-instance, configured before layout. Both parsed ASS and directly constructed
-`Document` inputs use the same effect system.
+The [scene guide](docs/scenes.md) covers typed objects, animations, particles,
+geometry, gradients and standard ASS output. Scenes use a Document created from
+ASS or directly in Python. The [engine plan](docs/ass-animation-engine-plan.md)
+records the implemented scope and acceptance criteria.
+
+Start with the [authoring guide and fixed examples](docs/scene-authoring.md) for
+runnable ASS effects, custom animation functions, generators and explicit budgets.
+The [acceptance index](docs/ass-animation-engine-acceptance.md) links each engine
+requirement and fixed effect to its validation evidence and remaining limits.
+
+Historical v0.1.0 Python templates are an explicit frontend:
+
+```python
+from kara_templater import Document, apply_templates
+
+apply_templates(Document.load("input.ass")).save("output.ass")
+```
+
+Use `kara-templater input.ass output.ass --templates` from the CLI.
+`Engine().to_scene(document)` lets template output and new scene objects share
+one compiler. See the [compatibility guide](docs/legacy-templates.md) for the
+behavior matrix, time units and migration details.
+
+## Configure tracks
+
+Use ordinary, explicitly typed constructors to combine input selection, text,
+overlays and reusable animations. Subclass only when you need custom behavior;
+there is no class-field-to-constructor machinery.
 
 ```python
 from kara_templater import (
-    BLACK, CYAN, WHITE, Body, Document, Effect, Halo, Lyrics, Ruby,
-    render_karaoke,
+    CYAN, WHITE, Body, Document, FadeInAnimation, LineMatch, Overlay,
+    PaintStyle, SingingPulseAnimation, TextStyle, Track, render_karaoke,
 )
 
-class Glow(Effect):
-    def compose(self):
-        yield Lyrics(
-            Body(fill=WHITE, stroke=BLACK, stroke_width=3),
-            Ruby(follow="syllable"),
-            Halo(id="light", color=CYAN, width=6, blur=8, opacity=0.2),
-        )
-
-    def configure(self):
-        self.text.sweep(fill=CYAN)
-        self.syllables.on_singing(pulse=1.1)
-        self.query_one("#light").on_singing(opacity=(0.2, 0.8), keep=True)
-
 source = Document.load("input.ass")
-result = render_karaoke(source, effect=Glow)
+result = render_karaoke(source, tracks=(
+    Track(
+        source=LineMatch(style="K1"),
+        body=Body(style=TextStyle(fill=WHITE)),
+        overlay=Overlay(style=PaintStyle(fill=CYAN)),
+        animations=(FadeInAnimation(duration=400), SingingPulseAnimation(peak=1.1)),
+    ),
+))
 result.document.save("output.ass")
 ```
 
-See the [effect guide](docs/effects.md) for code-only color ranges,
-source queries, timing curves, ruby, independent glow, follow controls and
-sampling limits. The [implementation plan](docs/effect-system-plan.md) and
-[progress record](docs/effect-system-progress.md) document the completed changes
-and verification. The [backend audit](docs/karaoke-effects-audit.md) describes
-the underlying rendering implementation.
+See the [Track guide](docs/tracks.md) for layouts, ruby, shared styles,
+code-only color ranges, custom `@on` animations and current backend limitations.
+The [plan](docs/track-effects-plan.md) and [acceptance record](docs/track-effects-acceptance.md)
+map each requirement to tests, visual evidence, output costs and explicit backend limits.
+The previous `Effect` / `compose` / `configure` entry point remains available;
+its [guide](docs/effects.md) documents the compatibility interface.
 
 Runnable examples:
 
 ```sh
-python -m examples.alternating_colors /tmp/colors.ass
+python -m examples.track_colors /tmp/colors.ass
+python -m examples.alternating_colors /tmp/legacy-colors.ass
 python -m examples.whole_glow /tmp/whole.ass
 python -m examples.staggered_path /tmp/staggered.ass
 python -m examples.parallel_tracks /tmp/parallel.ass
@@ -53,13 +72,14 @@ kara-templater input.ass output.ass --effect examples/layered_glow.py
 ```
 
 The Chinese color example needs an installed CJK font matching its `fontname`.
-`LayeredGlow`, `WholeGlow` and `ArcWave` use the same components and behaviors.
+`layered_glow` uses the new Track entry point. `WholeGlow` and `ArcWave` still demonstrate the compatibility Effect interface.
 
 ## Rendering primitives and backend extensions
 
 The following sections describe lower-level timelines, source metadata and ASS
-output. Effect scripts use `Effect` above;
-custom backends can still return `EffectPlan` from `build(item, context)`.
+output. Use `Scene` for custom objects and animation composition, or `Track` above
+for lyric-oriented configuration. Custom backends can still return `EffectPlan`
+from `build(item, context)`.
 Character layout checks independent glyph outlines against the original text;
 unsafe splitting raises `LayoutCapabilityError`.
 
@@ -564,3 +584,7 @@ python -m kara_templater examples/karaoke.ass /tmp/dynamic.ass \
 开发检查安装与严格度说明见[类型与质量检查](docs/type-checking.md)。库附带
 `py.typed` 和原生扩展类型声明，组件查询、样式、来源选择和动画表达式可用于
 编辑器补全和静态检查。
+
+动画也可以按时间返回变换，或通过 `Timeline.play()` 组合。参见
+[动画时间轴](docs/animation-timelines.md)和
+[跨音节 pulse 示例](examples/syllable_pulse.py)。

@@ -1,0 +1,71 @@
+{
+  "scope": "writing scene smoke preview; full E01\u2013E12 acceptance pending",
+  "resolution": "1280x720",
+  "generation_seconds": 0.05597861000569537,
+  "render_seconds": 2.0686195860034786,
+  "event_count": 387,
+  "peak_active": 2,
+  "byte_count": 460735,
+  "estimated_events": 524,
+  "max_time_quantization_seconds": 0.0,
+  "repeat_generation_identical": true,
+  "continuous_frames": 300,
+  "fresh_seek_matches_continuous": true,
+  "seek_frame_md5": {
+    "5.0": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "4.5": "4b31d5ca9dfa6d6a617c0af05c10488b",
+    "2.5": "59e78d3c5797733432b46f0491c77063",
+    "1.5": "4a40441490b788e14b4a104b754f1653",
+    "0.5": "4ded535ae30a86f3cfd1f514f288cfa5",
+    "0.0": "eead510fe4e7b8b9fc9ec2642bf24a9c"
+  },
+  "preview_seconds": [
+    0.0,
+    0.5,
+    1.5,
+    2.5,
+    4.5,
+    5.0
+  ],
+  "renderer": [
+    "[Parsed_ass_0 @ 0x55d3f21726c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x55d3f21726c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_0 @ 0x7f2a88003d00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x7f2a88003d00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)"
+  ],
+  "font": "tests/fonts/DejaVuSans.ttf (repository license)",
+  "font_family": "DejaVu Sans",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "font_assets": [
+    {
+      "path": "tests/fonts/DejaVuSans.ttf",
+      "family": "DejaVu Sans",
+      "sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c"
+    }
+  ],
+  "strategies": [
+    {
+      "id": "ink",
+      "strategy": "sampled",
+      "events": 193,
+      "sample_interval": 0.02,
+      "peak_path_points": 312,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "pen",
+      "strategy": "sampled",
+      "events": 194,
+      "sample_interval": 0.02,
+      "peak_path_points": 13,
+      "peak_bands": null,
+      "peak_clip_points": null
+    }
+  ],
+  "remaining": [
+    "all-background comparisons",
+    "reference error measurements",
+    "remaining E01\u2013E12 effects"
+  ]
+}

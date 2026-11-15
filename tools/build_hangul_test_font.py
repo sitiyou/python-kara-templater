@@ -25,6 +25,13 @@ def main():
         "KaraTestHangul",
     )
     build_fixture(args.source, args.license, "時々", "Kara Test CJK", "KaraTestCJK")
+    build_fixture(
+        args.source,
+        args.license,
+        "今天かな한글",
+        "Kara Test Multiscript",
+        "KaraTestMultiscript",
+    )
 
 
 def build_fixture(source, license_path, text, family, identifier):

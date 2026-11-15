@@ -1,0 +1,277 @@
+"""Screen-space RGB fields, compiled to disjoint standard ASS clip bands.
+
+Colors are sampled at band centers in encoded RGB, without alpha crossfading.
+The field colors an already rasterized silhouette: blur does not feather clips.
+"""
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from math import ceil, floor
+from typing import Literal, Protocol
+
+from .composition import Color
+from .geometry import finite
+from .scene_animation import VisualState, linear_rate
+
+
+def _mix(a: Color, b: Color, progress: float) -> Color:
+    p = max(0.0, min(1.0, progress))
+    return Color(
+        round(a.red + (b.red - a.red) * p),
+        round(a.green + (b.green - a.green) * p),
+        round(a.blue + (b.blue - a.blue) * p),
+    )
+
+
+@dataclass(frozen=True)
+class PaintBand:
+    start: int
+    end: int
+    fill: Color
+    outline: Color
+
+
+class PaintField(Protocol):
+    """Pure local-time field. Bands must exactly partition the requested domain.
+
+    Breakpoints delimit temporal discontinuities and changes of motion. An empty
+    tuple declares a static field. max_bands bounds every invocation.
+    """
+
+    @property
+    def axis(self) -> Literal["x", "y"]: ...
+    @property
+    def max_bands(self) -> int: ...
+    @property
+    def breakpoints(self) -> tuple[float, ...]: ...
+    def bands(
+        self, start: int, end: int, time: float, base: VisualState
+    ) -> tuple[PaintBand, ...]: ...
+
+
+@dataclass(frozen=True)
+class ColorStop:
+    position: float
+    color: Color
+
+    def __post_init__(self) -> None:
+        finite(self.position)
+
+
+@dataclass(frozen=True)
+class ColorRamp:
+    """Piecewise linear colors at absolute script coordinates; ends clamp."""
+
+    stops: tuple[ColorStop, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.stops) < 2 or any(
+            a.position >= b.position
+            for a, b in zip(self.stops, self.stops[1:], strict=False)
+        ):
+            raise ValueError("a color ramp needs at least two strictly ordered stops")
+
+    def at(self, position: float) -> Color:
+        finite(position)
+        for a, b in zip(self.stops, self.stops[1:], strict=False):
+            if position <= b.position:
+                return _mix(
+                    a.color,
+                    b.color,
+                    (position - a.position) / (b.position - a.position),
+                )
+        return self.stops[-1].color
+
+
+def _settings(axis: str, step: int) -> None:
+    if axis not in ("x", "y") or type(step) is not int or step < 1:
+        raise ValueError("paint fields require x/y axis and positive integer step")
+
+
+def _bands(
+    start: int,
+    end: int,
+    left: float,
+    right: float,
+    step: int,
+    colors: Callable[[float], tuple[Color, Color]],
+) -> tuple[PaintBand, ...]:
+    first, last = max(start, floor(left)), min(end, ceil(right))
+    cuts = sorted(
+        {start, end, *range(first, last + 1, step), max(start, min(end, last))}
+    )
+    result: list[PaintBand] = []
+    for a, b in zip(cuts, cuts[1:], strict=False):
+        fill, outline = colors((a + b) / 2)
+        if result and result[-1].fill == fill and result[-1].outline == outline:
+            previous = result.pop()
+            a = previous.start
+        result.append(PaintBand(a, b, fill, outline))
+    return tuple(result)
+
+
+@dataclass(frozen=True, kw_only=True)
+class LinearGradient:
+    fill: ColorRamp | None = None
+    outline: ColorRamp | None = None
+    axis: Literal["x", "y"] = "x"
+    step: int = 1
+
+    def __post_init__(self) -> None:
+        _settings(self.axis, self.step)
+        if self.fill is None and self.outline is None:
+            raise ValueError("gradient requires a fill or outline ramp")
+
+    @property
+    def bounds(self) -> tuple[float, float]:
+        ramps = [r for r in (self.fill, self.outline) if r is not None]
+        return min(r.stops[0].position for r in ramps), max(
+            r.stops[-1].position for r in ramps
+        )
+
+    @property
+    def max_bands(self) -> int:
+        left, right = self.bounds
+        return ceil((right - left) / self.step) + 4
+
+    @property
+    def breakpoints(self) -> tuple[float, ...]:
+        return ()
+
+    def bands(
+        self, start: int, end: int, time: float, base: VisualState
+    ) -> tuple[PaintBand, ...]:
+        left, right = self.bounds
+        return _bands(
+            start,
+            end,
+            left,
+            right,
+            self.step,
+            lambda p: (
+                base.fill if self.fill is None else self.fill.at(p),
+                base.outline if self.outline is None else self.outline.at(p),
+            ),
+        )
+
+
+@dataclass(frozen=True, kw_only=True)
+class SoftSweep:
+    """Left-to-right (or top-to-bottom) sweep; pairs are (unsung, sung).
+
+    Widths are script pixels. The front travels past both ends so the declared
+    span is completely unsung at start and completely sung at start+duration.
+    """
+
+    left: float
+    right: float
+    start: float
+    duration: float
+    fill: tuple[Color, Color] | None = None
+    outline: tuple[Color, Color] | None = None
+    width: float = 24
+    outline_width: float | None = None
+    axis: Literal["x", "y"] = "x"
+    step: int = 1
+    rate: Callable[[float], float] = linear_rate
+
+    def __post_init__(self) -> None:
+        _settings(self.axis, self.step)
+        finite(
+            self.left,
+            self.right,
+            self.start,
+            self.duration,
+            self.width,
+            self.effective_outline_width,
+        )
+        if self.right <= self.left or self.start < 0 or self.duration <= 0:
+            raise ValueError(
+                "sweep requires positive span/duration and nonnegative start"
+            )
+        if min(self.width, self.effective_outline_width) < 0:
+            raise ValueError("sweep widths cannot be negative")
+        if self.fill is None and self.outline is None:
+            raise ValueError("sweep requires fill or outline colors")
+
+    @property
+    def effective_outline_width(self) -> float:
+        return self.width if self.outline_width is None else self.outline_width
+
+    @property
+    def max_width(self) -> float:
+        return max(
+            self.width if self.fill else 0,
+            self.effective_outline_width if self.outline else 0,
+        )
+
+    @property
+    def max_bands(self) -> int:
+        return ceil(self.max_width / self.step) + 4
+
+    @property
+    def breakpoints(self) -> tuple[float, ...]:
+        return (self.start, self.start + self.duration)
+
+    def front_at(self, time: float) -> float:
+        """Transition center in script pixels at field-local seconds.
+
+        It travels half the largest transition width beyond each endpoint and
+        clamps outside the singing interval, matching the color field's timing.
+        """
+        finite(time)
+        if time <= self.start:
+            progress = 0.0
+        elif time >= self.start + self.duration:
+            progress = 1.0
+        else:
+            progress = self.rate((time - self.start) / self.duration)
+            finite(progress)
+        return (
+            self.left
+            - self.max_width / 2
+            + (self.right - self.left + self.max_width) * max(0, min(1, progress))
+        )
+
+    def bands(
+        self, start: int, end: int, time: float, base: VisualState
+    ) -> tuple[PaintBand, ...]:
+        finite(time)
+        if time <= self.start or time >= self.start + self.duration:
+            index = int(time >= self.start + self.duration)
+            return (
+                PaintBand(
+                    start,
+                    end,
+                    base.fill if self.fill is None else self.fill[index],
+                    base.outline if self.outline is None else self.outline[index],
+                ),
+            )
+        front = self.front_at(time)
+
+        def color(
+            pair: tuple[Color, Color] | None,
+            fallback: Color,
+            width: float,
+            position: float,
+        ) -> Color:
+            if pair is None:
+                return fallback
+            amount = (
+                float(position < front)
+                if width == 0
+                else (front - position) / width + 0.5
+            )
+            return _mix(*pair, amount)
+
+        return _bands(
+            start,
+            end,
+            front - self.max_width / 2,
+            front + self.max_width / 2,
+            self.step,
+            lambda p: (
+                color(self.fill, base.fill, self.width, p),
+                color(self.outline, base.outline, self.effective_outline_width, p),
+            ),
+        )

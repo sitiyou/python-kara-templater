@@ -1,0 +1,45 @@
+{
+  "platform": "Linux x86_64, CPython 3.14",
+  "checks": {
+    "ruff check .": "passed",
+    "ty check": "passed",
+    "git diff --check": "passed",
+    "python -m pytest -q": {
+      "passed": 664,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 23.716
+    },
+    "python -m pytest tests/test_track_docs.py -q": {
+      "passed": 4,
+      "failed": 0
+    },
+    "sdist build": "passed",
+    "wheel built from extracted sdist": "passed",
+    "installed wheel tests outside the workspace": {
+      "passed": 664,
+      "failed": 0,
+      "skipped": 0,
+      "seconds": 23.442
+    },
+    "twine check --strict (sdist and wheel)": "passed"
+  },
+  "artifact_checks": {
+    "python_and_stub_payload_matches_worktree": true,
+    "payload_files_checked": 44,
+    "native_inputs_match_worktree": true,
+    "native_files_checked": 9,
+    "documented_python_examples_match_artifacts": true
+  },
+  "artifacts": {
+    "kara_templater-0.2.1.tar.gz": {
+      "bytes": 20160435,
+      "sha256": "4fd667a431759c7a2cae29f9e2c554166dea2b5630a3bd28de49f848b4599d67"
+    },
+    "kara_templater-0.2.1-cp314-cp314-linux_x86_64.whl": {
+      "bytes": 25136130,
+      "sha256": "0f15704d755b55fa096ab12c6118bad6c905005ebea45f1b989a4627021bf76b"
+    }
+  },
+  "scope": "Runtime, type and packaging checks for the current implementation. Documentation prose was finalized after building these audit archives; executable examples and library/native payload were compared. Windows build not executed locally."
+}

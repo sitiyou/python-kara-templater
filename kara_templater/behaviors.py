@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass, replace
 from itertools import pairwise
 from typing import TYPE_CHECKING, Literal, Self, TypedDict
 
 if TYPE_CHECKING:
-    from .effect import Component
+    from .components import Component
     from .targets import PreparedLyrics
 
 from .animation import HighlightEnter, Pulse, ScaleAnimation, plan_pulses
@@ -55,6 +55,7 @@ class MotionRule:
     progress: str = "envelope"
     arrival: Pulse | None = None
     segments: tuple[tuple[int, int], ...] | None = None
+    breakpoints: tuple[float, ...] = ()
 
 
 class TargetSelection:
@@ -550,6 +551,8 @@ class BoundProperty:
     segments: tuple[Segment, ...] = ()
     target: PropertyTarget | None = None
     window: DisplayWindow | None = None
+    scope: Literal["group", "unit", "local"] = "local"
+    breakpoints: tuple[float, ...] = ()
 
     def at(self, time: float) -> float | None:
         start, end = self.interval
@@ -646,11 +649,19 @@ def bind_property(
         segments,
         target,
         window,
+        breakpoints=rule.breakpoints,
     )
 
 
 def resolve_behaviors(
-    prepared: PreparedLyrics, context, rules, *, ruby_follow, item_id
+    prepared: PreparedLyrics,
+    context,
+    rules,
+    *,
+    ruby_follow,
+    item_id,
+    hierarchical: bool = False,
+    lower_native: bool = True,
 ) -> tuple[PreparedLyrics, dict[str, tuple[BoundProperty, ...]]]:
     targets, schedules = [], {}
     sampled: dict[str, tuple[BoundProperty, ...]] = {}
@@ -731,10 +742,10 @@ def resolve_behaviors(
                 relevant = [
                     r
                     for r in relevant
-                    if r.mode == "ruby" or ruby_follow.allows(r.property)
+                    if r.mode in {"ruby", "group"} or ruby_follow.allows(r.property)
                 ]
             elif ruby_follow != "syllable":
-                relevant = [r for r in relevant if r.mode == "ruby"]
+                relevant = [r for r in relevant if r.mode in {"ruby", "group"}]
             if any(r.mode == "character" for r in relevant):
                 raise ValueError(
                     f"{item_id}/{visual.id}: ruby syllable following cannot follow per-character motion"
@@ -745,7 +756,11 @@ def resolve_behaviors(
         )
         for rule in relevant:
             box = (
-                context.layout.units[ui].box if rule.mode == "syllable" else visual.box
+                context.layout.box
+                if rule.mode == "group"
+                else context.layout.units[ui].box
+                if rule.mode == "syllable"
+                else (visual.transform_box or visual.box)
             )
             segments = context.layout.units[ui].source.segments
             if rule.segments is not None:
@@ -787,10 +802,25 @@ def resolve_behaviors(
                         ),
                     )
                 if motion is not None:
+                    if hierarchical:
+                        motion = replace(
+                            motion,
+                            scope=(
+                                "group"
+                                if rule.mode == "group"
+                                else "unit"
+                                if rule.mode == "syllable"
+                                else "local"
+                            ),
+                        )
                     bound.append(motion)
         check_motion_conflicts(bound, prepared.window, origin, f"{item_id}/{visual.id}")
         scales = [m for m in bound if m.property == "scale"]
-        native = native_motions(scales, prepared.window.end_ms)
+        native = (
+            None
+            if not lower_native or needs_affine_sampling(bound)
+            else native_motions(scales, prepared.window.end_ms)
+        )
         if native is not None:
             animations = tuple(
                 ScaleAnimation(
@@ -817,6 +847,10 @@ def resolve_behaviors(
 def check_motion_conflicts(bound, window, origin, identity) -> None:
     for index, motion in enumerate(bound):
         for previous in bound[:index]:
+            if previous.scope != motion.scope:
+                # Distinct transform ancestors compose; sibling writes still
+                # obey replace/add/multiply/override conflict rules below.
+                continue
             if previous.property != motion.property:
                 continue
             a = max(motion.interval[0], previous.interval[0], window.start_ms)
@@ -845,6 +879,41 @@ class PropertySamples(TypedDict, total=False):
     offset_y: float
     glow_blur: float | None
     pivot: tuple[float, float]
+
+
+def needs_affine_sampling(motions: Sequence[BoundProperty]) -> bool:
+    geometry = [m for m in motions if m.property in {"scale", "offset_x", "offset_y"}]
+    return (
+        any(m.property == "scale" for m in geometry)
+        and len({m.scope for m in geometry}) > 1
+    )
+
+
+def sample_hierarchy(motions: Sequence[BoundProperty], time: float) -> PropertySamples:
+    """Apply reading/local, syllable, then group transforms in parent order.
+
+    Uniform scale and translation compose as x' = scale*x + translation.
+    Returning an origin pivot plus the final translation also transforms clips
+    and attached paints once through the existing sampled output adapter.
+    """
+    if len({motion.scope for motion in motions}) <= 1:
+        return sample_properties(motions, time)
+    result: PropertySamples = {}
+    scale, x, y, opacity = 1.0, 0.0, 0.0, 1.0
+    for scope in ("local", "unit", "group"):
+        values = sample_properties(tuple(m for m in motions if m.scope == scope), time)
+        factor = values.get("scale", 1.0)
+        px, py = values.get("pivot", (0.0, 0.0))
+        x = factor * x + (1 - factor) * px + values.get("offset_x", 0.0)
+        y = factor * y + (1 - factor) * py + values.get("offset_y", 0.0)
+        scale *= factor
+        opacity *= values.get("opacity", 1.0)
+        if "glow_blur" in values:
+            result["glow_blur"] = values["glow_blur"]
+    result.update(offset_x=x, offset_y=y, opacity=opacity)
+    if any(m.property == "scale" for m in motions):
+        result.update(scale=scale, pivot=(0.0, 0.0))
+    return result
 
 
 def sample_properties(motions, time) -> PropertySamples:

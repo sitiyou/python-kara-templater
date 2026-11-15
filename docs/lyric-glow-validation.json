@@ -1,0 +1,369 @@
+{
+  "scope": "E01 isolated wide/near pink glow layers, including ruby glyph overlap and shared pulse; independent scalar pulse and native outline-derived glyph placement; handwritten standard ASS rendered with the same FFmpeg/libass",
+  "font_sha256": {
+    "DejaVuSans.ttf": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+    "KaraTestCJK.ttf": "0739a1972cc3a9caa690f13e94de37065d34b5662df9ddd3d3fd3a90ad4297e2"
+  },
+  "renderer": [
+    "[Parsed_ass_0 @ 0x5642e4266580] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x5642e4266580] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_0 @ 0x7fa958003d00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x7fa958003d00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)"
+  ],
+  "wrong_opacity_fault_detected": true,
+  "reference_sha256": "6499c1faf13c38334cd6902815f72aa7a07e111e8d7ef6c4833e9643094767ce",
+  "background_sha256": {
+    "black": "7efdbbfeb59ec43fc9584c5027bfb5a906d7980f68ffa20f617083617c6cf574",
+    "white": "e52ae68d052db9f6f16fb6b5d2498e83b09545c9daaf4579e6c406a5713ad11f",
+    "checker": "fd56defdc4c57ad5ac4db9046994094a061b69470a4e4ca864038272c04fee9f",
+    "gradient": "d672a8f99de44f5f7b1d60421ffdb115096ae3a9c83046bea7425a67b2da25a2"
+  },
+  "ass_sha256": "791706f5af8571431b0c6cbafbec4f089ebb0febec8fe9719837cd3e6f8ae887",
+  "checks": [
+    {
+      "time_ms": 1,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 991,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1001,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1301,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1601,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1901,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2191,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2201,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2791,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2801,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3101,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3401,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3701,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3991,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4001,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "black",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 991,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1001,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1301,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1601,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1901,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2191,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2201,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2791,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2801,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3101,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3401,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3701,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3991,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4001,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "white",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 991,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1001,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1301,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1601,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1901,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2191,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2201,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2791,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2801,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3101,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3401,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3701,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3991,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4001,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "checker",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 991,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1001,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1301,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1601,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 1901,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2191,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2201,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2791,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 2801,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3101,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3401,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3701,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 3991,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4001,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "gradient",
+      "max_rgb_difference": 0
+    }
+  ],
+  "remaining": [
+    "foreground sweep/outline and complete layered scene",
+    "continuous ideal pulse error",
+    "other renderers"
+  ]
+}

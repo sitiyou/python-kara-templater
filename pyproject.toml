@@ -26,14 +26,14 @@ testpaths = ["tests"]
 [tool.cibuildwheel]
 build = ["cp3{12,13,14}-manylinux_x86_64", "cp3{12,13,14}-win_amd64"]
 before-build = 'python "{package}/tools/collect_licenses.py"'
-test-sources = ["tests", "examples", "tools", "setup.py"]
-test-requires = ["pytest", "setuptools>=77"]
+test-sources = ["tests", "examples", "tools", "docs", "README.md", "pyproject.toml", "setup.py"]
+test-requires = ["pytest", "setuptools>=77", "Pillow>=10", "ty==0.0.100"]
 test-command = "python -m pytest tests -v && python -m kara_templater examples/karaoke.ass output.ass"
 
 [tool.cibuildwheel.linux]
 archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux_2_28"
-repair-wheel-command = """auditwheel repair --plat manylinux_2_28_x86_64 \\
+repair-wheel-command = """auditwheel repair --plat manylinux_2_28_x86_64 --only-plat \\
   --exclude 'libharfbuzz.so.*' --exclude 'libfribidi.so.*' \\
   --exclude 'libfontconfig.so.*' --exclude 'libfreetype.so.*' \\
   --exclude 'libglib-2.0.so.*' --exclude 'libgraphite2.so.*' \\
@@ -55,6 +55,7 @@ checks = [
     "pytest>=8",
     "Pillow>=10",
     "setuptools>=77",
+    "fonttools>=4.60",
 ]
 
 [tool.ruff]

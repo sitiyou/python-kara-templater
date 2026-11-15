@@ -3,6 +3,11 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .document_lyrics import DocumentLyrics
+    from .document_text import DocumentText
 
 
 class Record(dict[str, object]):
@@ -206,6 +211,39 @@ class Document:
     meta: Record
 
     @classmethod
+    def create(
+        cls, *, width: int = 1280, height: int = 720, styles: tuple[Style, ...] = ()
+    ) -> Document:
+        """Create standard ASS with raw RGB colors for code-authored scenes.
+
+        YCbCr Matrix: None prevents playback color-matrix reinterpretation of
+        authored RGB values. Parsing existing ASS retains its original metadata.
+        """
+        if any(type(value) is not int or value <= 0 for value in (width, height)):
+            raise ValueError("document dimensions must be positive integers")
+        styles = styles or (Style(),)
+        if len({style.name for style in styles}) != len(styles):
+            raise ValueError("duplicate document style names")
+        return cls.parse(
+            "\n".join(
+                (
+                    "[Script Info]",
+                    "ScriptType: v4.00+",
+                    "YCbCr Matrix: None",
+                    f"PlayResX: {width}",
+                    f"PlayResY: {height}",
+                    "ScaledBorderAndShadow: yes",
+                    "WrapStyle: 2",
+                    "[V4+ Styles]",
+                    "Format: " + STYLE_FORMAT,
+                    *(style.serialize() for style in styles),
+                    "[Events]",
+                    "Format: " + EVENT_FORMAT,
+                )
+            )
+        )
+
+    @classmethod
     def parse(cls, text: str) -> Document:
         records = []
         meta = Record()
@@ -275,3 +313,18 @@ class Document:
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(self.dumps(), encoding="utf-8-sig")
+
+    def lyrics_at(self, record_index: int) -> DocumentLyrics:
+        """Read scoped body/ruby and timing without layout or template execution."""
+        from .document_lyrics import parse_document_lyrics
+
+        source = self.text_at(record_index)
+        record = self.records[record_index]
+        assert isinstance(record, Line)
+        return parse_document_lyrics(source, start=record.start_time / 1000)
+
+    def text_at(self, record_index: int) -> DocumentText:
+        """Read typed text semantics without executing templates or changing records."""
+        from .document_text import read_document_text
+
+        return read_document_text(self, record_index)

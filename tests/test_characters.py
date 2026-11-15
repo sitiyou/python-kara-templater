@@ -138,6 +138,22 @@ assert [c.text for c in characters] == ["A", "B"]
 assert characters[0].font_faces == (FontFace("Kara Test Primary", "Regular"),)
 assert characters[1].font_faces == (FontFace("DejaVu Sans", "Book"),)
 assert characters[0].source.start == 0 and characters[1].source.start == 1
+from kara_templater import Document, Line, layout_document_text
+document = Document.create(styles=(mixed_style,))
+document.records.append(Line(text="AB", start_time=1000, end_time=2000))
+record_index = len(document.records) - 1
+bound = layout_document_text(document, record_index)
+assert [item.fonts for item in bound.characters] == [c.font_faces for c in characters]
+assert [(item.start, item.end) for item in bound.characters] == [(0, 1), (1, 2)]
+document.records[record_index] = Line(text="\\U00031350", start_time=1000, end_time=2000)
+try:
+    layout_document_text(document, record_index)
+except LayoutCapabilityError as error:
+    assert f"record {record_index}, decoded text range 0:1" in str(error), error
+    assert "missing glyph" in str(error), error
+    assert isinstance(error.__cause__, LayoutCapabilityError)
+else:
+    raise AssertionError("Document binding accepted a missing glyph")
 """
     result = subprocess.run(
         [sys.executable, "-c", code],
@@ -286,8 +302,11 @@ def test_unsupported_shaping_has_source_diagnostic(text):
 
 
 def test_cjk_kana_and_precomposed_hangul_can_be_drawn_independently():
+    from kara_templater import load_font
+
+    font = load_font(Path(__file__).parent / "fonts/KaraTestMultiscript.ttf")
     for text in ("今天", "かな", "한글"):
-        _, chars = measured(text)
+        _, chars = measured(text, replace(STYLE, fontname=font.family))
         assert len(chars) == 2
         assert all(c.target.drawable for c in chars)
 
@@ -303,7 +322,10 @@ def test_native_shapes_survive_subsequent_measurements():
 
     first = _shape(STYLE, "A")
     expected = repr(first)
-    _shape(STYLE, "今天")
+    from kara_templater import load_font
+
+    font = load_font(Path(__file__).parent / "fonts/KaraTestMultiscript.ttf")
+    _shape(replace(STYLE, fontname=font.family), "今天")
     assert repr(first) == expected
 
 

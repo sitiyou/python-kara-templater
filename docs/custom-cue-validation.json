@@ -1,0 +1,2605 @@
+{
+  "scope": "E06/E12 custom sparkle factory: absolute position, clockwise rotation, fill/outline geometry and sampled opacity; independent scalar rotation of handwritten polygon",
+  "clock": "50 Hz midpoint hold, 0\u20131000 ms lifetime, boundary probes",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "ass_sha256": "c7e1ef701cef2e546f5e9f730eefe994ae815f41ff460492d6edfeb29d171399",
+  "checks": [
+    {
+      "time_ms": 0,
+      "role": 0,
+      "alpha": [
+        3
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004740806018620515
+      }
+    },
+    {
+      "time_ms": 0,
+      "role": 1,
+      "alpha": [
+        3
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.02848910047607116
+      }
+    },
+    {
+      "time_ms": 10,
+      "role": 0,
+      "alpha": [
+        3
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004740806018620515
+      }
+    },
+    {
+      "time_ms": 10,
+      "role": 1,
+      "alpha": [
+        3
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.02848910047607116
+      }
+    },
+    {
+      "time_ms": 19,
+      "role": 0,
+      "alpha": [
+        3
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004740806018620515
+      }
+    },
+    {
+      "time_ms": 19,
+      "role": 1,
+      "alpha": [
+        3
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.02848910047607116
+      }
+    },
+    {
+      "time_ms": 20,
+      "role": 0,
+      "alpha": [
+        8
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003582495778065616
+      }
+    },
+    {
+      "time_ms": 20,
+      "role": 1,
+      "alpha": [
+        8
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030506169241231906
+      }
+    },
+    {
+      "time_ms": 21,
+      "role": 0,
+      "alpha": [
+        8
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003582495778065616
+      }
+    },
+    {
+      "time_ms": 21,
+      "role": 1,
+      "alpha": [
+        8
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030506169241231906
+      }
+    },
+    {
+      "time_ms": 30,
+      "role": 0,
+      "alpha": [
+        8
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003582495778065616
+      }
+    },
+    {
+      "time_ms": 30,
+      "role": 1,
+      "alpha": [
+        8
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030506169241231906
+      }
+    },
+    {
+      "time_ms": 40,
+      "role": 0,
+      "alpha": [
+        13
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004429696949883945
+      }
+    },
+    {
+      "time_ms": 40,
+      "role": 1,
+      "alpha": [
+        13
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015123570638140908
+      }
+    },
+    {
+      "time_ms": 50,
+      "role": 0,
+      "alpha": [
+        13
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004429696949883945
+      }
+    },
+    {
+      "time_ms": 50,
+      "role": 1,
+      "alpha": [
+        13
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015123570638140908
+      }
+    },
+    {
+      "time_ms": 60,
+      "role": 0,
+      "alpha": [
+        18
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005343961241959507
+      }
+    },
+    {
+      "time_ms": 60,
+      "role": 1,
+      "alpha": [
+        18
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04526921841409474
+      }
+    },
+    {
+      "time_ms": 70,
+      "role": 0,
+      "alpha": [
+        18
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005343961241959507
+      }
+    },
+    {
+      "time_ms": 70,
+      "role": 1,
+      "alpha": [
+        18
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04526921841409474
+      }
+    },
+    {
+      "time_ms": 80,
+      "role": 0,
+      "alpha": [
+        23
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.0077980793468803615
+      }
+    },
+    {
+      "time_ms": 80,
+      "role": 1,
+      "alpha": [
+        23
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.05175642842680705
+      }
+    },
+    {
+      "time_ms": 90,
+      "role": 0,
+      "alpha": [
+        23
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.0077980793468803615
+      }
+    },
+    {
+      "time_ms": 90,
+      "role": 1,
+      "alpha": [
+        23
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.05175642842680705
+      }
+    },
+    {
+      "time_ms": 100,
+      "role": 0,
+      "alpha": [
+        28
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007383367139959432
+      }
+    },
+    {
+      "time_ms": 100,
+      "role": 1,
+      "alpha": [
+        28
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.03028846153846154
+      }
+    },
+    {
+      "time_ms": 110,
+      "role": 0,
+      "alpha": [
+        28
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007383367139959432
+      }
+    },
+    {
+      "time_ms": 110,
+      "role": 1,
+      "alpha": [
+        28
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.03028846153846154
+      }
+    },
+    {
+      "time_ms": 120,
+      "role": 0,
+      "alpha": [
+        33
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.0044312784605591736
+      }
+    },
+    {
+      "time_ms": 120,
+      "role": 1,
+      "alpha": [
+        33
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026809139913180364
+      }
+    },
+    {
+      "time_ms": 130,
+      "role": 0,
+      "alpha": [
+        33
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.0044312784605591736
+      }
+    },
+    {
+      "time_ms": 130,
+      "role": 1,
+      "alpha": [
+        33
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026809139913180364
+      }
+    },
+    {
+      "time_ms": 140,
+      "role": 0,
+      "alpha": [
+        38
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.006545873906652264
+      }
+    },
+    {
+      "time_ms": 140,
+      "role": 1,
+      "alpha": [
+        38
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 133,
+        "coverage_l1_over_reference_mass": 0.03453800961367278
+      }
+    },
+    {
+      "time_ms": 150,
+      "role": 0,
+      "alpha": [
+        38
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.006545873906652264
+      }
+    },
+    {
+      "time_ms": 150,
+      "role": 1,
+      "alpha": [
+        38
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 133,
+        "coverage_l1_over_reference_mass": 0.03453800961367278
+      }
+    },
+    {
+      "time_ms": 160,
+      "role": 0,
+      "alpha": [
+        43
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003604908534600612
+      }
+    },
+    {
+      "time_ms": 160,
+      "role": 1,
+      "alpha": [
+        43
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.03376530429670526
+      }
+    },
+    {
+      "time_ms": 170,
+      "role": 0,
+      "alpha": [
+        43
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003604908534600612
+      }
+    },
+    {
+      "time_ms": 170,
+      "role": 1,
+      "alpha": [
+        43
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.03376530429670526
+      }
+    },
+    {
+      "time_ms": 180,
+      "role": 0,
+      "alpha": [
+        48
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007382588915441026
+      }
+    },
+    {
+      "time_ms": 180,
+      "role": 1,
+      "alpha": [
+        48
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.042052450433855255
+      }
+    },
+    {
+      "time_ms": 190,
+      "role": 0,
+      "alpha": [
+        48
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007382588915441026
+      }
+    },
+    {
+      "time_ms": 190,
+      "role": 1,
+      "alpha": [
+        48
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.042052450433855255
+      }
+    },
+    {
+      "time_ms": 200,
+      "role": 0,
+      "alpha": [
+        54
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008682568264226339
+      }
+    },
+    {
+      "time_ms": 200,
+      "role": 1,
+      "alpha": [
+        54
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05853576652838061
+      }
+    },
+    {
+      "time_ms": 210,
+      "role": 0,
+      "alpha": [
+        54
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008682568264226339
+      }
+    },
+    {
+      "time_ms": 210,
+      "role": 1,
+      "alpha": [
+        54
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05853576652838061
+      }
+    },
+    {
+      "time_ms": 220,
+      "role": 0,
+      "alpha": [
+        59
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 220,
+      "role": 1,
+      "alpha": [
+        59
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 30,
+        "coverage_l1_over_reference_mass": 0.0361260568793236
+      }
+    },
+    {
+      "time_ms": 230,
+      "role": 0,
+      "alpha": [
+        59
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 230,
+      "role": 1,
+      "alpha": [
+        59
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 30,
+        "coverage_l1_over_reference_mass": 0.0361260568793236
+      }
+    },
+    {
+      "time_ms": 240,
+      "role": 0,
+      "alpha": [
+        64
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.00742896970193924
+      }
+    },
+    {
+      "time_ms": 240,
+      "role": 1,
+      "alpha": [
+        64
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.031888079546768415
+      }
+    },
+    {
+      "time_ms": 250,
+      "role": 0,
+      "alpha": [
+        64
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.00742896970193924
+      }
+    },
+    {
+      "time_ms": 250,
+      "role": 1,
+      "alpha": [
+        64
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.031888079546768415
+      }
+    },
+    {
+      "time_ms": 260,
+      "role": 0,
+      "alpha": [
+        69
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 260,
+      "role": 1,
+      "alpha": [
+        69
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 27,
+        "coverage_l1_over_reference_mass": 0.03609766095355212
+      }
+    },
+    {
+      "time_ms": 270,
+      "role": 0,
+      "alpha": [
+        69
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 270,
+      "role": 1,
+      "alpha": [
+        69
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 27,
+        "coverage_l1_over_reference_mass": 0.03609766095355212
+      }
+    },
+    {
+      "time_ms": 280,
+      "role": 0,
+      "alpha": [
+        74
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008591842271863978
+      }
+    },
+    {
+      "time_ms": 280,
+      "role": 1,
+      "alpha": [
+        74
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05852160982395548
+      }
+    },
+    {
+      "time_ms": 290,
+      "role": 0,
+      "alpha": [
+        74
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008591842271863978
+      }
+    },
+    {
+      "time_ms": 290,
+      "role": 1,
+      "alpha": [
+        74
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05852160982395548
+      }
+    },
+    {
+      "time_ms": 300,
+      "role": 0,
+      "alpha": [
+        79
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007431860921550754
+      }
+    },
+    {
+      "time_ms": 300,
+      "role": 1,
+      "alpha": [
+        79
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.04241396025206011
+      }
+    },
+    {
+      "time_ms": 310,
+      "role": 0,
+      "alpha": [
+        79
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007431860921550754
+      }
+    },
+    {
+      "time_ms": 310,
+      "role": 1,
+      "alpha": [
+        79
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.04241396025206011
+      }
+    },
+    {
+      "time_ms": 320,
+      "role": 0,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0035886335525030922
+      }
+    },
+    {
+      "time_ms": 320,
+      "role": 1,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.033508843676515694
+      }
+    },
+    {
+      "time_ms": 329,
+      "role": 0,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0035886335525030922
+      }
+    },
+    {
+      "time_ms": 329,
+      "role": 1,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.033508843676515694
+      }
+    },
+    {
+      "time_ms": 330,
+      "role": 0,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0035886335525030922
+      }
+    },
+    {
+      "time_ms": 330,
+      "role": 1,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.033508843676515694
+      }
+    },
+    {
+      "time_ms": 331,
+      "role": 0,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0035886335525030922
+      }
+    },
+    {
+      "time_ms": 331,
+      "role": 1,
+      "alpha": [
+        84
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.033508843676515694
+      }
+    },
+    {
+      "time_ms": 340,
+      "role": 0,
+      "alpha": [
+        89
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.006569811351399638
+      }
+    },
+    {
+      "time_ms": 340,
+      "role": 1,
+      "alpha": [
+        89
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 134,
+        "coverage_l1_over_reference_mass": 0.03794819446216664
+      }
+    },
+    {
+      "time_ms": 350,
+      "role": 0,
+      "alpha": [
+        89
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.006569811351399638
+      }
+    },
+    {
+      "time_ms": 350,
+      "role": 1,
+      "alpha": [
+        89
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 134,
+        "coverage_l1_over_reference_mass": 0.03794819446216664
+      }
+    },
+    {
+      "time_ms": 360,
+      "role": 0,
+      "alpha": [
+        94
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.004513327783490851
+      }
+    },
+    {
+      "time_ms": 360,
+      "role": 1,
+      "alpha": [
+        94
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026923902415758472
+      }
+    },
+    {
+      "time_ms": 370,
+      "role": 0,
+      "alpha": [
+        94
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.004513327783490851
+      }
+    },
+    {
+      "time_ms": 370,
+      "role": 1,
+      "alpha": [
+        94
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026923902415758472
+      }
+    },
+    {
+      "time_ms": 380,
+      "role": 0,
+      "alpha": [
+        99
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.007407768014344944
+      }
+    },
+    {
+      "time_ms": 380,
+      "role": 1,
+      "alpha": [
+        99
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 12,
+        "coverage_l1_over_reference_mass": 0.029967855425346124
+      }
+    },
+    {
+      "time_ms": 390,
+      "role": 0,
+      "alpha": [
+        99
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.007407768014344944
+      }
+    },
+    {
+      "time_ms": 390,
+      "role": 1,
+      "alpha": [
+        99
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 12,
+        "coverage_l1_over_reference_mass": 0.029967855425346124
+      }
+    },
+    {
+      "time_ms": 400,
+      "role": 0,
+      "alpha": [
+        105
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.007724707680798816
+      }
+    },
+    {
+      "time_ms": 400,
+      "role": 1,
+      "alpha": [
+        105
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.04844220596795829
+      }
+    },
+    {
+      "time_ms": 410,
+      "role": 0,
+      "alpha": [
+        105
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.007724707680798816
+      }
+    },
+    {
+      "time_ms": 410,
+      "role": 1,
+      "alpha": [
+        105
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.04844220596795829
+      }
+    },
+    {
+      "time_ms": 420,
+      "role": 0,
+      "alpha": [
+        110
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005344092445433788
+      }
+    },
+    {
+      "time_ms": 420,
+      "role": 1,
+      "alpha": [
+        110
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04516368128474367
+      }
+    },
+    {
+      "time_ms": 430,
+      "role": 0,
+      "alpha": [
+        110
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005344092445433788
+      }
+    },
+    {
+      "time_ms": 430,
+      "role": 1,
+      "alpha": [
+        110
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04516368128474367
+      }
+    },
+    {
+      "time_ms": 440,
+      "role": 0,
+      "alpha": [
+        115
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004437978635587194
+      }
+    },
+    {
+      "time_ms": 440,
+      "role": 1,
+      "alpha": [
+        115
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015172752981679577
+      }
+    },
+    {
+      "time_ms": 450,
+      "role": 0,
+      "alpha": [
+        115
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004437978635587194
+      }
+    },
+    {
+      "time_ms": 450,
+      "role": 1,
+      "alpha": [
+        115
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015172752981679577
+      }
+    },
+    {
+      "time_ms": 460,
+      "role": 0,
+      "alpha": [
+        120
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0036233369129497406
+      }
+    },
+    {
+      "time_ms": 460,
+      "role": 1,
+      "alpha": [
+        120
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030724018167245525
+      }
+    },
+    {
+      "time_ms": 470,
+      "role": 0,
+      "alpha": [
+        120
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0036233369129497406
+      }
+    },
+    {
+      "time_ms": 470,
+      "role": 1,
+      "alpha": [
+        120
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030724018167245525
+      }
+    },
+    {
+      "time_ms": 480,
+      "role": 0,
+      "alpha": [
+        125
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.0047898035119785885
+      }
+    },
+    {
+      "time_ms": 480,
+      "role": 1,
+      "alpha": [
+        125
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.02858860965648568
+      }
+    },
+    {
+      "time_ms": 490,
+      "role": 0,
+      "alpha": [
+        125
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.0047898035119785885
+      }
+    },
+    {
+      "time_ms": 490,
+      "role": 1,
+      "alpha": [
+        125
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.02858860965648568
+      }
+    },
+    {
+      "time_ms": 500,
+      "role": 0,
+      "alpha": [
+        130
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004740806018620515
+      }
+    },
+    {
+      "time_ms": 500,
+      "role": 1,
+      "alpha": [
+        130
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.02848910047607116
+      }
+    },
+    {
+      "time_ms": 510,
+      "role": 0,
+      "alpha": [
+        130
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004740806018620515
+      }
+    },
+    {
+      "time_ms": 510,
+      "role": 1,
+      "alpha": [
+        130
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.02848910047607116
+      }
+    },
+    {
+      "time_ms": 520,
+      "role": 0,
+      "alpha": [
+        135
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003582495778065616
+      }
+    },
+    {
+      "time_ms": 520,
+      "role": 1,
+      "alpha": [
+        135
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030506169241231906
+      }
+    },
+    {
+      "time_ms": 530,
+      "role": 0,
+      "alpha": [
+        135
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003582495778065616
+      }
+    },
+    {
+      "time_ms": 530,
+      "role": 1,
+      "alpha": [
+        135
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030506169241231906
+      }
+    },
+    {
+      "time_ms": 540,
+      "role": 0,
+      "alpha": [
+        140
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004429696949883945
+      }
+    },
+    {
+      "time_ms": 540,
+      "role": 1,
+      "alpha": [
+        140
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015123570638140908
+      }
+    },
+    {
+      "time_ms": 550,
+      "role": 0,
+      "alpha": [
+        140
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004429696949883945
+      }
+    },
+    {
+      "time_ms": 550,
+      "role": 1,
+      "alpha": [
+        140
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015123570638140908
+      }
+    },
+    {
+      "time_ms": 560,
+      "role": 0,
+      "alpha": [
+        145
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005343961241959507
+      }
+    },
+    {
+      "time_ms": 560,
+      "role": 1,
+      "alpha": [
+        145
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04526921841409474
+      }
+    },
+    {
+      "time_ms": 570,
+      "role": 0,
+      "alpha": [
+        145
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005343961241959507
+      }
+    },
+    {
+      "time_ms": 570,
+      "role": 1,
+      "alpha": [
+        145
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04526921841409474
+      }
+    },
+    {
+      "time_ms": 580,
+      "role": 0,
+      "alpha": [
+        150
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.0077980793468803615
+      }
+    },
+    {
+      "time_ms": 580,
+      "role": 1,
+      "alpha": [
+        150
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.05175642842680705
+      }
+    },
+    {
+      "time_ms": 590,
+      "role": 0,
+      "alpha": [
+        150
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.0077980793468803615
+      }
+    },
+    {
+      "time_ms": 590,
+      "role": 1,
+      "alpha": [
+        150
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.05175642842680705
+      }
+    },
+    {
+      "time_ms": 600,
+      "role": 0,
+      "alpha": [
+        156
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007383367139959432
+      }
+    },
+    {
+      "time_ms": 600,
+      "role": 1,
+      "alpha": [
+        156
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.03028846153846154
+      }
+    },
+    {
+      "time_ms": 610,
+      "role": 0,
+      "alpha": [
+        156
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007383367139959432
+      }
+    },
+    {
+      "time_ms": 610,
+      "role": 1,
+      "alpha": [
+        156
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.03028846153846154
+      }
+    },
+    {
+      "time_ms": 620,
+      "role": 0,
+      "alpha": [
+        161
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.0044312784605591736
+      }
+    },
+    {
+      "time_ms": 620,
+      "role": 1,
+      "alpha": [
+        161
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026809139913180364
+      }
+    },
+    {
+      "time_ms": 630,
+      "role": 0,
+      "alpha": [
+        161
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.0044312784605591736
+      }
+    },
+    {
+      "time_ms": 630,
+      "role": 1,
+      "alpha": [
+        161
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026809139913180364
+      }
+    },
+    {
+      "time_ms": 640,
+      "role": 0,
+      "alpha": [
+        166
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.006545873906652264
+      }
+    },
+    {
+      "time_ms": 640,
+      "role": 1,
+      "alpha": [
+        166
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 133,
+        "coverage_l1_over_reference_mass": 0.03453800961367278
+      }
+    },
+    {
+      "time_ms": 650,
+      "role": 0,
+      "alpha": [
+        166
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.006545873906652264
+      }
+    },
+    {
+      "time_ms": 650,
+      "role": 1,
+      "alpha": [
+        166
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 133,
+        "coverage_l1_over_reference_mass": 0.03453800961367278
+      }
+    },
+    {
+      "time_ms": 660,
+      "role": 0,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003604908534600612
+      }
+    },
+    {
+      "time_ms": 660,
+      "role": 1,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.03376530429670526
+      }
+    },
+    {
+      "time_ms": 669,
+      "role": 0,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003604908534600612
+      }
+    },
+    {
+      "time_ms": 669,
+      "role": 1,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.03376530429670526
+      }
+    },
+    {
+      "time_ms": 670,
+      "role": 0,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003604908534600612
+      }
+    },
+    {
+      "time_ms": 670,
+      "role": 1,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.03376530429670526
+      }
+    },
+    {
+      "time_ms": 671,
+      "role": 0,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.003604908534600612
+      }
+    },
+    {
+      "time_ms": 671,
+      "role": 1,
+      "alpha": [
+        171
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.03376530429670526
+      }
+    },
+    {
+      "time_ms": 680,
+      "role": 0,
+      "alpha": [
+        176
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007382588915441026
+      }
+    },
+    {
+      "time_ms": 680,
+      "role": 1,
+      "alpha": [
+        176
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.042052450433855255
+      }
+    },
+    {
+      "time_ms": 690,
+      "role": 0,
+      "alpha": [
+        176
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007382588915441026
+      }
+    },
+    {
+      "time_ms": 690,
+      "role": 1,
+      "alpha": [
+        176
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.042052450433855255
+      }
+    },
+    {
+      "time_ms": 700,
+      "role": 0,
+      "alpha": [
+        181
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008682568264226339
+      }
+    },
+    {
+      "time_ms": 700,
+      "role": 1,
+      "alpha": [
+        181
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05853576652838061
+      }
+    },
+    {
+      "time_ms": 710,
+      "role": 0,
+      "alpha": [
+        181
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008682568264226339
+      }
+    },
+    {
+      "time_ms": 710,
+      "role": 1,
+      "alpha": [
+        181
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05853576652838061
+      }
+    },
+    {
+      "time_ms": 720,
+      "role": 0,
+      "alpha": [
+        186
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 720,
+      "role": 1,
+      "alpha": [
+        186
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 30,
+        "coverage_l1_over_reference_mass": 0.0361260568793236
+      }
+    },
+    {
+      "time_ms": 730,
+      "role": 0,
+      "alpha": [
+        186
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 730,
+      "role": 1,
+      "alpha": [
+        186
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 30,
+        "coverage_l1_over_reference_mass": 0.0361260568793236
+      }
+    },
+    {
+      "time_ms": 740,
+      "role": 0,
+      "alpha": [
+        191
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.00742896970193924
+      }
+    },
+    {
+      "time_ms": 740,
+      "role": 1,
+      "alpha": [
+        191
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.031888079546768415
+      }
+    },
+    {
+      "time_ms": 750,
+      "role": 0,
+      "alpha": [
+        191
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.00742896970193924
+      }
+    },
+    {
+      "time_ms": 750,
+      "role": 1,
+      "alpha": [
+        191
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.031888079546768415
+      }
+    },
+    {
+      "time_ms": 760,
+      "role": 0,
+      "alpha": [
+        196
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 760,
+      "role": 1,
+      "alpha": [
+        196
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 27,
+        "coverage_l1_over_reference_mass": 0.03609766095355212
+      }
+    },
+    {
+      "time_ms": 770,
+      "role": 0,
+      "alpha": [
+        196
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 0,
+        "coverage_l1_over_reference_mass": 0.0
+      }
+    },
+    {
+      "time_ms": 770,
+      "role": 1,
+      "alpha": [
+        196
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 27,
+        "coverage_l1_over_reference_mass": 0.03609766095355212
+      }
+    },
+    {
+      "time_ms": 780,
+      "role": 0,
+      "alpha": [
+        201
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008591842271863978
+      }
+    },
+    {
+      "time_ms": 780,
+      "role": 1,
+      "alpha": [
+        201
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05852160982395548
+      }
+    },
+    {
+      "time_ms": 790,
+      "role": 0,
+      "alpha": [
+        201
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.008591842271863978
+      }
+    },
+    {
+      "time_ms": 790,
+      "role": 1,
+      "alpha": [
+        201
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.05852160982395548
+      }
+    },
+    {
+      "time_ms": 800,
+      "role": 0,
+      "alpha": [
+        207
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007431860921550754
+      }
+    },
+    {
+      "time_ms": 800,
+      "role": 1,
+      "alpha": [
+        207
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.04241396025206011
+      }
+    },
+    {
+      "time_ms": 810,
+      "role": 0,
+      "alpha": [
+        207
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.007431860921550754
+      }
+    },
+    {
+      "time_ms": 810,
+      "role": 1,
+      "alpha": [
+        207
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 131,
+        "coverage_l1_over_reference_mass": 0.04241396025206011
+      }
+    },
+    {
+      "time_ms": 820,
+      "role": 0,
+      "alpha": [
+        212
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0035886335525030922
+      }
+    },
+    {
+      "time_ms": 820,
+      "role": 1,
+      "alpha": [
+        212
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.033508843676515694
+      }
+    },
+    {
+      "time_ms": 830,
+      "role": 0,
+      "alpha": [
+        212
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0035886335525030922
+      }
+    },
+    {
+      "time_ms": 830,
+      "role": 1,
+      "alpha": [
+        212
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 21,
+        "coverage_l1_over_reference_mass": 0.033508843676515694
+      }
+    },
+    {
+      "time_ms": 840,
+      "role": 0,
+      "alpha": [
+        217
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.006569811351399638
+      }
+    },
+    {
+      "time_ms": 840,
+      "role": 1,
+      "alpha": [
+        217
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 134,
+        "coverage_l1_over_reference_mass": 0.03794819446216664
+      }
+    },
+    {
+      "time_ms": 850,
+      "role": 0,
+      "alpha": [
+        217
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.006569811351399638
+      }
+    },
+    {
+      "time_ms": 850,
+      "role": 1,
+      "alpha": [
+        217
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 134,
+        "coverage_l1_over_reference_mass": 0.03794819446216664
+      }
+    },
+    {
+      "time_ms": 860,
+      "role": 0,
+      "alpha": [
+        222
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.004513327783490851
+      }
+    },
+    {
+      "time_ms": 860,
+      "role": 1,
+      "alpha": [
+        222
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026923902415758472
+      }
+    },
+    {
+      "time_ms": 870,
+      "role": 0,
+      "alpha": [
+        222
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 9,
+        "coverage_l1_over_reference_mass": 0.004513327783490851
+      }
+    },
+    {
+      "time_ms": 870,
+      "role": 1,
+      "alpha": [
+        222
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 20,
+        "coverage_l1_over_reference_mass": 0.026923902415758472
+      }
+    },
+    {
+      "time_ms": 880,
+      "role": 0,
+      "alpha": [
+        227
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.007407768014344944
+      }
+    },
+    {
+      "time_ms": 880,
+      "role": 1,
+      "alpha": [
+        227
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 12,
+        "coverage_l1_over_reference_mass": 0.029967855425346124
+      }
+    },
+    {
+      "time_ms": 890,
+      "role": 0,
+      "alpha": [
+        227
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 15,
+        "coverage_l1_over_reference_mass": 0.007407768014344944
+      }
+    },
+    {
+      "time_ms": 890,
+      "role": 1,
+      "alpha": [
+        227
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 12,
+        "coverage_l1_over_reference_mass": 0.029967855425346124
+      }
+    },
+    {
+      "time_ms": 900,
+      "role": 0,
+      "alpha": [
+        232
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.007724707680798816
+      }
+    },
+    {
+      "time_ms": 900,
+      "role": 1,
+      "alpha": [
+        232
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.04844220596795829
+      }
+    },
+    {
+      "time_ms": 910,
+      "role": 0,
+      "alpha": [
+        232
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 16,
+        "coverage_l1_over_reference_mass": 0.007724707680798816
+      }
+    },
+    {
+      "time_ms": 910,
+      "role": 1,
+      "alpha": [
+        232
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 130,
+        "coverage_l1_over_reference_mass": 0.04844220596795829
+      }
+    },
+    {
+      "time_ms": 920,
+      "role": 0,
+      "alpha": [
+        237
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005344092445433788
+      }
+    },
+    {
+      "time_ms": 920,
+      "role": 1,
+      "alpha": [
+        237
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04516368128474367
+      }
+    },
+    {
+      "time_ms": 930,
+      "role": 0,
+      "alpha": [
+        237
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 14,
+        "coverage_l1_over_reference_mass": 0.005344092445433788
+      }
+    },
+    {
+      "time_ms": 930,
+      "role": 1,
+      "alpha": [
+        237
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.04516368128474367
+      }
+    },
+    {
+      "time_ms": 940,
+      "role": 0,
+      "alpha": [
+        242
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004437978635587194
+      }
+    },
+    {
+      "time_ms": 940,
+      "role": 1,
+      "alpha": [
+        242
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015172752981679577
+      }
+    },
+    {
+      "time_ms": 950,
+      "role": 0,
+      "alpha": [
+        242
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.004437978635587194
+      }
+    },
+    {
+      "time_ms": 950,
+      "role": 1,
+      "alpha": [
+        242
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 7,
+        "coverage_l1_over_reference_mass": 0.015172752981679577
+      }
+    },
+    {
+      "time_ms": 960,
+      "role": 0,
+      "alpha": [
+        247
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0036233369129497406
+      }
+    },
+    {
+      "time_ms": 960,
+      "role": 1,
+      "alpha": [
+        247
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030724018167245525
+      }
+    },
+    {
+      "time_ms": 970,
+      "role": 0,
+      "alpha": [
+        247
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 8,
+        "coverage_l1_over_reference_mass": 0.0036233369129497406
+      }
+    },
+    {
+      "time_ms": 970,
+      "role": 1,
+      "alpha": [
+        247
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 129,
+        "coverage_l1_over_reference_mass": 0.030724018167245525
+      }
+    },
+    {
+      "time_ms": 980,
+      "role": 0,
+      "alpha": [
+        252
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.0047898035119785885
+      }
+    },
+    {
+      "time_ms": 980,
+      "role": 1,
+      "alpha": [
+        252
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.02858860965648568
+      }
+    },
+    {
+      "time_ms": 990,
+      "role": 0,
+      "alpha": [
+        252
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.0047898035119785885
+      }
+    },
+    {
+      "time_ms": 990,
+      "role": 1,
+      "alpha": [
+        252
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.02858860965648568
+      }
+    },
+    {
+      "time_ms": 999,
+      "role": 0,
+      "alpha": [
+        252
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 10,
+        "coverage_l1_over_reference_mass": 0.0047898035119785885
+      }
+    },
+    {
+      "time_ms": 999,
+      "role": 1,
+      "alpha": [
+        252
+      ],
+      "geometry": {
+        "silhouette_pixels_outside_one_pixel_tolerance": 0,
+        "max_coverage_difference": 17,
+        "coverage_l1_over_reference_mass": 0.02858860965648568
+      }
+    },
+    {
+      "time_ms": 1000,
+      "role": 0,
+      "alpha": [],
+      "geometry": null
+    },
+    {
+      "time_ms": 1000,
+      "role": 1,
+      "alpha": [],
+      "geometry": null
+    },
+    {
+      "time_ms": 1001,
+      "role": 0,
+      "alpha": [],
+      "geometry": null
+    },
+    {
+      "time_ms": 1001,
+      "role": 1,
+      "alpha": [],
+      "geometry": null
+    }
+  ],
+  "five_pixel_drift_detected": true,
+  "remaining": [
+    "continuous-time bounds",
+    "other renderers"
+  ]
+}

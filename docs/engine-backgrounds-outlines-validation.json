@@ -1,0 +1,102 @@
+{
+  "scope": "Selected E01\u2013E12 actual ASS on four authored backgrounds; exhaustive centisecond-grid seek-order check, not independent semantic reference acceptance",
+  "selected_cases": [
+    "E07"
+  ],
+  "resolution": [
+    1280,
+    720
+  ],
+  "duration_seconds": 6.0,
+  "fps": 100,
+  "clock": "integer millisecond time base; 10 ms steps with +1 ms offset to avoid ffmpeg floating boundary truncation",
+  "seek_order": "(frame index * 137) modulo 600; every timestamp once, in a separate renderer instance from continuous playback",
+  "pixel_format": "RGB24 input/output, full range; exported ASS metadata unchanged",
+  "scene_budget": {
+    "fps": 50,
+    "max_events": 25000,
+    "max_bytes": 10485760,
+    "max_active": 1000,
+    "max_path_points": 4096,
+    "max_bands": 1024,
+    "max_boolean_work": 1000000
+  },
+  "font_assets": [
+    {
+      "path": "tests/fonts/DejaVuSans.ttf",
+      "family": "DejaVu Sans",
+      "sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c"
+    },
+    {
+      "path": "tests/fonts/KaraTestCJK.ttf",
+      "family": "Kara Test CJK",
+      "sha256": "0739a1972cc3a9caa690f13e94de37065d34b5662df9ddd3d3fd3a90ad4297e2"
+    }
+  ],
+  "background_sha256": {
+    "black": "7efdbbfeb59ec43fc9584c5027bfb5a906d7980f68ffa20f617083617c6cf574",
+    "white": "e52ae68d052db9f6f16fb6b5d2498e83b09545c9daaf4579e6c406a5713ad11f",
+    "checker": "fd56defdc4c57ad5ac4db9046994094a061b69470a4e4ca864038272c04fee9f",
+    "gradient": "d672a8f99de44f5f7b1d60421ffdb115096ae3a9c83046bea7425a67b2da25a2"
+  },
+  "cases": [
+    {
+      "id": "E07",
+      "factory": "examples.scene_outlines",
+      "ass_sha256": "64d57777510a98d3e8643bef2d079d99ed058cc068edf657060145fb5a50ccf3",
+      "event_count": 152,
+      "peak_active": 1,
+      "byte_count": 204507,
+      "seconds": 16.057978125987574,
+      "background_checks": [
+        {
+          "background": "black",
+          "frames": 600,
+          "permuted_seek_frames": 600,
+          "all_hashes_equal": true
+        },
+        {
+          "background": "white",
+          "frames": 600,
+          "permuted_seek_frames": 600,
+          "all_hashes_equal": true
+        },
+        {
+          "background": "checker",
+          "frames": 600,
+          "permuted_seek_frames": 600,
+          "all_hashes_equal": true
+        },
+        {
+          "background": "gradient",
+          "frames": 600,
+          "permuted_seek_frames": 600,
+          "all_hashes_equal": true
+        }
+      ]
+    }
+  ],
+  "renderer": [
+    "[Parsed_ass_4 @ 0x55838b839740] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x55838b839740] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_4 @ 0x55c664f3f740] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x55c664f3f740] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_4 @ 0x55fc059ce700] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x55fc059ce700] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_4 @ 0x560e92426cc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x560e92426cc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_4 @ 0x7f2b64004cc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x7f2b64004cc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_4 @ 0x7f96f8004cc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x7f96f8004cc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_4 @ 0x7f9ef4004cc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x7f9ef4004cc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_4 @ 0x7fb0b0004cc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_4 @ 0x7fb0b0004cc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d"
+  ],
+  "remaining": [
+    "independent geometric/color reference errors",
+    "exact-boundary time checks separate from the +1ms rendering clock",
+    "scaled playback and other renderers"
+  ]
+}

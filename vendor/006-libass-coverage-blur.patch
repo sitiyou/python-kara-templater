@@ -1,0 +1,144 @@
+--- a/libass/ass_metrics.h
++++ b/libass/ass_metrics.h
+@@ -20,6 +20,7 @@
+ #define LIBASS_METRICS_H
+ 
+ #include <stdio.h>
++#include <stddef.h>
+ 
+ #include "ass_types.h"
+ 
+@@ -118,4 +119,21 @@
+  */
+ ASS_Metrics *ass_get_metrics(ASS_Renderer *priv, ASS_Track *track, long long now);
+ 
++/* Owned coverage for bounded pre-material blur. Radius uses ASS pixel units.
++ * Return 0 on success, -1 for invalid input, -2 for budget, -3 for allocation.
++ * max_pixels bounds the aligned filter workspace in pixels (up to 6 bytes per
++ * pixel across temporary and output allocations, plus the input allocation).
++ */
++typedef struct ass_coverage {
++    int left, top, w, h;
++    ptrdiff_t stride;
++    unsigned char *buffer;
++} ASS_Coverage;
++
++int ass_blur_coverage(ASS_Renderer *priv, const unsigned char *data, int w, int h,
++                      double radius, size_t max_pixels, ASS_Coverage *out);
++/* Maximum spatial expansion on either side, independent of bitmap alignment. */
++int ass_blur_padding(double radius);
++void ass_free_coverage(ASS_Coverage *coverage);
++
+ #endif /* LIBASS_METRICS_H */
+--- a/libass/ass_bitmap.h
++++ b/libass/ass_bitmap.h
+@@ -47,6 +47,9 @@
+ void ass_synth_blur(const BitmapEngine *engine, Bitmap *bm,
+                     int be, double blur_r2x, double blur_r2y);
+ 
++int ass_gaussian_blur_padding(double r2);
++bool ass_gaussian_blur_budget(const BitmapEngine *engine, int w, int h,
++                              double r2, size_t max_pixels);
+ bool ass_gaussian_blur(const BitmapEngine *engine, Bitmap *bm, double r2x, double r2y);
+ void ass_shift_bitmap(Bitmap *bm, int shift_x, int shift_y);
+ void ass_fix_outline(Bitmap *bm_g, Bitmap *bm_o);
+--- a/libass/ass_blur.c
++++ b/libass/ass_blur.c
+@@ -165,6 +165,31 @@
+         blur->coeff[i] = (int) (0x10000 * mu[i] + 0.5);
+ }
+ 
++/* The left expansion is ((radius + 4) << level) - 4. Subtracting
++ * it from the aligned output width gives a right expansion bounded by
++ * ((radius + 5) << level) - 5, attained for an aligned (w + offset).
++ * The same bound applies independently to height. */
++int ass_gaussian_blur_padding(double r2)
++{
++    BlurMethod blur;
++    find_best_method(&blur, r2);
++    return ((blur.radius + 5) << blur.level) - 5;
++}
++
++/* Match the aligned temporary dimensions used below before allocating them. */
++bool ass_gaussian_blur_budget(const BitmapEngine *engine, int w, int h,
++                              double r2, size_t max_pixels)
++{
++    BlurMethod blur;
++    find_best_method(&blur, r2);
++    int offset = ((2 * blur.radius + 9) << blur.level) - 5;
++    uint64_t end_w = (((uint64_t) w + offset) & ~((1ULL << blur.level) - 1)) - 4;
++    uint64_t end_h = (((uint64_t) h + offset) & ~((1ULL << blur.level) - 1)) - 4;
++    const unsigned stripe_width = 1 << (engine->align_order - 1);
++    uint64_t size = ((end_w + stripe_width - 1) & ~(uint64_t)(stripe_width - 1)) * end_h;
++    return size <= max_pixels && size <= INT_MAX / 4;
++}
++
+ /**
+  * \brief Perform approximate gaussian blur
+  * \param r2x in: desired standard deviation along X axis squared
+--- a/libass/ass_render.c
++++ b/libass/ass_render.c
+@@ -2497,6 +2497,54 @@
+     const double scale = 64 * BLUR_PRECISION / POSITION_PRECISION;
+     double sigma = expm1(BLUR_PRECISION * qblur) / scale;
+     return sigma * sigma;
++}
++
++int ass_blur_padding(double radius)
++{
++    if (!isfinite(radius) || radius < 0 || radius > BLUR_MAX_RADIUS)
++        return -1;
++    int32_t shadow_mask;
++    double r2 = restore_blur(quantize_blur(radius * (2 / sqrt(log(256))), &shadow_mask));
++    return r2 > 0.001 ? ass_gaussian_blur_padding(r2) : 0;
++}
++
++/* Use the same radius quantization and kernel as native ASS glyph blur,
++ * but accept coverage already partitioned by material. */
++int ass_blur_coverage(ASS_Renderer *priv, const unsigned char *data, int w, int h,
++                      double radius, size_t max_pixels, ASS_Coverage *out)
++{
++    if (!priv || !data || !out || w <= 0 || h <= 0 || !isfinite(radius) ||
++        radius < 0 || radius > BLUR_MAX_RADIUS)
++        return -1;
++    const BitmapEngine *engine = &priv->engine;
++    const unsigned align = 1 << engine->align_order;
++    uint64_t input_size = (((uint64_t) w + align - 1) & ~(uint64_t)(align - 1)) * h;
++    if (input_size > max_pixels || input_size > INT_MAX - align)
++        return -2;
++    int32_t shadow_mask;
++    double r2 = restore_blur(quantize_blur(radius * (2 / sqrt(log(256))), &shadow_mask));
++    if (r2 > 0.001 && !ass_gaussian_blur_budget(engine, w, h, r2, max_pixels))
++        return -2;
++    Bitmap bitmap = {0};
++    if (!ass_alloc_bitmap(engine, &bitmap, w, h, true))
++        return -3;
++    for (int y = 0; y < h; y++)
++        memcpy(bitmap.buffer + y * bitmap.stride, data + (size_t) y * w, w);
++    if (r2 > 0.001 && !ass_gaussian_blur(engine, &bitmap, r2, r2)) {
++        ass_free_bitmap(&bitmap);
++        return -3;
++    }
++    *out = (ASS_Coverage) {bitmap.left, bitmap.top, bitmap.w, bitmap.h,
++                          bitmap.stride, bitmap.buffer};
++    return 0;
++}
++
++void ass_free_coverage(ASS_Coverage *coverage)
++{
++    if (!coverage) return;
++    Bitmap bitmap = {.buffer = coverage->buffer};
++    ass_free_bitmap(&bitmap);
++    memset(coverage, 0, sizeof(*coverage));
+ }
+ 
+ // Convert glyphs to bitmaps, combine them, apply blur, generate shadows.
+--- a/libass/libass.sym
++++ b/libass/libass.sym
+@@ -49,3 +49,6 @@
+ ass_prune_events
+ ass_configure_prune
+ ass_get_metrics
++ass_blur_coverage
++ass_free_coverage
++ass_blur_padding

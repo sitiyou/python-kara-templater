@@ -61,7 +61,7 @@ jobs:
             libpng-dev fonts-dejavu-core
       - name: Install and test source distribution
         run: |
-          python -m pip install pytest 'setuptools>=77' dist/*.tar.gz
+          python -m pip install --group checks dist/*.tar.gz
           python - <<'PY'
           import shutil
           import subprocess
@@ -78,9 +78,10 @@ jobs:
               package, = (root / "source").iterdir()
               check = root / "check"
               check.mkdir()
-              for name in ("tests", "examples", "tools"):
+              for name in ("tests", "examples", "tools", "docs"):
                   shutil.copytree(package / name, check / name)
-              shutil.copy2(package / "setup.py", check / "setup.py")
+              for name in ("setup.py", "README.md", "pyproject.toml"):
+                  shutil.copy2(package / name, check / name)
               # No kara_templater source directory is copied into the test cwd.
               subprocess.run([sys.executable, "-m", "pytest", "tests", "-v"], cwd=check, check=True)
               subprocess.run(["kara-templater", "examples/karaoke.ass", "output.ass"], cwd=check, check=True)

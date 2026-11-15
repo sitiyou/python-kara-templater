@@ -19,8 +19,10 @@ extern "C" {
 struct Context {
     ASS_Library *library = nullptr;
     ASS_Renderer *renderer = nullptr;
+    ASS_Renderer *raster_renderer = nullptr;
 
     ~Context() {
+        if (raster_renderer) ass_renderer_done(raster_renderer);
         if (renderer) ass_renderer_done(renderer);
         if (library) ass_library_done(library);
     }
@@ -180,6 +182,111 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
 static PyObject *extents(PyObject *module, PyObject *args) { return measure(module, args, false); }
 static PyObject *shape(PyObject *module, PyObject *args) { return measure(module, args, true); }
 
+// Keep raster caches and output resolution separate from shape measurement.
+// Fonts share the library, and callers receive owned packed bitmap copies.
+static PyObject *rasterize(PyObject *module, PyObject *args) {
+    const char *script;
+    Py_ssize_t size, max_pixels, max_images;
+    long long time;
+    int width, height;
+    if (!PyArg_ParseTuple(args, "s#Liinn", &script, &size, &time, &width, &height,
+                          &max_pixels, &max_images)) return nullptr;
+    if (width <= 0 || height <= 0 || max_pixels <= 0 || max_images <= 0 ||
+        static_cast<long long>(width) * height > max_pixels || size > 16 * 1024 * 1024) {
+        PyErr_SetString(PyExc_ValueError, "Raster dimensions or script exceed the declared budget");
+        return nullptr;
+    }
+    auto *ctx = get_context(module);
+    if (!ctx) return nullptr;
+    if (!ctx->raster_renderer) {
+        ctx->raster_renderer = ass_renderer_init(ctx->library);
+        if (!ctx->raster_renderer) return PyErr_NoMemory();
+        ass_set_fonts(ctx->raster_renderer, nullptr, "sans-serif", ASS_FONTPROVIDER_AUTODETECT, nullptr, 1);
+    }
+    ass_set_frame_size(ctx->raster_renderer, width, height);
+    ass_set_storage_size(ctx->raster_renderer, width, height);
+    // ass_read_memory does not retain the input, but its public API takes char*.
+    std::unique_ptr<ASS_Track, decltype(&ass_free_track)> track(
+        ass_read_memory(ctx->library, const_cast<char *>(script), size, nullptr), ass_free_track);
+    if (!track) {
+        PyErr_SetString(PyExc_ValueError, "Could not parse raster ASS input");
+        return nullptr;
+    }
+    ASS_Image *images = ass_render_frame(ctx->raster_renderer, track.get(), time, nullptr);
+    Py_ssize_t pixels = 0, count = 0;
+    for (auto *image = images; image; image = image->next) {
+        if (!image->w || !image->h) continue;
+        const long long area = static_cast<long long>(image->w) * image->h;
+        if (area > max_pixels - pixels || ++count > max_images) {
+            PyErr_SetString(PyExc_ValueError, "Raster image coverage exceeds the declared budget");
+            return nullptr;
+        }
+        pixels += area;
+    }
+    PyObject *result = PyList_New(0);
+    if (!result) return nullptr;
+    for (auto *image = images; image; image = image->next) {
+        if (!image->w || !image->h) continue;
+        PyObject *data = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(image->w) * image->h);
+        if (!data) { Py_DECREF(result); return nullptr; }
+        char *destination = PyBytes_AS_STRING(data);
+        for (int y = 0; y < image->h; ++y)
+            memcpy(destination + static_cast<Py_ssize_t>(y) * image->w,
+                   image->bitmap + static_cast<ptrdiff_t>(y) * image->stride, image->w);
+        PyObject *value = Py_BuildValue("(iiiiiIN)", image->dst_x, image->dst_y,
+            image->w, image->h, static_cast<int>(image->type), image->color, data);
+        if (!value || PyList_Append(result, value) < 0) {
+            Py_XDECREF(value); Py_DECREF(result); return nullptr;
+        }
+        Py_DECREF(value);
+    }
+    return result;
+}
+
+static PyObject *blur_padding(PyObject *, PyObject *args) {
+    double radius;
+    if (!PyArg_ParseTuple(args, "d", &radius)) return nullptr;
+    int padding = ass_blur_padding(radius);
+    if (padding < 0) {
+        PyErr_SetString(PyExc_ValueError, "Blur radius must be finite and in 0..100 ASS pixels");
+        return nullptr;
+    }
+    return PyLong_FromLong(padding);
+}
+
+static PyObject *blur_mask(PyObject *module, PyObject *args) {
+    const char *data;
+    Py_ssize_t size, max_pixels;
+    int width, height;
+    double radius;
+    if (!PyArg_ParseTuple(args, "y#iidn", &data, &size, &width, &height, &radius, &max_pixels))
+        return nullptr;
+    if (width <= 0 || height <= 0 || static_cast<long long>(width) * height != size || max_pixels <= 0) {
+        PyErr_SetString(PyExc_ValueError, "Invalid blur coverage dimensions or budget");
+        return nullptr;
+    }
+    auto *ctx = get_context(module);
+    if (!ctx) return nullptr;
+    ASS_Coverage coverage = {};
+    int status = ass_blur_coverage(ctx->renderer, reinterpret_cast<const unsigned char *>(data),
+                                  width, height, radius, max_pixels, &coverage);
+    if (status) {
+        if (status == -3) return PyErr_NoMemory();
+        PyErr_SetString(PyExc_ValueError, status == -2 ? "Blur workspace exceeds the declared budget" :
+                        "Blur radius must be finite and in 0..100 ASS pixels");
+        return nullptr;
+    }
+    PyObject *pixels = PyBytes_FromStringAndSize(nullptr, static_cast<Py_ssize_t>(coverage.w) * coverage.h);
+    if (!pixels) { ass_free_coverage(&coverage); return nullptr; }
+    char *destination = PyBytes_AS_STRING(pixels);
+    for (int y = 0; y < coverage.h; ++y)
+        memcpy(destination + static_cast<Py_ssize_t>(y) * coverage.w,
+               coverage.buffer + y * coverage.stride, coverage.w);
+    PyObject *result = Py_BuildValue("(iiiiN)", coverage.left, coverage.top, coverage.w, coverage.h, pixels);
+    ass_free_coverage(&coverage);
+    return result;
+}
+
 static PyObject *add_font(PyObject *module, PyObject *args) {
     const char *name, *data;
     Py_ssize_t size;
@@ -206,6 +313,8 @@ static PyObject *add_font(PyObject *module, PyObject *args) {
     if (!ctx) return nullptr;
     ass_add_font(ctx->library, name, data, static_cast<int>(size));
     ass_set_fonts(ctx->renderer, nullptr, "sans-serif", ASS_FONTPROVIDER_AUTODETECT, nullptr, 1);
+    if (ctx->raster_renderer)
+        ass_set_fonts(ctx->raster_renderer, nullptr, "sans-serif", ASS_FONTPROVIDER_AUTODETECT, nullptr, 1);
     return PyUnicode_DecodeUTF8(family.data(), family.size(), "replace");
 }
 
@@ -218,6 +327,9 @@ static PyMethodDef methods[] = {
     {"text_extents", extents, METH_VARARGS, nullptr},
     {"text_shape", shape, METH_VARARGS, nullptr},
     {"add_font", add_font, METH_VARARGS, nullptr},
+    {"rasterize", rasterize, METH_VARARGS, nullptr},
+    {"blur_padding", blur_padding, METH_VARARGS, nullptr},
+    {"blur_mask", blur_mask, METH_VARARGS, nullptr},
     {nullptr, nullptr, 0, nullptr}
 };
 

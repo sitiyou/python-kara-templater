@@ -1,0 +1,379 @@
+{
+  "scope": "E04 36 authored particles and birth capture; actual isolated ASS cursor/echo history and six native linear petals",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "reference_inputs": {
+    "cursor_start": [
+      497.390625,
+      336.0625
+    ],
+    "cursor_distance": 285.21875,
+    "note": "author geometry parameters; absolute lyric layout is not independently checked"
+  },
+  "isolated_ass_sha256": {
+    "cursor-0.ass": "9119cdccb844c55c4a40e1715b4f8c1f9e04e5747d6fda98692abfa86079cdf4",
+    "cursor-1.ass": "b175e991d5712fe988e1db3f23d986a2ea0cd0e6af85b34f82898c8717a0f157",
+    "cursor-2.ass": "8560a5811f89f3de788518bcc127eb71f934d4a20a0c08120f3a7850cbea48b7",
+    "cursor-3.ass": "945cf15c210860d9a6028f4018db7655e65b9cddb6125891b400ec06ca864a80",
+    "cursor-4.ass": "b525df43e8d07ae24d3fbaf526b73fc2868bc6e18cf0c583e42ae178964b8f91",
+    "straight-0.ass": "3806eb5ac2cfdf210d1cc08aba17e9acb2cffa630b9379b9fe33d465a7497141",
+    "straight-1.ass": "01d62c5df7f8ad1504cb5847b2c14b69aefa01fdd0648346661ff4975ad1552c",
+    "straight-2.ass": "5e3f7b041bdb2e1ca8f1d4e60034cf39ea00024b0e487ea089bbaab58061fccb",
+    "straight-3.ass": "c71f569379a35250add2573076a41389a1127a3351ee6dfc0177b937c297b9e3",
+    "straight-4.ass": "09dc773af91d1b59b8183ef6d710c69c0205a5a0877b51ab5dd207758dcf1d27",
+    "straight-5.ass": "2d00dbd0cf5c614dcb07e16d9e01433fa7f006d03dc02fb0c97731c20a0601a1"
+  },
+  "schedules_seconds": {
+    "ambient": [
+      0.0,
+      0.11764705882352941,
+      0.23529411764705882,
+      0.35294117647058826,
+      0.47058823529411764,
+      0.5882352941176471,
+      0.7058823529411765,
+      0.8235294117647058,
+      0.9411764705882353,
+      1.0588235294117647,
+      1.1764705882352942,
+      1.2941176470588236,
+      1.411764705882353,
+      1.5294117647058822,
+      1.6470588235294117,
+      1.7647058823529411,
+      1.8823529411764706,
+      2.0
+    ],
+    "straight": [
+      0.0,
+      0.25,
+      0.5,
+      0.75,
+      1.0,
+      1.25
+    ],
+    "sung": [
+      1.0,
+      1.0833333333333333,
+      1.1666666666666667,
+      1.25,
+      1.3333333333333333,
+      1.4166666666666667,
+      1.5,
+      1.5833333333333335,
+      1.6666666666666665,
+      1.75,
+      1.8333333333333335,
+      1.9166666666666665
+    ]
+  },
+  "particle_lifetime_seconds": 3,
+  "birth_capture_checks": 12,
+  "cursor_and_echo_checks": [
+    {
+      "id": "cursor",
+      "time_ms": 1000,
+      "position_error_px": 0.06478776270713339,
+      "ass_alpha": 0
+    },
+    {
+      "id": "cursor",
+      "time_ms": 1001,
+      "position_error_px": 0.08251753894418558,
+      "ass_alpha": 0
+    },
+    {
+      "id": "cursor",
+      "time_ms": 1250,
+      "position_error_px": 0.08410140053634722,
+      "ass_alpha": 0
+    },
+    {
+      "id": "cursor",
+      "time_ms": 1500,
+      "position_error_px": 0.06381516737397987,
+      "ass_alpha": 0
+    },
+    {
+      "id": "cursor",
+      "time_ms": 1750,
+      "position_error_px": 0.08506016337382981,
+      "ass_alpha": 0
+    },
+    {
+      "id": "cursor",
+      "time_ms": 1999,
+      "position_error_px": 0.08067918455168524,
+      "ass_alpha": 0
+    },
+    {
+      "id": "cursor/echo:1",
+      "time_ms": 1060,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 153
+    },
+    {
+      "id": "cursor/echo:1",
+      "time_ms": 1061,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 153
+    },
+    {
+      "id": "cursor/echo:1",
+      "time_ms": 1310,
+      "position_error_px": 0.08410140053634722,
+      "ass_alpha": 153
+    },
+    {
+      "id": "cursor/echo:1",
+      "time_ms": 1560,
+      "position_error_px": 0.06713223099847933,
+      "ass_alpha": 153
+    },
+    {
+      "id": "cursor/echo:1",
+      "time_ms": 1810,
+      "position_error_px": 0.08506016337382981,
+      "ass_alpha": 153
+    },
+    {
+      "id": "cursor/echo:1",
+      "time_ms": 2059,
+      "position_error_px": 0.06398786080935219,
+      "ass_alpha": 153
+    },
+    {
+      "id": "cursor/echo:2",
+      "time_ms": 1120,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 184
+    },
+    {
+      "id": "cursor/echo:2",
+      "time_ms": 1121,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 184
+    },
+    {
+      "id": "cursor/echo:2",
+      "time_ms": 1370,
+      "position_error_px": 0.08410140053634722,
+      "ass_alpha": 184
+    },
+    {
+      "id": "cursor/echo:2",
+      "time_ms": 1620,
+      "position_error_px": 0.06713223099847933,
+      "ass_alpha": 184
+    },
+    {
+      "id": "cursor/echo:2",
+      "time_ms": 1870,
+      "position_error_px": 0.08506016337382981,
+      "ass_alpha": 184
+    },
+    {
+      "id": "cursor/echo:2",
+      "time_ms": 2119,
+      "position_error_px": 0.06398786080935219,
+      "ass_alpha": 184
+    },
+    {
+      "id": "cursor/echo:3",
+      "time_ms": 1180,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 205
+    },
+    {
+      "id": "cursor/echo:3",
+      "time_ms": 1181,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 205
+    },
+    {
+      "id": "cursor/echo:3",
+      "time_ms": 1430,
+      "position_error_px": 0.08410140053634722,
+      "ass_alpha": 205
+    },
+    {
+      "id": "cursor/echo:3",
+      "time_ms": 1680,
+      "position_error_px": 0.06713223099847933,
+      "ass_alpha": 205
+    },
+    {
+      "id": "cursor/echo:3",
+      "time_ms": 1930,
+      "position_error_px": 0.08506016337382981,
+      "ass_alpha": 205
+    },
+    {
+      "id": "cursor/echo:3",
+      "time_ms": 2179,
+      "position_error_px": 0.06398786080935219,
+      "ass_alpha": 205
+    },
+    {
+      "id": "cursor/echo:4",
+      "time_ms": 1240,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 220
+    },
+    {
+      "id": "cursor/echo:4",
+      "time_ms": 1241,
+      "position_error_px": 0.06415425241072853,
+      "ass_alpha": 220
+    },
+    {
+      "id": "cursor/echo:4",
+      "time_ms": 1490,
+      "position_error_px": 0.08410140053634722,
+      "ass_alpha": 220
+    },
+    {
+      "id": "cursor/echo:4",
+      "time_ms": 1740,
+      "position_error_px": 0.06713223099847933,
+      "ass_alpha": 220
+    },
+    {
+      "id": "cursor/echo:4",
+      "time_ms": 1990,
+      "position_error_px": 0.08506016337382981,
+      "ass_alpha": 220
+    },
+    {
+      "id": "cursor/echo:4",
+      "time_ms": 2239,
+      "position_error_px": 0.06398786080935219,
+      "ass_alpha": 220
+    }
+  ],
+  "straight_checks": [
+    {
+      "id": "straight/0",
+      "age_ms": 1000,
+      "displacement_error_px": 0.016290559167805457
+    },
+    {
+      "id": "straight/0",
+      "age_ms": 1500,
+      "displacement_error_px": 0.03400880191799718
+    },
+    {
+      "id": "straight/0",
+      "age_ms": 2000,
+      "displacement_error_px": 0.05126154893268727
+    },
+    {
+      "id": "straight/1",
+      "age_ms": 1000,
+      "displacement_error_px": 0.04670997886872898
+    },
+    {
+      "id": "straight/1",
+      "age_ms": 1500,
+      "displacement_error_px": 0.030935039707130376
+    },
+    {
+      "id": "straight/1",
+      "age_ms": 2000,
+      "displacement_error_px": 0.01823279565219982
+    },
+    {
+      "id": "straight/2",
+      "age_ms": 1000,
+      "displacement_error_px": 0.01216454987979044
+    },
+    {
+      "id": "straight/2",
+      "age_ms": 1500,
+      "displacement_error_px": 0.025545581165577723
+    },
+    {
+      "id": "straight/2",
+      "age_ms": 2000,
+      "displacement_error_px": 0.0419749656022463
+    },
+    {
+      "id": "straight/3",
+      "age_ms": 1000,
+      "displacement_error_px": 0.054921104333487666
+    },
+    {
+      "id": "straight/3",
+      "age_ms": 1500,
+      "displacement_error_px": 0.10334015041507033
+    },
+    {
+      "id": "straight/3",
+      "age_ms": 2000,
+      "displacement_error_px": 0.02996921841101141
+    },
+    {
+      "id": "straight/4",
+      "age_ms": 1000,
+      "displacement_error_px": 0.010973631100609412
+    },
+    {
+      "id": "straight/4",
+      "age_ms": 1500,
+      "displacement_error_px": 0.019483057016606787
+    },
+    {
+      "id": "straight/4",
+      "age_ms": 2000,
+      "displacement_error_px": 0.02910363693863187
+    },
+    {
+      "id": "straight/5",
+      "age_ms": 1000,
+      "displacement_error_px": 0.005077959862045719
+    },
+    {
+      "id": "straight/5",
+      "age_ms": 1500,
+      "displacement_error_px": 0.012389612378228927
+    },
+    {
+      "id": "straight/5",
+      "age_ms": 2000,
+      "displacement_error_px": 0.019043429545561145
+    }
+  ],
+  "particle_group_costs": {
+    "ambient": {
+      "event_count": 2718,
+      "peak_active": 18,
+      "byte_count": 1524032,
+      "strategies": {
+        "sampled": 18
+      }
+    },
+    "straight": {
+      "event_count": 6,
+      "peak_active": 6,
+      "byte_count": 4497,
+      "strategies": {
+        "native-move": 6
+      }
+    },
+    "sung": {
+      "event_count": 1812,
+      "peak_active": 12,
+      "byte_count": 1010536,
+      "strategies": {
+        "sampled": 12
+      }
+    }
+  },
+  "related_reports": [
+    "sakura-flutter-validation.json",
+    "particle-composite-validation.json"
+  ],
+  "remaining": [
+    "continuous-time error for sampled echoes",
+    "other renderers"
+  ]
+}

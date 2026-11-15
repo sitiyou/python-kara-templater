@@ -33,6 +33,10 @@ def native_motions(
     motions: Sequence[BoundProperty], window_end: int
 ) -> tuple[BoundProperty, ...] | None:
     """Return disjoint known linear rules, or None when sampling is needed."""
+    if len({motion.scope for motion in motions}) > 1:
+        # Ancestor values combine with descendant values; ordinary "replace"
+        # tracks in different scopes are not independent native animations.
+        return None
     if any(m.points is None for m in motions):
         return None
     if any(
@@ -92,6 +96,8 @@ def native_motions(
 def lower_offsets(
     layers: tuple[TextLayer, ...], property_targets
 ) -> tuple[TextLayer, ...]:
+    from .behaviors import needs_affine_sampling
+
     window_ends = {}
     for layer in layers:
         identity = layer.animation_id or layer.source_id
@@ -100,6 +106,8 @@ def lower_offsets(
         )
     native = {}
     for identity, motions in tuple(property_targets.items()):
+        if needs_affine_sampling(motions):
+            continue
         converted, animations = set(), []
         for name, axis in (("offset_x", "x"), ("offset_y", "y")):
             selected = tuple(m for m in motions if m.property == name)

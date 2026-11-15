@@ -1,6 +1,7 @@
 """Explicit sampling of user property functions on an absolute time grid."""
 
 import hashlib
+from bisect import bisect_right
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .ass_output import TextLayer
 
+from .composition import Color
 from .timeline import DisplayWindow, Region, _finite
 
 
@@ -40,6 +42,11 @@ class DynamicProperties:
     glow_opacity: float | None = None
     scale: float = 1
     pivot: tuple[float, float] | None = None
+    fill: Color | None = None
+    stroke: Color | None = None
+    stroke_width: float | None = None
+    glow_color: Color | None = None
+    glow_width: float | None = None
 
     def __post_init__(self) -> None:
         for name in ("offset_x", "offset_y", "opacity"):
@@ -62,6 +69,14 @@ class DynamicProperties:
             _finite(self.glow_blur, "dynamic glow blur")
             if self.glow_blur < 0:
                 raise ValueError("dynamic glow blur cannot be negative")
+        for value in (self.fill, self.stroke, self.glow_color):
+            if value is not None and not isinstance(value, Color):
+                raise TypeError("dynamic material colors must be Color")
+        for value in (self.stroke_width, self.glow_width):
+            if value is not None:
+                _finite(value, "dynamic material width")
+                if value < 0:
+                    raise ValueError("dynamic material widths cannot be negative")
 
 
 @dataclass(frozen=True)
@@ -82,8 +97,11 @@ class DynamicEffect:
     sampling: SamplingSettings = SamplingSettings()
     seed: int = 0
     max_glow_blur: float | None = None
+    breakpoints: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
+        for time in self.breakpoints:
+            _finite(time, "sampling breakpoint")
         if not callable(self.function):
             raise TypeError("dynamic effect requires a property function")
         if type(self.seed) is not int:
@@ -157,6 +175,18 @@ class SamplingPlan:
                 cache[key] = value
             value = cache[key]
             paint = replace(layer.paint, opacity=layer.paint.opacity * value.opacity)
+            if value.fill is not None:
+                paint = replace(paint, fill=value.fill)
+            if value.stroke is not None:
+                paint = replace(paint, outline=value.stroke)
+            if value.stroke_width is not None:
+                paint = replace(paint, border=value.stroke_width)
+            if paint.glow is not None and value.glow_color is not None:
+                paint = replace(paint, glow=replace(paint.glow, color=value.glow_color))
+            if paint.glow is not None and value.glow_width is not None:
+                paint = replace(
+                    paint, glow=replace(paint.glow, border=value.glow_width)
+                )
             if paint.glow is not None and value.glow_blur is not None:
                 paint = replace(paint, glow=replace(paint.glow, blur=value.glow_blur))
             if paint.glow is not None and value.glow_opacity is not None:
@@ -266,6 +296,7 @@ def prepare_sampling(
         raise ValueError("max_events must be a nonnegative integer")
     intervals, keys, estimated = [], set(), 0
     step = effect.sampling.step_ms
+    breakpoints = sorted({quantize(t) for t in effect.breakpoints})
     for layer in layers:
         if not layer.text.strip():
             continue
@@ -276,6 +307,9 @@ def prepare_sampling(
         cursor = start
         while cursor < end:
             stop = min(end, (cursor // step + 1) * step)
+            index = bisect_right(breakpoints, cursor)
+            if index < len(breakpoints):
+                stop = min(stop, breakpoints[index])
             active = layer.clips is None or any(
                 quantize(s.start_ms) < stop
                 and quantize(s.end_ms) > cursor
@@ -284,6 +318,8 @@ def prepare_sampling(
             )
             if active:
                 time = max(quantize(layer.window.start_ms), cursor // step * step)
+                if index:
+                    time = max(time, breakpoints[index - 1])
                 keys.add((layer.animation_id or layer.source_id, layer.window, time))
                 estimated += layer.pass_count
                 if len(keys) > effect.sampling.max_samples or estimated > max_events:

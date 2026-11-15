@@ -1,0 +1,18 @@
+{
+  "source_archive": "kara_templater-0.2.1.tar.gz",
+  "sha256": "145e8d0eeacbffae33e0a3aecac8a4b966de7f5c968d0d6c6f14a10b6be64452",
+  "previous_archive_sha256": "1a939536930948bcec2f15afdd3f2b1132c012f4a17a34866d7d634334f9fbd9",
+  "changed_files": [
+    "docs/releasing.md",
+    "examples/scene_cues.py",
+    "examples/scene_staggered.py",
+    "kara_templater.egg-info/SOURCES.txt",
+    "tests/test_track_docs.py",
+    "tools/validate_distribution.py"
+  ],
+  "added_files": [],
+  "removed_files": [],
+  "library_and_native_source_unchanged": true,
+  "example_changes": "Two CLI status messages made ASCII; all twelve build() ASTs verified unchanged",
+  "scope": "Windows validation source snapshot; existing cp312/cp313 wheels reused with strict module comparison; cp314 built from this archive"
+}

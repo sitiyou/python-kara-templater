@@ -1,0 +1,79 @@
+{
+  "scope": "coverage scene smoke preview; full E01\u2013E12 acceptance pending",
+  "resolution": "320x180",
+  "generation_seconds": 10.439718397014076,
+  "render_seconds": 9.39433211699361,
+  "event_count": 117000,
+  "peak_active": 5674,
+  "byte_count": 32676006,
+  "estimated_events": 234000,
+  "max_time_quantization_seconds": 8.881784197001252e-16,
+  "repeat_generation_identical": true,
+  "continuous_frames": 300,
+  "fresh_seek_matches_continuous": true,
+  "seek_frame_md5": {
+    "5.0": "8a989bb26edbd3c90d9635318519d388",
+    "4.2": "394604fcc36db6385047aa0c0d3d63f4",
+    "3.8": "adaa56a9da7734f8b4a87fa17aac28d8",
+    "2.5": "769a7b878965b32cc430b05568266d30",
+    "1.2": "dcd7183d349e7050b62bdbe46761865e",
+    "0.8": "841106047042f815db4f7c916d920cb4",
+    "0.0": "6cb3c8d1296452c2bc130fef7f8955c2"
+  },
+  "preview_seconds": [
+    0.0,
+    0.8,
+    1.2,
+    2.5,
+    3.8,
+    4.2,
+    5.0
+  ],
+  "renderer": [
+    "[Parsed_ass_0 @ 0x55b288b07840] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x55b288b07840] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_0 @ 0x7f18d4003d00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x7f18d4003d00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)"
+  ],
+  "font": "tests/fonts/DejaVuSans.ttf (repository license)",
+  "font_family": "DejaVu Sans",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "font_assets": [
+    {
+      "path": "tests/fonts/DejaVuSans.ttf",
+      "family": "DejaVu Sans",
+      "sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c"
+    }
+  ],
+  "strategies": [
+    {
+      "strategy": "native-event",
+      "objects": 117000
+    }
+  ],
+  "remaining": [
+    "all-background comparisons",
+    "reference error measurements",
+    "remaining E01\u2013E12 effects"
+  ],
+  "raster_settings": {
+    "max_channel_error": 8,
+    "max_pixels": 4000000,
+    "max_images": 50000,
+    "max_frame_events": 50000,
+    "max_rectangles": 200000,
+    "max_frame_chars": 8000000,
+    "max_output_chars": 64000000,
+    "max_frames": 100,
+    "max_cached_masks": 128
+  },
+  "scene_budget": {
+    "fps": 10,
+    "max_events": 250000,
+    "max_bytes": 134217728,
+    "max_active": 10000,
+    "max_path_points": 4096,
+    "max_bands": 1024,
+    "max_boolean_work": 1000000
+  }
+}

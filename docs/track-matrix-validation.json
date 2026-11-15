@@ -1,0 +1,2159 @@
+{
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "times_ms": [
+    500,
+    1000,
+    1240,
+    1480,
+    1520,
+    1760,
+    2000,
+    2500
+  ],
+  "ffmpeg": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "contract": "Static endpoints and onset compared to static paints on two backgrounds; unstyled geometry compared to independent whole-text ASS. Intermediate hard clipping is not ideal material composition.",
+  "cases": [
+    {
+      "case": "italic",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.0019332589999976335,
+          "events": 8,
+          "layers": 4,
+          "ass_bytes": 2684,
+          "ass_sha256": "9cbc7ea98d3c138fd343bfb748bbf8707183cea7a204261ff8758819eb98944d",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:3:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.0019610800009104423,
+          "events": 32,
+          "layers": 16,
+          "ass_bytes": 9692,
+          "ass_sha256": "fdfa47da7ab9469bd56dc26b9c937e231d670dd096112c93a45c5748ec7a0242",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:3:4: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:3:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.0009513259992672829,
+          "events": 8,
+          "layers": 4,
+          "ass_bytes": 2684,
+          "ass_sha256": "a7dfa267f04866199ab76918726baed684ddaa6440cd93e9ff6ca98bd836b9e3",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:3:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.0009251880001102109,
+          "events": 4,
+          "layers": 4,
+          "ass_bytes": 1592,
+          "ass_sha256": "ae23b12fd010e7ec76870a36865f3c4514e0657c0432a85a89040498cd6e5e78",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Oblique",
+            73
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            77
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            57
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 100) -> /usr/share/fonts/TTF/DejaVuSans-Oblique.ttf, 0, DejaVuSans-Oblique"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/TTF/DejaVuSans-Oblique.ttf": "cf41fd01245e40e783ce3eae0bba5c38927a2497889dde1266d8757b9c84de1a"
+      },
+      "renderer_seconds": {
+        "before-black": 0.10561143099948822,
+        "sweep-black": 0.10791464199974143,
+        "after-black": 0.10586772399983602,
+        "before-white": 0.10805822700058343,
+        "sweep-white": 0.1079016989988304,
+        "after-white": 0.10657600199920125
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 45,
+          "mean_channel_error": 0.014194878472222222,
+          "changed_pixels": 496
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 46,
+          "mean_channel_error": 0.015327690972222223,
+          "changed_pixels": 520
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "1bddfa343fe6c7e7739dab373596154e2b84a042482ba53f8ada86d103eb6403"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "9c7eab1b529851a251caf0cd11909d8d93bde967c77f8f5d9c248eb77ca7af5d"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "be16b7a229eb596180de3e5e4cbaf34233581bb525affcb83fa4fb10dc3a683b"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "ee1aa41c3d1aa0ad036c608c519e1e777a3f0f07c7d53b885ef488fbd4c40cbc"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "b8996a57b138bd95e5f29de006b51c05823dc19e6435eed657987121d1d46b5b"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "5f89dc0b26b8d80ee6f41f28d14f96dd1d3ece6c56a51215def70d30fcb6469d"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "c673e1afec2b58c3149071a8ce40f5df7f22d804aaf862012ee4106a3963a598"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "c673e1afec2b58c3149071a8ce40f5df7f22d804aaf862012ee4106a3963a598"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "bf8e9ba8aa29f2f1f2f06823e35f81dcc2a0ad196acdf3ce4df6361633784ef3"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "65fbb0401a51ea54b1b5bca5c73c00d639e3f480d999762351cb3615d4f91946"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "4cd85f4a7c9b8b16861696c4b7a4275be4516d4a4da9b0be9b514451fb2e8d23"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "169e41c279a10fa6a6515a623d6e621f50acdbe47d89f7ea7be80740a6c72786"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "05fc66214b59b973685d45af974f22ba0cb66afc0a782a841311400c54b3e73a"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "699f1f1bd89eb0aefd8aab6fa0bbe2faafe73fe01cff82c98a6ab89cba39d9b4"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "ca7243e2955f29baf4a4f7984bb042e132e28e37edb0f3121fdf8583a5a31136"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "ca7243e2955f29baf4a4f7984bb042e132e28e37edb0f3121fdf8583a5a31136"
+        }
+      ]
+    },
+    {
+      "case": "spaces",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.0017672920002951287,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1591,
+          "ass_sha256": "8a8fbf2f19f19d36d861a5a0dfa1c7c00e7ac72a5fd55a5c605f86f61dfe2e07",
+          "diagnostics": [
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.001371741998809739,
+          "events": 16,
+          "layers": 8,
+          "ass_bytes": 5095,
+          "ass_sha256": "735ee4d3a49ac9a073d59878f48121d92f317a18901ad0f1dc52429688562630",
+          "diagnostics": [
+            "matrix/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.0008456110008410178,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1591,
+          "ass_sha256": "53a6ad8aa3ccbc4068fbfacc0953f303675863ef7c43059dc778a82d1ad2dd4e",
+          "diagnostics": [
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.0007696810007473687,
+          "events": 2,
+          "layers": 2,
+          "ass_bytes": 1045,
+          "ass_sha256": "05e0c02f19362de1cb52d0ab3282a964b3d23d8200c80faf4ec70631eea2a88f",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {},
+      "renderer_seconds": {
+        "before-black": 0.08474406900131726,
+        "sweep-black": 0.08346896600050968,
+        "after-black": 0.08581271200091578,
+        "before-white": 0.08692669899937755,
+        "sweep-white": 0.0869385300011345,
+        "after-white": 0.08698347300014575
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "3479961755f8c7624143aa29d436b52312918cabc183a34f73367369ea9e1146"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "3479961755f8c7624143aa29d436b52312918cabc183a34f73367369ea9e1146"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "d110f46f765727fe7f5c381f7c452887497b150325dd60be0c6c1677f55ff477"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "2fd4433d0096d60e76ce533f43044461d2d8ec911ebdf3492e6244d30efdd09e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "2b2ce69480636d1648b2651db65805a1a91ad15d3840f351609bfc2378c694bd"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "fb10a506d814ed993b5ccaba3353f4723d220b592ad993bf9706265aba647cd3"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "a171b655a1920e2c402025fa178f97db222944c489998f4bb7c9fa503b62cb99"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "a171b655a1920e2c402025fa178f97db222944c489998f4bb7c9fa503b62cb99"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "e7eadfbc2c7a76cdddfe50eae7a844b7783e5dbc191647c82ca97646609eecca"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "e7eadfbc2c7a76cdddfe50eae7a844b7783e5dbc191647c82ca97646609eecca"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "2abd29ad57268f468ad1cb73f8f3d2ce8599ed60e84aaee63ac7c9d23ffbb708"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "ee5162cb685f74d6783bf660f620bce035cdc5a0fbe84a5d821df22f89d136a1"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "9ad690f805286b1f338967d259cdea45df1d5a04b5e34463a06c33ffeefdd35a"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "55efd0148f4a8115109b5e0a0de0e358c9ca900eba00268c74afb0a7f13b8344"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "674f0c62d94e180713c7c87886bbf8cf76740b8943d2e6d880536db3b72f2cc5"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "674f0c62d94e180713c7c87886bbf8cf76740b8943d2e6d880536db3b72f2cc5"
+        }
+      ]
+    },
+    {
+      "case": "fallback",
+      "font_requested": "KaraMissingFontForValidation",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.0015781830006744713,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1604,
+          "ass_sha256": "bed78c72b75f5b8c53460faafc538cc5e96286e889ff2f845b6c602b6f804d6f",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.0010938590003206627,
+          "events": 16,
+          "layers": 8,
+          "ass_bytes": 5096,
+          "ass_sha256": "20e86597794824650d4d953ff55b5563f6fbf6d1f88cbf302b9d9e9852774e45",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.0006256950000533834,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1604,
+          "ass_sha256": "ee2eec3d60fece1b27ced1dee2f801aa6470ac438cdafb881d1d0ca8cd514d9b",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.0005830260015500244,
+          "events": 2,
+          "layers": 2,
+          "ass_bytes": 1060,
+          "ass_sha256": "0d750eb76862f4ef9ca7df57200ca8576dfe61b85bc1ae86d461e0c813cda6bd",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "Sarasa UI SC",
+            "Regular",
+            1696
+          ],
+          [
+            "Sarasa UI SC",
+            "Regular",
+            1757
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(KaraMissingFontForValidation, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 0.08745812900087913,
+        "sweep-black": 0.0886297420001938,
+        "after-black": 0.08741608200034534,
+        "before-white": 0.08942535099959059,
+        "sweep-white": 0.08953579399894807,
+        "after-white": 0.09015957599876856
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 59,
+          "mean_channel_error": 0.013464626736111112,
+          "changed_pixels": 460
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 60,
+          "mean_channel_error": 0.014495442708333334,
+          "changed_pixels": 469
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "8938e543cc2a55fe76ad4dbc1dcbc0e6b433bd80b85ecc5e811fb5f1c2960b0f"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "0dc2843449fe55df50a178794bc6a0b4edd3cad609175ce5e99e8d68b1619c94"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "a2b9f801f0c97103fd964f7cf94b1380bd70c90b68ba0f405a0e81dd28dd0805"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "db31d8fa92ba4f856995fa907121f85ffd1838896f933528d961d69bce935d31"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "5ac248cfe2d3f38275f4fd63f881e4efe5c440c163aa024640c230ac87f923ba"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "fe3c3c3fb9df7ef2da909f5f82cc1af7f3739e007fee3e61989b8e3f5dc75a93"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "2db0096c887ba3ea5ad77d49dbbbbd5eb19f5b51c250b695b240b9e397d40ac3"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "2db0096c887ba3ea5ad77d49dbbbbd5eb19f5b51c250b695b240b9e397d40ac3"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "98825abf8eec5417a95447dda97ac95f5868757e2983d4d961000dcff4b52c97"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "1f2c2e57a4292d88f4ed4d2b3f1da26fee4388d819ff4ee9ec8434b18cb28ac6"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "d702855146cd094e52f07f72b56535198f1da393a7469add4d6aa6fea2180abf"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "6d380c3c28b8b9a6c2a4d981ff87eb4e5767f72a0be3d4b43fd0e22942e1b8cc"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "fcf4b7e0f20e6fa4991ff60dc84abe65f0aee53baf6b43adef44ad20b9f5d931"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "378774904a7a3a3ab2fef84cb6716c7afbb6e9d63c1f17af59c6b2a44ce516ad"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "2fdd29e3121d0d73b2dfc77d5678987ed19657b1ea053f43f688d445a6e529ab"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "2fdd29e3121d0d73b2dfc77d5678987ed19657b1ea053f43f688d445a6e529ab"
+        }
+      ]
+    },
+    {
+      "case": "ligature",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.001457841999581433,
+          "events": 8,
+          "layers": 4,
+          "ass_bytes": 2687,
+          "ass_sha256": "ba793d8b6e633e544b7363cdda9807445cba03f845fa38a412515f2c07825429",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:5:6: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.001798620000045048,
+          "events": 32,
+          "layers": 16,
+          "ass_bytes": 9707,
+          "ass_sha256": "51977f5c46092479383cf9ad8d9e2b0b560f40430b0662e536e53b153b1b44b7",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:4: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:5:6: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:5:6: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.0009882439990178682,
+          "events": 8,
+          "layers": 4,
+          "ass_bytes": 2687,
+          "ass_sha256": "5120e97a8462b7704832d59225289185eb47ec5042a8cbcbe94a5bc0f0155296",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:4:5: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:5:6: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.0009066239999810932,
+          "events": 4,
+          "layers": 4,
+          "ass_bytes": 1593,
+          "ass_sha256": "11d58dd0ee23475f3948f9222d7444eb14778f71cb64c46e79c410509018b3e0",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            82
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            5044
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            70
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            72
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {},
+      "renderer_seconds": {
+        "before-black": 0.1012232100001711,
+        "sweep-black": 0.10239724600069167,
+        "after-black": 0.10062548700079788,
+        "before-white": 0.10128199799873983,
+        "sweep-white": 0.10182412900030613,
+        "after-white": 0.10026092299995071
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 62,
+          "mean_channel_error": 0.01482421875,
+          "changed_pixels": 444
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 63,
+          "mean_channel_error": 0.0158203125,
+          "changed_pixels": 459
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "5a6ac507a3aa1f36c1d9d7318efa5e7471e5c6c9e689b8c7f5643c61c6784d61"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "2200d25239c9f1e4f6b6d9c6066b04c66d896d3b8f38df80bb9a1c037f24e76e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "fbae58d47eea5d44a1f621ba7e44bc5e747098c51d3997e90b93b069f54e3c5c"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "d5a7aa93c8e0305202a277dabab59d99ee77998c0610ea5ef28a8fa9d4a58a6a"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "54101c3b1921845073576a6b1931721638672a3210b2601bdfec6a4e095820e6"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "c324b4d0b9db361dfdf50049bf743811847aaf48477e9f7a5268ef357bc4960e"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "791a0aac3d54a8266b7881a3a63130c2b6a6d005c902d631702d04a038c2e136"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "791a0aac3d54a8266b7881a3a63130c2b6a6d005c902d631702d04a038c2e136"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "54ae4986ca1ff3645f836d9b1824ead6de30cffa85470ae3bbc17f5652598233"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "f98ed5181be4ee1818c1e524d97a0bf9a96e25e600eb0aa2680d0ee3fa3a0bbc"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "67b392dc55320efdab77580e12a61ebe94f88264cbfa75a1da87dfb5366999e6"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "57ed484b18c6f2b0c027692023cc8268fcdcc94e5863f3ff16772e8867a6f7a3"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "a3ab30abf93607056b941366b02614005efc408115b014d15868d47d02306dcd"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "71b391be77ffcc7e78afb24133ad54b17a5a84ee3b22d4b859b170624b6c8ff5"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "c6ddde043a81ee0789875d46afa95778e3bb3bce96fb1821c9a8dc5b5a678e03"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "c6ddde043a81ee0789875d46afa95778e3bb3bce96fb1821c9a8dc5b5a678e03"
+        }
+      ]
+    },
+    {
+      "case": "large_blur",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.000920699001653702,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1593,
+          "ass_sha256": "7eae08d4fb49e73a906ea68ad98b2afd3fed2b28e22a77d69cff790d9f04d267",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.0011224319987377385,
+          "events": 16,
+          "layers": 8,
+          "ass_bytes": 5103,
+          "ass_sha256": "b9ed7091c92ad074ab82047f809d143f1693b7ba1da521a0dc230642b4f5ec1b",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.000654899000437581,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1593,
+          "ass_sha256": "0a616053d338f9bc70cd6d9785c3758cc63f1057b0a9821108237b50ee61fec1",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.000610076000157278,
+          "events": 2,
+          "layers": 2,
+          "ass_bytes": 1045,
+          "ass_sha256": "0cc3ccadcbb69b6eb6041ea1905f0a7e87904dfc452ce48d952c6b8084522aff",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {},
+      "renderer_seconds": {
+        "before-black": 0.14807020900116186,
+        "sweep-black": 0.14611581100143667,
+        "after-black": 0.14719666600103665,
+        "before-white": 0.14652709099937056,
+        "sweep-white": 0.14796405299966864,
+        "after-white": 0.14837449000151537
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 30,
+          "mean_channel_error": 0.05643337673611111,
+          "changed_pixels": 3656
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 32,
+          "mean_channel_error": 0.06636284722222222,
+          "changed_pixels": 3844
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "55a8655d0a8478c4b9f86914bd15c0eb2698482e0875fb579d2ebe5172c4b8b4"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "1f6e9126fca3cafbd0f2e13cba6d095d2d66a4a35340a7169ea51fe6700178b3"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "f506a5c4248a60ec0160708f07a044581e9e55de871756dea423d10b8d37703e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "d41ece1aa108080d090537913fdfe6ea0d0f24877c4802478abf7fcec6084d60"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "6484765857f05fc86ebc340c5528255e7be9f1df923196c6aa6e8ad4ad0037b1"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "505d6e9cd7f6e7c03198c9878116834c7a07de5f98f75fe8920f96f2e457058a"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "f8be9b2e8fcae853611e92f69b340fb5d1def47728aed5a6042459e0aafb4c6b"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "f8be9b2e8fcae853611e92f69b340fb5d1def47728aed5a6042459e0aafb4c6b"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "2a8b6f16c1aeefa25621ea3dfe4ff659a4609fb7aa64d48a05e3b61e84d9557d"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "4296872a641c37ae9a8405796716a94572029691c93c862558ec89e46f82f0f5"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "b240773d70b40c17b23f3e8543119add73a240208c40b7fc2eb47a3e26c20100"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "ca6025f1f631495bc672a110d92266e90c4d88327fb8354906528ea04a95d89b"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "21dc0d46bb2a2d92a4e52791eab36ec7874968df02a72c66ae4518361647a369"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "ee57ee9f8e3a37aab4fd2eeb33c3cb592bebc2d7cef3e5f614d6a3270515f3e6"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "b4ed8ef8a2fd8a412c05ad8f10b7efab8dd8e6e001f242eb410e421b5696b2ba"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "b4ed8ef8a2fd8a412c05ad8f10b7efab8dd8e6e001f242eb410e421b5696b2ba"
+        }
+      ]
+    },
+    {
+      "case": "scale",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.009822781999901053,
+          "events": 300,
+          "layers": 150,
+          "ass_bytes": 94843,
+          "ass_sha256": "2aca2f870e77add5a0b4a0f1038ab59d77be173371d24391727ba59263fc2927",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "sampling: 150 target samples at 40 ms; estimated 300 events before native subdivision"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.013052796000920353,
+          "events": 400,
+          "layers": 200,
+          "ass_bytes": 132415,
+          "ass_sha256": "d0e9dceef1145aea24a577f08ff8377822043d1ef0dc03f6c9b76d75253ea84e",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "sampling: 150 target samples at 40 ms; estimated 400 events before native subdivision"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.00908558199989784,
+          "events": 300,
+          "layers": 150,
+          "ass_bytes": 94843,
+          "ass_sha256": "846e245b35a28bf637679a2343ad69ffe891447f332895ebf9262e46b43f5c46",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "sampling: 150 target samples at 40 ms; estimated 300 events before native subdivision"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.0006174289992486592,
+          "events": 2,
+          "layers": 2,
+          "ass_bytes": 1045,
+          "ass_sha256": "0cc3ccadcbb69b6eb6041ea1905f0a7e87904dfc452ce48d952c6b8084522aff",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {},
+      "renderer_seconds": {
+        "before-black": 0.09915150499909942,
+        "sweep-black": 0.10205840099843044,
+        "after-black": 0.09649585199986177,
+        "before-white": 0.09591691300011007,
+        "sweep-white": 0.10085708299993712,
+        "after-white": 0.09520647200042731
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 62,
+          "mean_channel_error": 0.018349609375,
+          "changed_pixels": 636
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 63,
+          "mean_channel_error": 0.019954427083333334,
+          "changed_pixels": 649
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "3f28f18fe542b860ccc0b967eba780dd6597736e12e174b87137d436394f0f05"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "7307a4d95f674221420cd263e8eab49ac6396fbd71d9ce8f0390a83d6ac52363"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "8e05d4cf6f79b35ef249a0e394b2d901ea5e7befe4cba4d296aa73e6f8ff0c58"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "1d8d9ac83953239f37f38d29247d38f52bd81db82c6e00c12cd77a191873ec48"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "a0cd9f7bda5e99ed088ebc6309a374faee74a503c162818a74a638b8ef42a1ba"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "3e1ef10ad04dedd1fa4e51bbcbb44c0fcf47bfbcab27ed1f8161dcbf586669bd"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "fa0adb858d8417b36c2da6944c861186de876e50c2ca25192cf5bb41453a8196"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "b7baac419ec4e54475967c62eee997f4952b5bba01dd5d812d00355c05acedea"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "56028bd76d33dd5baaef99fa492eb88832a217d936f948fe6e42c6e673a2902f"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "5b66e0c3e70826e6a833e925727d347bcefa52b86f1edd595d039ac1d840e4fe"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "accc5b42c3e3f16074a5ee048c15960b823b4c5cf28f2195a83cd677f390c3cb"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "a8083eac6a0e0cb1b599aeeb3de2c1dbdf9b5b69594ee7e97afc92aa426ad94a"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "24abeed3fc53bddb442c02b093500d517fbe9fae01cc9fc5d2fc2162d13a6fa2"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "2a4b4523ad8b25b401a7b4e44712f365796635bc7a6874d4542607660617f679"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "a6e4562eb4044b9be2662c1c9e8789c8c223bed8857565b169bbf0d722cd0a81"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "a27519cea6dacc9260d71618e233bbcd155ae85571500c19732a540cdfd0c233"
+        }
+      ]
+    },
+    {
+      "case": "adjacent",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.0009572569997544633,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1591,
+          "ass_sha256": "52902dbfaa150a24faffe9f70d3581993673074bcbaaa1676c08dcc27f75336e",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:1/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.0011370089996489696,
+          "events": 16,
+          "layers": 8,
+          "ass_bytes": 5087,
+          "ass_sha256": "48fc22001ff2a77a20125af3b2e3677620b359727ed4af3192ea77831983ab8d",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1500 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:1/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1500..2000 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:1/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.0006562319995282451,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1591,
+          "ass_sha256": "3ab71f43bd288513423ebdc162aef8bf1a928eb00b632ab8a92ccd4cd0452e2e",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:1/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.000627729001280386,
+          "events": 2,
+          "layers": 2,
+          "ass_bytes": 1045,
+          "ass_sha256": "98e83e657508c2f286a3f92a71bf77380104c3dac361534fcf7317d0a13497eb",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {},
+      "renderer_seconds": {
+        "before-black": 0.0842678490007529,
+        "sweep-black": 0.08709826399899612,
+        "after-black": 0.08416179300002113,
+        "before-white": 0.0866701529994316,
+        "sweep-white": 0.08526985900061845,
+        "after-white": 0.08413711699904525
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 59,
+          "mean_channel_error": 0.015333116319444444,
+          "changed_pixels": 536
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 60,
+          "mean_channel_error": 0.01675347222222222,
+          "changed_pixels": 558
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "e0963f3d463345077276186725fc75a38d5189a96ece0c85341d96083d778447"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "791d8488974460395dafec05353f668da26b071db9725ce14a5842a74778f241"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "6cd27630f95f8d07e0a9bd619d44161176f04debcdbd7e0323daa407fde009ee"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "7b6233d4b3add3460ba938490bba6e91e4ef464f70ff957b6dba9637e6dfa721"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "2bf4c6c4ea6b0444cd9e8de970ba9a73e502da5b0fac7b7bb320040f79e27751"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "89f2b042e7827a0f7e8a112ad402dfc5650dad2df029420ad1297750159aedc8"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "687efd507fc3fb683e859f4c5d2a240837895243aedb95520c91fd530e0c7229"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "687efd507fc3fb683e859f4c5d2a240837895243aedb95520c91fd530e0c7229"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "98f24219f93d04ebc80cabdca5459478d21de14b47878cc9542acb23c9c3ef42"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "589c802b0490c76a7b915628e1fd433a7c02ce2d580d1453b7f6b70591ed6599"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "c1e6d74a1a39473d83bb2904b540ba4195eb36c32468f4cc7117399764bb1a43"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "bdadebeaebaf11b2b69518f7a8f43c2fdd885f44b831a44f51dcde21968a948b"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "457acf87867b44a081f18ba42c029d786d2c2955d4cc98f318e4b8390a908960"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "c6f7b30f2d2e36aae0af05d776498ff03875e2f200d7e3bcd7cd3f34f2b4897d"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "fa9ddd46d4200f68f92ba7234facdfb29afc86bb7594ac4b52d9a6626469883d"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "fa9ddd46d4200f68f92ba7234facdfb29afc86bb7594ac4b52d9a6626469883d"
+        }
+      ]
+    },
+    {
+      "case": "ruby",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.0015032949995656963,
+          "events": 10,
+          "layers": 5,
+          "ass_bytes": 3306,
+          "ass_sha256": "00c5ded168d6c17c306d4c452e21375aaccfc58bd2c80d3daef3036de1599fee",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:2:3: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:3:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/ruby:0:0: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.0021198030008235946,
+          "events": 40,
+          "layers": 20,
+          "ass_bytes": 11940,
+          "ass_sha256": "31d6ced53259a6f634788239bf60e2583106d8b5ed4eaf821ff02ff4f833460e",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:2:3: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:2:3: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:3:4: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:3:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/ruby:0:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=ruby:0:0:sweep; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/ruby:0:0: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.0010976960002153646,
+          "events": 10,
+          "layers": 5,
+          "ass_bytes": 3306,
+          "ass_sha256": "fba978264e8ae66d0ed30e7ea97b5611b173594aef3f5beaa2ee484066482447",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:2:3: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:3:4: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/ruby:0:0: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.0008760069995332742,
+          "events": 4,
+          "layers": 4,
+          "ass_bytes": 1579,
+          "ass_sha256": "03b5eee2a2e49c0c669573e350bbd44a433836ba1f89079158d632e1af5fd960",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            78
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            68
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            85
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            68
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {},
+      "renderer_seconds": {
+        "before-black": 0.10921935899932578,
+        "sweep-black": 0.11221930699866789,
+        "after-black": 0.11196048899910238,
+        "before-white": 0.10864916600075958,
+        "sweep-white": 0.11562189799951739,
+        "after-white": 0.11045032100082608
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 73,
+          "mean_channel_error": 0.04041015625,
+          "changed_pixels": 1164
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 73,
+          "mean_channel_error": 0.04305121527777778,
+          "changed_pixels": 1210
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "ea96d3461123eeb352e2151641b18564b5e450dc4bde93efcfb3bd3127eb1f26"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "9bac5e308aa5410e55dceb5b2968a6dd9eb38ca9e088d71bfd3b04fa4e5bd71e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "03b45d18421cd6af2dd2adbb2ee4c694169c46e001ef9aaac30ecc7325452579"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "3bec2cc044a34d3d2c6d01af6506aa193612ba5427a1566ab34250d0ace94a7c"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "ac744da9d35e243dae451190bcd0c50a97c8e428fbbfdc6ad073ee9188a747b8"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "43afa919fbf599d8f40725966a9357118876f6f8978fb4c3a534dd59769c9e12"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "ee7d49c3d061cc1fe1e5fa4fcc82ec544d399991c3dac37a78697020a7b7563c"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "ee7d49c3d061cc1fe1e5fa4fcc82ec544d399991c3dac37a78697020a7b7563c"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "8f72ec4142afbabd24a43e34337491390f705746a9d6dce71e8888d381786790"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "686e43bb71924098e7df0e4e77a1111a4bffb2edaaea12dbd9026334da7696c6"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "bf3f1d44fc4448dd61b4cbc13ffdf62e94b4c486a593e0284d511dedc1b7a249"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "175eddc5220126889700d9470f21f89f1c99a5bcd4fbb35294482deafd9fbdf7"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "db51b9fa5e88459de16ca0e83dfc1a0fcdcef3bd0fb9515a340feeff19b0a30e"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "a9aa61c05219dde42a74da5be87dd3c6671bc35dac1eef8d201d93cb7f38404f"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "58c60c251acec83658f9e5ca2c6772f1f79485d6663a5113d5b8aeb385f9e65b"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "58c60c251acec83658f9e5ca2c6772f1f79485d6663a5113d5b8aeb385f9e65b"
+        }
+      ]
+    },
+    {
+      "case": "transparent",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.000968838001426775,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1591,
+          "ass_sha256": "007f64b19aa766bda580929fff9156bd64dfc5aed0c17d24fd243bbf6c3561f6",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.0011407359997974709,
+          "events": 16,
+          "layers": 8,
+          "ass_bytes": 5095,
+          "ass_sha256": "4d8fc04d18424c290f47bfb332181e09200aca656f3eaf3b87d3bb5846c0a676",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.0006511120009236038,
+          "events": 4,
+          "layers": 2,
+          "ass_bytes": 1591,
+          "ass_sha256": "b66ee7011bfb62d2107b271d7933f3ac7b438de52f39ea8db89040c633dc9757",
+          "diagnostics": [
+            "matrix/unit:0/text:0:1: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound",
+            "matrix/unit:0/text:1:2: backend glow bounds use border + 4*blur; the infinite blur tail is truncated at this finite working bound"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.0005870940003660508,
+          "events": 2,
+          "layers": 2,
+          "ass_bytes": 1045,
+          "ass_sha256": "0cc3ccadcbb69b6eb6041ea1905f0a7e87904dfc452ce48d952c6b8084522aff",
+          "diagnostics": []
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {},
+      "renderer_seconds": {
+        "before-black": 0.08592473699900438,
+        "sweep-black": 0.08379731999957585,
+        "after-black": 0.08531166499960818,
+        "before-white": 0.08662788499896124,
+        "sweep-white": 0.08493430899943633,
+        "after-white": 0.08370422799998778
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 20,
+          "mean_channel_error": 0.005194227430555556,
+          "changed_pixels": 436
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 22,
+          "mean_channel_error": 0.006146918402777778,
+          "changed_pixels": 432
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "379ad2bd27fda1c9fd40a8cdc5221fca018dd448d2077c55fd081be36622293e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "78b9b2c9f7e5d6ebc3e4380e5f9215441d9d1f78d54e8778e317cecc61654c79"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "28996a24c891ae82a501ec8fec55ab8987f80d06992fa5d5e7147f61ca5f24ea"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "09e5f16ea95f6a1c8753f371d96765751aea468cede3e675f638d0dff0242cd7"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "145ff669f627dbc169427a541f872b77e70ed0b60e76932a745ebd264484cc06"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "c64e16e6c681cfea3e88ca878f7da98a7e6018e9dae766a149cc43304bd96892"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "bdb4905ddbf2b0b505e9b6c71604859f70906ed194e677a9c290fe3914941048"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "bdb4905ddbf2b0b505e9b6c71604859f70906ed194e677a9c290fe3914941048"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "da65008e4ad64781db17cd73bb02d1cfd7a5b1d007e237362bfb55d6bb741d7e"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "288569be8292375a0a0109e98e778a88ca93e1e28e2055bf555592adac9e20a1"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "99c45e71fab20c1129abbe3121e5c201f0f5030c9fb6fb0ab0ae586ccd9fc1e7"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "b2dfbf2095f4177703fcd2ccaa96384ed63b2c60025702eb13f5f1c777272fde"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "ee8d243d3d37acf084a539490753f27078ce42050136f7eb537fd7920163dfd4"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "8da3925800e0e65185efe0f65f03299baa113c944296a84fbabd4b161266f4b3"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "2f538e14e39e0789d1b93e091dcd619679ae27cf98d2c731ebe687dcc4752e26"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "2f538e14e39e0789d1b93e091dcd619679ae27cf98d2c731ebe687dcc4752e26"
+        }
+      ]
+    }
+  ]
+}

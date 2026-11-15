@@ -1,0 +1,2129 @@
+{
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "backend": "raster",
+  "font_size": 24.0,
+  "compositing_format": "rgb24",
+  "times_ms": [
+    500,
+    1000,
+    1240,
+    1480,
+    1520,
+    1760,
+    2000,
+    2500
+  ],
+  "ffmpeg": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers",
+  "contract": "Static endpoints and onset compared to static paints on two backgrounds; unstyled geometry compared to independent whole-text ASS. Intermediate frames are captured for review, not certified against an independent material compositor.",
+  "cases": [
+    {
+      "case": "italic",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.09834612000122434,
+          "events": 2669,
+          "layers": 4,
+          "ass_bytes": 495945,
+          "ass_sha256": "6caa10f5e96a9ab14c3fefcb7db51d9629c7e97d9645979ccae6035e3e20f602",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 1.3400018749998708,
+          "events": 23815,
+          "layers": 4,
+          "ass_bytes": 4442916,
+          "ass_sha256": "68c388a38d6a04a103fb926d203cab6d723953ffef9d5bd98691689f851303cf",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.08582628700060013,
+          "events": 2669,
+          "layers": 4,
+          "ass_bytes": 495945,
+          "ass_sha256": "00ff682a455b1adf5f4c4ab0a1175dc35edd238ee33cd1a91ec83e6104b1adce",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.013754551000602078,
+          "events": 282,
+          "layers": 4,
+          "ass_bytes": 52681,
+          "ass_sha256": "0668a0a7559e6d8b6b4b57ed1340c838af723360a5b84c1a67c65883267c8661",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Oblique",
+            73
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            77
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Oblique",
+            57
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 100) -> /usr/share/fonts/TTF/DejaVuSans-Oblique.ttf, 0, DejaVuSans-Oblique"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b",
+        "/usr/share/fonts/TTF/DejaVuSans-Oblique.ttf": "cf41fd01245e40e783ce3eae0bba5c38927a2497889dde1266d8757b9c84de1a"
+      },
+      "renderer_seconds": {
+        "before-black": 0.843331780999506,
+        "sweep-black": 1.0621292499999981,
+        "after-black": 0.839047864999884,
+        "before-white": 0.8494361730008677,
+        "sweep-white": 1.0992102440013696,
+        "after-white": 0.8854037629989762
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "5c5d1c27591e04ea955a77225440f28ebed9ad186086e871dae03178b918059a"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "5c5d1c27591e04ea955a77225440f28ebed9ad186086e871dae03178b918059a"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "e613ab21fbd83dce9b9d9b3b272a0ccad498482bd585ef314fdc93c5ea3d87ac"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "4ea77c71189232e727af007849f03f777ab2720a10e3c93aa18260669a8430f0"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "9c3c4da04bc8976d9cfcad3ef64e797bc29b80d9cb08ae5dab59e259424024d9"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "b793b15c39b79cfb891ee19547d83087c809f7ed27c8fa303ff92af9cf5ad566"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "5aca370bb42c0c48e06423421af052243b4e397152b91b4c5da9d7232b95a777"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "5aca370bb42c0c48e06423421af052243b4e397152b91b4c5da9d7232b95a777"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "126ed5cd98f3d70aa24b8b8017001c6a58eb39d7591b605e40ff8a4fb54367a6"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "126ed5cd98f3d70aa24b8b8017001c6a58eb39d7591b605e40ff8a4fb54367a6"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "03eada37784ef95ef3cd8535605095d2f98d35a208e6a7cba77ffa1d698c2af4"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "6f62a1e779c5c5e2033a8b4ddbcae4825d0b2709c07474fe04a1d48c2e1553b5"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "0841bae0d7c134811620cc41ceae4b52fc1c5a4d4602179c9f4b0738d5612961"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "9888068551574c69e0f82e883a19e971aafa267693ca91f08de96c57deb6ae84"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "1d05433748a48ef2bf0688f3de9d4bc1341e8515ff2946c9e3f73f5ef61a07f0"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "1d05433748a48ef2bf0688f3de9d4bc1341e8515ff2946c9e3f73f5ef61a07f0"
+        }
+      ]
+    },
+    {
+      "case": "spaces",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.06793549200119742,
+          "events": 2235,
+          "layers": 2,
+          "ass_bytes": 415220,
+          "ass_sha256": "e12b36015b465fec32e0a8f600b6e94bf35d748cae1c9c33f3c897835d6d96f5",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 1.044604086999243,
+          "events": 18490,
+          "layers": 2,
+          "ass_bytes": 3447140,
+          "ass_sha256": "60e48876b64c27ac34e73c1dc0735b14f61c9cca06c9ba0bf8472c8eb1e75cdd",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.06902863899995282,
+          "events": 2235,
+          "layers": 2,
+          "ass_bytes": 415220,
+          "ass_sha256": "817eb30d0c1d985128eb179c6b20200bf33c0668a550ab4a98c0f4d4131bea7c",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.008975792999990517,
+          "events": 155,
+          "layers": 2,
+          "ass_bytes": 29185,
+          "ass_sha256": "37defd6eb6958439074189f229fc8ac4bdf4872e8f70fa4bd712105dfb5a9e14",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            98
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 0.7379187579990685,
+        "sweep-black": 0.9203788609993353,
+        "after-black": 0.7328060119998554,
+        "before-white": 0.7568665290000354,
+        "sweep-white": 0.907364423999752,
+        "after-white": 0.7342211010000028
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "29bdf28c9c88adb89b1ae14175f0ff4ca6bea63476f1a5c72ead4c5a5804033d"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "29bdf28c9c88adb89b1ae14175f0ff4ca6bea63476f1a5c72ead4c5a5804033d"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "6a3ce7933e09c2063309bc39f119834bf92d60ac917e9f375b1454426b845060"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "e1fb82e9303818ae867960924fbf5ac073668911c0ea7e4fd808af295f50ed5e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "e1fb82e9303818ae867960924fbf5ac073668911c0ea7e4fd808af295f50ed5e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "5809530810c22529c440e06c75558e425adbc1b31fffca11077e51e1892f1cbb"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "07dbe57482836757c7094c3d2b6f0476097e27fa480b033d7fa57161a8ecf874"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "07dbe57482836757c7094c3d2b6f0476097e27fa480b033d7fa57161a8ecf874"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "8cd298194941086aeac5c79eafe22278586bfdae3301ace5808d2f24ac33b8fa"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "8cd298194941086aeac5c79eafe22278586bfdae3301ace5808d2f24ac33b8fa"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "fa694bf24fe9de209a30e0a4f04ce37e742bc796248af05939934d6e8b4364c1"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "4d37c2f14b3b07d2a50d97d9e4501a03913e1de42b897cc25466439a0190bcd4"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "4d37c2f14b3b07d2a50d97d9e4501a03913e1de42b897cc25466439a0190bcd4"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "669502230b2a8d441b6a7ceb69233c94e26fcf5b21ce38b6623a68c774d01d47"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "f0aa51fdbb546553ce9e81dcef5fe1bc41389601c54061ad49995db3374bfa79"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "f0aa51fdbb546553ce9e81dcef5fe1bc41389601c54061ad49995db3374bfa79"
+        }
+      ]
+    },
+    {
+      "case": "fallback",
+      "font_requested": "KaraMissingFontForValidation",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.056836579999071546,
+          "events": 1797,
+          "layers": 2,
+          "ass_bytes": 333769,
+          "ass_sha256": "dc13124009179e857313bf97884b18703745580ff51c6e3c478720bf38e8b54a",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.9044302080001216,
+          "events": 20574,
+          "layers": 2,
+          "ass_bytes": 3836865,
+          "ass_sha256": "91abc99dcccfb28f6f0aa7f1ec554820a420e92c504224bd46bdf813081e27cb",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.05543398299960245,
+          "events": 1797,
+          "layers": 2,
+          "ass_bytes": 333769,
+          "ass_sha256": "51fa4c70fd5b7167f25ca702ba9640bfa2620dcdbdd0fa3fc0150d169d0b4a49",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.008019449000130408,
+          "events": 165,
+          "layers": 2,
+          "ass_bytes": 31052,
+          "ass_sha256": "ec594c66aad5d0f5003910958eebd19f65d21e7449197f82c336e21050760e85",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "Sarasa UI SC",
+            "Regular",
+            1696
+          ],
+          [
+            "Sarasa UI SC",
+            "Regular",
+            1757
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(KaraMissingFontForValidation, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 0.6096425050000107,
+        "sweep-black": 0.7890830559990718,
+        "after-black": 0.6097135950003576,
+        "before-white": 0.6060209200004465,
+        "sweep-white": 0.7814998619996913,
+        "after-white": 0.6067652740002814
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "40f975e32a0a5cdfbfd580ca530a12cbdab4416ec426dbc333674f3b5769a797"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "40f975e32a0a5cdfbfd580ca530a12cbdab4416ec426dbc333674f3b5769a797"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "5f55191abf7808b1dbb9a5b006e31dd812ea08025492dfa12307ece4a6586113"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "e6d96ca754aab3b0553e6fb83dbeee42ed7c200a3e404c0afbee4e58665cd4ea"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "11069a9d5193cd2a38b345fe5d7ab3a53d7bac17f143b4b7233ccf9e460d172a"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "df5932420073dfe59d4172332e6815fbc40f792d6109d3e0834ca7a9b8b6db6f"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "5cb67f99d539c215e806441312baacdda144a82c78904deff93302a17813b38a"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "5cb67f99d539c215e806441312baacdda144a82c78904deff93302a17813b38a"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "0e0304a95ec993135277af66740b85e5d6d6aed938ab8b0220cdb1ba3cc6acd0"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "0e0304a95ec993135277af66740b85e5d6d6aed938ab8b0220cdb1ba3cc6acd0"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "0ed38e54d53ab7163e8d84fbca3ce4eb3ac37a428a88e89f63e8935774d4e13c"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "3a9f6fcef9ae3baf9607388945c2b608ebc66c9956186bee2110160ef5f883a9"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "c1d3d92b0831910dc4ace970efeb09b9f2c56d6aa3d5d94229350a34f3f5680d"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "3710d6134701b9f2bf2e0e4d50c2a3bf2969ab7f589233d6065d6a1143ebd24a"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "a287e8fb20040b54476c430fede178333a3ae0e5460ae920be6dff888f6bd1fd"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "a287e8fb20040b54476c430fede178333a3ae0e5460ae920be6dff888f6bd1fd"
+        }
+      ]
+    },
+    {
+      "case": "ligature",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.09457892600039486,
+          "events": 2560,
+          "layers": 4,
+          "ass_bytes": 475670,
+          "ass_sha256": "e8b7239ee7462ba48e62c9a038b1eaba4932fd9484d3b91b85dc4355a155035a",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 1.385642443998222,
+          "events": 22299,
+          "layers": 4,
+          "ass_bytes": 4159423,
+          "ass_sha256": "a25b3bf00324a8662c0964a52425f236b89b8a0ce93b62253da7b408bb68cd30",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.09034696699927736,
+          "events": 2560,
+          "layers": 4,
+          "ass_bytes": 475670,
+          "ass_sha256": "767284d61dc0a982e2659b40aa3707fe46a615c16a73bea3dd25ddb36b3373f9",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.014594140000554034,
+          "events": 276,
+          "layers": 4,
+          "ass_bytes": 51570,
+          "ass_sha256": "d24263ec9ff8251d084ee5e05378e5965d9ef3089b03761be8f6e17c0431ade7",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            82
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            5044
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            70
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            72
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 0.835960836000595,
+        "sweep-black": 1.0388477619999321,
+        "after-black": 0.8994857479992788,
+        "before-white": 0.8370853599990369,
+        "sweep-white": 1.051996724001583,
+        "after-white": 0.8359038779999537
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "6afc98fe467ee490fec42be4bfca2492ef0feb5e984f3873b3f6b92b55000cf9"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "6afc98fe467ee490fec42be4bfca2492ef0feb5e984f3873b3f6b92b55000cf9"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "c755fb84d164c9cbbdace6336e077aa27dce92980d6fbe9d56f19895d0d46d57"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "0b5c98c7b848641907dc991cbf72cbb5cc38047551cec310752d617ccd8992fc"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "e7203227b262d6a280436c6ba4936fb498dffc83aef723ed431d9f076160e6ed"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "e8eba823a32cd0fd156fab8e81c7724b95bd3ae5928a38bffe457418e5de0f97"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "23dc43229ace128208cac8a4c6384278e900df7311bfcf4014f89d3fbf111eab"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "23dc43229ace128208cac8a4c6384278e900df7311bfcf4014f89d3fbf111eab"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "9b84b150fa58f9a561f3a04fcfc870869dee85741af4f20e89f501f574fc874e"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "9b84b150fa58f9a561f3a04fcfc870869dee85741af4f20e89f501f574fc874e"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "0da4c9b5388c6649ae132312789a0c13a67269b6252984408565211ba6490c2e"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "cda9ef312517a06a322c27cd97cc100ec2847dbe647c03db1d3ef06bd2f63e28"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "ea9eeffed0ec301a79d7ec65d2df956a7159848c83f2ca9d1677a5bdfc9a304a"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "d4802a307b043c6fe893a8266002569725c6f2a8e6b07b8e40b86888685cfffb"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "83f6ef4905ce012afd68e8074d16a97a89db881ee5168df0453cc37e114d7c7a"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "83f6ef4905ce012afd68e8074d16a97a89db881ee5168df0453cc37e114d7c7a"
+        }
+      ]
+    },
+    {
+      "case": "large_blur",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.22080593099963153,
+          "events": 7019,
+          "layers": 2,
+          "ass_bytes": 1305044,
+          "ass_sha256": "d92d34b4fe9e19247580b8793d8d6fa125aa7a9f26bf109d744a838f0c36f1c4",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 4.23576621400025,
+          "events": 110821,
+          "layers": 2,
+          "ass_bytes": 20723858,
+          "ass_sha256": "95b0870a8d9aa67f943d1e102b3c19dc4c9334f38ccc4b69404323ae458f653a",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.21658303799995338,
+          "events": 7019,
+          "layers": 2,
+          "ass_bytes": 1305044,
+          "ass_sha256": "34839a494e111535600e60b1d33ff7dd4591c2d14d87b92680595bac7a642c92",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.008292582000649418,
+          "events": 154,
+          "layers": 2,
+          "ass_bytes": 29000,
+          "ass_sha256": "4647d2e559ed14aaf90b94b7735f1f9456f2a38a5f88f6d92b354a98b06a357c",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 2.187459093000143,
+        "sweep-black": 3.4341694779996033,
+        "after-black": 2.1732953589998942,
+        "before-white": 2.1644071039991104,
+        "sweep-white": 3.435906814998816,
+        "after-white": 2.1481166049998137
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "675bcb23d6c47052b44e6960d51e688011fc128cceb45e691501cd71ee6fed44"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "675bcb23d6c47052b44e6960d51e688011fc128cceb45e691501cd71ee6fed44"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "ab153534b862256ff7cdc4f7a35f36f92ccf066b0140bca8ef4bd69d9ff2bcac"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "933ee4e803624ae7c10c37ea1c09ba6c07a4fb77bec3b3a4009ff70f4389e173"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "c5acb6d46e3a8e1d513e72f4a7d0a97df522ce48a831e4bff6824d2c167e8fd2"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "940579ce1e146fedafde12eb7f6f3daee1c2117f3f7a3fb4232a5da35958d902"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "8c30181f9e1551fc82bff600548e12679eb8f7f23777dc234dec081e5aa45be6"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "8c30181f9e1551fc82bff600548e12679eb8f7f23777dc234dec081e5aa45be6"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "320f9d1deaf0c1702915ef976e6888819656d5f8ab7431b42676da901b65136c"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "320f9d1deaf0c1702915ef976e6888819656d5f8ab7431b42676da901b65136c"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "1625cea90599d642796b44f832c0e41f2efda1d1e7feeaa83d04336cfb537055"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "d1a91e75cdef1db8e6baf684356e9e8be38208454c13ead9ac8d9922832c4e36"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "1c40b4639eeb00598c730e060f1a07aa78dd7fd9147e1c2fa28b6c83a8344545"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "aef0b725b81ea526b8203d953267099d27ca2cbb8f45ed661bf9be06ed998ff8"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "018d000872b69df7bc1fa7a04f01a7c62b5a14613734953fb6179c4cea87f9f4"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "018d000872b69df7bc1fa7a04f01a7c62b5a14613734953fb6179c4cea87f9f4"
+        }
+      ]
+    },
+    {
+      "case": "scale",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 3.296961908999947,
+          "events": 55615,
+          "layers": 2,
+          "ass_bytes": 10389515,
+          "ass_sha256": "33dd34f8ce5ed5785e80529bd7e85d06b4b900c97f2ad43e4d552a514c4d6614",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 3.4251648810004554,
+          "events": 71362,
+          "layers": 2,
+          "ass_bytes": 13334204,
+          "ass_sha256": "93d366a8ffb46d8769b65de580eb64af40466a2c6ad8ceaa5d17148c116be3f3",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 3.30680694900002,
+          "events": 55615,
+          "layers": 2,
+          "ass_bytes": 10389515,
+          "ass_sha256": "8099f34553a36b4410068eaa0c7afd4a4a74a8f5a21c6fce40a275083b771728",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.008220218998758355,
+          "events": 154,
+          "layers": 2,
+          "ass_bytes": 29000,
+          "ass_sha256": "4647d2e559ed14aaf90b94b7735f1f9456f2a38a5f88f6d92b354a98b06a357c",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 1.0416937669997424,
+        "sweep-black": 1.135541720999754,
+        "after-black": 1.031329330000517,
+        "before-white": 1.0503203719999874,
+        "sweep-white": 1.131655507000687,
+        "after-white": 1.0320145929999853
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "e20033d5fa72fa4d6c809f6e6e4a78e55c7b7a81e7f4f140d8d04cf59252d2a1"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "6ea086c5ce9fcc6913fce6f8970e0ce5975ce80bf07d7d1477b0ae64fe242929"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "2b40f35d33339cf6f7d59f6168b0ded635fc8bb2f258cdf7945c23e8a5935521"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "3a443be1dbe8da8ffe6cd1796589aeed2c1be9ff4838f6f7e608314236e777d3"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "22f75678343ada6a134765bfa3d78e6192f9b3ca213cfe7ff9ffd72948d5bc19"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "436ce7aaf73bce45af1c9b024c31d67af2a8ff3ef566a012384b8a3e20d92d97"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "cae0d35afa7cff9cf06375e1b9f0740805760575a785ea80caa6a5deac816002"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "ee0aaa12a4ba499d3d748267f19eda086554829967772c2f0ee18b9f98a37a83"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "102633d14f1cf236a19c62734408495791de27457db6f20fc3477d06913ac3f0"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "9114538ea9f8cd324c910ec141c08ea73ac08d29d7cdf490cbf84d59bbc6f251"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "d7c5948728f859632162a5d29ad355794fb24f5ff6b1731fc35c36d334675dc4"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "5fe9ce2242266b2737c0ca322801672066cf7dc59c0f703ab72c3cd4c488afc0"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "2c8670a044678bfb2cd2ebac037a26cc8155810de59ac781f31ee420ed15fdee"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "abfa9df007c6ab88b7c698c4974a6c19b16579bc787f2dcfd221a5b88a03d919"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "6a0446096c51c55f5db6712648bbf6598d9f726d28055d5cf84312953fb5ebea"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "5b33fd8fd5ccebb1ec9365e1cc7fd15222af1aa8bbcdb4a90228666f93541169"
+        }
+      ]
+    },
+    {
+      "case": "adjacent",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.0650111230006587,
+          "events": 1887,
+          "layers": 2,
+          "ass_bytes": 350492,
+          "ass_sha256": "a8c907634205e394c8e39cc20fd4d133ba8e563a4c6fea798c72056c44f7115c",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 1.1696899100006704,
+          "events": 21390,
+          "layers": 2,
+          "ass_bytes": 3989440,
+          "ass_sha256": "348892cd8f0564408f9cc226a54989c3d8218e255d1d59848af47a5bda028ba4",
+          "diagnostics": [
+            "raster: 76 frames, 152 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.06513295700096933,
+          "events": 1870,
+          "layers": 2,
+          "ass_bytes": 347330,
+          "ass_sha256": "c91253d6f1978179c817aa76f874c10be7be13cbc81b03c4a970f07d16a3a558",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.008134009998684633,
+          "events": 154,
+          "layers": 2,
+          "ass_bytes": 29000,
+          "ass_sha256": "4647d2e559ed14aaf90b94b7735f1f9456f2a38a5f88f6d92b354a98b06a357c",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 0.6170821200012142,
+        "sweep-black": 0.7887211790002766,
+        "after-black": 0.6108493480005563,
+        "before-white": 0.6197123130004911,
+        "sweep-white": 0.7906292890002078,
+        "after-white": 0.6121176579999883
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "03b5b368b2fdcdf4f8894a4c000daff65f21f92e0fd4db8b66a7065a23f8b988"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "03b5b368b2fdcdf4f8894a4c000daff65f21f92e0fd4db8b66a7065a23f8b988"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "ee200fa74ed1b086e449e623db43950ad0787c9fa14b3064c7a4b25d6a522da4"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "8bbc360d2ffbf2ccddc53a073e6d1c94506bd6901e68432d58139d6d528466f0"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "a07db1ccf049b7a1c6f9cc169801db82a4e168b84a12222eaf2e536d9567545d"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "9c14a0e16d2e7eb4fb6686cee441b70a647b3bc589a58aadda5ed1318824908d"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "be850eec300c3b87d0a8987ec9385e09c5a54c0c1c2e44767ce0c5bc94bed584"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "be850eec300c3b87d0a8987ec9385e09c5a54c0c1c2e44767ce0c5bc94bed584"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "3c644505fdab253a6005c4a4379a47f21ae109f46154756ba119ee89b96e1d12"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "3c644505fdab253a6005c4a4379a47f21ae109f46154756ba119ee89b96e1d12"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "335a5437247c49c40e9e52ed57e224df3bdd38af5b9fa0d74bdc674f18d2d886"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "fff8e7362ce4e913668b0a1fd2d933f2638eed137b7ea11af82ed6247e5895f1"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "2f0c65af95477b4ac4b9d9bc4f7a15049094eadb5d956f3ace2cbc2ba1393730"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "dda7b87d54bff80067bcbd20f4fb01e9a98f1226b41b00046ec29306cb474bf3"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "3c2bf754446e1c91eef6cfbbeb94927800bcce0ba2db14fbf69759f586480238"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "3c2bf754446e1c91eef6cfbbeb94927800bcce0ba2db14fbf69759f586480238"
+        }
+      ]
+    },
+    {
+      "case": "ruby",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.13854152499880001,
+          "events": 4085,
+          "layers": 5,
+          "ass_bytes": 759320,
+          "ass_sha256": "8fbc2fcbbe91597966d1cf966b6f79c01b3c91f4688b9873d1ee5428a3bf470d",
+          "diagnostics": [
+            "raster: 75 frames, 375 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 2.2775438139997277,
+          "events": 38891,
+          "layers": 5,
+          "ass_bytes": 7262127,
+          "ass_sha256": "32b3b8cabbbd7bc9000e74f5897731106ee0291167f1f434cff746575e33417c",
+          "diagnostics": [
+            "raster: 75 frames, 375 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.14053698699899542,
+          "events": 4071,
+          "layers": 5,
+          "ass_bytes": 756716,
+          "ass_sha256": "3be30845c786b18e66f4d6ace4dbf3e7f6eb708d57b0c2ac3282ac9271a87a2a",
+          "diagnostics": [
+            "raster: 75 frames, 375 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.012307339999097167,
+          "events": 226,
+          "layers": 4,
+          "ass_bytes": 42320,
+          "ass_sha256": "ccae84b0b73266195520f827c3aba507bf5f0c2910ac020746c6335b1b584308",
+          "diagnostics": [
+            "raster: 75 frames, 300 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            78
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            68
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            85
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            68
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 1.2899270210000395,
+        "sweep-black": 1.6680431820004742,
+        "after-black": 1.2953470400007063,
+        "before-white": 1.2978011870000046,
+        "sweep-white": 1.6826408930010075,
+        "after-white": 1.3032557189999352
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "efb42bf57e7b57536c4d2a4dd52cb7f93f37a15383a460b59a1ba2a561573d9e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "efb42bf57e7b57536c4d2a4dd52cb7f93f37a15383a460b59a1ba2a561573d9e"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "20833650db5be9587520c730b9260079553fab5ba9510373c5a1b27480bb1228"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "e6d77e79c4c4a189fae860e74555ae8552e8e7e2fbd00e309366e0268e32608a"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "e74c2963c28a6e991afe858369b4529542d0b0ff6cc32d329b6f0ec7295da19c"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "ef135da9d5ddaff2b3193124a533285109bad36fd9f047f2686f9a9887b7aa83"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "f665d12c2698f0b2d3d6aa8d14263fe9cf8b3a919bbb9694358d9a52d7b5219e"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "f665d12c2698f0b2d3d6aa8d14263fe9cf8b3a919bbb9694358d9a52d7b5219e"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "44c93f1679c8f22cbd35e5735ace5dd2eaede846813be034a5f4b11fcfa112cb"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "44c93f1679c8f22cbd35e5735ace5dd2eaede846813be034a5f4b11fcfa112cb"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "e198a65873e9a0b2ebe2f81bff1b79cc79a03e98a460afa460db965e247c498a"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "01f923403e77d3747f1e1aabf330b883c557a06b468a3ce94e0d2ffdd82017fb"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "dcc0b8a652ba4ae7dd79e9621567b2a5243bc8a6bec85b3e538c25ae52a92fd5"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "737f3600dd86a2660e3f3af6e1d15f9b6f27e22d39e155b62873fc048b72df7a"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "b4e7d1f6e54ab541bc60895e8a1227aca89f2c5d98b93a892adb846bc368ad52"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "b4e7d1f6e54ab541bc60895e8a1227aca89f2c5d98b93a892adb846bc368ad52"
+        }
+      ]
+    },
+    {
+      "case": "transparent",
+      "font_requested": "DejaVu Sans",
+      "modes": {
+        "before": {
+          "compile_seconds": 0.046603324999523466,
+          "events": 1129,
+          "layers": 2,
+          "ass_bytes": 209504,
+          "ass_sha256": "aa85974fcd8e3668384d107f2a4f6c3a87b8bbcf58613d398fde5ce199cbbd14",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "sweep": {
+          "compile_seconds": 0.8460796819999814,
+          "events": 18687,
+          "layers": 2,
+          "ass_bytes": 3483979,
+          "ass_sha256": "c2edc75eca2c960cfa7cdac2f7bb9c3ef2956fbf6e2cfec32a2146a3597fffbf",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "after": {
+          "compile_seconds": 0.04564404499978991,
+          "events": 1129,
+          "layers": 2,
+          "ass_bytes": 209504,
+          "ass_sha256": "b1f9670440fc4ebfd534b5ecf220fb7467a022b93f8beacd7402f30fe6cd9a0b",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        }
+      },
+      "geometry": {
+        "output": {
+          "compile_seconds": 0.008087322999926982,
+          "events": 154,
+          "layers": 2,
+          "ass_bytes": 29000,
+          "ass_sha256": "4647d2e559ed14aaf90b94b7735f1f9456f2a38a5f88f6d92b354a98b06a357c",
+          "diagnostics": [
+            "raster: 75 frames, 150 target samples; exact events checked during encoding"
+          ]
+        },
+        "whole_text_error": {
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        "glyphs": [
+          [
+            "DejaVu Sans",
+            "Book",
+            36
+          ],
+          [
+            "DejaVu Sans",
+            "Book",
+            37
+          ]
+        ]
+      },
+      "renderer_font_selection": [
+        "(Arial, 400, 0) -> /usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc, 7, Sarasa-UI-SC-Regular",
+        "(DejaVu Sans, 400, 0) -> DejaVuSans, 0, DejaVuSans"
+      ],
+      "system_font_sha256": {
+        "/usr/share/fonts/sarasa-gothic/Sarasa-Regular.ttc": "96ba7681369bc162f23df2b97e6ecaf8b9df84f05c073e6c75e4acc56da9607b"
+      },
+      "renderer_seconds": {
+        "before-black": 0.4009815730005357,
+        "sweep-black": 0.5546765290000621,
+        "after-black": 0.4025115860004007,
+        "before-white": 0.4032808450010634,
+        "sweep-white": 0.5540222709987574,
+        "after-white": 0.40365753999867593
+      },
+      "endpoints": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "phase": "onset",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "phase": "static",
+          "max_channel_error": 0,
+          "mean_channel_error": 0.0,
+          "changed_pixels": 0
+        }
+      ],
+      "frames": [
+        {
+          "background": "black",
+          "time_ms": 500,
+          "sha256": "1ca254b2c00f549bf901d119127e74f3b24a9bdc80dfd5e4d44dcfe010c3a9de"
+        },
+        {
+          "background": "black",
+          "time_ms": 1000,
+          "sha256": "1ca254b2c00f549bf901d119127e74f3b24a9bdc80dfd5e4d44dcfe010c3a9de"
+        },
+        {
+          "background": "black",
+          "time_ms": 1240,
+          "sha256": "e87fd6d57b61504905c0f47fbb3b054920e852bf767b6fbda12a5f55fc36c7fe"
+        },
+        {
+          "background": "black",
+          "time_ms": 1480,
+          "sha256": "393199b158bf741648d855c5c1893ef05fcc5ad7fa785ade7201609692656b25"
+        },
+        {
+          "background": "black",
+          "time_ms": 1520,
+          "sha256": "eb3c014bb27d1cf51a99c7fa8e88af0a591f60fcd3f24f9777990d8aec7682aa"
+        },
+        {
+          "background": "black",
+          "time_ms": 1760,
+          "sha256": "0105b1c5562f1fb5f376d64bfdf600c3cf5b5df1496aec437ef833ef310907ff"
+        },
+        {
+          "background": "black",
+          "time_ms": 2000,
+          "sha256": "3eb4ec1100b8e38222c862c00c1fd611d1292d7fa88f0946917ad3e923340101"
+        },
+        {
+          "background": "black",
+          "time_ms": 2500,
+          "sha256": "3eb4ec1100b8e38222c862c00c1fd611d1292d7fa88f0946917ad3e923340101"
+        },
+        {
+          "background": "white",
+          "time_ms": 500,
+          "sha256": "0dbdc6aee78a954c3eaadf364c00c4c66e1b23d4914e67cda877aee3e51c882c"
+        },
+        {
+          "background": "white",
+          "time_ms": 1000,
+          "sha256": "0dbdc6aee78a954c3eaadf364c00c4c66e1b23d4914e67cda877aee3e51c882c"
+        },
+        {
+          "background": "white",
+          "time_ms": 1240,
+          "sha256": "0b914d79ed3dbfda37ce1c78a04c0971cd9f77c07c72aa67a57f3b0983901343"
+        },
+        {
+          "background": "white",
+          "time_ms": 1480,
+          "sha256": "bfe5c7c91387ccc3f39532d793ed7effe508c89e1d6d21e8d96c0511dcfe31b1"
+        },
+        {
+          "background": "white",
+          "time_ms": 1520,
+          "sha256": "a67602898c97c346da2636a0d5b1b2870d168de842b8d7417e1c86a2b1bd26d9"
+        },
+        {
+          "background": "white",
+          "time_ms": 1760,
+          "sha256": "48ad0937fc930ee15e4efca743c8e1a16d98503d66b759dc06a58a5aa388ee23"
+        },
+        {
+          "background": "white",
+          "time_ms": 2000,
+          "sha256": "094d39d2f45201652ed220be698f4926e78018c2efb0f622fff2d6e9fae78678"
+        },
+        {
+          "background": "white",
+          "time_ms": 2500,
+          "sha256": "094d39d2f45201652ed220be698f4926e78018c2efb0f622fff2d6e9fae78678"
+        }
+      ]
+    }
+  ],
+  "command": "python -m tools.validate_track_matrix /tmp/kara-track-raster-matrix-rgb --raster --rgb --font-size 24"
+}

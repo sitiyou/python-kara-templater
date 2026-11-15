@@ -13,7 +13,7 @@ from .composition import Color
 from .timeline import _finite
 
 if TYPE_CHECKING:
-    from .effect import Component
+    from .components import Component
 
 
 class StyleKeyword(Enum):
@@ -299,6 +299,7 @@ class StyleSheet:
         sung: bool = False,
         inherited: Mapping[str, Color | float] | None = None,
         resolved_parent: Component | None = None,
+        state_only: bool = False,
     ) -> dict[str, Color | float]:
         """Resolve properties, preserving unspecified values in the source base.
 
@@ -308,6 +309,8 @@ class StyleSheet:
         resolved_parent excludes rules already applied at that component level,
         so merely creating a range cannot override explicit component styles.
         """
+        if state_only and not sung:
+            raise ValueError("state_only requires sung=True")
         inherited = base if inherited is None else inherited
         result = dict(base)
         matching = sorted(
@@ -315,6 +318,7 @@ class StyleSheet:
                 r
                 for r in self.rules
                 if r.selector.matches(node, sung=sung)
+                and (not state_only or not r.selector.matches(node, sung=False))
                 and not (
                     resolved_parent is not None
                     and r.selector.matches(resolved_parent, sung=sung)
@@ -323,7 +327,8 @@ class StyleSheet:
             key=lambda r: r.selector.specificity,
         )
         declarations = [r.declarations for r in matching]
-        declarations.append(tuple(node.style._values.items()))
+        if not state_only:
+            declarations.append(tuple(node.style._values.items()))
         if sung:
             declarations.append(tuple(node.style.sung._values.items()))
         for values in declarations:

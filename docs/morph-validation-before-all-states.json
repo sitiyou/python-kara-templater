@@ -1,0 +1,682 @@
+{
+  "scope": "E10 ring vs independent analytic-circle / square interpolation; glyph B vs inverse affine transform of independently rendered native text",
+  "ass_sha256": "15f3631ee2730ae3513e4adef5ae3a62afbff1b2258e0fe249dd1a27caad4a96",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "geometry_tolerance": "symmetric one-pixel Chebyshev distance at coverage >=128",
+  "sampling": "20 ms midpoint hold during 1-4s; cubic smoothstep computed independently",
+  "checks": [
+    {
+      "time_ms": 0,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267333007664529
+    },
+    {
+      "time_ms": 1000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267191370956159
+    },
+    {
+      "time_ms": 1001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 52,
+      "coverage_l1_over_reference_mass": 0.0004267191370956159
+    },
+    {
+      "time_ms": 1100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 45,
+      "coverage_l1_over_reference_mass": 0.0004741902272813084
+    },
+    {
+      "time_ms": 1200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 42,
+      "coverage_l1_over_reference_mass": 0.0005280644075548632
+    },
+    {
+      "time_ms": 1300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 41,
+      "coverage_l1_over_reference_mass": 0.0005132688631839724
+    },
+    {
+      "time_ms": 1400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 53,
+      "coverage_l1_over_reference_mass": 0.0004110494431035274
+    },
+    {
+      "time_ms": 1500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 44,
+      "coverage_l1_over_reference_mass": 0.0004046579330422125
+    },
+    {
+      "time_ms": 1600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 44,
+      "coverage_l1_over_reference_mass": 0.00022788143007359458
+    },
+    {
+      "time_ms": 1700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 37,
+      "coverage_l1_over_reference_mass": 0.00028572416854838684
+    },
+    {
+      "time_ms": 1800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 37,
+      "coverage_l1_over_reference_mass": 0.00046763422346974973
+    },
+    {
+      "time_ms": 1900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 35,
+      "coverage_l1_over_reference_mass": 0.00031406978056944696
+    },
+    {
+      "time_ms": 2000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.00023052279444516123
+    },
+    {
+      "time_ms": 2100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 34,
+      "coverage_l1_over_reference_mass": 0.0003433524479403635
+    },
+    {
+      "time_ms": 2200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 26,
+      "coverage_l1_over_reference_mass": 0.00034567985887731117
+    },
+    {
+      "time_ms": 2300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 33,
+      "coverage_l1_over_reference_mass": 0.00028732865945380623
+    },
+    {
+      "time_ms": 2400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 19,
+      "coverage_l1_over_reference_mass": 0.00019176897528327082
+    },
+    {
+      "time_ms": 2500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 21,
+      "coverage_l1_over_reference_mass": 0.00020063957442550658
+    },
+    {
+      "time_ms": 2600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 19,
+      "coverage_l1_over_reference_mass": 0.0001819493396460539
+    },
+    {
+      "time_ms": 2700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 17,
+      "coverage_l1_over_reference_mass": 0.00015443618906396035
+    },
+    {
+      "time_ms": 2800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 15,
+      "coverage_l1_over_reference_mass": 0.00020224625322789544
+    },
+    {
+      "time_ms": 2900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 15,
+      "coverage_l1_over_reference_mass": 0.0001465147887898525
+    },
+    {
+      "time_ms": 3000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 11,
+      "coverage_l1_over_reference_mass": 8.520297639114174e-05
+    },
+    {
+      "time_ms": 3100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 10,
+      "coverage_l1_over_reference_mass": 0.00010636631681256254
+    },
+    {
+      "time_ms": 3200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 6,
+      "coverage_l1_over_reference_mass": 3.277114494641132e-05
+    },
+    {
+      "time_ms": 3300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 6,
+      "coverage_l1_over_reference_mass": 6.94647316519829e-05
+    },
+    {
+      "time_ms": 3400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 2,
+      "coverage_l1_over_reference_mass": 3.6931321680270297e-06
+    },
+    {
+      "time_ms": 3500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 5,
+      "coverage_l1_over_reference_mass": 3.0196912288745954e-05
+    },
+    {
+      "time_ms": 3600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 2,
+      "coverage_l1_over_reference_mass": 1.6377663300510937e-06
+    },
+    {
+      "time_ms": 3900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    }
+  ],
+  "glyph_checks": [
+    {
+      "time_ms": 0,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.0064010766509386445
+    },
+    {
+      "time_ms": 1000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.006744650002338533
+    },
+    {
+      "time_ms": 1001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.006744650002338533
+    },
+    {
+      "time_ms": 1100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 63,
+      "coverage_l1_over_reference_mass": 0.010444882064169013
+    },
+    {
+      "time_ms": 1200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 70,
+      "coverage_l1_over_reference_mass": 0.01636092371249316
+    },
+    {
+      "time_ms": 1300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 61,
+      "coverage_l1_over_reference_mass": 0.017306322386482786
+    },
+    {
+      "time_ms": 1400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 59,
+      "coverage_l1_over_reference_mass": 0.01415953425348558
+    },
+    {
+      "time_ms": 1500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 73,
+      "coverage_l1_over_reference_mass": 0.018926985858921292
+    },
+    {
+      "time_ms": 1600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 76,
+      "coverage_l1_over_reference_mass": 0.016735375992042445
+    },
+    {
+      "time_ms": 1700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 65,
+      "coverage_l1_over_reference_mass": 0.015443412906860427
+    },
+    {
+      "time_ms": 1800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 63,
+      "coverage_l1_over_reference_mass": 0.015006613162516533
+    },
+    {
+      "time_ms": 1900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 69,
+      "coverage_l1_over_reference_mass": 0.017204912396618022
+    },
+    {
+      "time_ms": 2000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 56,
+      "coverage_l1_over_reference_mass": 0.014984093117177529
+    },
+    {
+      "time_ms": 2100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 64,
+      "coverage_l1_over_reference_mass": 0.01610677319774832
+    },
+    {
+      "time_ms": 2200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 62,
+      "coverage_l1_over_reference_mass": 0.015710018337490934
+    },
+    {
+      "time_ms": 2300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 62,
+      "coverage_l1_over_reference_mass": 0.017902336381327745
+    },
+    {
+      "time_ms": 2400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 64,
+      "coverage_l1_over_reference_mass": 0.016520494932795598
+    },
+    {
+      "time_ms": 2500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 69,
+      "coverage_l1_over_reference_mass": 0.016524707144035637
+    },
+    {
+      "time_ms": 2600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 72,
+      "coverage_l1_over_reference_mass": 0.01646670837246304
+    },
+    {
+      "time_ms": 2700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 74,
+      "coverage_l1_over_reference_mass": 0.02078814488291818
+    },
+    {
+      "time_ms": 2800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 68,
+      "coverage_l1_over_reference_mass": 0.01849262582938991
+    },
+    {
+      "time_ms": 2900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 72,
+      "coverage_l1_over_reference_mass": 0.017362346252064193
+    },
+    {
+      "time_ms": 3000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 67,
+      "coverage_l1_over_reference_mass": 0.018538868994060896
+    },
+    {
+      "time_ms": 3100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 73,
+      "coverage_l1_over_reference_mass": 0.01877227534685319
+    },
+    {
+      "time_ms": 3200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 68,
+      "coverage_l1_over_reference_mass": 0.018129804599477446
+    },
+    {
+      "time_ms": 3300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 78,
+      "coverage_l1_over_reference_mass": 0.017715335119757706
+    },
+    {
+      "time_ms": 3400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 74,
+      "coverage_l1_over_reference_mass": 0.017415274570858626
+    },
+    {
+      "time_ms": 3500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 73,
+      "coverage_l1_over_reference_mass": 0.01644430454444745
+    },
+    {
+      "time_ms": 3600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 73,
+      "coverage_l1_over_reference_mass": 0.017330395111502365
+    },
+    {
+      "time_ms": 3700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 72,
+      "coverage_l1_over_reference_mass": 0.01796381912854875
+    },
+    {
+      "time_ms": 3800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 73,
+      "coverage_l1_over_reference_mass": 0.018307581990846568
+    },
+    {
+      "time_ms": 3900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 70,
+      "coverage_l1_over_reference_mass": 0.017939557468955585
+    },
+    {
+      "time_ms": 3999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 74,
+      "coverage_l1_over_reference_mass": 0.019217182725365437
+    },
+    {
+      "time_ms": 4000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    },
+    {
+      "time_ms": 4999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 75,
+      "coverage_l1_over_reference_mass": 0.019260943262248895
+    }
+  ],
+  "blank_times_ms": [
+    5000,
+    5001,
+    5010
+  ],
+  "filled_hole_fault_rejected": true,
+  "remaining": [
+    "glyph antialias reconstruction differs from direct path rasterization",
+    "continuous-time sampling error",
+    "other renderers"
+  ]
+}

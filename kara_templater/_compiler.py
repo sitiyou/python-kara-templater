@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 
+from . import _metrics
 from .animation import plan_pulses
 from .appearance import (
     resolve_paints,
@@ -20,10 +21,15 @@ from .timeline import (
 )
 
 
+def _blur_padding(radius: float) -> int:
+    # Native ASS clamps blur to 100; use its quantized finite kernel, including
+    # downsample alignment, rather than a user-supplied spatial compensation.
+    return _metrics.blur_padding(min(radius, 100))
+
+
 def _margin(paint):
-    # Conservative working estimate; callers can add explicit edge padding.
     glow = paint.glow
-    return max(paint.border, glow.border + 4 * glow.blur if glow else 0)
+    return max(paint.border, glow.border + _blur_padding(glow.blur) if glow else 0)
 
 
 def _prepare_targets(
@@ -84,7 +90,7 @@ def _prepare_targets(
 
 
 def _compile_targets(
-    target,
+    target_id: str,
     context,
     prepared: PreparedLyrics,
     *,
@@ -93,6 +99,8 @@ def _compile_targets(
     track_styles=(),
     overlap="union",
     max_glow_blur=None,
+    max_border=None,
+    max_glow_width=None,
     component="both",
     order_offset=0,
     origin_effect,
@@ -132,12 +140,29 @@ def _compile_targets(
         margin = max(
             (_margin(p) for p in (before_after.before, *selected_paints)), default=0
         )
+        if max_border is not None:
+            margin = max(margin, max_border)
+        if max_glow_width is not None:
+            margin = max(
+                margin,
+                max(
+                    (
+                        max_glow_width
+                        + _blur_padding(
+                            max_glow_blur if max_glow_blur is not None else p.glow.blur
+                        )
+                        for p in (before_after.before, *selected_paints)
+                        if p.glow is not None
+                    ),
+                    default=0,
+                ),
+            )
         if max_glow_blur is not None:
             margin = max(
                 margin,
                 max(
                     (
-                        p.glow.border + 4 * max_glow_blur
+                        p.glow.border + _blur_padding(max_glow_blur)
                         for p in (before_after.before, *selected_paints)
                         if p.glow is not None
                     ),
@@ -228,7 +253,7 @@ def _compile_targets(
             )
         except OutputCapabilityError as error:
             raise OutputCapabilityError(
-                f"{target.id}/{source_id}: {error}",
+                f"{target_id}/{source_id}: {error}",
                 origin=origin,
             ) from error
         warned_decoration_boundary = False
@@ -241,14 +266,14 @@ def _compile_targets(
                 continue
             if region.shared_local_clock and not warned_local_clock:
                 diagnostics.append(
-                    f"{target.id}/{source_id}: incompatible clip-edge clocks use a shared "
+                    f"{target_id}/{source_id}: incompatible clip-edge clocks use a shared "
                     "local interpolation interval to keep adjacent boundaries identical; "
                     "integer endpoints and centisecond times approximate the original fronts"
                 )
                 warned_local_clock = True
             if region.hard_decoration_boundary and not warned_decoration_boundary:
                 diagnostics.append(
-                    f"{target.id}/{source_id}: ASS hard-clips differing outline/glow stacks "
+                    f"{target_id}/{source_id}: ASS hard-clips differing outline/glow stacks "
                     f"at a spatial boundary during "
                     f"{max(window.start_ms, region.span.start_ms):g}.."
                     f"{min(window.end_ms, region.span.end_ms):g} ms; "
@@ -263,13 +288,13 @@ def _compile_targets(
                 end = quantize(min(window.end_ms, region.span.end_ms))
                 if end <= start:
                     diagnostics.append(
-                        f"{target.id}/{source_id}: mask exposure vanished during centisecond quantization"
+                        f"{target_id}/{source_id}: mask exposure vanished during centisecond quantization"
                     )
                     continue
                 exposure = DisplayWindow(start, end)
             for order, paint in enumerate(region.paints):
                 layer = TextLayer(
-                    f"{target.id}/{source_id}/region:{index}/stack:{order}",
+                    f"{target_id}/{source_id}/region:{index}/stack:{order}",
                     text,
                     style,
                     box,
@@ -279,7 +304,7 @@ def _compile_targets(
                     (region.interpolation_span or region.span,),
                     animations,
                     order + order_offset,
-                    animation_id=f"{target.id}/{source_id}",
+                    animation_id=f"{target_id}/{source_id}",
                     origin=origin,
                     active_window=exposure,
                     component=component,
@@ -319,13 +344,9 @@ def _compile_targets(
                     layers.append(layer)
                 if len(layers) > context.max_regions:
                     raise OutputCapabilityError(
-                        f"{target.id}: effect plan exceeds {context.max_regions} layers",
+                        f"{target_id}: effect plan exceeds {context.max_regions} layers",
                         origin=origin,
                     )
-        if any(p.glow is not None for p in (before_after.before, *selected_paints)):
-            diagnostics.append(
-                f"{target.id}/{source_id}: glow bounds estimated as border + 4*blur; increase EdgeSweep.padding_px if needed"
-            )
 
     for visual in prepared.targets:
         emit(

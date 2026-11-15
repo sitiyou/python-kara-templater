@@ -13,7 +13,7 @@ from pathlib import Path
 
 from PIL import Image
 
-from examples.layered_glow import LayeredGlow
+from examples.layered_glow import tracks
 from kara_templater import Document, load_font, render_karaoke
 
 TIMES = (0, 500, 800, 1000, 1300, 1600, 1700, 1800, 1850, 2400, 2700, 3000, 3900)
@@ -35,7 +35,7 @@ def main():
     (output / "fonts").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(font, output / "fonts" / font.name)
     source = root / "tests/fixtures/layered_glow.ass"
-    result = render_karaoke(Document.load(source), effect=LayeredGlow())
+    result = render_karaoke(Document.load(source), tracks=tracks)
     result.document.save(output / "layered-glow.ass")
     selection = "+".join(f"eq(n,{t // 10})" for t in TIMES)
     process = subprocess.run(

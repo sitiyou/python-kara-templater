@@ -1,11 +1,11 @@
 include native/metrics.cpp native/meson.build native/meson.options
 recursive-include tools *.py
-recursive-include tests *.py
+recursive-include tests *.py *.ass
 include tests/fonts/DejaVuSans.ttf tests/fonts/LICENSE
 include tests/fonts/DejaVuSans-Oblique.ttf
 include tests/fonts/KaraTestPrimary.ttf
 include tests/fonts/KaraTestHangul.ttf tests/fonts/LICENSE-Sarasa
-include tests/fonts/KaraTestCJK.ttf
+include tests/fonts/KaraTestCJK.ttf tests/fonts/KaraTestMultiscript.ttf
 recursive-include vendor *.tar.gz *.patch LICENSE.*
 recursive-include vendor/runtime-licenses *
 include THIRD_PARTY.md docs/releasing.md
@@ -14,3 +14,5 @@ include docs/effects-validation.md docs/effects-validation-baseline.json
 include docs/karaoke-effects-audit.md
 recursive-include examples *.ass *.py
 include docs/type-checking.md
+
+recursive-include docs *.md *.json *.png

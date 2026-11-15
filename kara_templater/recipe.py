@@ -1,17 +1,23 @@
 """Karaoke source items, execution contexts and backend configuration values."""
 
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from .ass import Line, Style
 from .ass_output import TextLayer
 from .composition import Paint
 from .model import KaraokeLine, LaidOutLine
+from .properties import linear
+from .raster_settings import RasterPlan, RasterSettings
 from .sampling import DynamicEffect
 from .timeline import (
     DisplayWindow,
     EdgeSweep,
     ProgressCurve,
 )
+
+_DEFAULT_CURVE = ProgressCurve()
+_DEFAULT_EDGES = EdgeSweep()
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,7 @@ class EffectContext:
     ruby_style: Style
     resolution: tuple[int, int]
     max_regions: int = 10000
+    raster: RasterSettings | None = None
 
 
 @dataclass(frozen=True)
@@ -47,16 +54,35 @@ class EffectPlan:
     diagnostics: tuple[str, ...] = ()
     raw_lines: tuple[Line, ...] = ()
     dynamic: DynamicEffect | None = None
+    raster: RasterPlan | None = None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class Sweep:
-    progress_curve: ProgressCurve = field(default_factory=ProgressCurve)
-    edges: EdgeSweep = field(default_factory=EdgeSweep)
+    progress_curve: ProgressCurve
+    edges: EdgeSweep
     completion: str = "release"
 
-    def __post_init__(self) -> None:
-        if self.completion not in {"release", "clip"}:
+    def __init__(
+        self,
+        progress_curve: ProgressCurve = _DEFAULT_CURVE,
+        edges: EdgeSweep = _DEFAULT_EDGES,
+        completion: str = "release",
+        *,
+        curve: ProgressCurve | Callable[[float], float] | None = None,
+    ) -> None:
+        if curve is not None:
+            if progress_curve != ProgressCurve():
+                raise ValueError("specify curve or progress_curve, not both")
+            if curve is linear:
+                curve = ProgressCurve()
+            if not isinstance(curve, ProgressCurve):
+                raise ValueError("sweep curves require ProgressCurve or linear")
+            progress_curve = curve
+        object.__setattr__(self, "progress_curve", progress_curve)
+        object.__setattr__(self, "edges", edges)
+        object.__setattr__(self, "completion", completion)
+        if completion not in {"release", "clip"}:
             raise ValueError("sweep completion must be release or clip")
 
 

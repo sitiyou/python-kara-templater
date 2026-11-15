@@ -1,0 +1,304 @@
+{
+  "scope": "Complete E04 scene: 36 particles, lyric group, cursor and four echoes; combined ASS via FFmpeg vs isolated object ASS coverage painted independently in stable layer/source order; geometry validation is separate",
+  "background_sha256": {
+    "black": "7efdbbfeb59ec43fc9584c5027bfb5a906d7980f68ffa20f617083617c6cf574",
+    "white": "e52ae68d052db9f6f16fb6b5d2498e83b09545c9daaf4579e6c406a5713ad11f",
+    "checker": "fd56defdc4c57ad5ac4db9046994094a061b69470a4e4ca864038272c04fee9f",
+    "gradient": "d672a8f99de44f5f7b1d60421ffdb115096ae3a9c83046bea7425a67b2da25a2"
+  },
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "renderer": [
+    "[Parsed_ass_3 @ 0x555ed874dfc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x555ed874dfc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x556072abf9c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x556072abf9c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x5565d2d03600] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x5565d2d03600] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55684a1e0fc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55684a1e0fc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55732a5a1600] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55732a5a1600] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x557775127fc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x557775127fc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x558aece4c600] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x558aece4c600] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x5590e73b5440] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x5590e73b5440] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x5595db041440] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x5595db041440] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55c3f209d440] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55c3f209d440] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55dc812549c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55dc812549c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55e00fee6fc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55e00fee6fc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55eaea666fc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55eaea666fc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55ec6f069440] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55ec6f069440] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55f3c47379c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55f3c47379c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x55f663105600] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x55f663105600] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x5607a34d1440] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x5607a34d1440] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x561275faf9c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x561275faf9c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x5612a20459c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x5612a20459c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x5613de16d9c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x5613de16d9c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x561bca7b2fc0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x561bca7b2fc0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x56267d902440] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x56267d902440] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x562893b2a600] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x562893b2a600] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x5645101f2600] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x5645101f2600] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f0484002500] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f0484002500] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f0678002980] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f0678002980] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f0cd4002980] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f0cd4002980] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f1230002500] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f1230002500] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f2428002e40] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f2428002e40] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f2ff8002980] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f2ff8002980] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f3f14002500] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f3f14002500] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f550c002c00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f550c002c00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f57d4003540] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f57d4003540] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f5bac003a00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f5bac003a00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f6318002e40] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f6318002e40] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f6400002500] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f6400002500] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f74f4002780] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f74f4002780] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f85cc003540] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f85cc003540] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f8bc8002e40] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f8bc8002e40] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f98c8002500] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f98c8002500] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f9998002780] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f9998002780] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7f9b50002780] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7f9b50002780] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7fbe80002500] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7fbe80002500] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7fc5a8002c00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7fc5a8002c00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7fc698002780] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7fc698002780] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7fcf14002980] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7fcf14002980] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7fd560002c00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7fd560002c00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_3 @ 0x7fdca0002c00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_3 @ 0x7fdca0002c00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d"
+  ],
+  "ass_sha256": "dda1281cd5ae80928a6995028f80e2780a3d0547f23c83c1a3e6bc2db8a97b43",
+  "isolated_sha256": {
+    "cursor/echo:4": "ec40e51ce738037853380ff829ad5ebc5c77141def8616a97412602669b693c6",
+    "cursor/echo:3": "68dabe9f5f8761d332cc992efd2512f8bb09cd86c8a59aa3a6d09411724aabe2",
+    "ambient/0": "00bba6a4141e672a6a819923756f069e754ef1d868016fcb6c69f958447097de",
+    "ambient/1": "01c1f7b554cdd0551e535bb9d255cf713f58665e06138d383de78e8d995ff987",
+    "ambient/2": "54bd442a8ad56b91253efe91574e6170c067ba464f001e51475ecded33c21340",
+    "ambient/3": "bf226c7e4245fff8cd7fea4cfcccf2cf500e24b336f55e4652d2ccc960b7ea1d",
+    "ambient/4": "be4568a1e5578fd341e30b524512817fd9d2bd52d38d660aa4dd238324b55156",
+    "ambient/5": "bee8c533f68604e3a557f074c6305a5c57de86c59283909f7d53ec5910e5dcd6",
+    "ambient/6": "1eb38419812331dcaee6d86cc35ec3b7f84d673f695849b2646fda5fc041f8d5",
+    "ambient/7": "5d4f3fcdb3829d78db02ed4fec68ce33e299bb421c1dfa78140f9c0e6745a155",
+    "ambient/8": "cb6a44822a1db9120c37ed15df4fa27e0eff88281937d7f8bd04ef1b9f49eecc",
+    "ambient/9": "8053d2aabba33d43ccd584b47ca271a16ab1cec5f86cacf1b5936098524979b6",
+    "ambient/10": "6bd8556cf7e9075e2d4ab2ee6c5edc8ec5cf7001116b95efcf06114e8ca0e9ca",
+    "ambient/11": "5a5bf57e9d3b6550a57bcd4b3f29bff042d12a8e378bb9eb7de11137d091fd6f",
+    "ambient/12": "8c9204a7abda07c72031795e31ea2218c8f338b29f1106fc23c93c9d3f38943f",
+    "ambient/13": "b0f9f5c7db9928d7c2e3e63304656559ea2625fcf6d4a56fb986248d7b19ef4f",
+    "ambient/14": "4cd1383629a5d16e7efd5e2d23bcee3e7894ba78dc851c75d4c414e73b3dfd34",
+    "ambient/15": "3262700dbe326d137b68ec688ee5c14c6c3f32fdc04993c0579ec0a99f3b8257",
+    "ambient/16": "6e07f0caabebd186507d8720143dce47be066895ad1e1ab94b617f89bf5088c8",
+    "ambient/17": "a7a32ca3d96e3d6ae377d8c5f86e1c9de7bdff4695f9e305a42423acaabfef75",
+    "straight/0": "3806eb5ac2cfdf210d1cc08aba17e9acb2cffa630b9379b9fe33d465a7497141",
+    "straight/1": "01d62c5df7f8ad1504cb5847b2c14b69aefa01fdd0648346661ff4975ad1552c",
+    "straight/2": "5e3f7b041bdb2e1ca8f1d4e60034cf39ea00024b0e487ea089bbaab58061fccb",
+    "straight/3": "c71f569379a35250add2573076a41389a1127a3351ee6dfc0177b937c297b9e3",
+    "straight/4": "09dc773af91d1b59b8183ef6d710c69c0205a5a0877b51ab5dd207758dcf1d27",
+    "straight/5": "2d00dbd0cf5c614dcb07e16d9e01433fa7f006d03dc02fb0c97731c20a0601a1",
+    "sung/0": "ef18a949d5b1309a39230438238d735a32667c3c46b4b90bde285b5dc1473f91",
+    "sung/1": "ffee7f650af4da1d9dd4a20841e8d3310a5231bc8e8eaa3c7be9967cb311764b",
+    "sung/2": "f24d329048bca304c1f259223871e533633582365f637ba42d660bb15bc15ce8",
+    "sung/3": "eadbdad02807b44b96ba376c5a535c38a88318f77254753633e32c59d1f9cba3",
+    "sung/4": "f9eeea0b820e0ac8556819f913cc6da9638f084ba22979c19370702b4ced39f6",
+    "sung/5": "9afd701fb92ae20604420571a934cfde0d136b8f62c1ed212b035d36c5124662",
+    "sung/6": "9ee9e7d65d44665640b7f6ec9f5a45123a4a8828f4d1d5b3f398c825ffadd962",
+    "sung/7": "ce319d34a946153286774afe1831757e9715d90b37388b2edf532cfc361aa813",
+    "sung/8": "46a61de9b3c3ada9cecf828bc7f9211f91a0bf4bd05182c8f029b57c35419171",
+    "sung/9": "a56fcbdc4acbdad7541fa75f7322078b20e2cdb83990baace477f9feb30e6b2a",
+    "sung/10": "171006272a59e3dc5bd5a4d21cd5b9f81456f8c39e412a2935dfb55c4adeee38",
+    "sung/11": "e9440c5e02b9ad24666d8fc148bea26b11d02ed951b4c1973b5b4fd7341ac700",
+    "cursor/echo:2": "ec75f11b106075661da37361560694b5389959c727b22f5fe2164b18041d00ff",
+    "lyric": "cbea11b5ea5d73a07cb0ce00500ecb33c098cdcbe14cefcd6765c0b136220cb3",
+    "cursor/echo:1": "0874f201c20b95443c225619a950e4c9890547003e152eeca8d60c5cc0ab49d0",
+    "cursor": "8be7f3d0666e732974294009456a02441fba8d21aa89f9c7d12eb6927a602660"
+  },
+  "checks": [
+    {
+      "time_ms": 501,
+      "background": "black",
+      "max_rgb_difference": 1,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 501,
+      "background": "white",
+      "max_rgb_difference": 1,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 501,
+      "background": "checker",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 501,
+      "background": "gradient",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 1301,
+      "background": "black",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 673
+    },
+    {
+      "time_ms": 1301,
+      "background": "white",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 673
+    },
+    {
+      "time_ms": 1301,
+      "background": "checker",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 673
+    },
+    {
+      "time_ms": 1301,
+      "background": "gradient",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 673
+    },
+    {
+      "time_ms": 2501,
+      "background": "black",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 12
+    },
+    {
+      "time_ms": 2501,
+      "background": "white",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 12
+    },
+    {
+      "time_ms": 2501,
+      "background": "checker",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 12
+    },
+    {
+      "time_ms": 2501,
+      "background": "gradient",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 12
+    },
+    {
+      "time_ms": 3001,
+      "background": "black",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 3001,
+      "background": "white",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 3001,
+      "background": "checker",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 3001,
+      "background": "gradient",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 3501,
+      "background": "black",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 53
+    },
+    {
+      "time_ms": 3501,
+      "background": "white",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 53
+    },
+    {
+      "time_ms": 3501,
+      "background": "checker",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 53
+    },
+    {
+      "time_ms": 3501,
+      "background": "gradient",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 53
+    },
+    {
+      "time_ms": 4501,
+      "background": "black",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 4501,
+      "background": "white",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 4501,
+      "background": "checker",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    },
+    {
+      "time_ms": 4501,
+      "background": "gradient",
+      "max_rgb_difference": 2,
+      "overlap_pixels": 0
+    }
+  ],
+  "reversed_order_fault_detected": true,
+  "remaining": [
+    "continuous-time bounds",
+    "other players"
+  ]
+}

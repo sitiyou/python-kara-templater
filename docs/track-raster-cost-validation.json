@@ -1,0 +1,546 @@
+{
+  "source_sha256": "43caf1244392b10c6b7e42c25a6859c84d111fdef93492b7ff957802e94de533",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "max_events": 1000000,
+  "raster_settings": {
+    "max_channel_error": 4,
+    "max_pixels": 4000000,
+    "max_images": 50000,
+    "max_frame_events": 50000,
+    "max_rectangles": 200000,
+    "max_frame_chars": 8000000,
+    "max_output_chars": 64000000,
+    "max_frames": 1000,
+    "max_cached_masks": 128
+  },
+  "scope": "Complete layered_glow fixture at source font sizes and resolution; raster color error is spatial, before ASS transforms, and assumes RGB/full-chroma compositing.",
+  "outputs": {
+    "native": {
+      "status": "generated",
+      "compile_seconds": 0.02537537099851761,
+      "events": 302,
+      "layers": 88,
+      "ass_bytes": 99062,
+      "ass_sha256": "8167724e8cb8b30d1eed1760f8a86fd0e75b9981846e50aa52d34da7d0a4d47c",
+      "diagnostics": [
+        "ass:34f863f6bfecca67c7f4/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1300 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1300 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/unit:1/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2700..2752.94 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/unit:1/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2700..2752.94 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/ruby:0:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1300 ms; tracks=ruby:0:0:sweep; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/ruby:1:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2700..2752.94 ms; tracks=ruby:1:0:sweep; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "native ASS opacity is applied per drawing layer; overlapping parts do not receive post-composite group alpha; use RasterSettings when that compositing order is required",
+        "ass:94c74b4ea771fd474c16/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1105.88 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:94c74b4ea771fd474c16/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1105.88 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:94c74b4ea771fd474c16/ruby:0:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..1105.88 ms; tracks=ruby:0:0:sweep; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:94c74b4ea771fd474c16/ruby:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1800..1905.88 ms; tracks=ruby:0:1:sweep; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "native ASS opacity is applied per drawing layer; overlapping parts do not receive post-composite group alpha; use RasterSettings when that compositing order is required",
+        "ass:c28f30cb45586fd82f37/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2700 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:c28f30cb45586fd82f37/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 1000..2700 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:c28f30cb45586fd82f37/unit:1/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2700..3000 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:c28f30cb45586fd82f37/unit:1/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2700..3000 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "native ASS opacity is applied per drawing layer; overlapping parts do not receive post-composite group alpha; use RasterSettings when that compositing order is required"
+      ],
+      "capture": {
+        "compositing_format": "rgb24",
+        "background": "black",
+        "renderer_seconds": 0.6787963019996823,
+        "frames": [
+          {
+            "time_ms": 0,
+            "pixel_sha256": "0b150fd32588b1daca5569992ebe559c0102c837306b1af4c44d35128ec58366",
+            "bbox": null
+          },
+          {
+            "time_ms": 500,
+            "pixel_sha256": "39e78f8b686513b4563e98a1e32ad6b1c6abf108a22b3538aa23cec8984a74b9",
+            "bbox": [
+              225,
+              65,
+              413,
+              437
+            ]
+          },
+          {
+            "time_ms": 800,
+            "pixel_sha256": "bf6f4dfc6fb526759fb2756ea782c79714fec8a1cf3a06654ca63c9ca898ba9d",
+            "bbox": [
+              224,
+              64,
+              415,
+              438
+            ]
+          },
+          {
+            "time_ms": 1000,
+            "pixel_sha256": "7195905caa3bf405e3059c41f919c5bb092d049e35345a6563a622595af6b629",
+            "bbox": [
+              222,
+              64,
+              415,
+              439
+            ]
+          },
+          {
+            "time_ms": 1300,
+            "pixel_sha256": "1e83119efe6e2bb74e41c929c7e141dabaf1ac487ded98d4111cba786e28e387",
+            "bbox": [
+              215,
+              64,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1600,
+            "pixel_sha256": "18edaf4b6ac551ac59d6bb1304fae54c930d91794826b67b587bcf85fa3ce279",
+            "bbox": [
+              215,
+              63,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1700,
+            "pixel_sha256": "a72777ee522d9226ab35a64b19e22598061978b45ac033daaeafc40986c8ef28",
+            "bbox": [
+              215,
+              63,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1800,
+            "pixel_sha256": "d3b4b2faf2a4eed362260f918ebcdb10d841006a873ccb40be6b16b936d18a56",
+            "bbox": [
+              215,
+              63,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 1850,
+            "pixel_sha256": "b0051cc75e3f4f313ef6036b9bf58e195c1736cbdc1a781744ea9b30a0ae0c56",
+            "bbox": [
+              215,
+              63,
+              415,
+              444
+            ]
+          },
+          {
+            "time_ms": 2400,
+            "pixel_sha256": "c14fe14b7a7d7026bc36b4f631901068544fd8f8597aa27fd60dde7c285579f2",
+            "bbox": [
+              215,
+              62,
+              415,
+              446
+            ]
+          },
+          {
+            "time_ms": 2700,
+            "pixel_sha256": "01e0f5c898a7f45b561c7ccde3103fa15c469d23fd0a1f000c7df9cf0e3cffbb",
+            "bbox": [
+              215,
+              62,
+              415,
+              446
+            ]
+          },
+          {
+            "time_ms": 3000,
+            "pixel_sha256": "30143adb2da57f0c215174098c6232d1463c1230f378d446250264e317b8b299",
+            "bbox": [
+              222,
+              62,
+              423,
+              445
+            ]
+          },
+          {
+            "time_ms": 3900,
+            "pixel_sha256": "c71bd0d1b9f23aac096f05d0e1fe08a7187d3ef9ffeb968a4d1966c2bff3c3d5",
+            "bbox": [
+              224,
+              64,
+              415,
+              438
+            ]
+          }
+        ],
+        "ffmpeg": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers"
+      },
+      "preflight": [
+        {
+          "static_events": 302,
+          "raw_events": 0,
+          "sampling": [],
+          "event_limit": 1000000,
+          "raster": []
+        }
+      ]
+    },
+    "raster": {
+      "status": "generated",
+      "compile_seconds": 50.489921410000534,
+      "events": 464670,
+      "layers": 14,
+      "ass_bytes": 100265032,
+      "ass_sha256": "03bf59d039ace4c40ccd4e2f30ba343b93405d5decde88b3c33a81fb1a69cbf3",
+      "diagnostics": [
+        "raster pixel fidelity requires RGB or full-resolution chroma subtitle compositing; YUV420 blending can introduce rectangle-dependent color edges",
+        "raster spatial color error <= 4/255 per composited channel before ASS transforms; temporal sampling is separate",
+        "raster: 104 frames, 624 target samples; exact events checked during encoding",
+        "raster: 102 frames, 408 target samples; exact events checked during encoding",
+        "raster: 101 frames, 404 target samples; exact events checked during encoding"
+      ],
+      "capture": {
+        "compositing_format": "rgb24",
+        "background": "black",
+        "renderer_seconds": 18.068319145000714,
+        "frames": [
+          {
+            "time_ms": 0,
+            "pixel_sha256": "0b150fd32588b1daca5569992ebe559c0102c837306b1af4c44d35128ec58366",
+            "bbox": null
+          },
+          {
+            "time_ms": 500,
+            "pixel_sha256": "c519aad1370b407734d60bff59a509c26ef78a54aacee23b0eba45e3ae62bd2e",
+            "bbox": [
+              224,
+              64,
+              414,
+              438
+            ]
+          },
+          {
+            "time_ms": 800,
+            "pixel_sha256": "eb6f9802fdcc633dedfd9137bee0d3cd18fc728e07cc77897b053184e8f73742",
+            "bbox": [
+              224,
+              64,
+              414,
+              438
+            ]
+          },
+          {
+            "time_ms": 1000,
+            "pixel_sha256": "eb6f9802fdcc633dedfd9137bee0d3cd18fc728e07cc77897b053184e8f73742",
+            "bbox": [
+              224,
+              64,
+              414,
+              438
+            ]
+          },
+          {
+            "time_ms": 1300,
+            "pixel_sha256": "73215ee97778fa7d2f36525065a4e605c14efa360a78a450801a68f77dba6271",
+            "bbox": [
+              218,
+              64,
+              414,
+              443
+            ]
+          },
+          {
+            "time_ms": 1600,
+            "pixel_sha256": "9c15ac9a0bcae9634ff54fde88c32b1b48c35160c8a7c0f83837a7f22239c2d3",
+            "bbox": [
+              218,
+              64,
+              414,
+              443
+            ]
+          },
+          {
+            "time_ms": 1700,
+            "pixel_sha256": "1b82039ad7f2e1919d9f5f5d5b5700ad18063b83e25a9dab88ec8ea98bb78306",
+            "bbox": [
+              218,
+              64,
+              414,
+              443
+            ]
+          },
+          {
+            "time_ms": 1800,
+            "pixel_sha256": "72ddf7c6da498947c0928154a6d1819232981deb0dfb85bbff09677f35493181",
+            "bbox": [
+              218,
+              64,
+              414,
+              443
+            ]
+          },
+          {
+            "time_ms": 1850,
+            "pixel_sha256": "ed51466f068a827a1adb4853e3c33078e9ae07fa43f7ba0cc2780d325beb9228",
+            "bbox": [
+              218,
+              64,
+              414,
+              443
+            ]
+          },
+          {
+            "time_ms": 2400,
+            "pixel_sha256": "9ed30fea6c18f82f7cc6295e00fc73ed33abb8fea0377d34af7c3ef412cbde57",
+            "bbox": [
+              218,
+              64,
+              414,
+              443
+            ]
+          },
+          {
+            "time_ms": 2700,
+            "pixel_sha256": "a0728ce62544453642c2c98cd347277ec60a2b68f1c4bb9648550bebb5d54317",
+            "bbox": [
+              218,
+              64,
+              414,
+              443
+            ]
+          },
+          {
+            "time_ms": 3000,
+            "pixel_sha256": "a95b941b26c19ea72bbf21e1d73c7847deb9e25a1868e253a84d49551f307eae",
+            "bbox": [
+              224,
+              64,
+              421,
+              443
+            ]
+          },
+          {
+            "time_ms": 3900,
+            "pixel_sha256": "8b64f4912693272c42ed54eac7a84a7a09dad83bac578d411f0c4eb7f2dbd86b",
+            "bbox": [
+              224,
+              64,
+              414,
+              438
+            ]
+          }
+        ],
+        "ffmpeg": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers"
+      },
+      "preflight": [
+        {
+          "static_events": 0,
+          "raw_events": 0,
+          "sampling": [],
+          "event_limit": 1000000,
+          "raster": [
+            {
+              "frames": 104,
+              "target_samples": 624,
+              "canvas_pixels": 307200,
+              "frame_event_limit": 50000,
+              "max_channel_error": 4
+            },
+            {
+              "frames": 102,
+              "target_samples": 408,
+              "canvas_pixels": 307200,
+              "frame_event_limit": 50000,
+              "max_channel_error": 4
+            },
+            {
+              "frames": 101,
+              "target_samples": 404,
+              "canvas_pixels": 307200,
+              "frame_event_limit": 50000,
+              "max_channel_error": 4
+            }
+          ]
+        }
+      ],
+      "text_characters": 55766556,
+      "max_active_text_characters_by_layer": {
+        "0": 1726720,
+        "2": 994291,
+        "4": 1402822
+      },
+      "visual_regression": {
+        "sampled_frames": 13,
+        "all_identical_to_pre_coverage_stack_output": true,
+        "ass_identical_to_pre_coverage_stack_output": true
+      }
+    },
+    "legacy": {
+      "source_revision": "61c86e6",
+      "example": "examples/layered_glow.py",
+      "status": "generated",
+      "compile_seconds": 0.02322581700173032,
+      "events": 389,
+      "layers": 180,
+      "ass_bytes": 126221,
+      "ass_sha256": "9ddbf66db02e7d9bab4b2a8414cd6b4d2cd8516bc1f9915be8c18552976f106a",
+      "diagnostics": [
+        "ass:34f863f6bfecca67c7f4/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/unit:1/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/unit:1/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/ruby:0:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:34f863f6bfecca67c7f4/ruby:1:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:94c74b4ea771fd474c16/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:94c74b4ea771fd474c16/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:94c74b4ea771fd474c16/ruby:0:0: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:94c74b4ea771fd474c16/ruby:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..4000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:c28f30cb45586fd82f37/unit:0/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:c28f30cb45586fd82f37/unit:0/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 976..1000 ms; tracks=unit:0; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:c28f30cb45586fd82f37/unit:1/text:0:1: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary",
+        "ass:c28f30cb45586fd82f37/unit:1/text:1:2: ASS hard-clips differing outline/glow stacks at a spatial boundary during 2676..2700 ms; tracks=unit:1; smooth recoloring or blurring the combined regions is not supported by this output path; temporal sampling cannot remove this spatial boundary"
+      ],
+      "capture": {
+        "compositing_format": "rgb24",
+        "background": "black",
+        "renderer_seconds": 1.1189424170006532,
+        "frames": [
+          {
+            "time_ms": 0,
+            "pixel_sha256": "0b150fd32588b1daca5569992ebe559c0102c837306b1af4c44d35128ec58366",
+            "bbox": null
+          },
+          {
+            "time_ms": 500,
+            "pixel_sha256": "4aaf219a037ea0580da840339e4da5dca3c6c4ac9828519a60357b8213f2346e",
+            "bbox": [
+              225,
+              65,
+              413,
+              437
+            ]
+          },
+          {
+            "time_ms": 800,
+            "pixel_sha256": "74d4db98984041fd22f1ee9e238c285a968a6de4ed3aa52e683e62c691d7a614",
+            "bbox": [
+              224,
+              64,
+              415,
+              438
+            ]
+          },
+          {
+            "time_ms": 1000,
+            "pixel_sha256": "584b70470926a59f30df0e465259da0f8332286d63d4720faf85f075a0f30888",
+            "bbox": [
+              224,
+              64,
+              415,
+              438
+            ]
+          },
+          {
+            "time_ms": 1300,
+            "pixel_sha256": "b73a900194736f1f9e27fecd7047bbb65f9592890a6aac3ca41512e8e67766f3",
+            "bbox": [
+              222,
+              64,
+              415,
+              440
+            ]
+          },
+          {
+            "time_ms": 1600,
+            "pixel_sha256": "a51c534e61c4d91771e8efa53c660fd9e3ba509e4c56628f9ef7dc994cecf244",
+            "bbox": [
+              219,
+              64,
+              415,
+              442
+            ]
+          },
+          {
+            "time_ms": 1700,
+            "pixel_sha256": "bf39989cc1da6f0660e286f4bcf46df2415666f542cc24d6b813cfd463492341",
+            "bbox": [
+              218,
+              64,
+              415,
+              442
+            ]
+          },
+          {
+            "time_ms": 1800,
+            "pixel_sha256": "08517bbefb4e61a49164521ef4b7c4bbaeee8bfb68d27c613dec433377f2f07f",
+            "bbox": [
+              218,
+              64,
+              415,
+              442
+            ]
+          },
+          {
+            "time_ms": 1850,
+            "pixel_sha256": "0f79bdfc8acbc8af726c0293d24163ec8601a0956318554831febf2a00da6300",
+            "bbox": [
+              217,
+              64,
+              415,
+              443
+            ]
+          },
+          {
+            "time_ms": 2400,
+            "pixel_sha256": "dee7b372765691fb816b19ecd3d8e89c29b0aed2ffec3738c0000e44563d5892",
+            "bbox": [
+              220,
+              62,
+              415,
+              442
+            ]
+          },
+          {
+            "time_ms": 2700,
+            "pixel_sha256": "c3c86bf3cc1ffc1a7041095ce4400ee2d3ac30a9dc2d0a0b8a97df74fd24af64",
+            "bbox": [
+              222,
+              62,
+              415,
+              440
+            ]
+          },
+          {
+            "time_ms": 3000,
+            "pixel_sha256": "76602f5bf840bfa911d665d367051c7932331ce92e66239933563457be9b51cb",
+            "bbox": [
+              222,
+              62,
+              417,
+              440
+            ]
+          },
+          {
+            "time_ms": 3900,
+            "pixel_sha256": "dede1cbd5e06b2672e1080eee7ed1a61c5e1b1466bf4b57c3286d34ffbcca744",
+            "bbox": [
+              224,
+              64,
+              415,
+              438
+            ]
+          }
+        ],
+        "ffmpeg": "ffmpeg version n9.0.2 Copyright (c) 2000-2026 the FFmpeg developers"
+      }
+    }
+  },
+  "command": "python -m tools.validate_track_cost /tmp/kara-track-cost-complete --color-error 4 --capture",
+  "prior_character_budget_experiment": {
+    "max_channel_error": 4,
+    "max_events": 1000000,
+    "max_output_chars": 64000000,
+    "status": "budget_rejected",
+    "error": "raster animation exceeds output character budget",
+    "stage": "Before removing completed opacity transforms; now superseded by successful output at the same limits."
+  }
+}

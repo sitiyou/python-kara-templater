@@ -1,0 +1,332 @@
+{
+  "scope": "bilingual scene smoke preview; full E01\u2013E12 acceptance pending",
+  "resolution": "1280x720",
+  "generation_seconds": 0.3846467029652558,
+  "render_seconds": 2.620621827954892,
+  "event_count": 6731,
+  "peak_active": 28,
+  "byte_count": 2997085,
+  "estimated_events": 7028,
+  "max_time_quantization_seconds": 0.0033333333333334103,
+  "repeat_generation_identical": true,
+  "continuous_frames": 300,
+  "fresh_seek_matches_continuous": true,
+  "seek_frame_md5": {
+    "5.0": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "4.5": "38b61b32762bf9ac68f0f6972a30355b",
+    "3.4": "ef7c1c43d00351855d7b1f6402fbe545",
+    "2.5": "cfb179bf16681d2168b66f28e544038b",
+    "1.8": "8a16b10be946f697f8f492473bc8e73e",
+    "1.3": "bfe29654428b483e9c82540f9796539f",
+    "0.5": "f7a792fb066ee6e39069efa6e7a32bf3",
+    "0.0": "dff8816c1a6cc11a56b3a6e618c82ffb"
+  },
+  "preview_seconds": [
+    0.0,
+    0.5,
+    1.3,
+    1.8,
+    2.5,
+    3.4,
+    4.5,
+    5.0
+  ],
+  "renderer": [
+    "[Parsed_ass_0 @ 0x55809870b6c0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x55809870b6c0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_0 @ 0x7fd798003d00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x7fd798003d00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)"
+  ],
+  "font": "tests/fonts/DejaVuSans.ttf (repository license)",
+  "font_family": "DejaVu Sans",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "font_assets": [
+    {
+      "path": "tests/fonts/DejaVuSans.ttf",
+      "family": "DejaVu Sans",
+      "sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c"
+    },
+    {
+      "path": "tests/fonts/KaraTestCJK.ttf",
+      "family": "Kara Test CJK",
+      "sha256": "0739a1972cc3a9caa690f13e94de37065d34b5662df9ddd3d3fd3a90ad4297e2"
+    }
+  ],
+  "strategies": [
+    {
+      "id": "record:14/text:0:1",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:0:0/text:0:1",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:0:0/text:1:2",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:0:0/text:2:3",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:0:0/text:3:4",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/text:1:2",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:1:0/text:0:1",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:1:0/text:1:2",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:1:0/text:2:3",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/ruby:1:0/text:3:4",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "top-center",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 13,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:0:1",
+      "strategy": "sampled",
+      "events": 250,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:1:2",
+      "strategy": "sampled",
+      "events": 250,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:2:3",
+      "strategy": "sampled",
+      "events": 250,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:3:4",
+      "strategy": "sampled",
+      "events": 250,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:4:5",
+      "strategy": "sampled",
+      "events": 250,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:5:6",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:6:7",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:7:8",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:8:9",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:9:10",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:10:11",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:11:12",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:12:13",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:15/text:13:14",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "bottom-center",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 13,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/cue:intro/text:0",
+      "strategy": "native-static",
+      "events": 1,
+      "sample_interval": null,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/cue:intro/text:1",
+      "strategy": "native-static",
+      "events": 1,
+      "sample_interval": null,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "record:14/cue:intro/text:2",
+      "strategy": "native-static",
+      "events": 1,
+      "sample_interval": null,
+      "peak_path_points": 0,
+      "peak_bands": null,
+      "peak_clip_points": null
+    },
+    {
+      "id": "between-lines",
+      "strategy": "sampled",
+      "events": 249,
+      "sample_interval": 0.02,
+      "peak_path_points": 13,
+      "peak_bands": null,
+      "peak_clip_points": null
+    }
+  ],
+  "remaining": [
+    "all-background comparisons",
+    "reference error measurements",
+    "remaining E01\u2013E12 effects"
+  ]
+}

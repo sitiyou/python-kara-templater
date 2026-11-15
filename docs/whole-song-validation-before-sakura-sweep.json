@@ -1,0 +1,463 @@
+{
+  "scope": "180-second fixed composition cost and determinism; individual visual acceptance remains separate",
+  "duration_seconds": 180,
+  "fps": 50,
+  "render_clock": "1/1000 time base, 20 ms steps, +1 ms offset avoids floating boundary truncation in the ffmpeg ASS filter",
+  "resolution": [
+    1280,
+    720
+  ],
+  "budget": {
+    "fps": 50,
+    "max_events": 250000,
+    "max_bytes": 104857600,
+    "max_active": 2000,
+    "max_path_points": 4096,
+    "max_bands": 1024,
+    "max_boolean_work": 1000000
+  },
+  "event_count": 89918,
+  "peak_active": 556,
+  "byte_count": 48321970,
+  "estimated_events": 106867,
+  "max_time_quantization_seconds": 0.005000000000023874,
+  "generation_seconds": 3.621955259994138,
+  "repeat_generation_seconds": 4.085426690027816,
+  "continuous_render_seconds": 14.69653879100224,
+  "continuous_frames": 9000,
+  "fresh_seek_seconds": 41.9133239419898,
+  "fresh_seek_count": 150,
+  "copied_case_frame_comparisons": 5400,
+  "copied_cases_identical": true,
+  "standalone_case_seconds": 8.51874818399665,
+  "standalone_case_frame_comparisons": 3600,
+  "standalone_cases": [
+    {
+      "id": "E01",
+      "name": "lyrics",
+      "factory": "examples.scene_lyrics",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "c7cea9c10afdba571c3a44fe7dda7fa4b60b29ee731409ef936d498209be45a0"
+    },
+    {
+      "id": "E02",
+      "name": "staggered",
+      "factory": "examples.scene_staggered",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "bce6ed52e29f7932fb416d403af53c07dc1db0bf29209a5622232b3f7e2ab5d7"
+    },
+    {
+      "id": "E03",
+      "name": "round",
+      "factory": "examples.scene_round",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "fe577b17232fa7adcdf47c843d71800552f4c91eb11ef8257a7d916365ad53d1"
+    },
+    {
+      "id": "E04",
+      "name": "sakura",
+      "factory": "examples.scene_sakura",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "019bdc674943736c4ad5885c4b556f7001d302a86513bafccf21d04f14f77051"
+    },
+    {
+      "id": "E05",
+      "name": "fragments",
+      "factory": "examples.scene_fragments",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "a7d7fe16f7c94386e0c644682c552956e2af55345a2707aa826ce239f4702841"
+    },
+    {
+      "id": "E06",
+      "name": "word-backgrounds",
+      "factory": "examples.scene_cues",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "1b203649c8d2b861c4c149e70aa2431e59714de2466b37c8e6f28d0fa0496d99"
+    },
+    {
+      "id": "E07",
+      "name": "outlines",
+      "factory": "examples.scene_outlines",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "64d57777510a98d3e8643bef2d079d99ed058cc068edf657060145fb5a50ccf3"
+    },
+    {
+      "id": "E08",
+      "name": "writing",
+      "factory": "examples.scene_writing",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "b2e70db5577137aa97526ce1ecb0b7a9bcf913e1728f8d9508ae35c328c6da72"
+    },
+    {
+      "id": "E09",
+      "name": "gradient",
+      "factory": "examples.scene_gradient",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "a4222a47577ac8d67cc35603e6422037afdb62edff4d40ea53c676d21997ff57"
+    },
+    {
+      "id": "E10",
+      "name": "morph",
+      "factory": "examples.scene_morph",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "31946658c5d215c4a6016913440ec73eecaefe920f1e147fdbc219ae84dc8be6"
+    },
+    {
+      "id": "E11",
+      "name": "sweep",
+      "factory": "examples.scene_sweep",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "9efea39690bec5e8fef5252a09d76fda85ab587455167ac37eb3db1c1353e55e"
+    },
+    {
+      "id": "E12",
+      "name": "lyric-cues",
+      "factory": "examples.scene_lyric_cues",
+      "frames": 300,
+      "matches_whole_song": true,
+      "ass_sha256": "01a818aca6bdc2f55ed97734917a7001f8a931fb6e42ba5a3577f7015040d51d"
+    }
+  ],
+  "fresh_seek_matches_continuous": true,
+  "seek_frame_md5": {
+    "179.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "176.501": "6927b96e87ba999a398c1b025b64a262",
+    "175.501": "6927b96e87ba999a398c1b025b64a262",
+    "174.021": "8a4bfe0d2d406c20e1682093bc776643",
+    "174.001": "d6a546d3e69827ce554d003819643954",
+    "173.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "170.501": "7543b52c4e559ed583e510c36737480d",
+    "169.501": "5c7887633be71c39efb75267217e3191",
+    "168.021": "f2698d74a07405896c977724c152da13",
+    "168.001": "decbfcc3bbefbf4b84d209387f6c93c4",
+    "167.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "164.501": "bda96c6234209522359c6e0b8ae3c7b1",
+    "163.501": "4a2a77919b87aa415449c520ab630ebc",
+    "162.021": "971e924f5b75a60db21516562dca79b9",
+    "162.001": "d19919a938a774ab2d14245d297f0d27",
+    "161.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "158.501": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "157.501": "211202513e8299d091f5b2608f0188cb",
+    "156.021": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "156.001": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "155.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "152.501": "1c75af1280ab07fd0e8cf03242ae41b7",
+    "151.501": "1d5caeb839c28956efb418f4af64174d",
+    "150.021": "6d498941ddb5a5f4ce4c176be6ef328e",
+    "150.001": "9b6d7388850d73ba076f4a6a4d335dea",
+    "149.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "146.501": "b0cfcd0481cb11caa817248a5eb04544",
+    "145.501": "1e8485fffd865c03cdcf5f5efc194347",
+    "144.021": "e31e3ccb73cc57e2002a3595adae1ce6",
+    "144.001": "e31e3ccb73cc57e2002a3595adae1ce6",
+    "143.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "140.501": "64e205ac9dbe03ee6ec4157b349dd26c",
+    "139.501": "bb5cecc4bdfe90ff5dfec6287b102752",
+    "138.021": "a0bf6caa0e6f43340a3b62506b768b98",
+    "138.001": "a0bf6caa0e6f43340a3b62506b768b98",
+    "137.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "134.501": "bd14f8e6b35f52a4f2b16e0b9f953882",
+    "133.501": "597e4cb1b9922f6695d856f3b0710a2a",
+    "132.021": "62b8ef7323cf1f0d6180f34f53a2fd9c",
+    "132.001": "62b8ef7323cf1f0d6180f34f53a2fd9c",
+    "131.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "128.501": "0d41afe51158b6dbbaec8510d11448b4",
+    "127.501": "d6b2225647a85352899e497b65e0c694",
+    "126.021": "bc1a28e95f56306f259660ebebd33f18",
+    "126.001": "bc1a28e95f56306f259660ebebd33f18",
+    "125.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "122.501": "95b28cfa17552e907eec22cadd4dafa3",
+    "121.501": "8aabe995166b88de09def5078fd03e53",
+    "120.021": "07984039203aac32be46ca9f9df0bb9b",
+    "120.001": "07984039203aac32be46ca9f9df0bb9b",
+    "119.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "116.501": "59e78d3c5797733432b46f0491c77063",
+    "115.501": "4a40441490b788e14b4a104b754f1653",
+    "114.021": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "114.001": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "113.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "110.501": "e1ca2087b442314cafc05b8975f9179c",
+    "109.501": "4821c9377956e9b0d638e3821c65915f",
+    "108.021": "f807accfee87e816116fb8a3ed2ce961",
+    "108.001": "f807accfee87e816116fb8a3ed2ce961",
+    "107.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "104.501": "6927b96e87ba999a398c1b025b64a262",
+    "103.501": "6927b96e87ba999a398c1b025b64a262",
+    "102.021": "8a4bfe0d2d406c20e1682093bc776643",
+    "102.001": "d6a546d3e69827ce554d003819643954",
+    "101.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "98.501": "7543b52c4e559ed583e510c36737480d",
+    "97.501": "5c7887633be71c39efb75267217e3191",
+    "96.021": "f2698d74a07405896c977724c152da13",
+    "96.001": "decbfcc3bbefbf4b84d209387f6c93c4",
+    "95.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "92.501": "bda96c6234209522359c6e0b8ae3c7b1",
+    "91.501": "4a2a77919b87aa415449c520ab630ebc",
+    "90.021": "971e924f5b75a60db21516562dca79b9",
+    "90.001": "d19919a938a774ab2d14245d297f0d27",
+    "89.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "86.501": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "85.501": "211202513e8299d091f5b2608f0188cb",
+    "84.021": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "84.001": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "83.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "80.501": "1c75af1280ab07fd0e8cf03242ae41b7",
+    "79.501": "1d5caeb839c28956efb418f4af64174d",
+    "78.021": "6d498941ddb5a5f4ce4c176be6ef328e",
+    "78.001": "9b6d7388850d73ba076f4a6a4d335dea",
+    "77.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "74.501": "b0cfcd0481cb11caa817248a5eb04544",
+    "73.501": "1e8485fffd865c03cdcf5f5efc194347",
+    "72.021": "e31e3ccb73cc57e2002a3595adae1ce6",
+    "72.001": "e31e3ccb73cc57e2002a3595adae1ce6",
+    "71.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "68.501": "64e205ac9dbe03ee6ec4157b349dd26c",
+    "67.501": "bb5cecc4bdfe90ff5dfec6287b102752",
+    "66.021": "a0bf6caa0e6f43340a3b62506b768b98",
+    "66.001": "a0bf6caa0e6f43340a3b62506b768b98",
+    "65.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "62.501": "bd14f8e6b35f52a4f2b16e0b9f953882",
+    "61.501": "597e4cb1b9922f6695d856f3b0710a2a",
+    "60.021": "62b8ef7323cf1f0d6180f34f53a2fd9c",
+    "60.001": "62b8ef7323cf1f0d6180f34f53a2fd9c",
+    "59.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "56.501": "0d41afe51158b6dbbaec8510d11448b4",
+    "55.501": "d6b2225647a85352899e497b65e0c694",
+    "54.021": "bc1a28e95f56306f259660ebebd33f18",
+    "54.001": "bc1a28e95f56306f259660ebebd33f18",
+    "53.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "50.501": "95b28cfa17552e907eec22cadd4dafa3",
+    "49.501": "8aabe995166b88de09def5078fd03e53",
+    "48.021": "07984039203aac32be46ca9f9df0bb9b",
+    "48.001": "07984039203aac32be46ca9f9df0bb9b",
+    "47.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "44.501": "59e78d3c5797733432b46f0491c77063",
+    "43.501": "4a40441490b788e14b4a104b754f1653",
+    "42.021": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "42.001": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "41.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "38.501": "e1ca2087b442314cafc05b8975f9179c",
+    "37.501": "4821c9377956e9b0d638e3821c65915f",
+    "36.021": "f807accfee87e816116fb8a3ed2ce961",
+    "36.001": "f807accfee87e816116fb8a3ed2ce961",
+    "35.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "32.501": "6927b96e87ba999a398c1b025b64a262",
+    "31.501": "6927b96e87ba999a398c1b025b64a262",
+    "30.021": "8a4bfe0d2d406c20e1682093bc776643",
+    "30.001": "d6a546d3e69827ce554d003819643954",
+    "29.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "26.501": "7543b52c4e559ed583e510c36737480d",
+    "25.501": "5c7887633be71c39efb75267217e3191",
+    "24.021": "f2698d74a07405896c977724c152da13",
+    "24.001": "decbfcc3bbefbf4b84d209387f6c93c4",
+    "23.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "20.501": "bda96c6234209522359c6e0b8ae3c7b1",
+    "19.501": "4a2a77919b87aa415449c520ab630ebc",
+    "18.021": "971e924f5b75a60db21516562dca79b9",
+    "18.001": "d19919a938a774ab2d14245d297f0d27",
+    "17.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "14.501": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "13.501": "211202513e8299d091f5b2608f0188cb",
+    "12.021": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "12.001": "d7fb0cb2d9e17acfb14f964c42eae1c9",
+    "11.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "8.501": "1c75af1280ab07fd0e8cf03242ae41b7",
+    "7.501": "1d5caeb839c28956efb418f4af64174d",
+    "6.021": "6d498941ddb5a5f4ce4c176be6ef328e",
+    "6.001": "9b6d7388850d73ba076f4a6a4d335dea",
+    "5.981": "eead510fe4e7b8b9fc9ec2642bf24a9c",
+    "2.501": "b0cfcd0481cb11caa817248a5eb04544",
+    "1.501": "1e8485fffd865c03cdcf5f5efc194347",
+    "0.021": "e31e3ccb73cc57e2002a3595adae1ce6",
+    "0.001": "e31e3ccb73cc57e2002a3595adae1ce6"
+  },
+  "repeat_generation_identical": true,
+  "ass_sha256": "f286f6143cdc5c36705f44a7f79899f60fbac30506453f8f808a7ff7270230ec",
+  "rss_measurement_note": "Linux resource ru_maxrss; child aggregate may include inherited memory before exec and is not isolated steady-state ffmpeg RSS",
+  "process_peak_rss_kib": 386060,
+  "child_peak_rss_kib": 386060,
+  "platform": "Linux-7.3.1-1-cachyos-x86_64-with-glibc2.44",
+  "machine": "x86_64",
+  "cpu_count": 16,
+  "renderer": [
+    "[Parsed_ass_2 @ 0x562d12db0ac0] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_2 @ 0x562d12db0ac0] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_2 @ 0x7fdfe8004480] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_2 @ 0x7fdfe8004480] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)"
+  ],
+  "font_assets": [
+    {
+      "path": "tests/fonts/DejaVuSans.ttf",
+      "family": "DejaVu Sans",
+      "sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c"
+    },
+    {
+      "path": "tests/fonts/KaraTestCJK.ttf",
+      "family": "Kara Test CJK",
+      "sha256": "0739a1972cc3a9caa690f13e94de37065d34b5662df9ddd3d3fd3a90ad4297e2"
+    }
+  ],
+  "slots": [
+    {
+      "start_seconds": 0,
+      "case_id": "E01",
+      "case": "lyrics"
+    },
+    {
+      "start_seconds": 6,
+      "case_id": "E02",
+      "case": "staggered"
+    },
+    {
+      "start_seconds": 12,
+      "case_id": "E03",
+      "case": "round"
+    },
+    {
+      "start_seconds": 18,
+      "case_id": "E04",
+      "case": "sakura"
+    },
+    {
+      "start_seconds": 24,
+      "case_id": "E05",
+      "case": "fragments"
+    },
+    {
+      "start_seconds": 30,
+      "case_id": "E06",
+      "case": "word-backgrounds"
+    },
+    {
+      "start_seconds": 36,
+      "case_id": "E07",
+      "case": "outlines"
+    },
+    {
+      "start_seconds": 42,
+      "case_id": "E08",
+      "case": "writing"
+    },
+    {
+      "start_seconds": 48,
+      "case_id": "E09",
+      "case": "gradient"
+    },
+    {
+      "start_seconds": 54,
+      "case_id": "E10",
+      "case": "morph"
+    },
+    {
+      "start_seconds": 60,
+      "case_id": "E11",
+      "case": "sweep"
+    },
+    {
+      "start_seconds": 66,
+      "case_id": "E12",
+      "case": "lyric-cues"
+    },
+    {
+      "start_seconds": 72,
+      "case_id": "E01",
+      "case": "lyrics"
+    },
+    {
+      "start_seconds": 78,
+      "case_id": "E02",
+      "case": "staggered"
+    },
+    {
+      "start_seconds": 84,
+      "case_id": "E03",
+      "case": "round"
+    },
+    {
+      "start_seconds": 90,
+      "case_id": "E04",
+      "case": "sakura"
+    },
+    {
+      "start_seconds": 96,
+      "case_id": "E05",
+      "case": "fragments"
+    },
+    {
+      "start_seconds": 102,
+      "case_id": "E06",
+      "case": "word-backgrounds"
+    },
+    {
+      "start_seconds": 108,
+      "case_id": "E07",
+      "case": "outlines"
+    },
+    {
+      "start_seconds": 114,
+      "case_id": "E08",
+      "case": "writing"
+    },
+    {
+      "start_seconds": 120,
+      "case_id": "E09",
+      "case": "gradient"
+    },
+    {
+      "start_seconds": 126,
+      "case_id": "E10",
+      "case": "morph"
+    },
+    {
+      "start_seconds": 132,
+      "case_id": "E11",
+      "case": "sweep"
+    },
+    {
+      "start_seconds": 138,
+      "case_id": "E12",
+      "case": "lyric-cues"
+    },
+    {
+      "start_seconds": 144,
+      "case_id": "E01",
+      "case": "lyrics"
+    },
+    {
+      "start_seconds": 150,
+      "case_id": "E02",
+      "case": "staggered"
+    },
+    {
+      "start_seconds": 156,
+      "case_id": "E03",
+      "case": "round"
+    },
+    {
+      "start_seconds": 162,
+      "case_id": "E04",
+      "case": "sakura"
+    },
+    {
+      "start_seconds": 168,
+      "case_id": "E05",
+      "case": "fragments"
+    },
+    {
+      "start_seconds": 174,
+      "case_id": "E06",
+      "case": "word-backgrounds"
+    }
+  ]
+}

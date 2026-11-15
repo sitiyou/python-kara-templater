@@ -1,0 +1,350 @@
+{
+  "scope": "E07 all polygon vertices and hole against native font outlines plus independent scalar sine perturbation; no scene/path animation evaluator reused",
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "ass_sha256": "499721535f5da301430ba1bc97c92eccc26458e3ab4c805c9b888db90aef6352",
+  "seed": 17,
+  "amplitude_px": 4,
+  "contours": 5,
+  "sampling": "20ms midpoint held; 1s/4s envelope boundaries",
+  "checks": [
+    {
+      "time_ms": 0,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 1900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 2900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 3,
+      "coverage_l1_over_reference_mass": 1.585380946584936e-05
+    },
+    {
+      "time_ms": 3400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 2,
+      "coverage_l1_over_reference_mass": 3.3031526813723026e-05
+    },
+    {
+      "time_ms": 3500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 3999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4000,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4001,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4100,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4200,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4300,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4400,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4500,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4600,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4700,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4800,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4900,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    },
+    {
+      "time_ms": 4999,
+      "silhouette_pixels_outside_one_pixel_tolerance": 0,
+      "max_coverage_difference": 0,
+      "coverage_l1_over_reference_mass": 0.0
+    }
+  ],
+  "missing_ripple_fault_rejected": true,
+  "continuous_geometry_bound": {
+    "max_position_error_px": 0.6274789525972367,
+    "derivation": "envelope derivative <= pi/3; vertex x speed <=4*(pi/3+11), y speed <=4*(pi/3+9); midpoint age error <=0.01s; line segments are convex combinations of corresponding vertices",
+    "excludes": "rasterization, font outline approximation, and time outside the half-open visible lifetime"
+  },
+  "remaining": [
+    "other fonts or renderers"
+  ]
+}

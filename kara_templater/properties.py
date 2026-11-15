@@ -10,7 +10,7 @@ from typing import Literal, TypedDict, overload
 from .model import Segment
 from .sampling import SampleContext
 from .sources import SourceRef
-from .timeline import DisplayWindow, _finite
+from .timeline import DisplayWindow, _finite, _milliseconds
 
 
 @dataclass(frozen=True)
@@ -375,9 +375,14 @@ class Keyframes:
 
 
 # Public declaration types; expressions retain the scalar callback signature.
-type PropertyValue = float | tuple[
-    float, float
-] | Transition | Keyframes | Contextual | Callable[[float], float]
+type PropertyValue = (
+    float
+    | tuple[float, float]
+    | Transition
+    | Keyframes
+    | Contextual
+    | Callable[[float], float]
+)
 type TimePoint = int | TimeRef
 type TimeInterval = tuple[TimePoint, TimePoint]
 type CompositionMode = Literal["replace", "override", "add", "multiply"]
@@ -389,3 +394,45 @@ class AnimatedProperties(TypedDict, total=False):
     opacity: PropertyValue
     offset_x: PropertyValue
     offset_y: PropertyValue
+
+
+@dataclass(frozen=True, kw_only=True)
+class Envelope:
+    peak: float = 1.1
+    attack: int = 80
+    release: int = 160
+    rise: Callable[[float], float] = linear
+    fall: Callable[[float], float] = linear
+
+    def __post_init__(self) -> None:
+        _finite(self.peak, "envelope peak")
+        _milliseconds(self.attack, "attack")
+        _milliseconds(self.release, "release")
+        if not callable(self.rise) or not callable(self.fall):
+            raise TypeError("envelope rates must be callable")
+
+    def _keyframes(self, duration: int, base: float) -> PropertyValue:
+        total = duration + self.release
+        if total == 0:
+            return base
+        attack = min(self.attack, duration)
+        points = [
+            Keyframe(
+                0,
+                base if attack else self.peak,
+                self.rise if attack else self.fall if not duration else linear,
+            )
+        ]
+        if attack:
+            points.append(
+                Keyframe(
+                    attack / total,
+                    self.peak,
+                    self.fall if attack == duration else linear,
+                )
+            )
+        if duration > attack:
+            points.append(Keyframe(duration / total, self.peak, self.fall))
+        if self.release:
+            points.append(Keyframe(1, base))
+        return Keyframes(*points) if len(points) > 1 else base

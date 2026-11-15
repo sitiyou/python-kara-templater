@@ -6,8 +6,12 @@ from .ass import Document
 from .ass_output import OutputSettings
 from .composition import Color
 from .effect import Body, Effect, Lyrics, Ruby
+from .engine import apply_templates
 from .import_ass import ImportSettings, paint_pair_from_style
+from .raster_settings import RasterSettings
 from .render import render_karaoke
+from .scene_output import SceneBudget
+from .track import Track, TrackGroup
 
 
 def main() -> None:
@@ -19,9 +23,34 @@ def main() -> None:
     parser.add_argument(
         "--effect",
         type=Path,
-        help="Python file exporting effect or build(item, context)",
+        help="Python file exporting tracks, effect or build(item, context)",
     )
-    parser.add_argument("--owner", default="default")
+    parser.add_argument(
+        "--owner",
+        help="output owner (defaults to legacy-templates with --templates, otherwise default)",
+    )
+    parser.add_argument(
+        "--templates",
+        action="store_true",
+        help="explicitly execute trusted v0.1.0 Python templates",
+    )
+    parser.add_argument(
+        "--video-size",
+        nargs=2,
+        type=int,
+        metavar=("WIDTH", "HEIGHT"),
+        help="legacy template aspect correction (requires --templates)",
+    )
+    parser.add_argument(
+        "--raster",
+        action="store_true",
+        help="pre-blur material compositing for Track scripts (higher output cost)",
+    )
+    parser.add_argument(
+        "--raster-color-error",
+        type=int,
+        help="maximum spatial color error in 0..255 before ASS transforms (requires --raster; default 0)",
+    )
     parser.add_argument(
         "--style",
         action="append",
@@ -48,8 +77,50 @@ def main() -> None:
     parser.add_argument("--fade-out-ms", type=int, default=0)
     parser.add_argument("--max-events", type=int, default=10000)
     args = parser.parse_args()
+    if args.owner is None:
+        args.owner = "legacy-templates" if args.templates else "default"
     try:
+        if args.video_size is not None and not args.templates:
+            raise ValueError("--video-size requires --templates")
+        if args.templates:
+            if (
+                args.effect
+                or args.raster
+                or args.raster_color_error is not None
+                or args.style
+                or args.before
+                or args.after
+                or args.pulse != "none"
+                or args.lead_ms
+                or args.tail_ms
+                or args.fade_in_ms
+                or args.fade_out_ms
+            ):
+                raise ValueError(
+                    "--templates cannot be combined with effect/preset options"
+                )
+            size = (
+                None
+                if args.video_size is None
+                else (args.video_size[0], args.video_size[1])
+            )
+            result = apply_templates(
+                Document.load(args.input),
+                video_size=size,
+                owner=args.owner,
+                budget=SceneBudget(max_events=args.max_events),
+            )
+            result.save(args.output)
+            return
+        if args.raster_color_error is not None and not args.raster:
+            raise ValueError("--raster-color-error requires --raster")
+        raster_settings = (
+            RasterSettings(max_channel_error=args.raster_color_error or 0)
+            if args.raster
+            else None
+        )
         document = Document.load(args.input)
+        tracks: tuple[Track | TrackGroup, ...] | None = None
         if args.effect:
             if (
                 args.before
@@ -63,9 +134,22 @@ def main() -> None:
                 )
             namespace = runpy.run_path(str(args.effect))
             effect = namespace.get("effect", namespace.get("build"))
-            if effect is None:
+            declared_tracks = namespace.get("tracks")
+            if declared_tracks is not None:
+                if not isinstance(declared_tracks, (tuple, list)) or not all(
+                    isinstance(track, (Track, TrackGroup)) for track in declared_tracks
+                ):
+                    raise TypeError(
+                        "tracks must be a sequence of Track or TrackGroup instances"
+                    )
+                validated_tracks: list[Track | TrackGroup] = []
+                for track in declared_tracks:
+                    assert isinstance(track, (Track, TrackGroup))
+                    validated_tracks.append(track)
+                tracks = tuple(validated_tracks)
+            if effect is None and tracks is None:
                 raise ValueError(
-                    "effect file must export effect or build(item, context)"
+                    "effect file must export tracks, effect or build(item, context)"
                 )
         else:
 
@@ -96,7 +180,7 @@ def main() -> None:
             effect = Preset
 
         def report_estimate(estimate):
-            if estimate.sampling:
+            if estimate.sampling or estimate.raster:
                 print(
                     f"Preflight: {estimate.target_samples} property samples, "
                     f"estimated {estimate.estimated_events} events before merging/subdivision "
@@ -107,13 +191,16 @@ def main() -> None:
         result = render_karaoke(
             document,
             effect=effect,
+            tracks=tracks,
             owner=args.owner,
             on_estimate=report_estimate,
             import_settings=ImportSettings(
                 args.lead_ms, args.tail_ms, tuple(args.style) if args.style else None
             ),
             settings=OutputSettings(
-                (document.meta.res_x, document.meta.res_y), max_events=args.max_events
+                (document.meta.res_x, document.meta.res_y),
+                max_events=args.max_events,
+                raster=raster_settings,
             ),
         )
         result.document.save(args.output)

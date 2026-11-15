@@ -10,6 +10,7 @@ from .animation import OffsetAnimation, OpacityAnimation, ScaleAnimation
 from .ass import Line, Style
 from .composition import Color, Paint
 from .model import Box
+from .raster_settings import RasterSettings
 from .sources import EventOrigin
 from .timeline import (
     DisplayWindow,
@@ -261,6 +262,7 @@ class OutputSettings:
     resolution: tuple[int, int] = (1920, 1080)
     max_events: int = 10000
     clip_error_px: float = 0.25
+    raster: RasterSettings | None = None
 
     def __post_init__(self) -> None:
         if len(self.resolution) != 2 or any(
@@ -269,6 +271,8 @@ class OutputSettings:
             raise ValueError("resolution must contain two positive integers")
         if type(self.max_events) is not int or self.max_events <= 0:
             raise ValueError("max_events must be positive")
+        if self.raster is not None and not isinstance(self.raster, RasterSettings):
+            raise TypeError("raster must be RasterSettings or None")
         _finite(self.clip_error_px, "clip error")
         if self.clip_error_px <= 0:
             raise ValueError("clip_error_px must be positive")

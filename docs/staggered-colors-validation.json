@@ -1,0 +1,854 @@
+{
+  "scope": "E02 complete text compositing including antialiased edges and alpha on four backgrounds; independent scalar orbit edges excluded with a one-pixel envelope, solid orbit color checked separately",
+  "renderer": [
+    "[Parsed_ass_0 @ 0x55b3f8c29580] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x55b3f8c29580] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)",
+    "[Parsed_ass_0 @ 0x7f9d78003d00] libass source: commit: 0.17.5-0-g4a05d8127f525943ebf45fdc6497c9e665947f0d",
+    "[Parsed_ass_0 @ 0x7f9d78003d00] Shaper: FriBidi 1.0.16 (SIMPLE) HarfBuzz-ng 15.1.0 (COMPLEX)"
+  ],
+  "font_sha256": "6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c",
+  "background_sha256": {
+    "black": "7efdbbfeb59ec43fc9584c5027bfb5a906d7980f68ffa20f617083617c6cf574",
+    "white": "e52ae68d052db9f6f16fb6b5d2498e83b09545c9daaf4579e6c406a5713ad11f",
+    "checker": "fd56defdc4c57ad5ac4db9046994094a061b69470a4e4ca864038272c04fee9f",
+    "gradient": "d672a8f99de44f5f7b1d60421ffdb115096ae3a9c83046bea7425a67b2da25a2"
+  },
+  "ass_sha256": "39d9a1d71f93be6358c6c2bf578ac8b95f4f9172096b6fd294822fb36d3ae6a4",
+  "reference_sha256": {
+    "0": [
+      "aa0e7936dac12695436d832a1bc91ebd6568a30924f5fbb21c84be6857f28a8a",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "1": [
+      "aa0e7936dac12695436d832a1bc91ebd6568a30924f5fbb21c84be6857f28a8a",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "8": [
+      "e882248bc51da479186b358219d086f54b4001c837537c2be2c420d58771bb0d",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "16": [
+      "dc27d5aac6724cc3834d82b8ce72fa75fabd5e5fb4299e0cb21b6f1e57ad1b0b",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "24": [
+      "19506abb8cf14d08d46c957cc10d41f3881d83a73963600d221fd57c4344b1fe",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "32": [
+      "121e7ec6b2f26c00af793d3c75d25dd7d4ee21efbe070d53e3c6a426736db512",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "50": [
+      "ffc791fbaec0794113af47d92456e9e5928da09ccf2aacc86de2d15d0ff6c6dd",
+      "c97a3f6c108c9a39d52eccb565727eb410ce1b5ee5e095e42fc8c66e387d79d5"
+    ],
+    "65": [
+      "750a2de55fb0398f8996889edbf19ef53f9e5da67c43eec9ba3c67802552458e",
+      "8bc85855cc26ebfd8ba4610a1c4af3f7b52323a7f98f0ba57f85e9e22c154811"
+    ],
+    "80": [
+      "0e2e35266a364a20933e64383c2159a7647041a1dfd637e93579d65e86ffd3f0",
+      "35f94584ddd027052fb2911d0031a966e53d6e736d5e1433e6d36ed78596701f"
+    ],
+    "100": [
+      "3b34d48e0555b2dc248eb291514de72da33168f41968f5b26d268d5a38d177f2",
+      "3822671397939c3ea9bfb53e8b522d57b0f1034389e0f796771293d720938485"
+    ],
+    "120": [
+      "c18bb4e07a493b16304475441a4d410fcda6214406efc3857596444618406b05",
+      "67c2f9c043f794a54ea0181e0fe0e8f571f59bd6692b6e206b1fe12b404612a0"
+    ],
+    "136": [
+      "674be25d823a72e6e7de748e737daa76c1411560311a52795f7ceb0f8af6a992",
+      "666069daed3a9b2ad1ac1f63afbb1e9e9d5262dcb404ef3387afacb62e91bd90"
+    ],
+    "200": [
+      "a60f11f966695dad8ecb37b69550caca60caee96055e5491a4fab233a39df594",
+      "7fc05b38f327811706a8deb7edc9d442b29692f679acbab657cda8b8c5e2163e"
+    ],
+    "399": [
+      "a60f11f966695dad8ecb37b69550caca60caee96055e5491a4fab233a39df594",
+      "1a9ad662a668ec847985ef13ffbf6e482948a14caa9b8a160ee6f01a1f8d5012"
+    ],
+    "400": [
+      "6b22aed6c4a791af16056b6f279397714d8df5e799d3daab09c8fcddc19ab81f",
+      "58d8bcc46c36366fa0388f70a1ae817519151b2652798c40c03f67ccc0a03c28"
+    ],
+    "420": [
+      "52bb39d1e2d398113fdf6dbe594bacff71c74999752a713046134bede155bb1b",
+      "47e7973a4b282692dd86d1bac1bf5e4282049c62807557c7c3e17273e1567921"
+    ],
+    "440": [
+      "b97ec7d656024d96a09c3f76fd35c39dac14c9cf04c25a70a49f28bb17eaa33e",
+      "de1e0ce3d69a3e9a5eb2ab5dab13f65667b91dc96f8fb57b05f15381401679da"
+    ],
+    "450": [
+      "2b4f5dd338d999fbd2cdc47ba0c114f90dc7b2202fc43444fa0f3c1a7e48bc94",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "460": [
+      "f2d9f65db53200b5ff80acb9590763f986269f5204e2270fe1a106fb05d40dfb",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "480": [
+      "9e2bb63530e6bc9ae8fa8d20c4f9e9b60ee75b9025cc6e37067fd6571db1adc8",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "486": [
+      "21d7b2a86358afcb6f479beac7720868532002a36a0f0c3e4ae3dd24fa3ec55c",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "499": [
+      "21d7b2a86358afcb6f479beac7720868532002a36a0f0c3e4ae3dd24fa3ec55c",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ],
+    "500": [
+      "21d7b2a86358afcb6f479beac7720868532002a36a0f0c3e4ae3dd24fa3ec55c",
+      "43d8c035aa866f74ee70bd4a9e6290c24d086647ec68f0042120f85a39540c40"
+    ]
+  },
+  "checks": [
+    {
+      "time_ms": 1,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 11,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 81,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 161,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 241,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 321,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 501,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 7
+    },
+    {
+      "time_ms": 651,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 21
+    },
+    {
+      "time_ms": 801,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 19
+    },
+    {
+      "time_ms": 1001,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 26
+    },
+    {
+      "time_ms": 1201,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 11
+    },
+    {
+      "time_ms": 1361,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 24
+    },
+    {
+      "time_ms": 2001,
+      "background": "black",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 24
+    },
+    {
+      "time_ms": 3991,
+      "background": "black",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 25
+    },
+    {
+      "time_ms": 4001,
+      "background": "black",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 102,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 23
+    },
+    {
+      "time_ms": 4201,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 11
+    },
+    {
+      "time_ms": 4401,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 12
+    },
+    {
+      "time_ms": 4501,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 4601,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 4801,
+      "background": "black",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 4861,
+      "background": "black",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "black",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "black",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 1,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 11,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 81,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 161,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 241,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 321,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 501,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 651,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 5
+    },
+    {
+      "time_ms": 801,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 6
+    },
+    {
+      "time_ms": 1001,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 7
+    },
+    {
+      "time_ms": 1201,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 3
+    },
+    {
+      "time_ms": 1361,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 6
+    },
+    {
+      "time_ms": 2001,
+      "background": "white",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 6
+    },
+    {
+      "time_ms": 3991,
+      "background": "white",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 7
+    },
+    {
+      "time_ms": 4001,
+      "background": "white",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 102,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 6
+    },
+    {
+      "time_ms": 4201,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 4
+    },
+    {
+      "time_ms": 4401,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 3
+    },
+    {
+      "time_ms": 4501,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 4601,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 4801,
+      "background": "white",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 4861,
+      "background": "white",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "white",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "white",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 1,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 11,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 81,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 161,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 241,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 321,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 501,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 651,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 17
+    },
+    {
+      "time_ms": 801,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 14
+    },
+    {
+      "time_ms": 1001,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 19
+    },
+    {
+      "time_ms": 1201,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 8
+    },
+    {
+      "time_ms": 1361,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 4
+    },
+    {
+      "time_ms": 2001,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 20
+    },
+    {
+      "time_ms": 3991,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 21
+    },
+    {
+      "time_ms": 4001,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 102,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 19
+    },
+    {
+      "time_ms": 4201,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 9
+    },
+    {
+      "time_ms": 4401,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 3
+    },
+    {
+      "time_ms": 4501,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 4601,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 4801,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 4861,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "checker",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 1,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 11,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 81,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 161,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 241,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 321,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 501,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 5
+    },
+    {
+      "time_ms": 651,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 15
+    },
+    {
+      "time_ms": 801,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 13
+    },
+    {
+      "time_ms": 1001,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 16
+    },
+    {
+      "time_ms": 1201,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 100,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 6
+    },
+    {
+      "time_ms": 1361,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 14
+    },
+    {
+      "time_ms": 2001,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 103,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 13
+    },
+    {
+      "time_ms": 3991,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 104,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 10
+    },
+    {
+      "time_ms": 4001,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 102,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 9
+    },
+    {
+      "time_ms": 4201,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 105,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 4
+    },
+    {
+      "time_ms": 4401,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 101,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 5
+    },
+    {
+      "time_ms": 4501,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 2,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 2
+    },
+    {
+      "time_ms": 4601,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 4801,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 1,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 1
+    },
+    {
+      "time_ms": 4861,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 4991,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    },
+    {
+      "time_ms": 5001,
+      "background": "gradient",
+      "max_text_composite_rgb_difference": 0,
+      "orbit_interior_pixels": 0,
+      "max_orbit_interior_rgb_difference": 0,
+      "max_whole_frame_rgb_difference": 0
+    }
+  ],
+  "remaining": [
+    "orbit edge differences separately measured, not pixel identity",
+    "continuous ideal motion error",
+    "other renderers"
+  ]
+}

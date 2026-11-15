@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from typing import TYPE_CHECKING
 
 from . import _metrics
 from .ass import Line, Record, Style
 from .model import Box, KaraokeLine, LaidOutLine, LaidOutSegment, LaidOutUnit
+
+if TYPE_CHECKING:
+    from ._legacy_layout import LegacyLine, LegacySyllable
 
 
 class _Syllable(Record):
@@ -238,3 +242,17 @@ def _position(line, styles, meta):
     line.y = (line.bottom, line.middle, line.top)[vertical]
     line.hcenter, line.vcenter = line.center, line.middle
     return line
+
+
+def split_karaoke(text: str) -> tuple[list[LegacySyllable], list[LegacySyllable]]:
+    """v0.1.0 splitting API; new scenes may use Document.text_at instead."""
+    from ._legacy_layout import split_karaoke as legacy_split
+
+    return legacy_split(text)
+
+
+def preprocess(line: Line, styles: dict[str, Style], meta: Record) -> LegacyLine:
+    """Explicit historical in-place preprocessing for Python templates."""
+    from ._legacy_layout import preprocess as legacy_preprocess
+
+    return legacy_preprocess(line, styles, meta)

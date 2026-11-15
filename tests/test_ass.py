@@ -2,13 +2,26 @@ import unittest
 from dataclasses import replace
 from pathlib import Path
 
-from kara_templater import Document, Style, text_extents
+from kara_templater import Document, Scene, Style, text_extents
 from kara_templater.ass import STYLE_FORMAT, format_time, parse_time
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class AssTests(unittest.TestCase):
+    def test_code_authored_rgb_and_parsed_video_color_metadata(self):
+        created = Document.create()
+        self.assertEqual(created.meta["ycbcr matrix"], "None")
+        self.assertEqual(Document.parse(created.dumps()).dumps(), created.dumps())
+        for field in ("", "YCbCr Matrix: TV.601\n", "YCbCr Matrix: TV.709\n"):
+            with self.subTest(field=field):
+                text = created.dumps().replace("YCbCr Matrix: None\n", field)
+                parsed = Document.parse(text)
+                # Parsing/compiling an existing script must retain its choice,
+                # including absence; only newly authored documents choose RGB.
+                self.assertEqual(parsed.dumps(), text)
+                self.assertEqual(Scene(parsed).compile().document.dumps(), text)
+
     def test_example_roundtrip(self):
         doc = Document.load(ROOT / "examples/karaoke.ass")
         other = Document.parse(doc.dumps())
