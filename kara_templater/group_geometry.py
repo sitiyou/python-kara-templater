@@ -68,7 +68,7 @@ def merge_geometry(
             ):
                 dynamic = True
                 points.update(
-                    node.lifetime.start + value
+                    node.time_origin + value
                     for value in (
                         clip.start,
                         clip.end,
@@ -95,7 +95,7 @@ def merge_geometry(
             if node.deform is not None:
                 dynamic = True
                 points.update(
-                    node.lifetime.start + value for value in node.deform.breakpoints
+                    node.time_origin + value for value in node.deform.breakpoints
                 )
         leaves.append((node, start, end))
 

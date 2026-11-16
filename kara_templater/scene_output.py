@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import deque
+from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, replace
 from hashlib import sha256
@@ -17,8 +19,8 @@ from ._scene_clipping import (
 from ._scene_clipping import _path as _mask_path
 from .ass import EVENT_FORMAT, STYLE_FORMAT, Document, Line, Style
 from .composition import Color
-from .geometry import Vec2, VectorPath, finite
-from .paint_fields import SoftSweep
+from .geometry import LineSegment, Vec2, VectorPath, finite
+from .paint_fields import PaintActivity
 from .path_boolean import path_boolean
 from .path_geometry import intersect_convex
 from .path_motion import MoveAlong
@@ -27,6 +29,7 @@ from .scene import (
     ObjectGroup,
     PathObject,
     RectangleClip,
+    RectangleKeyframes,
     Scene,
     SceneObject,
     TextObject,
@@ -34,12 +37,18 @@ from .scene import (
 )
 from .scene_animation import (
     AnimationClip,
+    AnimationSequence,
+    FadeIn,
+    FadeOut,
+    ScalePulse,
+    StatePatch,
     Tween,
     VisualState,
     linear_rate,
     local_seconds,
+    merge_channels,
 )
-from .scene_evaluation import SceneEvaluator, SceneReferenceError
+from .scene_evaluation import SceneEvaluator, SceneReferenceError, compose_states
 from .sources import EventOrigin
 from .text_geometry import outline_text
 
@@ -56,6 +65,8 @@ class SceneCompileError(ValueError):
         super().__init__(f"{object_id}: {message}" if object_id else message)
         self.object_id = object_id
         self.origin = origin
+        if origin is not None:
+            self.add_note(f"effect={origin.effect}; sources={origin.sources!r}")
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -64,6 +75,8 @@ class SceneBudget:
 
     Defaults bound events, bytes, active drawings, geometry, color bands, and
     boolean work; exceeding a limit raises instead of reducing quality.
+    clip_error_px bounds known native rectangle-edge interpolation in screen
+    pixels, including endpoint rounding, before renderer pixel quantization.
     """
 
     fps: int = 50
@@ -73,8 +86,12 @@ class SceneBudget:
     max_path_points: int = 4_096
     max_bands: int = 1_024
     max_boolean_work: int = 1_000_000
+    clip_error_px: float = 0.75
 
     def __post_init__(self) -> None:
+        finite(self.clip_error_px)
+        if self.clip_error_px <= 0:
+            raise ValueError("clip error must be positive")
         for value in (
             self.fps,
             self.max_events,
@@ -93,6 +110,33 @@ class SceneBudget:
 
 
 @dataclass(frozen=True)
+class CoverageEstimate:
+    """Callback-free coverage work counts, before pixels or ASS rectangles exist.
+
+    frames includes declared breakpoints; target_samples is frames times drawable
+    leaves. Neither predicts encoded event count, memory use, or elapsed time.
+    """
+
+    id: str
+    frames: int
+    target_samples: int
+    max_channel_error: int
+
+
+@dataclass(frozen=True)
+class SceneEstimate:
+    """Immutable compilation preflight delivered before frame callbacks.
+
+    estimated_events counts ordinary/native output estimates, excluding coverage
+    rectangles whose count is unknown until rendering. coverage reports their
+    planned work separately. Final budgets still apply to all output.
+    """
+
+    estimated_events: int
+    coverage: tuple[CoverageEstimate, ...]
+
+
+@dataclass(frozen=True)
 class ObjectReport:
     """Per-object output strategy, event count, source origin, sample interval, and observed geometry/band costs.
 
@@ -107,6 +151,8 @@ class ObjectReport:
     peak_path_points: int | None = None
     peak_bands: int | None = None
     peak_clip_points: int | None = None
+    sample_times: tuple[float, ...] = ()
+    max_channel_error: int = 0
 
 
 @dataclass(frozen=True)
@@ -170,12 +216,28 @@ class _Leaf:
         return self.evaluator.at(self.node.id, time)
 
 
+@dataclass(frozen=True)
+class _CoverageLeaf:
+    node: ObjectGroup
+    parents: tuple[ObjectGroup, ...]
+    start: float
+    end: float
+
+
 def _leaves(
     scene: Scene,
     evaluator: SceneEvaluator,
-) -> tuple[tuple[_Leaf, ...], tuple[NativeEvent, ...], tuple[str, ...]]:
+    *,
+    collect_coverage: bool = True,
+) -> tuple[
+    tuple[_Leaf, ...],
+    tuple[NativeEvent, ...],
+    tuple[_CoverageLeaf, ...],
+    tuple[str, ...],
+]:
     leaves: list[_Leaf] = []
     native: list[NativeEvent] = []
+    coverage: list[_CoverageLeaf] = []
     order: list[str] = []
     ids: set[str] = set()
 
@@ -192,6 +254,13 @@ def _leaves(
             order.append(node.id)
             return
         if isinstance(node, ObjectGroup):
+            if collect_coverage and node.coverage is not None:
+                start = max(n.lifetime.start for n in (*parents, node))
+                end = min(n.lifetime.end for n in (*parents, node))
+                if end > start:
+                    coverage.append(_CoverageLeaf(node, parents, start, end))
+                    order.append(node.id)
+                return
             for child in node.children:
                 visit(child, (*parents, node))
             return
@@ -203,7 +272,7 @@ def _leaves(
 
     for node in scene.objects:
         visit(node, ())
-    return tuple(leaves), tuple(native), tuple(order)
+    return tuple(leaves), tuple(native), tuple(coverage), tuple(order)
 
 
 def _native_move(leaf: _Leaf) -> bool:
@@ -229,7 +298,7 @@ def _native_move(leaf: _Leaf) -> bool:
             or leaf.evaluator.referenced(parent.id)
             for parent in leaf.parents
         )
-        or leaf.start != node.lifetime.start
+        or leaf.start != node.time_origin
         or len(node.animations) != 1
     ):
         return False
@@ -245,6 +314,30 @@ def _native_move(leaf: _Leaf) -> bool:
     )
 
 
+def _expanded_clips(clips: tuple[AnimationClip, ...]) -> tuple[AnimationClip, ...]:
+    """Expose held sequence timing for analytical lowering, never evaluate state.
+
+    Released outer sequences retain their scope and fail native eligibility.
+    Their restoration semantics must not be approximated by flattened children.
+    """
+    result: list[AnimationClip] = []
+    for clip in clips:
+        if isinstance(clip.animation, AnimationSequence) and clip.hold:
+            factor = clip.duration / clip.animation.duration
+            result.extend(
+                replace(
+                    child,
+                    start=clip.start + child.start * factor,
+                    duration=child.duration * factor,
+                    breakpoints=tuple(point * factor for point in child.breakpoints),
+                )
+                for child in _expanded_clips(clip.animation.clips)
+            )
+        else:
+            result.append(clip)
+    return tuple(result)
+
+
 def _native_tween(leaf: _Leaf) -> bool:
     """Continuous ASS interpolation is an explicit alternative to midpoint hold."""
     node = leaf.node
@@ -254,22 +347,37 @@ def _native_tween(leaf: _Leaf) -> bool:
         or node.material is not None
         or node.clip is not None
         or (isinstance(node, PathObject) and node.deform is not None)
-        or leaf.start != node.lifetime.start
+        or leaf.start != node.time_origin
         or round(leaf.start * 100) / 100 != leaf.start
-        or not node.animations
+        or not any(n.animations for n in (*leaf.parents, node))
         or any(
-            parent.state != VisualState()
-            or parent.animations
-            or parent.clip is not None
+            parent.clip is not None
+            or any(
+                clip.animation.channels != frozenset(("opacity",))
+                for clip in parent.animations
+            )
             for parent in leaf.parents
         )
     ):
         return False
-    for clip in node.animations:
+    owned = tuple(
+        (owner, clip)
+        for owner in (*leaf.parents, node)
+        for clip in _expanded_clips(owner.animations)
+    )
+    clips = tuple(
+        replace(clip, start=local_seconds(owner.time_origin + clip.start, leaf.start))
+        for owner, clip in owned
+        if owner.time_origin + clip.start >= leaf.start
+    )
+    if len(clips) != len(owned):
+        return False
+    for index, clip in enumerate(clips):
         animation = clip.animation
         if (
-            not isinstance(animation, Tween)
+            not isinstance(animation, (Tween, FadeIn, FadeOut))
             or animation.rate is not linear_rate
+            or (isinstance(animation, FadeIn) and clip.start != 0)
             or not animation.channels
             or not animation.channels
             <= frozenset(
@@ -288,14 +396,23 @@ def _native_tween(leaf: _Leaf) -> bool:
             or round(clip.end * 1000) <= round(clip.start * 1000)
         ):
             return False
+        if any(
+            max(clip.start, other.start) < min(clip.end, other.end)
+            and clip.animation.channels & other.animation.channels
+            for other in clips[index + 1 :]
+        ):
+            # Simultaneous inherited opacity curves multiply, rather than add;
+            # their product is not generally a linear ASS alpha interpolation.
+            return False
         target = animation.sample(node.state, 1)
         if min(target.scale.x, target.scale.y) <= 0:
             return False
     return True
 
 
-def _tween_tag(clip: AnimationClip, base: VisualState) -> str:
-    target = clip.animation.sample(base, 1)
+def _tween_tag(
+    clip: AnimationClip, target: VisualState, *, start_offset: float = 0
+) -> str:
     tags = {
         "scale": rf"\fscx{target.scale.x * 100:.6f}\fscy{target.scale.y * 100:.6f}",
         "rotation": rf"\frz{-target.rotation:.6f}",
@@ -309,18 +426,329 @@ def _tween_tag(clip: AnimationClip, base: VisualState) -> str:
     target_tags = "".join(
         tag for channel, tag in tags.items() if channel in clip.animation.channels
     )
-    return rf"\t({round(clip.start * 1000)},{round(clip.end * 1000)},{target_tags})"
+    return (
+        rf"\t({round((clip.start + start_offset) * 1000)},{round((clip.end + start_offset) * 1000)},{target_tags})"
+        if target_tags
+        else ""
+    )
 
 
 def _tween_tags(leaf: _Leaf) -> str:
     return "".join(
-        _tween_tag(clip, leaf.node.state)
-        for clip in sorted(leaf.node.animations, key=lambda clip: clip.start)
+        _tween_tag(
+            replace(
+                clip, start=local_seconds(owner.time_origin + clip.start, leaf.start)
+            ),
+            leaf.at(owner.time_origin + clip.end),
+        )
+        for owner, clip in sorted(
+            (
+                (owner, clip)
+                for owner in (*leaf.parents, leaf.node)
+                for clip in _expanded_clips(owner.animations)
+            ),
+            key=lambda pair: pair[0].time_origin + pair[1].start,
+        )
     )
 
 
 def _centiseconds(time: float) -> int:
     return round(round(time * 100, 8))
+
+
+def _rectangle_state(leaf: _Leaf, time: float) -> VisualState:
+    """Evaluate proven curves at original knots, outside cropped visibility too."""
+    state = leaf.node.at(time)
+    for parent in reversed(leaf.parents):
+        state = compose_states(parent.at(time), state)
+    return state
+
+
+def _rectangle_animation_known(clips: tuple[AnimationClip, ...]) -> bool:
+    for clip in clips:
+        animation = clip.animation
+        if type(animation) is AnimationSequence:
+            assert isinstance(animation, AnimationSequence)
+            if not clip.hold or not _rectangle_animation_known(animation.clips):
+                return False
+        elif type(animation) is ScalePulse:
+            pass  # The released value equals the pulse endpoint.
+        elif type(animation) in (Tween, FadeIn, FadeOut):
+            assert isinstance(animation, (Tween, FadeIn, FadeOut))
+            if type(animation) is Tween and type(animation.target) is not StatePatch:
+                return False
+            if not clip.hold or animation.rate is not linear_rate:
+                return False
+            if animation.channels & frozenset(("rotation", "skew")):
+                return False
+        else:
+            return False
+    return True
+
+
+def _rectangle_owned_clips(leaf: _Leaf) -> tuple[tuple[float, AnimationClip], ...]:
+    return tuple(
+        (owner.time_origin, clip)
+        for owner in (*leaf.parents, leaf.node)
+        for clip in _expanded_clips(owner.animations)
+    )
+
+
+def _rectangle_geometry_knots(leaf: _Leaf) -> tuple[float, ...]:
+    points: set[float] = set()
+    for origin, clip in _rectangle_owned_clips(leaf):
+        points.update((origin + clip.start, origin + clip.end))
+        if type(clip.animation) is ScalePulse:
+            points.add(origin + clip.start + clip.duration / 2)
+    if not points:
+        return leaf.start, leaf.end
+    return tuple(
+        sorted({min(leaf.start, min(points)), *points, max(leaf.end, max(points))})
+    )
+
+
+def _native_rectangle(leaf: _Leaf) -> bool:
+    node = leaf.node
+    if (
+        not isinstance(node.clip, RectangleClip)
+        or type(node.clip.deform) is not RectangleKeyframes
+        or leaf.affine_paths
+        or node.material is not None
+        or leaf.evaluator.referenced(node.id)
+        or any(parent.clip is not None for parent in leaf.parents)
+        or (isinstance(node, PathObject) and node.deform is not None)
+    ):
+        return False
+    if not _rectangle_animation_known(node.animations):
+        return False
+    if any(
+        not _rectangle_animation_known(parent.animations)
+        or any(clip.animation.channels - {"opacity"} for clip in parent.animations)
+        for parent in leaf.parents
+    ):
+        return False
+    owned = _rectangle_owned_clips(leaf)
+    opacity_intervals = tuple(
+        (local_seconds(origin + clip.start, 0), local_seconds(origin + clip.end, 0))
+        for origin, clip in owned
+        if "opacity" in clip.animation.channels
+    )
+    if any(
+        max(start, other_start) < min(end, other_end)
+        for index, (start, end) in enumerate(opacity_intervals)
+        for other_start, other_end in opacity_intervals[index + 1 :]
+    ):
+        # Simultaneous inherited alpha curves multiply. Their product cannot
+        # in general be emitted as a linear ASS alpha transform.
+        return False
+    if any(
+        type(clip.animation) is FadeIn and (clip.start != 0 or origin > leaf.start)
+        for origin, clip in owned
+    ):
+        return False
+    if owned and any(
+        abs(time - _centiseconds(time) / 100) > 1e-9
+        for time in (*_rectangle_geometry_knots(leaf), *_rectangle_knots(leaf))
+    ):
+        # The error proof covers whole emitted sections; an event cut cannot
+        # represent a sub-centisecond change in the polynomial or a reset.
+        return False
+    return all(
+        state.skew == Vec2()
+        and min(state.scale.x, state.scale.y) > 0
+        and (node.clip.space == "screen" or state.rotation % 360 == 0)
+        for state in (
+            _rectangle_state(leaf, time) for time in _rectangle_geometry_knots(leaf)
+        )
+    )
+
+
+def _rectangle_knots(leaf: _Leaf) -> tuple[float, ...]:
+    clip = leaf.node.clip
+    assert isinstance(clip, RectangleClip)
+    assert isinstance(clip.deform, RectangleKeyframes)
+    keys = (
+        *(leaf.node.time_origin + t for t in clip.deform.breakpoints),
+        *(_rectangle_geometry_knots(leaf) if _rectangle_owned_clips(leaf) else ()),
+    )
+    # Keep original knots around a cropped exposure. Re-anchoring transforms
+    # at the exposure boundary would round intermediate rectangle coordinates.
+    return tuple(sorted({min(leaf.start, min(keys)), *keys, max(leaf.end, max(keys))}))
+
+
+def _rectangle_bounds(
+    leaf: _Leaf, time: float, *, before: bool = False
+) -> tuple[float, float, float, float]:
+    clip = leaf.node.clip
+    assert isinstance(clip, RectangleClip)
+    assert isinstance(clip.deform, RectangleKeyframes)
+    left, top, right, bottom = clip.deform.bounds_at(
+        local_seconds(time, leaf.node.time_origin), before=before
+    )
+    if clip.space == "local":
+        state = _rectangle_state(leaf, time)
+        first = state.transform.apply(Vec2(left, top))
+        last = state.transform.apply(Vec2(right, bottom))
+        return first.x, first.y, last.x, last.y
+    return left, top, right, bottom
+
+
+def _rectangle_sections(
+    leaf: _Leaf, budget: SceneBudget
+) -> tuple[tuple[float, float], ...]:
+    knots = _rectangle_knots(leaf)
+    pending = list(
+        reversed(
+            tuple(
+                (first, last)
+                for first, last in zip(knots, knots[1:], strict=False)
+                if _centiseconds(max(first, leaf.start))
+                < _centiseconds(min(last, leaf.end))
+            )
+        )
+    )
+    sections: list[tuple[float, float]] = []
+    while pending:
+        first, last = pending.pop()
+        if _centiseconds(max(first, leaf.start)) >= _centiseconds(min(last, leaf.end)):
+            continue
+        a = _rectangle_bounds(leaf, first)
+        b = _rectangle_bounds(leaf, last, before=True)
+        middle = _rectangle_bounds(leaf, (first + last) / 2)
+        error = 0.0
+        for start, mid, end in zip(a, middle, b, strict=True):
+            # Each world-space edge is quadratic: linear bounds times linear
+            # scale plus linear translation. Include endpoint integer rounding
+            # in the polynomial error, and check its interior extremum too.
+            quadratic = 2 * (start + end - 2 * mid)
+            linear = end - start - quadratic - (round(end) - round(start))
+            constant = start - round(start)
+            error = max(error, abs(constant), abs(end - round(end)))
+            if abs(quadratic) > 1e-12:
+                vertex = -linear / (2 * quadratic)
+                if 0 < vertex < 1:
+                    error = max(
+                        error, abs((quadratic * vertex + linear) * vertex + constant)
+                    )
+        if error > budget.clip_error_px + 1e-9:
+            split = _centiseconds((first + last) / 2) / 100
+            if not first < split < last:
+                raise SceneCompileError(
+                    f"transformed clip exceeds {budget.clip_error_px:g}px at ASS time resolution",
+                    object_id=leaf.node.id,
+                    origin=leaf.node.origin,
+                )
+            pending.extend(((split, last), (first, split)))
+        else:
+            sections.append((first, last))
+        if len(sections) + len(pending) > budget.max_events:
+            raise SceneCompileError(
+                "native clip event budget exceeded",
+                object_id=leaf.node.id,
+                origin=leaf.node.origin,
+            )
+    return tuple(sections)
+
+
+def _rectangle_events(
+    leaf: _Leaf, style: str, sections: tuple[tuple[float, float], ...]
+) -> tuple[Line, ...]:
+    node = leaf.node
+    clip = node.clip
+    assert isinstance(clip, RectangleClip)
+    assert isinstance(clip.deform, RectangleKeyframes)
+    kind = "iclip" if clip.inverse else "clip"
+
+    def tag(time: float, *, before: bool = False) -> str:
+        left, top, right, bottom = _rectangle_bounds(leaf, time, before=before)
+        return f"\\{kind}({round(left)},{round(top)},{round(right)},{round(bottom)})"
+
+    animations: list[tuple[float, AnimationClip]] = []
+    for origin, animation in _rectangle_owned_clips(leaf):
+        if type(animation.animation) is ScalePulse:
+            animations.extend(
+                (
+                    origin,
+                    replace(
+                        animation,
+                        start=animation.start + index * animation.duration / 2,
+                        duration=animation.duration / 2,
+                        breakpoints=(),
+                    ),
+                )
+                for index in (0, 1)
+            )
+        else:
+            animations.append((origin, animation))
+    alpha_start = min(
+        (
+            origin + animation.start
+            for origin, animation in animations
+            if "opacity" in animation.animation.channels
+        ),
+        default=node.time_origin,
+    )
+    events: list[Line] = []
+    for first, last in sections:
+        start = _centiseconds(max(first, leaf.start))
+        end = _centiseconds(min(last, leaf.end))
+        if start >= end:
+            continue
+        initial, final = tag(first), tag(last, before=True)
+        tags = initial
+        if initial != final:
+            a, b = round(first * 1000) - start * 10, round(last * 1000) - start * 10
+            tags += rf"\t({a},{b},1,{final})"
+        state = replace(
+            _rectangle_state(leaf, node.time_origin),
+            opacity=_rectangle_state(leaf, alpha_start).opacity,
+        )
+        for origin, animation in sorted(
+            animations, key=lambda pair: pair[0] + pair[1].start
+        ):
+            target = _rectangle_state(leaf, origin + animation.end)
+            if round((origin + animation.end) * 1000) <= start * 10:
+                # ASS treats a transform ending at 0 as ending at event end.
+                # Fold completed channels into the header instead, retaining
+                # original clocks only for active/future transforms.
+                state = merge_channels(
+                    state, target, animation.animation.channels - {"position"}
+                )
+            else:
+                tags += _tween_tag(animation, target, start_offset=origin - start / 100)
+        geometry_start, geometry_end = next(
+            (
+                (origin + animation.start, origin + animation.end)
+                for origin, animation in animations
+                if "position" in animation.animation.channels
+                and origin + animation.start
+                <= max(first, leaf.start)
+                < min(last, leaf.end)
+                <= origin + animation.end
+            ),
+            (max(first, leaf.start), max(first, leaf.start)),
+        )
+        state = replace(state, position=_rectangle_state(leaf, geometry_start).position)
+        target = _rectangle_state(leaf, geometry_end)
+        a = round(geometry_start * 1000) - start * 10
+        b = round(geometry_end * 1000) - start * 10
+        event = _event(
+            leaf,
+            state,
+            start,
+            end,
+            style,
+            path=node.path if isinstance(node, PathObject) else None,
+        )
+        if state.position != target.position:
+            event.text = event.text.replace(
+                rf"\pos({state.position.x:.6f},{state.position.y:.6f})",
+                rf"\move({state.position.x:.6f},{state.position.y:.6f},{target.position.x:.6f},{target.position.y:.6f},{a},{b})",
+                1,
+            )
+        event.text = event.text.replace("}", tags + "}", 1)
+        events.append(event)
+    return tuple(events)
 
 
 def _active_intervals(leaf: _Leaf) -> tuple[tuple[float, float], ...]:
@@ -337,16 +765,17 @@ def _active_intervals(leaf: _Leaf) -> tuple[tuple[float, float], ...]:
     ):
         return ((leaf.start, leaf.end),)
     intervals = [
-        (n.lifetime.start + c.start, n.lifetime.start + c.end)
+        (n.time_origin + c.start, n.time_origin + c.end)
         for n in (*leaf.parents, node)
         for c in n.animations
     ]
-    if isinstance(node.material, SoftSweep):
-        intervals.append(
+    if isinstance(node.material, PaintActivity):
+        intervals.extend(
             (
-                node.lifetime.start + node.material.start,
-                node.lifetime.start + node.material.start + node.material.duration,
+                node.time_origin + interval.start,
+                node.time_origin + interval.end,
             )
+            for interval in node.material.active_intervals
         )
     elif node.material is not None and node.material.breakpoints:
         return ((leaf.start, leaf.end),)
@@ -360,6 +789,23 @@ def _active_intervals(leaf: _Leaf) -> tuple[tuple[float, float], ...]:
             start, end = previous[0], max(previous[1], end)
         merged.append((start, end))
     return tuple(merged)
+
+
+def _sampling_diagnostics(leaf: _Leaf) -> tuple[str, ...]:
+    """Report declared animation intervals lost on the output time grid."""
+    messages: list[str] = []
+    for owner in (*leaf.parents, leaf.node):
+        for clip in owner.animations:
+            points = sorted({0.0, *clip.breakpoints, clip.duration})
+            for first, last in zip(points, points[1:], strict=False):
+                start = max(leaf.start, owner.time_origin + clip.start + first)
+                end = min(leaf.end, owner.time_origin + clip.start + last)
+                if start < end and _centiseconds(start) == _centiseconds(end):
+                    messages.append(
+                        f"{owner.id}: sampled animation interval "
+                        f"{start:.9g}..{end:.9g}s collapses on ASS centisecond grid"
+                    )
+    return tuple(messages)
 
 
 def _sample_interval(points: tuple[int, ...], leaf: _Leaf) -> float | None:
@@ -395,15 +841,15 @@ def _boundaries(leaf: _Leaf, budget: SceneBudget) -> tuple[int, ...]:
     for node in (*leaf.parents, leaf.node):
         for clip in node.animations:
             for value in (
-                node.lifetime.start + clip.start,
-                node.lifetime.start + clip.end,
-                *(node.lifetime.start + clip.start + t for t in clip.breakpoints),
+                node.time_origin + clip.start,
+                node.time_origin + clip.end,
+                *(node.time_origin + clip.start + t for t in clip.breakpoints),
             ):
                 points.add(max(start, min(end, _centiseconds(value))))
     if isinstance(leaf.node, PathObject) and leaf.node.deform is not None:
         for value in leaf.node.deform.breakpoints:
             points.add(
-                max(start, min(end, _centiseconds(leaf.node.lifetime.start + value)))
+                max(start, min(end, _centiseconds(leaf.node.time_origin + value)))
             )
     for node in (*leaf.parents, leaf.node):
         if (
@@ -412,12 +858,12 @@ def _boundaries(leaf: _Leaf, budget: SceneBudget) -> tuple[int, ...]:
         ):
             for value in node.clip.deform.breakpoints:
                 points.add(
-                    max(start, min(end, _centiseconds(node.lifetime.start + value)))
+                    max(start, min(end, _centiseconds(node.time_origin + value)))
                 )
     if leaf.node.material is not None:
         for value in leaf.node.material.breakpoints:
             points.add(
-                max(start, min(end, _centiseconds(leaf.node.lifetime.start + value)))
+                max(start, min(end, _centiseconds(leaf.node.time_origin + value)))
             )
     return tuple(sorted(points))
 
@@ -453,7 +899,7 @@ def _event(
     position = rf"\pos({state.position.x:.6f},{state.position.y:.6f})"
     if move:
         clip = node.animations[0]
-        target = node.at(node.lifetime.start + clip.end).position
+        target = node.at(node.time_origin + clip.end).position
         position = (
             rf"\move({state.position.x:.6f},{state.position.y:.6f},{target.x:.6f},{target.y:.6f},"
             f"{round(clip.start * 1000)},{round(clip.end * 1000)})"
@@ -476,7 +922,14 @@ def _event(
         else:
             clipping = f"\\{kind}(1,{clipping_shape.path.drawing()})"
     if isinstance(node, TextObject) and path is None:
-        content = node.text.replace("\n", r"\N")
+        # Protect literal backslashes before adding ASS escapes. The invisible
+        # word joiner prevents a following N/n/h from becoming an ASS command.
+        content = (
+            node.text.replace("\\", "\\\u2060")
+            .replace("{", r"\{")
+            .replace("}", r"\}")
+            .replace("\n", r"\N")
+        )
         geometry = (
             rf"\an{node.alignment}\fn{node.font}\fe{node.encoding}\fs{node.font_size:.6f}"
             rf"\b{int(node.bold)}\i{int(node.italic)}\u0\s0\fsp{node.spacing:.6f}\p0"
@@ -539,7 +992,37 @@ def _painted_events(
     source = resolved.clip
     if source is False:
         return _PaintedFrame((), resolved.peak_points)
-    clip_points = resolved.peak_points
+    # ASS clips act after blur. Restrict oversized polygon masks before output:
+    # huge half-planes can exceed libass's mask bitmap limits. Leave ordinary
+    # masks intact to retain rasterizer edge rounding, including overscan paths.
+    if (
+        isinstance(source, VectorClip)
+        and all(
+            isinstance(segment, LineSegment)
+            for contour in source.path.contours
+            for segment in contour.segments
+        )
+        and any(
+            abs(point.x) > 32768 or abs(point.y) > 32768
+            for contour in source.path.contours
+            for point in (contour.start, *(segment.end for segment in contour.segments))
+        )
+    ):
+        bounded = intersect_convex(
+            source.path,
+            (Vec2(0, 0), Vec2(width, 0), Vec2(width, height), Vec2(0, height)),
+            max_points=budget.max_path_points,
+        )
+        if bounded is None:
+            if not source.inverse:
+                return _PaintedFrame((), resolved.peak_points)
+            source = None
+        else:
+            source = replace(source, path=bounded)
+    clip_points = max(
+        resolved.peak_points,
+        source.path.point_count if isinstance(source, VectorClip) else 0,
+    )
     paint_state = state
     affine = (
         leaf.affine_paths
@@ -586,7 +1069,7 @@ def _painted_events(
         )
     limit = width if material.axis == "x" else height
     bands = material.bands(
-        0, limit, local_seconds(time, leaf.node.lifetime.start), paint_state
+        0, limit, local_seconds(time, leaf.node.time_origin), paint_state
     )
     if len(bands) > material.max_bands:
         raise ValueError("paint field exceeded its declared band bound")
@@ -757,10 +1240,16 @@ def _scene_source_records(
 
 
 def compile_scene(
-    scene: Scene, *, budget: SceneBudget | None = None, native_tweens: bool = False
+    scene: Scene,
+    *,
+    budget: SceneBudget | None = None,
+    native_tweens: bool = False,
+    on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult:
     """Return a new Document. Source records and caller-owned nodes never mutate."""
     budget = SceneBudget() if budget is None else budget
+    if on_estimate is not None and not callable(on_estimate):
+        raise TypeError("on_estimate must be callable")
     if not scene.owner:
         raise SceneCompileError("scene owner must be nonempty")
     try:
@@ -769,12 +1258,14 @@ def compile_scene(
         raise SceneCompileError(
             str(error), object_id=error.object_id, origin=error.origin
         ) from error
-    leaves, native, object_order = _leaves(scene, evaluator)
+    leaves, native, coverage, object_order = _leaves(scene, evaluator)
     meta = Document.parse(scene.document.dumps()).meta
     width, height = meta.res_x, meta.res_y
     outlines: dict[str, VectorPath | None] = {}
     estimate = 2 * len(native)
     max_quantization = 0.0
+    diagnostics: dict[str, None] = {}
+    rectangle_plans: dict[str, tuple[tuple[float, float], ...]] = {}
     for leaf in leaves:
         node = leaf.node
         if isinstance(node, TextObject) and leaf.affine_paths:
@@ -831,7 +1322,7 @@ def compile_scene(
             if isinstance(mask, RectangleClip) and mask.deform is not None:
                 geometry_breaks += len(mask.deform.breakpoints)
                 for time in mask.deform.breakpoints:
-                    value = owner.lifetime.start + time
+                    value = owner.time_origin + time
                     max_quantization = max(
                         max_quantization, abs(value - _centiseconds(value) / 100)
                     )
@@ -851,7 +1342,7 @@ def compile_scene(
                         )
                     geometry_breaks += len(mask.deform.breakpoints)
                     for time in mask.deform.breakpoints:
-                        value = owner.lifetime.start + time
+                        value = owner.time_origin + time
                         max_quantization = max(
                             max_quantization, abs(value - _centiseconds(value) / 100)
                         )
@@ -863,13 +1354,21 @@ def compile_scene(
                     origin=node.origin,
                 )
             geometry_breaks += len(node.deform.breakpoints)
+        rectangle = native_tweens and _native_rectangle(leaf)
+        if rectangle:
+            rectangle_plans[node.id] = _rectangle_sections(leaf, budget)
         native_strategy = (
             not leaf.dynamic
             or _native_move(leaf)
             or (native_tweens and _native_tween(leaf))
+            or rectangle
         )
+        if not native_strategy:
+            diagnostics.update(dict.fromkeys(_sampling_diagnostics(leaf)))
         estimate += band_bound * (
-            1
+            len(rectangle_plans[node.id])
+            if rectangle
+            else 1
             if native_strategy
             else sum(ceil((b - a) * budget.fps) + 2 for a, b in _active_intervals(leaf))
             + sum(
@@ -886,7 +1385,7 @@ def compile_scene(
             leaf.end,
             *(evaluator.breakpoints(node.id) if evaluator.referenced(node.id) else ()),
             *(
-                n.lifetime.start + t
+                n.time_origin + t
                 for n in (*leaf.parents, node)
                 for c in n.animations
                 for t in (c.start, c.end, *(c.start + value for value in c.breakpoints))
@@ -897,13 +1396,13 @@ def compile_scene(
             )
         if isinstance(node, PathObject) and node.deform is not None:
             for t in node.deform.breakpoints:
-                value = node.lifetime.start + t
+                value = node.time_origin + t
                 max_quantization = max(
                     max_quantization, abs(value - _centiseconds(value) / 100)
                 )
         if node.material is not None:
             for t in node.material.breakpoints:
-                value = node.lifetime.start + t
+                value = node.time_origin + t
                 max_quantization = max(
                     max_quantization, abs(value - _centiseconds(value) / 100)
                 )
@@ -940,7 +1439,7 @@ def compile_scene(
         align=7,
     )
     if (
-        leaves
+        (leaves or coverage)
         and style.name in output.styles
         and output.styles[style.name].serialize() != style.serialize()
     ):
@@ -948,6 +1447,41 @@ def compile_scene(
             "generated style name collides with a different source style"
         )
     generated: list[Line] = []
+    from .coverage_output import _lower_coverage, _prepare_coverage
+
+    prepared_coverage = deque()
+    for branch in coverage:
+        try:
+            prepared_coverage.append(
+                _prepare_coverage(
+                    branch.node,
+                    resolution=(width, height),
+                    budget=budget,
+                    parents=branch.parents,
+                    interval=(branch.start, branch.end),
+                    evaluator=evaluator,
+                )
+            )
+        except ValueError as error:
+            raise SceneCompileError(str(error), object_id=branch.node.id) from error
+        for leaf in prepared_coverage[-1].sampler.leaves.values():
+            diagnostics.update(dict.fromkeys(_sampling_diagnostics(leaf)))
+    if on_estimate is not None:
+        on_estimate(
+            SceneEstimate(
+                estimate,
+                tuple(
+                    CoverageEstimate(
+                        prepared.group.id,
+                        len(prepared.points) - 1,
+                        (len(prepared.points) - 1) * len(prepared.sampler.leaves),
+                        prepared.group.coverage.settings.max_channel_error,
+                    )
+                    for prepared in prepared_coverage
+                    if prepared.group.coverage is not None
+                ),
+            )
+        )
     by_object: dict[str, list[Line]] = {}
     event_origins: dict[int, EventOrigin | None] = {}
     reports: list[ObjectReport] = []
@@ -979,11 +1513,21 @@ def compile_scene(
         before = len(generated)
         move = _native_move(leaf)
         tween = native_tweens and _native_tween(leaf)
+        rectangle = node.id in rectangle_plans
         sample_interval: float | None = None
         peak_path_points = 0
         peak_bands = 0
         peak_clip_points = 0
-        if not leaf.dynamic or move or tween:
+        if rectangle:
+            events = _rectangle_events(leaf, style.name, rectangle_plans[node.id])
+            for event in events:
+                append(event, node.id, node.origin)
+            strategy = "native-clip"
+            peak_path_points = (
+                node.path.point_count if isinstance(node, PathObject) else 0
+            )
+            peak_bands = 1
+        elif not leaf.dynamic or move or tween:
             peak_path_points = (
                 node.path.point_count if isinstance(node, PathObject) else 0
             )
@@ -1123,6 +1667,37 @@ def compile_scene(
                 else None,
             )
         )
+    while prepared_coverage:
+        prepared = prepared_coverage.popleft()
+        group = prepared.group
+
+        try:
+            lowered = _lower_coverage(
+                prepared,
+                style=style.name,
+                native_tweens=native_tweens,
+            )
+        except ValueError as error:
+            raise SceneCompileError(str(error), object_id=group.id) from error
+        estimate += len(lowered.events)
+        if estimate > budget.max_events:
+            raise SceneCompileError(
+                "estimated event budget exceeded with coverage", object_id=group.id
+            )
+        for event in lowered.events:
+            append(event, group.id, lowered.origin)
+        max_quantization = max(max_quantization, lowered.time_error)
+        reports.append(
+            ObjectReport(
+                group.id,
+                "coverage-native-opacity" if lowered.native_opacity else "coverage",
+                len(lowered.events),
+                lowered.origin,
+                1 / budget.fps,
+                sample_times=lowered.sample_times,
+                max_channel_error=lowered.max_channel_error,
+            )
+        )
     for node in native:
         append(
             Line(
@@ -1142,7 +1717,7 @@ def compile_scene(
     ranks = {identity: rank for rank, identity in enumerate(object_order)}
     reports.sort(key=lambda report: ranks[report.id])
     if generated:
-        _insert_events(output, generated, style if leaves else None)
+        _insert_events(output, generated, style if leaves or coverage else None)
     byte_count = len(output.dumps().encode("utf-8")) + 3
     if byte_count > budget.max_bytes:
         raise SceneCompileError("serialized document byte budget exceeded")
@@ -1167,6 +1742,7 @@ def compile_scene(
         byte_count,
         estimate,
         max_quantization,
+        diagnostics=tuple(diagnostics),
         event_origins=tuple(
             (event, event_origins[id(event)])
             for event in generated

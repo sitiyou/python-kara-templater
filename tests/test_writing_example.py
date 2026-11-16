@@ -11,8 +11,8 @@ from kara_templater import (
     Lifetime,
     PathObject,
     Scene,
-    SceneTimeline,
     StateFunction,
+    Timeline,
     VectorPath,
     VisualState,
 )
@@ -35,7 +35,7 @@ def test_repeated_timeline_preserves_off_grid_visibility_boundaries():
         return replace(state, opacity=float(0.35 <= progress < 0.75))
 
     timeline = (
-        SceneTimeline()
+        Timeline()
         .wait(0.1)
         .play(
             StateFunction(visibility, frozenset(("opacity",))),
@@ -64,7 +64,7 @@ def test_repeated_timeline_preserves_off_grid_visibility_boundaries():
 @pytest.mark.parametrize("point", [-0.1, 1.1, float("nan"), float("inf")])
 def test_invalid_timeline_boundary_does_not_modify_schedule(point: float):
     animation = StateFunction(lambda state, progress: state)
-    timeline = SceneTimeline().wait(0.2)
+    timeline = Timeline().wait(0.2)
     with pytest.raises(ValueError):
         timeline.play(animation, duration=1, breakpoints=(point,))
     assert timeline.clips == ()

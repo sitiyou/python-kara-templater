@@ -90,19 +90,22 @@ def rasterize_group(
         state=replace(group.state, opacity=1),
         animations=(
             AnimationClip(
-                0,
+                group.lifetime.start - group.time_origin,
                 group.lifetime.end - group.lifetime.start,
                 StateFunction(geometry, channels),
                 breakpoints=tuple(
                     sorted(
                         {
-                            value
+                            value + group.time_origin - group.lifetime.start
                             for clip in group.animations
                             for value in (
                                 clip.start,
                                 clip.end,
                                 *(clip.start + t for t in clip.breakpoints),
                             )
+                            if group.lifetime.start
+                            <= group.time_origin + value
+                            <= group.lifetime.end
                         }
                     )
                 ),
@@ -132,7 +135,7 @@ def rasterize_group(
         EventOrigin(sources, "offscreen group", track_ids) if sources else None
     )
     boundaries = {
-        _centiseconds(group.lifetime.start + value)
+        _centiseconds(group.time_origin + value)
         for clip in group.animations
         for value in (clip.start, clip.end, *(clip.start + t for t in clip.breakpoints))
     }

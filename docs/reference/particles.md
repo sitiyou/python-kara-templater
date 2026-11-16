@@ -406,7 +406,7 @@ Pieces move with their own geometry, not fixed screen-space clips. Appearance
 is preserved, so borders will also outline newly cut edges. Separate raster
 edges can show seams; use the uncut object for the final assembled hold.
 
-[Source](../../kara_templater/particles.py#L288)
+[Source](../../kara_templater/particles.py#L291)
 
 ```python
 split_path(

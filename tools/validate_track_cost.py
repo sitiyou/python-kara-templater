@@ -1,4 +1,8 @@
-"""Measure native and bounded raster output for the layered_glow fixture."""
+"""Measure ordinary clip layers and explicit coverage for layered_glow.
+
+These strategies have different blur/alpha semantics; this reports their costs,
+not visual equivalence. Both use the same Scene compiler.
+"""
 
 import argparse
 import hashlib
@@ -11,17 +15,15 @@ from time import perf_counter
 
 from PIL import Image
 
-from examples.layered_glow import tracks
+from examples.layered_glow import Paint, configuration
 from kara_templater import (
     Document,
-    OutputCapabilityError,
-    OutputSettings,
     RasterSettings,
     SceneBudget,
     SceneCompileError,
     load_font,
-    prepare_tracks,
 )
+from kara_templater.orchestration import prepare_tracks
 
 
 def capture_output(output: Path, mode: str) -> dict[str, object]:
@@ -101,23 +103,19 @@ def main():
         "font_sha256": registered.sha256,
         "max_events": args.max_events,
         "raster_settings": asdict(raster),
-        "scope": "Complete layered_glow fixture at source font sizes and resolution; raster color error is spatial, before ASS transforms, and assumes RGB/full-chroma compositing.",
+        "scope": "Common Scene compilation at source resolution. Clip cuts ordinary blurred layers; coverage assigns material before blur. Color error is spatial, before ASS transforms and assumes RGB/full-chroma compositing.",
         "outputs": {},
     }
-    for mode, settings in (("native", None), ("raster", raster)):
-        estimates = []
+    for mode in ("clip", "coverage"):
         start = perf_counter()
         try:
             result = prepare_tracks(
                 source,
-                tracks=tracks,
-                settings=OutputSettings(
-                    resolution=(int(source.meta.res_x), int(source.meta.res_y)),
-                    max_events=args.max_events,
-                    raster=settings,
+                tracks=tuple(
+                    configuration(source.styles[name], paint=Paint(mode, raster))
+                    for name in ("K1", "K2", "LEAD")
                 ),
-                on_estimate=estimates.append,
-                mode="native",
+                owner="layered-glow",
             ).compile(
                 budget=SceneBudget(
                     max_events=args.max_events,
@@ -136,17 +134,17 @@ def main():
                 "ass_bytes": destination.stat().st_size,
                 "ass_sha256": hashlib.sha256(destination.read_bytes()).hexdigest(),
                 "diagnostics": result.diagnostics,
+                "objects_report": [asdict(item) for item in result.objects],
             }
             if args.capture:
                 output["capture"] = capture_output(args.output.resolve(), mode)
-        except (OutputCapabilityError, SceneCompileError) as error:
+        except SceneCompileError as error:
             output = {
                 "status": "budget_rejected",
                 "compile_seconds": perf_counter() - start,
                 "error": str(error),
                 "notes": getattr(error, "__notes__", ()),
             }
-        output["preflight"] = [asdict(estimate) for estimate in estimates]
         report["outputs"][mode] = output
         (args.output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
         print(mode, output["status"], flush=True)

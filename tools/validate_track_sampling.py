@@ -1,67 +1,26 @@
-"""Compare a complete raster output with exact-time and held lossless snapshots.
+"""Compare common coverage output against lossless held and centisecond samples.
 
-This isolates temporal holding and color quantization, using the same material
-renderer. It is not an independent shader reference; those live in
-tests/test_track_material_reference.py. Input is validate_track_cost's directory.
+Input is validate_track_cost's output directory. This isolates quantization and
+sampling using the same material renderer, not an independent shader reference.
+The 100 fps reference evaluates every representable ASS time; it makes no claim
+about unrepresentable sub-centisecond behavior.
 """
 
 import argparse
 import hashlib
 import json
 from pathlib import Path
-from unittest.mock import patch
 
 from PIL import Image, ImageChops
 
-from examples.layered_glow import tracks
-from kara_templater import (
-    Document,
-    Line,
-    OutputSettings,
-    RasterSettings,
-    SceneBudget,
-    load_font,
-    prepare_tracks,
-)
-from kara_templater._track_raster import TrackRasterPlan
+from examples.layered_glow import Paint, configuration
+from kara_templater import Document, RasterSettings, SceneBudget, load_font
+from kara_templater.orchestration import prepare_tracks
 from tools.capture_layered_glow import TIMES
 from tools.validate_track_cost import capture_output
 
 
-def snapshot_evaluator(time: int, held: bool, ages: list[int]):
-    original = TrackRasterPlan.evaluate
-
-    def snapshot(
-        plan: TrackRasterPlan,
-        *,
-        style: str,
-        layer: int,
-        max_events: int,
-        max_chars: int,
-    ) -> tuple[Line, ...]:
-        interval = next(
-            ((start, end) for start, end in plan.intervals if start <= time < end),
-            None,
-        )
-        if interval is None:
-            return ()
-        state_time = interval[0] if held else time
-        ages.append(time - state_time)
-        # Restrict output work, without rebinding source clocks or changing
-        # animation anchors. Native alpha still runs at the requested time.
-        plan.intervals = ((state_time, time + 10),)
-        return original(
-            plan,
-            style=style,
-            layer=layer,
-            max_events=max_events,
-            max_chars=max_chars,
-        )
-
-    return snapshot
-
-
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
@@ -77,58 +36,48 @@ def main():
         raise ValueError("cost report uses a different source fixture")
     if measured["font_sha256"] != registered.sha256:
         raise ValueError("cost report uses a different font")
+    if measured["outputs"]["coverage"]["status"] != "generated":
+        raise ValueError("coverage output must fit the cost-report budget first")
     source = Document.load(source_path)
     report = {
-        "scope": "Same material renderer; exact-time vs held states isolates sampling. Full raster vs held lossless states isolates quantization plus final ASS/video conversion.",
+        "scope": "Same common coverage renderer. Lossless 50 fps vs 100 fps isolates temporal holding at ASS clocks; measured coverage vs lossless 50 fps isolates quantization and final ASS conversion.",
         "references": {},
         "comparisons": [],
     }
-    for mode in ("held", "exact"):
-        combined: Document | None = None
-        ages: dict[int, list[int]] = {}
-        for time in TIMES:
-            ages[time] = []
-
-            with patch.object(
-                TrackRasterPlan,
-                "evaluate",
-                snapshot_evaluator(time, mode == "held", ages[time]),
-            ):
-                result = prepare_tracks(
-                    source,
-                    tracks=tracks,
-                    settings=OutputSettings(
-                        resolution=(640, 480),
-                        max_events=1_000_000,
-                        raster=RasterSettings(max_output_chars=256_000_000),
-                    ),
-                    mode="native",
-                ).compile(
-                    budget=SceneBudget(
-                        max_events=1_000_000,
-                        max_bytes=256_000_000,
-                        max_active=50_000,
-                    )
-                )
-            if combined is None:
-                combined = result.document
-            else:
-                combined.records.extend(line for line, _ in result.event_origins)
-        assert combined is not None
-        combined.save(output / f"{mode}.ass")
+    capture_output(output, "coverage")
+    for mode, fps in (("held", 50), ("exact", 100)):
+        settings = RasterSettings(max_output_chars=256_000_000, max_frames=1000)
+        scene = prepare_tracks(
+            source,
+            tracks=tuple(
+                configuration(source.styles[name], paint=Paint("coverage", settings))
+                for name in ("K1", "K2", "LEAD")
+            ),
+            owner="layered-glow",
+        )
+        result = scene.compile(
+            budget=SceneBudget(
+                fps=fps,
+                max_events=1_000_000,
+                max_bytes=256_000_000,
+                max_active=50_000,
+            )
+        )
+        result.document.save(output / f"{mode}.ass")
         report["references"][mode] = {
-            "state_age_ms": ages,
+            "fps": fps,
+            "events": result.event_count,
             "capture": capture_output(output, mode),
         }
         print(mode, "captured", flush=True)
     for index, time in enumerate(TIMES, 1):
         images = {
             name: Image.open(output / f"{name}-{index:02d}.png").convert("RGB")
-            for name in ("raster", "held", "exact")
+            for name in ("coverage", "held", "exact")
         }
         entry = {"time_ms": time}
         for label, first, second in (
-            ("spatial_and_output", "raster", "held"),
+            ("spatial_and_output", "coverage", "held"),
             ("temporal_hold", "held", "exact"),
         ):
             data = ImageChops.difference(images[first], images[second]).tobytes()

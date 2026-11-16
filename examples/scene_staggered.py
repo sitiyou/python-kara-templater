@@ -19,10 +19,10 @@ from kara_templater import (
     PathObject,
     Record,
     Scene,
-    SceneTimeline,
     StateFunction,
     StatePatch,
     TextObject,
+    Timeline,
     Tween,
     Vec2,
     VectorPath,
@@ -61,7 +61,7 @@ def build() -> Scene:
     letters: list[TextObject] = []
     for index, letter in enumerate("Tiny stars"):
         x = index * 59
-        timeline = SceneTimeline()
+        timeline = Timeline()
         timeline.play(
             Tween(StatePatch(position=Vec2(x, 0)), bounce),
             Tween(StatePatch(opacity=1)),

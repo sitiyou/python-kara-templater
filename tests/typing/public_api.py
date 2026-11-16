@@ -5,35 +5,28 @@ from typing import assert_type
 
 from kara_templater import (
     RED,
+    BackRate,
     Color,
-    Contextual,
     Document,
     EventOrigin,
-    HighlightAnimation,
     KaraokeItem,
     KaraokeLine,
     Line,
-    PropertyContext,
-    Scene,
+    LyricScene,
     SceneResult,
     Segment,
     SourceRef,
     Style,
     TextUnit,
-    TimeRef,
     Track,
-    Transition,
-    display,
     import_karaoke,
     layout_line,
     parse_karaoke,
     prepare_tracks,
-    singing,
-    smooth,
+    smooth_rate,
     there_and_back,
     walk_karaoke,
 )
-from kara_templater.properties import BackRate
 
 
 def values_and_render(document: Document, item: KaraokeItem, track: Track) -> None:
@@ -53,20 +46,11 @@ def values_and_render(document: Document, item: KaraokeItem, track: Track) -> No
     assert_type(
         walk_karaoke((item,), level="line"), Iterator[tuple[SourceRef, KaraokeLine]]
     )
-    assert_type(singing.start + 100, TimeRef)
-    assert_type(display.start, TimeRef)
-    assert_type(smooth(0.5), float)
+    assert_type(smooth_rate(0.5), float)
     assert_type(there_and_back(0.5), float)
     assert_type(there_and_back(peak_at=0.2), BackRate)
-    assert_type(Transition(1, 1.2, rate=lambda p: assert_type(p, float))(0.5), float)
-    assert_type(
-        Contextual(lambda ctx: assert_type(ctx, PropertyContext).progress), Contextual
-    )
-    assert_type(
-        HighlightAnimation(offset_y=lambda p: assert_type(p, float)), HighlightAnimation
-    )
     prepared = prepare_tracks(document, tracks=(track,))
-    assert_type(prepared.scene, Scene)
+    assert_type(prepared, LyricScene)
     assert_type(prepared.compile(), SceneResult)
     assert_type(
         prepared.compile().event_origins, tuple[tuple[Line, EventOrigin | None], ...]

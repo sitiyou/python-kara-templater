@@ -148,3 +148,13 @@ def test_cue_identifiers_cannot_escape_ass_comment_block(character: str):
         CueMarker("intro" + character, "bars")
     with pytest.raises(ValueError, match="identifiers"):
         CueMarker("intro", "bars" + character)
+
+
+def test_escaped_braces_and_protected_backslashes_keep_source_and_timing_offsets():
+    raw = r"{\k20}a\{b\}" + "\\\u2060N" + r"{\k30}\}c\hD"
+    parsed = document(raw).text_at(2)
+    assert parsed.original() == raw
+    assert parsed.text == "a{b}\\N}c\u00a0D"
+    assert [(tag.offset, tag.seconds) for tag in parsed.timing] == [(0, 0.2), (6, 0.3)]
+    assert [(run.start, run.end) for run in parsed.runs] == [(0, 6), (6, 10)]
+    parsed.require_supported()

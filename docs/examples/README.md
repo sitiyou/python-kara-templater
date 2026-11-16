@@ -10,6 +10,22 @@ and 12 frames/s. The generated ASS retains its full script resolution and timing
 Supply the same fonts to your player for comparable text geometry. See
 [fonts and preview](../guides/fonts-and-preview.md) for reproduction.
 
+## Arrange karaoke lyrics
+
+Start with [lyric_orchestration.py](../../examples/lyric_orchestration.py) for
+ordinary lyric authoring: one rule binds each line's fade and each singing
+segment's jump, while independent main/harmony Tracks choose their layouts.
+Change row count or override `allocate` for lead resets and single-line exceptions.
+
+```sh
+python -m examples.lyric_orchestration build/two-rows.ass
+python -m examples.lyric_orchestration build/three-rows.ass --rows 3
+python -m examples.lyric_orchestration build/custom-layout.ass --custom
+```
+
+The effects below also include direct object and material examples for custom
+geometry and composition. See [Tracks](../guides/tracks.md) for the authoring API.
+
 ## Choose an effect
 
 - [Layered lyric glow](#layered-lyric-glow)
@@ -200,10 +216,10 @@ These modules also generate ASS from a checkout. The command shape is
 
 | Modules | Topic | Input |
 | --- | --- | --- |
-| `scene_tracks`, `scene_editable_tracks` | Native and editable Track content with custom Scene objects | Fixed |
-| `scene_coverage_tracks` | Track material coverage and scoped opacity | Fixed |
+| `scene_tracks` | Lyric animation and glow with ordinary Scene objects | Fixed |
+| `scene_coverage_tracks` | Ruby/sweep/glow with shared parent motion and vector decoration | Fixed |
 | `track_colors` | Code-only per-range lyric colors | Fixed |
-| `parallel_tracks` | Disjoint, priority, and translucent layered highlights | Fixed |
+| `parallel_tracks` | Disjoint, priority, and translucent layered highlights | Fixed; explicit 50,000-event preflight budget |
 | `layered_glow` | K1/K2/LEAD glow configuration | `tests/fixtures/layered_glow.ass`, then output path |
 | `syllable_pulse` | Grow on this syllable, shrink on the following one | `examples/karaoke.ass`, then output path |
 | `scene_affine`, `scene_mirror` | Affine transforms, mirrored groups, and geometry lowering | Fixed |
@@ -216,11 +232,24 @@ These modules also generate ASS from a checkout. The command shape is
 | `scene_sweep_strategies` | Banded, layered, raster, and diffused sweep choices | Fixed; optional `--strategy` |
 | `scene_legacy` | ASS-template output combined with Scene objects | Fixed |
 | `scene_whole_song` | 180-second composition of the twelve primary effects | Fixed; intentionally larger budget |
-| `output_layers` | Low-level ASS text-layer compilation | Fixed |
+| `output_layers` | Shared animations with character-arrival, character and syllable bindings | Fixed |
 
 `characters` and `timeline` print measured layout or timeline data rather than
-writing ASS. `layered_glow_classes` exports reusable Track subclasses for the CLI;
-it has no standalone command. `_lyrics` is a small shared fixture helper.
+writing ASS. `layered_glow` and `layered_glow_classes` export `build(document)`;
+the latter demonstrates an ordinary typed Track subclass and has no standalone
+command. Both use the common Scene compiler, with per-layer clipped glow,
+two-stage highlighting, ruby-specific glow widths and syllable attack/release.
+For CLI use, provide an explicit sampling budget:
+
+```sh
+uv run kara-templater tests/fixtures/layered_glow.ass build/glow.ass \
+  --effect examples/layered_glow.py --max-events 30000
+```
+
+The direct `python -m examples.layered_glow` command reframes to 1920×1080;
+the CLI builder retains the input resolution. Clip and coverage strategies have
+different blur and alpha semantics; coverage is an explicit choice in the
+example's Paint configuration. `_lyrics` is a small shared fixture helper.
 
 For a minimal script that uses only the installed package, start with
 [getting started](../getting-started.md). For your own callbacks and factories,

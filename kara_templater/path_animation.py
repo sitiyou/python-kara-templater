@@ -36,7 +36,11 @@ class GeometryAnimation(Protocol):
 
 @dataclass(frozen=True)
 class PathFunction:
-    """Author callback receives seconds relative to object birth; None is invisible."""
+    """Author callback receives seconds relative to the clock origin; None is invisible.
+
+    Breakpoints may be negative local seconds; the owning object validates their
+    absolute times. This supports visibility extended before an existing clock.
+    """
 
     function: Callable[[VectorPath, float], VectorPath | None]
     max_points: int
@@ -48,8 +52,6 @@ class PathFunction:
                 "geometry callbacks require a positive declared point bound"
             )
         finite(*self.breakpoints)
-        if any(t < 0 for t in self.breakpoints):
-            raise ValueError("geometry breakpoints must be nonnegative")
 
     def sample(self, base: VectorPath, time: float) -> VectorPath | None:
         """Evaluate the custom path callback at local seconds and enforce its declared point bound."""

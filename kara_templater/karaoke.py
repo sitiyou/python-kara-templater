@@ -1,11 +1,9 @@
-"""Typed lyric input and highlight declarations shared by Track frontends."""
+"""Structured lyric input shared by parsing and Track frontends."""
 
 from dataclasses import dataclass
-from typing import Literal
 
-from .composition import Paint
 from .model import KaraokeLine
-from .timeline import DisplayWindow, EdgeSweep, ProgressCurve
+from .timeline import DisplayWindow
 
 
 @dataclass(frozen=True)
@@ -31,43 +29,3 @@ class KaraokeItem:
             len(self.margins) != 3 or any(type(v) is not int for v in self.margins)
         ):
             raise ValueError("item margins must be three integers")
-
-
-@dataclass(frozen=True)
-class Sweep:
-    """Highlight progress and completion behavior.
-
-    A progress curve maps singing time to a horizontal cursor. ``release``
-    removes a completed sweep's clip after the singing interval, exposing the
-    full sung decoration. ``clip`` retains clipping through the display window. Edge
-    compensation is for low-level spans; Track overlays use uncompensated edges.
-    """
-
-    progress_curve: ProgressCurve = ProgressCurve()
-    edges: EdgeSweep = EdgeSweep()
-    completion: Literal["release", "clip"] = "release"
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.progress_curve, ProgressCurve):
-            raise TypeError("sweep progress_curve requires ProgressCurve")
-        if not isinstance(self.edges, EdgeSweep):
-            raise TypeError("sweep edges require EdgeSweep")
-        if self.completion not in {"release", "clip"}:
-            raise ValueError("sweep completion must be release or clip")
-
-
-@dataclass(frozen=True)
-class HighlightStyle:
-    """Paint and priority for one explicitly named HighlightTrack.
-
-    ``after=None`` uses the lyric's sung paint. Larger priority wins when an
-    Overlay uses priority composition; layer composition retains stack order.
-    """
-
-    track_id: str
-    after: Paint | None = None
-    priority: int = 0
-
-    def __post_init__(self) -> None:
-        if not self.track_id or type(self.priority) is not int:
-            raise ValueError("highlight style needs an id and integer priority")

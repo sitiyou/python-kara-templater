@@ -16,7 +16,7 @@ reproduces it. Keep the traceback and exception cause when debugging callbacks.
 | Animation writes conflict | Check channel declarations, overlapping intervals, hold/release, and composition rules |
 | Unexpected time offset | Check seconds versus milliseconds, object birth versus absolute time, and separate display/singing clocks |
 | Object follows the wrong position | Distinguish local object evaluation from world-space SceneEvaluator references |
-| PlayRes mismatch | Keep Document script dimensions and native OutputSettings.resolution identical |
+| PlayRes mismatch | Check Document script dimensions and the resolution used by the renderer or preview |
 | Editable Track rejects source style | Use native mode for unsupported underline/strikeout/angle/BorderStyle, or author the desired geometry explicitly |
 | Glow is cut off at a color front | Native clipping is post-render; use explicit coverage/raster material semantics for color-before-blur |
 | Group alpha looks too dense | Ordinary groups apply alpha per drawing layer; choose explicit offscreen/coverage composition when required |

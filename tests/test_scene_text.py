@@ -14,7 +14,7 @@ from kara_templater.cues import (
 )
 from kara_templater.geometry import Vec2, VectorPath
 from kara_templater.scene import Lifetime, PathObject, Scene
-from kara_templater.scene_animation import SceneTimeline, StateFunction, VisualState
+from kara_templater.scene_animation import StateFunction, Timeline, VisualState
 from kara_templater.scene_text import layout_document_text
 
 
@@ -39,7 +39,7 @@ def test_following_word_background_preserves_internal_motion_breakpoint():
         return replace(state, position=Vec2(200 if progress >= 0.35 else 100, 100))
 
     timeline = (
-        SceneTimeline()
+        Timeline()
         .wait(0.1)
         .play(
             StateFunction(jump, frozenset(("position",))),
@@ -262,9 +262,10 @@ def test_style_reset_changes_font_metrics_and_python_overrides_are_explicit():
     assert overridden.at(2).fill == Color(12, 34, 56)
 
 
-def test_unknown_style_opacity_is_diagnosed_before_drawing():
+@pytest.mark.parametrize("color", ("&H80FFFFFF", str(0x80FFFFFF - 2**32)))
+def test_unknown_style_opacity_is_diagnosed_before_drawing(color):
     doc = document("A")
-    doc.styles["Default"].fields["PrimaryColour"] = "&H80FFFFFF"
+    doc.styles["Default"].fields["PrimaryColour"] = color
     with pytest.raises(LayoutCapabilityError, match="alpha"):
         layout_document_text(doc, 1)
 

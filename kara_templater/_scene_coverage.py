@@ -85,10 +85,13 @@ class SceneCoverageSampler:
         partitions: Mapping[str, CoveragePartition] | None = None,
         settings: RasterSettings,
         budget: SceneBudget,
+        evaluator: SceneEvaluator | None = None,
+        exclude_root_opacity: bool = False,
     ) -> None:
         self.group, self.resolution = group, resolution
+        self.exclude_root_opacity = exclude_root_opacity
         self.components = frozenset(components)
-        self.scope_opacities = (
+        self.scope_opacities: dict[str, tuple[ScopeOpacity, ...]] = (
             {}
             if scope_opacities is None
             else {name: tuple(weights) for name, weights in scope_opacities.items()}
@@ -108,16 +111,22 @@ class SceneCoverageSampler:
         self.scene = Scene(
             Document.create(width=resolution[0], height=resolution[1])
         ).add(group)
-        self.evaluator = SceneEvaluator(self.scene)
-        leaves, _, _ = _leaves(self.scene, self.evaluator)
+        self.evaluator = SceneEvaluator(self.scene) if evaluator is None else evaluator
+        leaves, _, _, _ = _leaves(self.scene, self.evaluator, collect_coverage=False)
         if len(leaves) * 3 > budget.max_events:
             raise ValueError("coverage geometry event budget exceeded")
         self.leaves = {leaf.node.id: leaf for leaf in leaves}
         groups: set[str] = set()
+        visual_ids: set[str] = set()
 
         def validate_components(node: SceneObject, component: str | None) -> None:
             if not isinstance(node, ObjectGroup):
+                visual_ids.add(node.id)
                 return
+            if node is not group and node.coverage is not None:
+                raise SceneCompileError(
+                    "nested coverage declarations are not supported", object_id=node.id
+                )
             groups.add(node.id)
             if node.id in self.components:
                 if component is not None:
@@ -133,12 +142,34 @@ class SceneCoverageSampler:
         validate_components(group, None)
         if self.components - groups:
             raise ValueError("coverage components must address object groups")
-        if self.partitions.keys() - self.leaves.keys():
-            raise ValueError("coverage partition must address an active visual leaf")
-        if self.scope_opacities.keys() - self.leaves.keys():
-            raise ValueError("scope opacity must address an active visual leaf")
-        if self.glows.keys() - self.leaves.keys():
-            raise ValueError("coverage glow must address an active visual leaf")
+        if self.partitions.keys() - visual_ids:
+            raise ValueError("coverage partition must address a visual leaf")
+        if self.scope_opacities.keys() - visual_ids:
+            raise ValueError("scope opacity must address a visual leaf")
+        if self.glows.keys() - visual_ids:
+            raise ValueError("coverage glow must address a visual leaf")
+        if self.glow_materials.keys() - self.glows.keys():
+            raise ValueError("glow materials require a configured glow")
+        # Parent lifetimes may hide declared descendants completely. Validate
+        # their identities, then exclude them from sampling and resource costs.
+        self.glows = {
+            name: value for name, value in self.glows.items() if name in self.leaves
+        }
+        self.glow_materials = {
+            name: value
+            for name, value in self.glow_materials.items()
+            if name in self.leaves
+        }
+        self.partitions = {
+            name: value
+            for name, value in self.partitions.items()
+            if name in self.leaves
+        }
+        self.scope_opacities = {
+            name: value
+            for name, value in self.scope_opacities.items()
+            if name in self.leaves
+        }
         maximum_blur = max(
             (
                 glow.max_blur if isinstance(glow, GlowFunction) else glow.blur
@@ -148,8 +179,6 @@ class SceneCoverageSampler:
         )
         if maximum_blur > 100:
             raise ValueError("coverage glow blur must be in 0..100 ASS pixels")
-        if self.glow_materials.keys() - self.glows.keys():
-            raise ValueError("glow materials require a configured glow")
         maximum_border = max(
             (
                 glow.max_border if isinstance(glow, GlowFunction) else glow.border
@@ -180,7 +209,8 @@ class SceneCoverageSampler:
             for weight in weights:
                 owner = owners.get(weight.owner)
                 if owner is None or any(
-                    time > owner.lifetime.end - owner.lifetime.start
+                    time < -owner.time_origin
+                    or time > owner.lifetime.end - owner.time_origin
                     for time in weight.breakpoints
                 ):
                     raise SceneCompileError(
@@ -190,7 +220,8 @@ class SceneCoverageSampler:
                     )
             glow = self.glows.get(leaf.node.id)
             if isinstance(glow, GlowFunction) and any(
-                t > leaf.node.lifetime.end - leaf.node.lifetime.start
+                t < -leaf.node.time_origin
+                or t > leaf.node.lifetime.end - leaf.node.time_origin
                 for t in glow.breakpoints
             ):
                 raise SceneCompileError(
@@ -198,6 +229,17 @@ class SceneCoverageSampler:
                     object_id=leaf.node.id,
                     origin=leaf.node.origin,
                 )
+            if isinstance(glow, GlowFunction) and glow.required_interval is not None:
+                interval = glow.required_interval
+                if (
+                    interval.start < -leaf.node.time_origin
+                    or interval.end > leaf.node.lifetime.end - leaf.node.time_origin
+                ):
+                    raise SceneCompileError(
+                        "required glow interval outside object lifetime",
+                        object_id=leaf.node.id,
+                        origin=leaf.node.origin,
+                    )
             for node in (*leaf.parents, leaf.node):
                 if node.reference is not None and "opacity" in node.reference.channels:
                     raise SceneCompileError(
@@ -209,7 +251,7 @@ class SceneCoverageSampler:
             partition = self.partitions.get(node.id)
             if partition is not None:
                 if any(
-                    t > node.lifetime.end - node.lifetime.start
+                    t < -node.time_origin or t > node.lifetime.end - node.time_origin
                     for t in partition.breakpoints
                 ):
                     raise SceneCompileError(
@@ -238,7 +280,7 @@ class SceneCoverageSampler:
                     continue
                 finite(*material.breakpoints)
                 if material.axis not in ("x", "y") or any(
-                    t < 0 or t > node.lifetime.end - node.lifetime.start
+                    t < -node.time_origin or t > node.lifetime.end - node.time_origin
                     for t in material.breakpoints
                 ):
                     raise SceneCompileError(
@@ -381,7 +423,7 @@ class SceneCoverageSampler:
                 (PaintBand(start, limit, base.fill, base.outline),)
                 if field is None
                 else field.bands(
-                    start, limit, local_seconds(time, leaf.node.lifetime.start), base
+                    start, limit, local_seconds(time, leaf.node.time_origin), base
                 )
             )
             if field is not None and len(bands) > field.max_bands:
@@ -407,7 +449,7 @@ class SceneCoverageSampler:
         regions = (
             ()
             if ownership is None
-            else ownership.sample(state, local_seconds(time, leaf.node.lifetime.start))
+            else ownership.sample(state, local_seconds(time, leaf.node.time_origin))
         )
 
         def paint(
@@ -487,7 +529,7 @@ class SceneCoverageSampler:
 
         appearance = self.glows.get(leaf.node.id)
         glow = (
-            appearance.sample(state, local_seconds(time, leaf.node.lifetime.start))
+            appearance.sample(state, local_seconds(time, leaf.node.time_origin))
             if isinstance(appearance, GlowFunction)
             else appearance
         )
@@ -513,7 +555,7 @@ class SceneCoverageSampler:
         if isinstance(node, ObjectGroup):
             for child in node.children:
                 collect(child, 1)
-            outer_opacity = node.at(time).opacity
+            outer_opacity = self._opacity(node, time)
         else:
             collect(node, 1)
             outer_opacity = 1
@@ -555,12 +597,19 @@ class SceneCoverageSampler:
             budget=self.raster_budget,
         )
 
+    def _opacity(self, node: SceneObject, time: float) -> float:
+        # Native lowering factors out only the final composition alpha. Keep the
+        # evaluator untouched: author callbacks still observe the original state.
+        if self.exclude_root_opacity and node.id == self.group.id:
+            return 1
+        return node.at(time).opacity
+
     def _weighted_frame(self, time: float) -> PositionedFrame | None:
         def opacity(leaf: _Leaf, owner: SceneObject) -> float:
             value = owner.at(time).opacity
             for weight in self.scope_opacities.get(leaf.node.id, ()):
                 if weight.owner == owner.id:
-                    value *= weight.sample(local_seconds(time, owner.lifetime.start))
+                    value *= weight.sample(local_seconds(time, owner.time_origin))
             return value
 
         def visit(node: SceneObject, parents: tuple[ObjectGroup, ...]) -> CoverageStack:
@@ -638,7 +687,7 @@ class SceneCoverageSampler:
             try:
                 glow = (
                     appearance.sample(
-                        leaf.at(time), local_seconds(time, leaf.node.lifetime.start)
+                        leaf.at(time), local_seconds(time, leaf.node.time_origin)
                     )
                     if isinstance(appearance, GlowFunction)
                     else appearance
@@ -673,7 +722,7 @@ class SceneCoverageSampler:
                     )
                     return compose_frames(
                         children,
-                        opacity=node.at(time).opacity,
+                        opacity=self._opacity(node, time),
                         budget=self.raster_budget,
                     )
                 return self._component(node, time)

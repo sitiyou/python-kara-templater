@@ -21,10 +21,10 @@ owners and unselected records remain available. Generated ownership markers are
 reserved for the library; editing those markers can invalidate regeneration.
 
 Track preparation imports timed lyrics automatically, retains their source
-records, and restores sources when selection changes. Explicit `KaraokeItem`
-values leave the Document's existing dialogue untouched. Use LineMatch for
-style, text, and other supported input selection rather than generating several
-Tracks that match the same item.
+records, and restores sources when selection changes. Explicit `LyricSource`
+values created from DocumentLyrics leave existing dialogue untouched. Track.source
+is a predicate over LyricSource metadata. Multiple Tracks may show the same
+source; visual view identity is separate from record replacement ownership.
 
 ## Choose the lyric frontend
 
@@ -32,13 +32,20 @@ Tracks that match the same item.
 | --- | --- | --- |
 | Plain text with static colors/style resets and optional cues | `read_document_text`, `layout_document_text` | Decoded text ranges and SingingSpan clocks |
 | Body text, ruby, and repeated singing | `layout_document_lyrics` | Body/ruby source projection and grouped lyric units |
-| Declarative lyric styling and animations | `import_karaoke`, `prepare_tracks` | KaraokeItem, TextUnit, Segment; times in milliseconds |
+| Declarative lyric styling and animations | `prepare_tracks`, `LyricSource.from_lyrics` | DocumentLyrics and semantic targets; times in seconds |
 | Existing Python ASS templates | `Engine`, `apply_templates` | Explicit template execution; separate helper context |
 
-These frontends enforce their supported input subsets. The Track importer does
-not evaluate arbitrary ASS overrides. For static inline color/reset scopes and
-cue markers, use the Document text/lyric binding interfaces. See
+These frontends enforce their supported input subsets. Parsing does not evaluate
+arbitrary ASS animation overrides. Track uses the Document lyric projection,
+including static inline color/reset scopes and cue markers. See
 [text and cues](text-and-cues.md) for their authoring workflow.
+
+`TextObject.text` is literal Unicode. Braces and backslashes are displayed as
+characters, including strings that look like ASS overrides; use `NativeEvent`
+for already encoded ASS. A newline becomes a hard line break. CR and NUL are
+rejected. Compilation escapes braces and protects literal backslashes with an
+invisible word joiner. The Document text projection decodes these sequences
+while retaining their original raw tokens and decoded character offsets.
 
 Karaoke timing recognizes `\k`, `\K`, `\kf`, `\ko`, and explicit `\kt`
 offsets. The body/ruby convention uses `body|reading`; a `#` or `＃` continuation
@@ -52,9 +59,9 @@ singing-time jumps and unsupported input produce contextual errors.
 
 ## Ranges and origin information
 
-Document ranges count decoded Unicode code points. Track TextSpan ranges are
-body-wide; low-level TextRange ranges are local to a TextUnit. Neither index
-scheme permits splitting an indivisible shaped cluster. A visual character can
+Document ranges count decoded Unicode code points. Semantic targets identify
+measured syllables, segments and glyph clusters. A range cannot split an
+indivisible shaped cluster. A visual character can
 contain multiple code points, and spaces can have advance without ink.
 
 `SourceRef` identifies an item and optional unit/segment. It remains stable when

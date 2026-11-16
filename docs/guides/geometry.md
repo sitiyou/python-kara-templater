@@ -37,6 +37,49 @@ inverse coverage. Local clips are anchored to the object and transformed with
 its hierarchy. A RectangleFunction or geometry animation changes a mask using
 local seconds. Empty normal masks hide; empty inverse masks reveal.
 
+Use `RectangleKeyframes` for known piecewise-linear bounds. Keys contain local
+seconds and `(left, top, right, bottom)` coordinates. Repeated bounds make a
+pause; two keys at the same time encode a reset from the first bounds to the
+second. End values hold, and zero-width/height bounds represent an empty mask.
+The same curve can be sampled or compiled to native rectangle transforms.
+
+```python
+from kara_templater import RectangleClip, RectangleKeyframes
+
+mask = RectangleClip(0, 0, 100, 40, deform=RectangleKeyframes((
+    (0, (0, 0, 0, 40)),
+    (1, (0, 0, 50, 40)),
+    (1.5, (0, 0, 50, 40)),  # pause
+    (2, (0, 0, 100, 40)),
+)))
+```
+
+With `native_tweens=True`, static geometry with a single eligible rectangle
+mask uses one ASS event per curve section, reported as `native-clip`. Cropping
+visibility preserves the original transform clock. Static local masks require
+positive axis-aligned transforms; screen masks may clip rotated geometry.
+The same native path supports a node's built-in linear Tween, ScalePulse and
+held FadeIn/FadeOut, including held Timeline sequences. Parents may have static
+transforms and known linear opacity animations. Opacity intervals across the
+parent chain and the node must not overlap: simultaneous inherited opacity
+curves multiply and generally cannot use a linear native alpha transform.
+FadeIn must start at the node's clock origin, no later than visible exposure.
+Local mask bounds times linear scale produce quadratic screen edges. The
+compiler subdivides these sections until the encoded endpoint interpolation
+meets `SceneBudget.clip_error_px` (default 0.75 pixels), including endpoint
+coordinate rounding. It checks the quadratic error's extrema, rather than
+assuming arbitrary callbacks are linear. Renderer pixel quantization remains
+separate from this coordinate-error bound.
+
+Subdivision retains each animation's original clock and pivot; completed
+channels become initial tags, avoiding ASS's special meaning for a transform
+ending at event-local time zero. The combined animation/keyframe boundaries
+must align with the centisecond grid for this animated optimization. A spatial
+bound that cannot fit that grid raises an error, as does exceeding event limits.
+Rotating or shearing animations, parent geometry animations, inherited masks, materials,
+references and coverage retain the common sampled path. Arbitrary
+`RectangleFunction` callbacks are also sampled.
+
 A group mask applies in its shared coordinate space. Nested masks compose and
 may require polygon/boolean lowering. path_boolean supports intersection, union,
 difference, and xor with an explicit work limit. Stroke expansion, flattening,

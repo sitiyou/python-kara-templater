@@ -1,19 +1,19 @@
 from typing import assert_type
 
 from kara_templater import (
+    Coverage,
     CoveragePartition,
-    CoverageResult,
     Document,
     Glow,
     GlowFunction,
     Lifetime,
     ObjectGroup,
-    PreparedTrackCoverage,
+    Scene,
     SceneResult,
     ScopeOpacity,
+    StatePatch,
+    Tween,
     VisualState,
-    compile_coverage,
-    prepare_track_coverage,
 )
 
 
@@ -26,18 +26,19 @@ partition = CoveragePartition(lambda state, time: (), max_regions=1)
 opacity = ScopeOpacity("root", lambda time: 1)
 assert_type(glow.sample(VisualState(), 0), Glow | None)
 assert_type(opacity.sample(0), float)
-result = compile_coverage(
-    Document.create(), ObjectGroup(id="root", lifetime=Lifetime(0, 1), children=())
+result = (
+    Scene(Document.create())
+    .add(
+        ObjectGroup(
+            id="root", lifetime=Lifetime(0, 1), children=(), coverage=Coverage()
+        )
+    )
+    .compile()
 )
-assert_type(result, CoverageResult)
+assert_type(result, SceneResult)
 assert_type(result.document, Document)
-assert_type(result.output, SceneResult)
-assert_type(result.sample_times, tuple[float, ...])
+assert_type(result.objects[0].sample_times, tuple[float, ...])
 
-prepared = prepare_track_coverage(
-    Document.create(), tracks=(), max_glow_blur=8, max_glow_border=4
+assert_type(
+    GlowFunction.from_animation(Tween(StatePatch(blur=2)), duration=1), GlowFunction
 )
-assert_type(prepared, PreparedTrackCoverage)
-assert_type(prepared.group, ObjectGroup)
-assert_type(prepared.glows, dict[str, Glow | GlowFunction])
-assert_type(prepared.compile(), CoverageResult)

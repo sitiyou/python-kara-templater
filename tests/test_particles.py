@@ -258,3 +258,33 @@ def test_closed_motion_includes_the_implicit_closing_edge():
     path = VectorPath.rectangle(100, 100).contours[0]
     assert path.point(1) == Vec2()
     assert path.point(0.875) == Vec2(0, 50)
+
+
+def test_keyed_noise_animates_common_objects_without_seek_order_state():
+    def factory(context: ParticleContext) -> PathObject:
+        phase = context.uniform("phase")
+
+        def jitter(state: VisualState, progress: float) -> VisualState:
+            return replace(
+                state,
+                position=Vec2(context.uniform(f"x/{progress:.8f}"), phase),
+            )
+
+        return make_particle(context).animate(
+            StateFunction(jitter, frozenset(("position",))), duration=1
+        )
+
+    schedule = (Emission("one", 0), Emission("two", 0))
+    nodes = emit_particles(schedule, factory, seed=123)
+    repeated = emit_particles(reversed(schedule), factory, seed=123)
+    by_id = {node.id: node for node in repeated}
+    different = emit_particles(schedule, factory, seed=124)
+    first = nodes[0].at(0.1)
+    for time in (0.7, 0.1, 0.5, 0.1):
+        for node in nodes:
+            assert node.at(time) == by_id[node.id].at(time)
+            assert node.at(time).position.y == node.at(0).position.y
+    assert nodes[0].at(0.1) == first
+    assert nodes[0].at(0.7).position.x != first.position.x
+    assert different[0].at(0.1).position != first.position
+    assert nodes[1].at(0.1).position != first.position

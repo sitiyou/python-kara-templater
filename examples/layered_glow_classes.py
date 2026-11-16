@@ -1,64 +1,33 @@
-"""与 layered_glow 等价的普通子类复用版本，可用 CLI --script 加载。"""
+"""The layered_glow builder using an ordinary typed Track subclass.
 
-from examples.layered_glow import SUNG, glow_body, glow_ruby
-from kara_templater import (
-    Animation,
-    FadeInAnimation,
-    FadeOutAnimation,
-    LineMatch,
-    Overlay,
-    ProgressCurve,
-    SingingPulseAnimation,
-    SourceMatch,
-    Sweep,
-    Track,
-)
+Load with CLI --effect examples/layered_glow_classes.py.
+"""
+
+from examples.layered_glow import Paint, configuration
+from kara_templater import Document, LyricScene, Style, Track, prepare_tracks
 
 
 class LayeredGlow(Track):
-    """Reusable defaults through an ordinary, explicitly typed constructor."""
-
-    def __init__(
-        self,
-        *,
-        source: SourceMatch,
-        animations: tuple[Animation, ...] | None = None,
-    ) -> None:
+    def __init__(self, style: Style, *, paint: Paint | None = None) -> None:
+        config = configuration(style, paint=paint)
         super().__init__(
-            source=source,
-            body=glow_body(),
-            ruby=glow_ruby(),
-            overlay=Overlay(
-                style=SUNG,
-                reveal=Sweep(
-                    progress_curve=ProgressCurve.two_stage(
-                        time_fraction=3 / 17,
-                        progress_fraction=0.3,
-                    )
-                ),
-            ),
-            animations=(
-                FadeInAnimation(duration=800),
-                FadeOutAnimation(duration=200),
-                SingingPulseAnimation(peak=1.1, attack=80, release=160),
-            )
-            if animations is None
-            else animations,
+            id=config.id,
+            source=config.source,
+            layout=config.layout,
+            preview=config.preview,
+            tail=config.tail,
+            tags=config.tags,
+            styles=config.styles,
+            factory=config.factory,
+            animations=config.animations,
         )
 
 
-class Lead(Track):
-    def __init__(self, *, source: SourceMatch) -> None:
-        super().__init__(
-            source=source,
-            body=glow_body(),
-            overlay=Overlay(style=SUNG),
-            animations=(FadeInAnimation(duration=800), FadeOutAnimation(duration=200)),
-        )
-
-
-tracks = (
-    LayeredGlow(source=LineMatch(style="K1")),
-    LayeredGlow(source=LineMatch(style="K2")),
-    Lead(source=LineMatch(style="LEAD")),
-)
+def build(document: Document) -> LyricScene:
+    return prepare_tracks(
+        document,
+        tracks=tuple(
+            LayeredGlow(document.styles[name]) for name in ("K1", "K2", "LEAD")
+        ),
+        owner="layered-glow",
+    )

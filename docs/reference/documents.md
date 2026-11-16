@@ -1,6 +1,6 @@
 # Documents and lyric input
 
-Records, decoded text, input selection, and source mappings. Line and Track input clocks are milliseconds; Document text singing spans use seconds. See [Documents](../guides/documents.md).
+Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric singing spans and Track authoring use seconds. See [Documents](../guides/documents.md).
 
 [All public symbols](README.md#symbol-index)
 
@@ -230,7 +230,7 @@ Offsets count Unicode code points rather than bytes or shaped glyphs.
 
 ```python
 DocumentText(
-    record_index: int,
+    record_index: int | None,
     tokens: tuple[TextToken, ...],
     runs: tuple[TextRun, ...],
     timing: tuple[SingingTag, ...],
@@ -243,7 +243,7 @@ DocumentText(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `record_index` | `int` | `required` |
+| `record_index` | `int \| None` | `required` |
 | `tokens` | `tuple[TextToken, ...]` | `required` |
 | `runs` | `tuple[TextRun, ...]` | `required` |
 | `timing` | `tuple[SingingTag, ...]` | `required` |
@@ -698,7 +698,7 @@ Parsing retains the original tokens for unsupported overrides.
 
 ```python
 TextIssue(
-    record_index: int,
+    record_index: int | None,
     raw_offset: int,
     raw: str,
     reason: str,
@@ -709,7 +709,7 @@ TextIssue(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `record_index` | `int` | `required` |
+| `record_index` | `int \| None` | `required` |
 | `raw_offset` | `int` | `required` |
 | `raw` | `str` | `required` |
 | `reason` | `str` | `required` |
@@ -835,7 +835,7 @@ that channel to the current style; r resets all channels to the named style
 or the event style. Unhandled tags are retained and explicitly diagnosed.
 Cue presets are resolved later by the effect registry, never executed here.
 
-[Source](../../kara_templater/document_text.py#L221)
+[Source](../../kara_templater/document_text.py#L229)
 
 ```python
 read_document_text(

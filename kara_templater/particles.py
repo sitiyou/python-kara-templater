@@ -208,13 +208,16 @@ def echoes[T: SceneObject](
     breaks = tuple(
         sorted(
             {
-                t
+                t + source.time_origin - source.lifetime.start
                 for clip in source.animations
                 for t in (
                     clip.start,
                     clip.end,
                     *(clip.start + b for b in clip.breakpoints),
                 )
+                if source.lifetime.start
+                <= source.time_origin + t
+                <= source.lifetime.end
             }
         )
     )
@@ -272,7 +275,7 @@ def echoes[T: SceneObject](
                 layer=source.layer + (index + 1) * layer_step,
                 animations=(
                     AnimationClip(
-                        0,
+                        source.lifetime.start - source.time_origin,
                         duration,
                         StateFunction(history, channels),
                         breakpoints=breaks,

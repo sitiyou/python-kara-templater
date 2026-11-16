@@ -63,13 +63,7 @@ def test_japanese_iteration_mark_keeps_source_and_verified_ink():
 def test_modern_hangul_jamo_preserve_syllable_clusters_and_source_offsets(
     composed, decomposed, ranges
 ):
-    from kara_templater import (
-        DisplayWindow,
-        Pulse,
-        load_font,
-        plan_pulses,
-        tracks_from_layout,
-    )
+    from kara_templater import load_font
 
     font = load_font(Path(__file__).parent / "fonts/KaraTestHangul.ttf")
     style = replace(STYLE, fontname=font.family)
@@ -84,17 +78,7 @@ def test_modern_hangul_jamo_preserve_syllable_clusters_and_source_offsets(
     with pytest.raises(LayoutCapabilityError, match="cuts a drawable cluster"):
         select_characters(chars, TextRange(0, 0, 1))
 
-    def times(layout, characters):
-        plan = plan_pulses(
-            (Pulse.each_char(),),
-            layout=layout,
-            characters=tuple(c.target for c in characters),
-            tracks=tracks_from_layout(layout),
-            window=DisplayWindow(500, 2500),
-        )
-        return [(a.start_ms, a.end_ms) for a in plan.animations]
-
-    assert times(layout, chars) == times(reference_layout, reference)
+    assert arrival_times(decomposed, style) == arrival_times(composed, style)
 
 
 @pytest.mark.skipif(
@@ -336,17 +320,48 @@ def test_spacing_and_scale_preserve_measured_positions():
     assert chars[-1].box.right == pytest.approx(layout.box.right, abs=0.2)
 
 
-def test_measured_characters_feed_real_pulse_plan_without_edge_rounding_loss():
-    from kara_templater import DisplayWindow, Pulse, plan_pulses, tracks_from_layout
+def test_measured_characters_feed_common_arrival_without_edge_rounding_loss():
+    times = arrival_times("AV", STYLE)
+    assert len(times) == 2
+    assert times[-1].end == 2
+    assert times[0].end == times[1].start
+    assert 1 < times[1].start < 2
 
-    layout, chars = measured("AV")
-    result = plan_pulses(
-        (Pulse.each_char(),),
-        layout=layout,
-        characters=tuple(c.target for c in chars),
-        tracks=tracks_from_layout(layout),
-        window=DisplayWindow(0, 3000),
+
+def arrival_times(text: str, style: Style):
+    from kara_templater import (
+        RED,
+        Document,
+        Highlight,
+        HighlightArrival,
+        HighlightPass,
+        Lifetime,
+        Line,
+        LyricLine,
+        Region,
+        StatePatch,
+        TimeSpan,
+        layout_document_lyrics,
     )
-    assert len(result.animations) == 2
-    assert result.animations[-1].end_ms == 2000
-    assert result.animations[-1].pivot[0] == chars[-1].box.center
+
+    source = Document.create(styles=(style,))
+    source.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}" + text))
+    line = LyricLine.from_layout(
+        layout_document_lyrics(
+            source,
+            len(source.records) - 1,
+            display=Lifetime(0.5, 2.5),
+        )
+    )
+    box = line.layout.body.bounds
+    anchor = HighlightArrival(
+        highlights=(
+            Highlight(
+                "sung",
+                0,
+                (HighlightPass(TimeSpan(1, 2), Region(box.left, box.right)),),
+                StatePatch(fill=RED),
+            ),
+        )
+    )
+    return tuple(anchor(line, target)[0] for target in line.query("character"))

@@ -220,7 +220,7 @@ Interpolate a path toward an explicitly corresponding target over local seconds.
 
 Contours and segment topology must match; shape correspondence is not inferred.
 
-[Source](../../kara_templater/path_animation.py#L59)
+[Source](../../kara_templater/path_animation.py#L61)
 
 ```python
 MorphPath(
@@ -251,16 +251,6 @@ Type: `tuple[float, ...]`.
 Declared point bound of the corresponding source/target interpolation.
 
 Type: `int`.
-
-### MorphPath.rate
-
-Return normalized Scene animation progress unchanged.
-
-```python
-MorphPath.rate(
-    progress: float,
-) -> float
-```
 
 ### MorphPath.sample
 
@@ -310,16 +300,6 @@ Whether the declared path and rate support the compiler native linear-motion str
 
 Type: `bool`.
 
-### MoveAlong.rate
-
-Return normalized Scene animation progress unchanged.
-
-```python
-MoveAlong.rate(
-    progress: float,
-) -> float
-```
-
 ### MoveAlong.sample
 
 Evaluate path position and optional tangent orientation at normalized progress.
@@ -341,7 +321,10 @@ type PathBooleanOperation = Literal['intersection', 'union', 'difference', 'xor'
 
 ## PathFunction
 
-Author callback receives seconds relative to object birth; None is invisible.
+Author callback receives seconds relative to the clock origin; None is invisible.
+
+Breakpoints may be negative local seconds; the owning object validates their
+absolute times. This supports visibility extended before an existing clock.
 
 [Source](../../kara_templater/path_animation.py#L37)
 
@@ -617,7 +600,7 @@ VectorPath.rectangle(
 
 Ordered, author-supplied strokes. Font outlines do not imply writing order.
 
-[Source](../../kara_templater/path_animation.py#L111)
+[Source](../../kara_templater/path_animation.py#L113)
 
 ```python
 WritePath(
@@ -692,7 +675,7 @@ An authored contour with local start and positive duration in seconds.
 
 WritePath uses these stroke clocks for progressive reveal and lift gaps.
 
-[Source](../../kara_templater/path_animation.py#L92)
+[Source](../../kara_templater/path_animation.py#L94)
 
 ```python
 WritingStroke(
@@ -897,7 +880,7 @@ stroke(
 
 Preserve source, state, lifetime and animations when replacing text by geometry.
 
-[Source](../../kara_templater/text_geometry.py#L94)
+[Source](../../kara_templater/text_geometry.py#L97)
 
 ```python
 text_to_path(

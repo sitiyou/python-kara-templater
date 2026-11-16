@@ -319,7 +319,7 @@ def test_spatial_quantization_rejects_invalid_error(error):
 def test_local_pixel_alpha_preserves_global_curve_at_and_after_fade_end(start):
     from dataclasses import replace
 
-    from kara_templater._raster_opacity import apply_opacity
+    from kara_templater._raster_alpha import apply_opacity
 
     original = encode_frame(
         RasterFrame(1, 1, bytes((255, 255, 255, 200))), DisplayWindow(0, 320)
@@ -352,3 +352,11 @@ def test_native_raster_type_is_available_to_runtime_annotation_evaluation():
     from kara_templater._raster import RasterCanvas
 
     assert get_type_hints(RasterCanvas.over)["image"] is RasterImage
+
+
+def test_additive_material_energy_is_clamped_before_group_opacity():
+    canvas = RasterCanvas(1, 1)
+    frame = RasterFrame(1, 1, bytes((255, 0, 0, 255)))
+    canvas.add_frame(frame)
+    canvas.add_frame(frame)
+    assert canvas.finish(opacity=0.5).rgba == bytes((255, 0, 0, 128))

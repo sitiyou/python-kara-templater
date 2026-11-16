@@ -141,7 +141,7 @@ class SceneEvaluator:
             points = {node.lifetime.start, node.lifetime.end}
             for clip in node.animations:
                 points.update(
-                    node.lifetime.start + t
+                    node.time_origin + t
                     for t in (
                         clip.start,
                         clip.end,

@@ -13,8 +13,8 @@ from pathlib import Path
 
 from PIL import Image
 
-from examples.layered_glow import tracks
-from kara_templater import Document, load_font, prepare_tracks
+from examples.layered_glow import BUDGET, build
+from kara_templater import Document, load_font
 
 TIMES = (0, 500, 800, 1000, 1300, 1600, 1700, 1800, 1850, 2400, 2700, 3000, 3900)
 
@@ -35,9 +35,7 @@ def main():
     (output / "fonts").mkdir(parents=True, exist_ok=True)
     shutil.copyfile(font, output / "fonts" / font.name)
     source = root / "tests/fixtures/layered_glow.ass"
-    result = prepare_tracks(
-        Document.load(source), tracks=tracks, mode="native"
-    ).compile()
+    result = build(Document.load(source)).compile(budget=BUDGET)
     result.document.save(output / "layered-glow.ass")
     selection = "+".join(f"eq(n,{t // 10})" for t in TIMES)
     process = subprocess.run(

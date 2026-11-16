@@ -2,23 +2,20 @@ from dataclasses import replace
 
 import pytest
 from source_assertions import require_origin
-from track_helpers import compile_tracks
 
 from kara_templater import (
-    Body,
     Color,
     Document,
     ImportSettings,
+    Layout,
     Line,
-    LineMatch,
-    Overlay,
-    Ruby,
     Segment,
     Style,
     Track,
     import_karaoke,
     paint_pair_from_style,
     parse_karaoke,
+    prepare_tracks,
 )
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
 
@@ -51,12 +48,7 @@ def test_import_failure_identifies_actual_record_without_inventing_segment():
         if isinstance(r, Line) and "blur" in r.text
     )
     with pytest.raises(AssImportError, match="unsupported ASS override") as caught:
-        compile_tracks(
-            source,
-            tracks=(
-                Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
-            ),
-        )
+        import_karaoke(source)
     error = caught.value
     assert error.record_index == index
     assert source.records[error.record_index].text == r"{\k20\blur4}B"
@@ -122,50 +114,48 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
         lyric(comment=True, effect="notes"),
     )
     original = source.dumps()
-    result = compile_tracks(
-        source,
-        tracks=(
-            Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
-        ),
-        owner="a:b%",
-    )
+    tracks = (Track(id="main"),)
+    result = prepare_tracks(source, tracks=tracks, owner="a:b%").compile()
     assert source.dumps() == original
-    marked = [
-        line
-        for line in result.document.lines
-        if line.effect.startswith("karaoke:source:v1:")
-    ]
-    assert len(marked) == 1 and marked[0].comment
-    assert marked[0].text == source.lines[0].text
-    imported = import_karaoke(Document.parse(result.document.dumps()), owner="a:b%")
-    assert imported.sources[0].original_effect == "original:effect"
-    again = compile_tracks(
-        Document.parse(result.document.dumps()),
-        tracks=(
-            Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
-        ),
-        owner="a:b%",
+    restored_scene = prepare_tracks(
+        Document.parse(result.document.dumps()), tracks=tracks, owner="a:b%"
     )
+    assert len(restored_scene.plans) == 1
+    plan = restored_scene.plans[0]
+    assert plan.source.effect == "original:effect"
+    assert plan.source.record_index is not None
+    saved = result.document.records[plan.source.record_index]
+    assert isinstance(saved, Line) and saved.comment
+    assert saved.text == source.lines[0].text
+    again = restored_scene.compile()
     assert again.document.dumps() == result.document.dumps()
     assert any(
         line.text == "plain subtitle" and not line.comment
         for line in again.document.lines
     )
     assert any(line.effect == "notes" and line.comment for line in again.document.lines)
+    restored = (
+        prepare_tracks(again.document, tracks=(), owner="a:b%").compile().document
+    )
+    assert any(
+        line.text == source.lines[0].text
+        and line.effect == "original:effect"
+        and not line.comment
+        for line in restored.lines
+    )
 
 
 def test_identical_sources_get_distinct_stable_ids():
-    imported = import_karaoke(document(lyric(), lyric()))
-    assert len({item.id for item in imported.items}) == 2
-    result = compile_tracks(
-        document(lyric(), lyric()),
-        tracks=(
-            Track(source=LineMatch(), body=Body(), ruby=Ruby(), overlay=Overlay()),
-        ),
-    )
-    assert tuple(item.id for item in import_karaoke(result.document).items) == tuple(
-        item.id for item in imported.items
-    )
+    source = document(lyric(), lyric())
+    tracks = (Track(id="main", layout=Layout(rows=2)),)
+    scene = prepare_tracks(source, tracks=tracks)
+    ids = tuple(plan.source.id for plan in scene.plans)
+    assert len(set(ids)) == 2
+    result = scene.compile()
+    again = prepare_tracks(Document.parse(result.document.dumps()), tracks=tracks)
+    assert tuple(plan.source.id for plan in again.plans) == ids
+    assert len(again.replace_records) == 2
+    assert again.compile().document.dumps() == result.document.dumps()
 
 
 def test_windows_margins_and_style_selection():
@@ -194,3 +184,18 @@ def test_style_palette_decodes_bgr_and_secondary_before_primary():
     assert pair.after.outline == Color(3, 2, 1)
     with pytest.raises(ValueError, match="invalid PrimaryColour"):
         paint_pair_from_style(replace(style, fields={"PrimaryColour": "nonsense"}))
+
+
+def test_common_preparation_error_identifies_actual_record_and_preserves_input():
+    source = document(lyric(), lyric(r"{\k20\blur4}B"))
+    original = source.dumps()
+    index = next(
+        i
+        for i, record in enumerate(source.records)
+        if isinstance(record, Line) and "blur" in record.text
+    )
+    with pytest.raises(
+        ValueError, match=rf"record {index}, text offset 0: unsupported override"
+    ):
+        prepare_tracks(source, tracks=(Track(id="main", layout=Layout(rows=2)),))
+    assert source.dumps() == original

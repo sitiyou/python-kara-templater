@@ -7,11 +7,11 @@ The field colors an already rasterized silhouette: blur does not feather clips.
 from collections.abc import Callable
 from dataclasses import dataclass
 from math import ceil, floor
-from typing import Literal, Protocol
+from typing import Literal, Protocol, runtime_checkable
 
 from .composition import Color
 from .geometry import finite
-from .scene_animation import VisualState, linear_rate
+from .scene_animation import TimeSpan, VisualState, linear_rate
 
 
 def _mix(a: Color, b: Color, progress: float) -> Color:
@@ -41,6 +41,8 @@ class PaintField(Protocol):
 
     Breakpoints delimit temporal discontinuities and changes of motion. An empty
     tuple declares a static field. max_bands bounds every invocation.
+    Times are signed seconds from the owning object's clock origin; absolute
+    breakpoints cannot precede Scene zero or exceed the object's display end.
     """
 
     @property
@@ -62,6 +64,22 @@ class PaintField(Protocol):
         self, start: int, end: int, time: float, base: VisualState
     ) -> tuple[PaintBand, ...]:
         """Evaluate bounded colored bands for the supplied visual state and seconds time."""
+        ...
+
+
+@runtime_checkable
+class PaintActivity(Protocol):
+    """Optional promise that a paint field is time-constant outside these spans.
+
+    Intervals use signed local seconds, and their endpoints must also be breakpoints.
+    Changes to the incoming VisualState are sampled independently. Omit this
+    protocol when an arbitrary callback cannot make the constancy guarantee;
+    the compiler then samples its complete visible lifetime.
+    """
+
+    @property
+    def active_intervals(self) -> tuple[TimeSpan, ...]:
+        """Finite positive-duration local intervals where time changes the field."""
         ...
 
 
@@ -192,7 +210,7 @@ class SoftSweep:
 
     Widths are script pixels. The front travels past both ends so the declared
     span is completely unsung at start and completely sung at start+duration.
-    start and duration are local seconds from the owning object's birth.
+    start and duration are local seconds from the owning object's clock origin.
     """
 
     left: float
@@ -225,6 +243,11 @@ class SoftSweep:
             raise ValueError("sweep widths cannot be negative")
         if self.fill is None and self.outline is None:
             raise ValueError("sweep requires fill or outline colors")
+
+    @property
+    def active_intervals(self) -> tuple[TimeSpan, ...]:
+        """Only the sweep interval changes with time; both endpoints clamp."""
+        return (TimeSpan(self.start, self.start + self.duration),)
 
     @property
     def effective_outline_width(self) -> float:

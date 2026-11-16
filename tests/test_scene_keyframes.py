@@ -9,9 +9,9 @@ from kara_templater import (
     Lifetime,
     PathObject,
     Scene,
-    SceneTimeline,
     StateKeyframe,
     StatePatch,
+    Timeline,
     Tween,
     Vec2,
     VectorPath,
@@ -19,7 +19,7 @@ from kara_templater import (
 )
 
 
-def square(timeline: SceneTimeline) -> PathObject:
+def square(timeline: Timeline) -> PathObject:
     return PathObject(
         id="square",
         lifetime=Lifetime(1, 5),
@@ -30,7 +30,7 @@ def square(timeline: SceneTimeline) -> PathObject:
 
 
 def test_keyframes_capture_state_keep_omitted_channels_and_seek():
-    timeline = SceneTimeline().keyframes(
+    timeline = Timeline().keyframes(
         StateKeyframe(0.5, StatePatch(position=Vec2(20, 0))),
         StateKeyframe(1.5, StatePatch(position=Vec2(60, 0)), lambda p: p * p),
         StateKeyframe(2, StatePatch(fill=PINK)),
@@ -50,8 +50,8 @@ def test_keyframes_compile_identically_to_explicit_plays_and_repeat():
         StateKeyframe(0.35, StatePatch(position=Vec2(30, 10))),
         StateKeyframe(0.75, StatePatch(position=Vec2(), fill=PINK)),
     )
-    keyed = SceneTimeline().wait(0.1).keyframes(*frames).repeat(2)
-    explicit = SceneTimeline().wait(0.1)
+    keyed = Timeline().wait(0.1).keyframes(*frames).repeat(2)
+    explicit = Timeline().wait(0.1)
     explicit.play(Tween(frames[0].target), duration=0.35)
     explicit.play(Tween(frames[1].target), duration=0.4).repeat(2)
     actual = Scene(Document.create()).add(square(keyed)).compile()
@@ -60,7 +60,7 @@ def test_keyframes_compile_identically_to_explicit_plays_and_repeat():
 
 
 def test_keyframe_conflict_is_atomic_and_parallel_channels_work():
-    timeline = SceneTimeline().play(Tween(StatePatch(opacity=0.5)), duration=2)
+    timeline = Timeline().play(Tween(StatePatch(opacity=0.5)), duration=2)
     before = timeline.clips
     with pytest.raises(ValueError, match="overlapping"):
         timeline.keyframes(
@@ -85,7 +85,7 @@ def test_keyframe_rejects_empty_invalid_or_unordered_targets():
         StateKeyframe(1, StatePatch())
     with pytest.raises(ValueError, match="opacity"):
         StateKeyframe(1, StatePatch(opacity=2))
-    timeline = SceneTimeline().wait(0.2)
+    timeline = Timeline().wait(0.2)
     for times in ((1, 1), (1, 0.5)):
         with pytest.raises(ValueError, match="strictly increase"):
             timeline.keyframes(

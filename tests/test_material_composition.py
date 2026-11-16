@@ -187,3 +187,63 @@ def test_vertical_partitions_transpose_back_before_shared_blur():
     )
     dx, dy, image = blur_frame(RasterFrame(2, 3, rgba), 2)
     assert result == ((10 + dx, 20 + dy, image),)
+
+
+@pytest.mark.parametrize("axis", ("x", "y"))
+@pytest.mark.parametrize("blur", (0, 2))
+@pytest.mark.parametrize("color", (WHITE, RED))
+def test_fractional_splits_quantize_once_for_each_opacity_plane(axis, blur, color):
+    mask = CoverageMask(0, 0, 1, 1, bytes((127,)))
+    weights = (1, 0.5, 0.25)
+    whole = MaterialLayer(
+        mask, (MaterialBand(Region(0, 1), WHITE),), weights, blur, axis
+    )
+    left = replace(
+        whole,
+        bands=(
+            MaterialBand(Region(0, 0.5), WHITE),
+            MaterialBand(Region(0.5, 1), WHITE, 0),
+        ),
+    )
+    right = replace(
+        whole,
+        bands=(
+            MaterialBand(Region(0, 0.5), color, 0),
+            MaterialBand(Region(0.5, 1), color),
+        ),
+    )
+    combined = replace(
+        whole,
+        bands=(
+            MaterialBand(Region(0, 0.5), WHITE),
+            MaterialBand(Region(0.5, 1), color),
+        ),
+    )
+    actual = compose_material_layers(glows=(left, right), budget=BUDGET)
+    reference = compose_material_layers(glows=(combined,), budget=BUDGET)
+    assert actual == reference
+    if not blur:
+        # Independent alpha calculation: 127 coverage, not two rounded 64s.
+        assert tuple(frame.rgba[3] for _, _, frame in actual) == (127, 64, 32)
+
+
+def test_joined_partition_budget_does_not_fall_back_to_separate_quantization():
+    mask = CoverageMask(0, 0, 1, 1, bytes((127,)))
+    left = MaterialLayer(
+        mask,
+        (
+            MaterialBand(Region(0, 0.25), WHITE),
+            MaterialBand(Region(0.25, 1), WHITE, 0),
+        ),
+    )
+    right = MaterialLayer(
+        mask,
+        (
+            MaterialBand(Region(0, 0.75), WHITE, 0),
+            MaterialBand(Region(0.75, 1), WHITE),
+        ),
+    )
+    # Each input has two bands, but the exact combined partition needs three.
+    with pytest.raises(ValueError, match="material band budget"):
+        compose_material_layers(fills=(left, right), budget=RasterBudget(max_images=2))
+    assert compose_material_layers(fills=(left, right), budget=BUDGET)

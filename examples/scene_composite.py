@@ -15,9 +15,9 @@ from kara_templater import (
     RasterSettings,
     Scene,
     SceneBudget,
-    SceneTimeline,
     StatePatch,
     TextObject,
+    Timeline,
     Tween,
     Vec2,
     VisualState,
@@ -34,7 +34,7 @@ RASTER_SETTINGS = RasterSettings(max_channel_error=8, max_frames=100)
 def build() -> Scene:
     lifetime = Lifetime(0, 5.5)
     fade = (
-        SceneTimeline()
+        Timeline()
         .wait(0.5)
         .play(Tween(StatePatch(opacity=0.3)), duration=1)
         .wait(2)

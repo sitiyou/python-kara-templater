@@ -1,7 +1,7 @@
 """E02 letter fill positions/opacity vs independently authored static ASS frames.
 
 uv run python -m tools.validate_staggered OUTPUT
-Reference formulas do not call SceneTimeline, Tween or the example's bounce.
+Reference formulas do not call Timeline, Tween or the example's bounce.
 """
 
 import argparse

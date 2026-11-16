@@ -109,7 +109,7 @@ class TextIssue:
     Parsing retains the original tokens for unsupported overrides.
     """
 
-    record_index: int
+    record_index: int | None
     raw_offset: int
     raw: str
     reason: str
@@ -122,7 +122,7 @@ class DocumentText:
     Offsets count Unicode code points rather than bytes or shaped glyphs.
     """
 
-    record_index: int
+    record_index: int | None
     tokens: tuple[TextToken, ...]
     runs: tuple[TextRun, ...]
     timing: tuple[SingingTag, ...]
@@ -148,11 +148,19 @@ class DocumentText:
             )
 
 
+def _packed_color(raw: str) -> int:
+    """Decode ASS hexadecimal or signed decimal AABBGGRR without dropping alpha."""
+    token = raw.strip()
+    match = re.fullmatch(r"&[Hh]([0-9a-fA-F]{1,8})&?", token)
+    if match is not None:
+        return int(match[1], 16)
+    if re.fullmatch(r"[+-]?\d+", token):
+        return int(token) & 0xFFFFFFFF
+    raise ValueError(f"invalid ASS color: {raw!r}")
+
+
 def _color(raw: str) -> Color:
-    match = re.fullmatch(r"&H([0-9a-fA-F]{1,8})&?", raw)
-    if match is None:
-        raise ValueError(f"invalid ASS color: {raw!r}")
-    value = int(match[1], 16)
+    value = _packed_color(raw)
     return Color(value & 255, (value >> 8) & 255, (value >> 16) & 255)
 
 
@@ -245,14 +253,29 @@ def read_document_text(document: Document, record_index: int) -> DocumentText:
     while position < len(record.text):
         start = position
         if record.text[position] != "{":
-            end = record.text.find("{", position)
-            position = len(record.text) if end < 0 else end
+            decoded: list[str] = []
+            escapes = {
+                "N": "\n",
+                "n": soft_break,
+                "h": "\u00a0",
+                "{": "{",
+                "}": "}",
+                "\u2060": "\\",
+            }
+            while position < len(record.text) and record.text[position] != "{":
+                char = record.text[position]
+                if (
+                    char == "\\"
+                    and position + 1 < len(record.text)
+                    and record.text[position + 1] in escapes
+                ):
+                    decoded.append(escapes[record.text[position + 1]])
+                    position += 2
+                else:
+                    decoded.append(char)
+                    position += 1
             raw = record.text[start:position]
-            text = (
-                raw.replace(r"\N", "\n")
-                .replace(r"\n", soft_break)
-                .replace(r"\h", "\u00a0")
-            )
+            text = "".join(decoded)
             tokens.append(TextToken(raw, offset))
             runs.append(TextRun(text, offset, offset + len(text), appearance))
             offset += len(text)

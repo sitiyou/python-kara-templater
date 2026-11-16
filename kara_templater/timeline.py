@@ -1,7 +1,6 @@
-"""Renderer-independent singing timelines. Coordinates never include decoration.
+"""Display windows, horizontal regions and normalized progress curves.
 
-All intervals use absolute milliseconds and untransformed script coordinates.
-Evaluation keeps sub-millisecond precision; ASS quantization belongs to output.
+Only DisplayWindow uses milliseconds; progress curves are dimensionless.
 """
 
 from collections.abc import Iterable
@@ -9,8 +8,6 @@ from dataclasses import dataclass
 from itertools import pairwise
 from math import isfinite
 from typing import Self
-
-from .model import LaidOutLine
 
 
 def _finite(value, name):
@@ -78,7 +75,7 @@ class ProgressCurve:
     """Monotone piecewise linear (normalized time, progress) knots.
 
     Repeated progress values represent pauses. Repeated times are forbidden;
-    instantaneous singing is represented by a zero-duration SingingPass.
+    instantaneous singing is represented by a zero-duration HighlightPass.
     """
 
     knots: tuple[tuple[float, float], ...] = ((0, 0), (1, 1))
@@ -129,88 +126,6 @@ class ProgressCurve:
         raise AssertionError("validated curve must reach every progress value")
 
 
-@dataclass(frozen=True)
-class SingingPass:
-    """One traversal of a body region, optionally part of an explicit repeat round."""
-
-    start_ms: int
-    end_ms: int
-    region: Region
-    curve: ProgressCurve = ProgressCurve()
-    round_id: int = 0
-
-    def __post_init__(self) -> None:
-        _milliseconds(self.start_ms, "singing start")
-        _milliseconds(self.end_ms, "singing end")
-        if self.end_ms < self.start_ms:
-            raise ValueError("singing pass is reversed")
-        if type(self.round_id) is not int or self.round_id < 0:
-            raise ValueError("round_id must be a nonnegative integer")
-
-    def progress_at(self, time_ms: float) -> float:
-        """Evaluate normalized singing progress at an absolute millisecond time."""
-        _finite(time_ms, "time")
-        if time_ms < self.start_ms:
-            return 0.0
-        if time_ms >= self.end_ms:
-            return 1.0
-        return self.curve.at((time_ms - self.start_ms) / (self.end_ms - self.start_ms))
-
-    def position_at(self, time_ms: float) -> float:
-        """Evaluate the sweep cursor in script pixels at a millisecond time."""
-        return self.region.at(self.progress_at(time_ms))
-
-    def arrival(self, x: float) -> float | None:
-        """Invert this pass to find when its cursor reaches a script-space position."""
-        _finite(x, "position")
-        if not self.region.width or not self.region.left <= x <= self.region.right:
-            return None
-        fraction = self.curve.arrival((x - self.region.left) / self.region.width)
-        return self.start_ms + (self.end_ms - self.start_ms) * fraction
-
-
-@dataclass(frozen=True)
-class EdgeSweep:
-    """Low-level spatial padding and millisecond lead/tail compensation around a singing front.
-
-    It preserves the cursor on the original body domain.
-    """
-
-    padding_px: float = 0
-    lead_ms: int = 0
-    tail_ms: int = 0
-
-    def __post_init__(self) -> None:
-        _finite(self.padding_px, "padding")
-        if self.padding_px < 0:
-            raise ValueError("padding cannot be negative")
-        _milliseconds(self.lead_ms, "lead")
-        _milliseconds(self.tail_ms, "tail")
-
-    def position_at(self, singing: SingingPass, paint: Region, time_ms: float) -> float:
-        """Decorative front only; never feed this result into singing triggers.
-
-        The paint extent may be re-evaluated for dynamic effects each frame.
-        It must enclose the timing region. Padding expands that safe extent.
-        """
-        _finite(time_ms, "time")
-        body = singing.region
-        if paint.left > body.left or paint.right < body.right:
-            raise ValueError("paint region must enclose timing region")
-        left, right = paint.left - self.padding_px, paint.right + self.padding_px
-        if time_ms < singing.start_ms:
-            p = (
-                max(0, 1 - (singing.start_ms - time_ms) / self.lead_ms)
-                if self.lead_ms
-                else 0
-            )
-            return left + (body.left - left) * p
-        if time_ms < singing.end_ms:
-            return singing.position_at(time_ms)
-        p = min(1, (time_ms - singing.end_ms) / self.tail_ms) if self.tail_ms else 1
-        return body.right + (right - body.right) * p
-
-
 def union_regions(regions: Iterable[Region]) -> tuple[Region, ...]:
     """Merge coverage without filling gaps or painting overlaps twice."""
     result = []
@@ -222,80 +137,3 @@ def union_regions(regions: Iterable[Region]) -> tuple[Region, ...]:
         else:
             result.append(region)
     return tuple(result)
-
-
-@dataclass(frozen=True)
-class HighlightTrack:
-    """A named sequence of singing passes for one source unit with explicit completion behavior.
-
-    Regions are evaluated in script pixels at millisecond time.
-    """
-
-    id: str
-    unit_index: int
-    passes: tuple[SingingPass, ...]
-    repeat: str = "hold"
-    end_behavior: str = "hold"
-
-    def __post_init__(self) -> None:
-        object.__setattr__(self, "passes", tuple(self.passes))
-        if not isinstance(self.id, str) or not self.id:
-            raise ValueError("track needs a stable nonempty id")
-        if type(self.unit_index) is not int or self.unit_index < 0:
-            raise ValueError("unit_index must be a nonnegative integer")
-        if not self.passes:
-            raise ValueError(f"track {self.id}: at least one singing pass is required")
-        if self.repeat not in {"hold", "reset"} or self.end_behavior not in {
-            "hold",
-            "hide",
-        }:
-            raise ValueError(f"track {self.id}: invalid lifecycle policy")
-        for previous, current in pairwise(self.passes):
-            if previous.end_ms > current.start_ms:
-                raise ValueError(
-                    f"track {self.id}: overlapping or reversed passes; use separate tracks"
-                )
-            if current.round_id < previous.round_id:
-                raise ValueError(f"track {self.id}: rounds must not reverse")
-        for index, current in enumerate(self.passes):
-            for previous in self.passes[:index]:
-                overlap = min(previous.region.right, current.region.right) - max(
-                    previous.region.left, current.region.left
-                )
-                if previous.round_id == current.round_id and overlap > 0:
-                    raise ValueError(
-                        f"track {self.id}: repeated region requires a new round_id"
-                    )
-
-    def regions_at(self, time_ms: float) -> tuple[Region, ...]:
-        """Return the active highlighted horizontal regions at a millisecond time, including completion policy."""
-        _finite(time_ms, "time")
-        if self.end_behavior == "hide" and time_ms >= self.passes[-1].end_ms:
-            return ()
-        started = [p for p in self.passes if time_ms >= p.start_ms]
-        if self.repeat == "reset" and started:
-            started = [p for p in started if p.round_id == started[-1].round_id]
-        return union_regions(
-            Region(p.region.left, p.position_at(time_ms)) for p in started
-        )
-
-
-def tracks_from_layout(layout: LaidOutLine) -> tuple[HighlightTrack, ...]:
-    """Use layout's ruby-weighted partitions as explicitly approximate body regions.
-
-    Static units have no track. Empty-reading partitions retain their duration
-    without contributing spatial coverage. Custom/repeated mappings use passes
-    supplied by the caller instead.
-    """
-    return tuple(
-        HighlightTrack(
-            f"unit:{i}",
-            i,
-            tuple(
-                SingingPass(s.source.start_ms, s.source.end_ms, Region(s.left, s.right))
-                for s in unit.segments
-            ),
-        )
-        for i, unit in enumerate(layout.units)
-        if unit.segments
-    )

@@ -5,6 +5,7 @@ from kara_templater import (
     PathFunction,
     PathObject,
     RectangleClip,
+    RectangleKeyframes,
     VectorClip,
     VectorPath,
 )
@@ -41,4 +42,11 @@ def rectangle_callback_contract() -> None:
             lambda time: (0, 0, 100 * time, 50) if time > 0 else None, (0.5,)
         ),
     )
-    assert_type(clip.deform, RectangleFunction | None)
+    assert_type(clip.deform, RectangleFunction | RectangleKeyframes | None)
+
+
+def rectangle_keyframe_contract(time: float) -> None:
+    curve = RectangleKeyframes(((0, (0, 0, 0, 10)), (1, (0, 0, 10, 10))))
+    assert_type(curve.bounds_at(time), tuple[float, float, float, float])
+    assert_type(curve.sample(time), tuple[float, float, float, float] | None)
+    assert_type(curve.breakpoints, tuple[float, ...])

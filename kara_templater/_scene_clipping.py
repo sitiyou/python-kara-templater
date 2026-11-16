@@ -157,7 +157,7 @@ class ClipResolver:
         if isinstance(clip, RectangleClip):
             animated = clip.deform is not None
             if clip.deform is not None:
-                bounds = clip.deform.sample(local_seconds(time, node.lifetime.start))
+                bounds = clip.deform.sample(local_seconds(time, node.time_origin))
                 if bounds is None:
                     return None if clip.inverse else False
                 clip = replace(
@@ -201,7 +201,7 @@ class ClipResolver:
             if clip.deform is not None:
                 try:
                     path = clip.deform.sample(
-                        path, local_seconds(time, node.lifetime.start)
+                        path, local_seconds(time, node.time_origin)
                     )
                 except Exception as error:
                     raise ValueError(

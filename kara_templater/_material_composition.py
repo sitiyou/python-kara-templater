@@ -1,12 +1,14 @@
 """Geometry-independent pre-blur materials and coverage-owned composition."""
 
 from dataclasses import dataclass, replace
+from itertools import pairwise
 from typing import Literal
 
 from ._coverage_stack import CoverageStack, compose_stacks
 from ._material_raster import CoverageMask, MaterialBand, blur_frame, paint_coverage
 from ._raster import PositionedFrame, RasterBudget, RasterFrame, compose_frames
 from .geometry import finite
+from .timeline import Region
 
 
 @dataclass(frozen=True)
@@ -85,6 +87,60 @@ class MaterialLayer:
         )
 
 
+def _join_partitions(layers: tuple[MaterialLayer, ...]) -> tuple[MaterialLayer, ...]:
+    """Quantize disjoint materials on identical coverage once, not per fragment."""
+    groups: dict[
+        tuple[CoverageMask, tuple[float, ...], float, str], list[MaterialLayer]
+    ] = {}
+    for layer in layers:
+        key = (layer.mask, layer.weights, layer.blur_radius, layer.axis)
+        groups.setdefault(key, []).append(layer)
+    result: list[MaterialLayer] = []
+    for group in groups.values():
+        first = group[0]
+        start = first.mask.left if first.axis == "x" else first.mask.top
+        end = start + (first.mask.width if first.axis == "x" else first.mask.height)
+        # Preserve paint_coverage's validation of malformed input partitions.
+        if len(group) == 1 or any(
+            not layer.bands
+            or layer.bands[0].region.left != start
+            or layer.bands[-1].region.right != end
+            or any(a.region.right != b.region.left for a, b in pairwise(layer.bands))
+            for layer in group
+        ):
+            result.extend(group)
+            continue
+        bands = sorted(
+            (band for layer in group for band in layer.bands if band.opacity),
+            key=lambda band: band.region.left,
+        )
+        if not bands or any(a.region.right > b.region.left for a, b in pairwise(bands)):
+            result.extend(group)
+            continue
+        joined: list[MaterialBand] = []
+        cursor = start
+        for band in bands:
+            if cursor < band.region.left:
+                joined.append(
+                    MaterialBand(Region(cursor, band.region.left), band.color, 0)
+                )
+            if (
+                joined
+                and joined[-1].region.right == band.region.left
+                and (joined[-1].color, joined[-1].opacity) == (band.color, band.opacity)
+            ):
+                joined[-1] = replace(
+                    band, region=Region(joined[-1].region.left, band.region.right)
+                )
+            else:
+                joined.append(band)
+            cursor = band.region.right
+        if cursor < end:
+            joined.append(MaterialBand(Region(cursor, end), bands[-1].color, 0))
+        result.append(replace(first, bands=tuple(joined)))
+    return tuple(result)
+
+
 def compose_material_layers(
     *,
     fills: tuple[MaterialLayer, ...] = (),
@@ -110,6 +166,10 @@ def compose_material_layers(
         raise ValueError("fill and stroke blur must be expressed as a glow layer")
     if len(layers) > budget.max_images:
         raise ValueError("material layer budget exceeded")
+
+    fills = _join_partitions(fills)
+    strokes = _join_partitions(strokes)
+    glows = _join_partitions(glows)
 
     def combine(parts: tuple[CoverageStack, ...], *, additive: bool) -> CoverageStack:
         if count > 1:

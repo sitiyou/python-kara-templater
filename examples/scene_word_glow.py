@@ -14,9 +14,9 @@ from kara_templater import (
     Lifetime,
     ObjectGroup,
     Scene,
-    SceneTimeline,
     StatePatch,
     TextObject,
+    Timeline,
     Tween,
     Vec2,
     VisualState,
@@ -28,7 +28,7 @@ from kara_templater import (
 def build() -> Scene:
     lifetime = Lifetime(0, 5.5)
     motion = (
-        SceneTimeline()
+        Timeline()
         .wait(0.5)
         .play(
             Tween(StatePatch(rotation=6, scale=Vec2(1.15, 1.15)), smooth_rate),

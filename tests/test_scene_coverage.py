@@ -505,7 +505,13 @@ def test_glow_declaration_preflight_and_runtime_bounds_preserve_source():
 
 @pytest.mark.parametrize(
     "blur,border,points",
-    [(101, 0, ()), (-1, 0, ()), (1, -1, ()), (float("nan"), 0, ()), (1, 0, (-1,))],
+    [
+        (101, 0, ()),
+        (-1, 0, ()),
+        (1, -1, ()),
+        (float("nan"), 0, ()),
+        (1, 0, (float("nan"),)),
+    ],
 )
 def test_invalid_glow_function_declarations(blur, border, points):
     from kara_templater.coverage_animation import GlowFunction
@@ -771,3 +777,71 @@ def test_overscan_resolves_local_mask_before_affine_canvas_translation():
     )
     assert any(expected.rgba[3::4])
     assert actual == expected
+
+
+@pytest.mark.parametrize(
+    "position",
+    (
+        Vec2(-12, 30),
+        Vec2(115, 30),
+        Vec2(50, -20),
+        Vec2(50, 85),
+        Vec2(-12, -20),
+        Vec2(130, 30),
+    ),
+)
+@pytest.mark.parametrize("radius", (0.1, 2, 8))
+def test_offscreen_glyph_glow_matches_crop_of_large_unclipped_canvas(position, radius):
+    # The reference has enough padding to contain the full glyph and kernel;
+    # crop only after composition, independently of viewport-edge handling.
+    padding = 80
+    node = TextObject(
+        id="letter",
+        text="A",
+        font="DejaVu Sans",
+        font_size=32,
+        lifetime=LIFETIME,
+        state=VisualState(position=position),
+    )
+    glow = Glow(RED, blur=radius, border=1)
+    actual = canvas_frame(sampler(root(node), glows={node.id: glow}).frame(0.5))
+    width, height = RESOLUTION
+    enlarged = (width + 2 * padding, height + 2 * padding)
+    shifted = node.copy(id=node.id, offset=Vec2(padding, padding))
+    reference = SceneCoverageSampler(
+        root(shifted),
+        resolution=enlarged,
+        glows={node.id: glow},
+        settings=RasterSettings(),
+        budget=SceneBudget(),
+    ).frame(0.5)
+    canvas = RasterCanvas(*enlarged)
+    if reference is not None:
+        canvas.over_frame(reference[2], reference[0], reference[1])
+    pixels = canvas.finish().rgba
+    expected = b"".join(
+        pixels[
+            ((y + padding) * enlarged[0] + padding) * 4 : (
+                (y + padding) * enlarged[0] + padding + width
+            )
+            * 4
+        ]
+        for y in range(height)
+    )
+    # Straight RGB is undefined at zero alpha; compare displayed pixels on
+    # black and white. Integer mask/blur composition may round by one unit.
+    assert (
+        max(abs(a - b) for a, b in zip(actual.rgba[3::4], expected[3::4], strict=True))
+        <= 1
+    )
+    for background in (0, 255):
+        for offset in range(0, len(expected), 4):
+            aa, ea = actual.rgba[offset + 3], expected[offset + 3]
+            for channel in range(3):
+                a = round(
+                    (actual.rgba[offset + channel] * aa + background * (255 - aa)) / 255
+                )
+                e = round(
+                    (expected[offset + channel] * ea + background * (255 - ea)) / 255
+                )
+                assert abs(a - e) <= 1

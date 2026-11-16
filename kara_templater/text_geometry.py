@@ -35,7 +35,10 @@ def outline_text(node: TextObject, *, max_points: int = 4096) -> TextOutline:
         100,
         node.spacing,
         node.encoding,
-        node.text,
+        # The native metrics API retains legacy ASS escape semantics. Scene
+        # text is literal, so protect backslashes at this frontend boundary;
+        # the native measurer already escapes braces itself.
+        node.text.replace("\\", "\\\u2060"),
         0,
     )
     contours: list[Contour] = []

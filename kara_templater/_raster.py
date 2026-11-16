@@ -1,7 +1,6 @@
 """Bounded premultiplied compositing and lossless pixel-run ASS encoding.
 
-Internal foundation for material selection before blur. Track opts into this
-path through RasterSettings; its default remains native text output.
+Internal foundation for the shared Scene coverage and raster output strategies.
 """
 
 from array import array
@@ -11,7 +10,7 @@ from math import floor
 from . import _metrics
 from ._native_types import RasterImage
 from .ass import Line
-from .ass_output import OutputCapabilityError
+from .raster_settings import OutputCapabilityError
 from .timeline import DisplayWindow, _finite
 
 

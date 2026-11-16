@@ -6,23 +6,72 @@ Explicit coverage/material and whole-group RGBA output. These retain distinct co
 
 ## Contents
 
+- [Coverage](#coverage)
 - [CoveragePartition](#coveragepartition)
-- [CoverageResult](#coverageresult)
 - [GlowFunction](#glowfunction)
-- [PreparedTrackCoverage](#preparedtrackcoverage)
+- [OutputCapabilityError](#outputcapabilityerror)
 - [RasterEstimate](#rasterestimate)
 - [RasterSettings](#rastersettings)
 - [RasterizedGroup](#rasterizedgroup)
 - [ScopeOpacity](#scopeopacity)
-- [compile_coverage](#compile_coverage)
-- [prepare_track_coverage](#prepare_track_coverage)
 - [rasterize_group](#rasterize_group)
+
+## Coverage
+
+Explicit pre-blur material composition for a visual group.
+
+Attach to ObjectGroup.coverage (including LyricLine) and compile the normal
+Scene. Ordinary drawing groups retain per-layer alpha; this strategy closes
+component/group alpha scopes after composing coverage. Sampling and spatial
+approximation are explicit and bounded, never selected automatically.
+Ordinary ancestors retain their transforms, masks, opacity and clocks; their
+other children remain separate drawing contributions. Geometry references use
+the shared Scene context. Nested Coverage declarations and opacity references
+require explicit ownership and are rejected.
+
+[Source](../../kara_templater/coverage_animation.py#L27)
+
+```python
+Coverage(
+    *,
+    components: tuple[str, ...] = (),
+    glows: Mapping[str, Glow | GlowFunction] = _HAS_DEFAULT_FACTORY_CLASS(),
+    glow_materials: Mapping[str, PaintField] = _HAS_DEFAULT_FACTORY_CLASS(),
+    partitions: Mapping[str, CoveragePartition] = _HAS_DEFAULT_FACTORY_CLASS(),
+    scope_opacities: Mapping[str, tuple[ScopeOpacity, ...]] = _HAS_DEFAULT_FACTORY_CLASS(),
+    settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `components` | `tuple[str, ...]` | `()` |
+| `glows` | `Mapping[str, Glow \| GlowFunction]` | `dict()` |
+| `glow_materials` | `Mapping[str, PaintField]` | `dict()` |
+| `partitions` | `Mapping[str, CoveragePartition]` | `dict()` |
+| `scope_opacities` | `Mapping[str, tuple[ScopeOpacity, ...]]` | `dict()` |
+| `settings` | `RasterSettings` | `RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128)` |
+
+### Coverage.retarget
+
+Retarget all material ownership when copying a visual tree.
+
+```python
+Coverage.retarget(
+    names: Mapping[str, str],
+) -> Coverage
+```
 
 ## CoveragePartition
 
 Fractional screen-x material ownership, applied before blur (not a clip).
 
-[Source](../../kara_templater/coverage_animation.py#L82)
+Breakpoints are signed local seconds; compilation validates their absolute
+times against the owning object's clock and display end.
+
+[Source](../../kara_templater/coverage_animation.py#L249)
 
 ```python
 CoveragePartition(
@@ -53,46 +102,19 @@ CoveragePartition.sample(
 ) -> tuple[Region, ...]
 ```
 
-## CoverageResult
-
-Compiled output and the actual midpoint samples (absolute seconds).
-
-max_channel_error bounds spatial color quantization only. Temporal motion
-is held between samples; no continuous-time image error bound is implied.
-
-[Source](../../kara_templater/coverage_output.py#L31)
-
-```python
-CoverageResult(
-    output: SceneResult,
-    sample_times: tuple[float, ...],
-    max_channel_error: int,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `output` | `SceneResult` | `required` |
-| `sample_times` | `tuple[float, ...]` | `required` |
-| `max_channel_error` | `int` | `required` |
-
-### CoverageResult.document
-
-The standard ASS Document produced by coverage compilation.
-
-Type: `Document`.
-
 ## GlowFunction
 
 Pure world-state/local-seconds glow callback with declared spatial bounds.
 
 None hides only the glow. Width/radius are script pixels: scaling them with
 the source geometry is explicit in the callback. Breakpoints use the visual
-leaf's birth clock, just like its paint field and path animation.
+leaf's local clock, just like its paint field and path animation. Signed
+local intervals are validated against Scene zero and the leaf's display end.
+required_interval optionally declares authored local time that lyric layout
+must preserve; it is not inferred from sampling breakpoints. from_animation
+supplies the animation interval automatically.
 
-[Source](../../kara_templater/coverage_animation.py#L12)
+[Source](../../kara_templater/coverage_animation.py#L73)
 
 ```python
 GlowFunction(
@@ -100,6 +122,7 @@ GlowFunction(
     max_blur: float,
     max_border: float,
     breakpoints: tuple[float, ...] = (),
+    required_interval: TimeSpan | None = None,
 )
 ```
 
@@ -111,6 +134,34 @@ GlowFunction(
 | `max_blur` | `float` | `required` |
 | `max_border` | `float` | `required` |
 | `breakpoints` | `tuple[float, ...]` | `()` |
+| `required_interval` | `TimeSpan \| None` | `None` |
+
+### GlowFunction.from_animation
+
+Use a common paint animation as a local-seconds glow field.
+
+fill maps to glow color; blur, border and opacity map directly. Other
+channels are rejected. Sequences default to their authored duration;
+other animations need duration. Before start and after a released clip,
+base is returned. This field does not extend the owning leaf's lifetime.
+
+Linear Tween targets and nested sequences infer conservative spatial
+maxima without sampling callbacks. Custom spatial animations/rates need
+explicit bounds, checked at every sample. Values are script pixels and
+do not implicitly scale with the drawing's world transform.
+
+```python
+GlowFunction.from_animation(
+    animation: StateAnimation,
+    *,
+    base: Glow = Glow(color=Color(red=255, green=255, blue=255), blur=0, border=0, opacity=1),
+    duration: float | None = None,
+    start: float = 0,
+    hold: bool = True,
+    max_blur: float | None = None,
+    max_border: float | None = None,
+) -> GlowFunction
+```
 
 ### GlowFunction.sample
 
@@ -123,55 +174,19 @@ GlowFunction.sample(
 ) -> Glow | None
 ```
 
-## PreparedTrackCoverage
+## OutputCapabilityError
 
-Editable group plus explicit material bindings and retained source data.
+An output failure with optional source and absolute-time context.
 
-Use dataclasses.replace to edit group geometry, or modify binding dictionaries
-before compiling. IDs identify material ownership: copying/renaming nodes
-requires remapping bindings and ScopeOpacity owners. Preparation never
-evaluates dynamic property functions; compile uses the shared coverage exit.
-
-[Source](../../kara_templater/track_coverage.py#L26)
+[Source](../../kara_templater/raster_settings.py#L10)
 
 ```python
-PreparedTrackCoverage(
-    document: Document,
-    group: ObjectGroup,
-    components: tuple[str, ...],
-    glows: dict[str, Glow | GlowFunction],
-    glow_materials: dict[str, PaintField],
-    partitions: dict[str, CoveragePartition],
-    scope_opacities: dict[str, tuple[ScopeOpacity, ...]],
-    diagnostics: tuple[str, ...],
-    owner: str,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `document` | `Document` | `required` |
-| `group` | `ObjectGroup` | `required` |
-| `components` | `tuple[str, ...]` | `required` |
-| `glows` | `dict[str, Glow \| GlowFunction]` | `required` |
-| `glow_materials` | `dict[str, PaintField]` | `required` |
-| `partitions` | `dict[str, CoveragePartition]` | `required` |
-| `scope_opacities` | `dict[str, tuple[ScopeOpacity, ...]]` | `required` |
-| `diagnostics` | `tuple[str, ...]` | `required` |
-| `owner` | `str` | `required` |
-
-### PreparedTrackCoverage.compile
-
-Compile the editable group and ID-keyed material bindings with explicit raster and Scene limits.
-
-```python
-PreparedTrackCoverage.compile(
+OutputCapabilityError(
+    message: str,
     *,
-    settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
-    budget: SceneBudget = SceneBudget(fps=50, max_events=25000, max_bytes=10485760, max_active=1000, max_path_points=4096, max_bands=1024, max_boolean_work=1000000),
-) -> CoverageResult
+    origin: EventOrigin | None = None,
+    time_ms: float | None = None,
+)
 ```
 
 ## RasterEstimate
@@ -180,7 +195,7 @@ Preflight raster frames, target samples, canvas pixels, per-frame event limit, a
 
 Final encoded output is checked separately.
 
-[Source](../../kara_templater/raster_settings.py#L47)
+[Source](../../kara_templater/raster_settings.py#L67)
 
 ```python
 RasterEstimate(
@@ -208,7 +223,7 @@ Explicit limits for coverage/raster work, cached masks, frames, rectangles, outp
 
 max_channel_error is in 0 through 255; temporal sampling is separate.
 
-[Source](../../kara_templater/raster_settings.py#L10)
+[Source](../../kara_templater/raster_settings.py#L30)
 
 ```python
 RasterSettings(
@@ -267,11 +282,12 @@ RasterizedGroup(
 
 A leaf contribution's extra alpha at a named leaf or ancestor scope.
 
-The pure callback receives seconds since the owner's birth. Its factor is
+The pure callback receives signed seconds from the owner's clock origin.
+Breakpoints must lie between Scene zero and the owner's display end. Its factor is
 multiplied by that owner's normal state opacity, without changing geometry
 evaluation or material callbacks. Copying needs an explicit owner remap.
 
-[Source](../../kara_templater/coverage_animation.py#L50)
+[Source](../../kara_templater/coverage_animation.py#L218)
 
 ```python
 ScopeOpacity(
@@ -299,63 +315,6 @@ ScopeOpacity.sample(
 ) -> float
 ```
 
-## compile_coverage
-
-Compile one self-contained group without modifying its input Document.
-
-Sources survive unless explicitly selected by record index. Recompiling with
-the same owner replaces that owner's generated events. Fill, stroke and
-explicit glow share coverage before blur; ordinary groups close alpha scopes.
-Configuration keys are object identities and must be remapped when copying.
-All output is standard ASS, sampled at script resolution and held on an ASS
-centisecond grid. Declared discontinuities split that grid before callbacks.
-
-[Source](../../kara_templater/coverage_output.py#L111)
-
-```python
-compile_coverage(
-    document: Document,
-    group: ObjectGroup,
-    *,
-    glows: Mapping[str, Glow | GlowFunction] | None = None,
-    glow_materials: Mapping[str, PaintField] | None = None,
-    components: Collection[str] = (),
-    scope_opacities: Mapping[str, tuple[ScopeOpacity, ...]] | None = None,
-    partitions: Mapping[str, CoveragePartition] | None = None,
-    replace_records: Collection[int] = (),
-    owner: str = 'coverage',
-    settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
-    budget: SceneBudget = SceneBudget(fps=50, max_events=25000, max_bytes=10485760, max_active=1000, max_path_points=4096, max_bands=1024, max_boolean_work=1000000),
-) -> CoverageResult
-```
-
-## prepare_track_coverage
-
-Prepare editable coverage components with shared karaoke ownership rules.
-
-Bounds are final script pixels, including caller-added scale. Imported source
-lines become retained comments; explicit items leave dialogue unchanged.
-Unselected lines and other owners survive. Geometry/property/material binding
-happens now, callbacks only at compile. Track.sampling is not used here.
-Track sweep fronts currently require positive axis-aligned uniform scale;
-custom two-dimensional sweep ownership is not inferred from an affine edit.
-
-[Source](../../kara_templater/track_coverage.py#L67)
-
-```python
-prepare_track_coverage(
-    document: Document,
-    items: tuple[KaraokeItem, ...] | None = None,
-    *,
-    tracks: tuple[Track | TrackGroup, ...],
-    max_glow_blur: float,
-    max_glow_border: float,
-    owner: str = 'default',
-    import_settings: ImportSettings | None = None,
-    max_objects: int = 25000,
-) -> PreparedTrackCoverage
-```
-
 ## rasterize_group
 
 Bake a group's already-lowered picture, then apply its root opacity once.
@@ -377,6 +336,6 @@ rasterize_group(
     resolution: tuple[int, int],
     blur_radius: float = 0,
     settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
-    budget: SceneBudget = SceneBudget(fps=50, max_events=25000, max_bytes=10485760, max_active=1000, max_path_points=4096, max_bands=1024, max_boolean_work=1000000),
+    budget: SceneBudget = SceneBudget(fps=50, max_events=25000, max_bytes=10485760, max_active=1000, max_path_points=4096, max_bands=1024, max_boolean_work=1000000, clip_error_px=0.75),
 ) -> RasterizedGroup
 ```

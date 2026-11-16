@@ -157,6 +157,7 @@ def build() -> Scene:
         children=(*backgrounds, decoration, lyric),
     )
     scene = Scene(document).add(combined, *bound.independent)
+    assert layout.record_index is not None
     scene.replace_source(layout.record_index)
     return scene
 

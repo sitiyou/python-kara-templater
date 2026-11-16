@@ -42,6 +42,54 @@ def pixels(*objects, time=0):
     return rasterize(compiled(*objects).document.dumps(), time, (320, 240)).rgba
 
 
+@pytest.mark.parametrize("inverse", (False, True))
+def test_large_polygon_half_plane_matches_native_rectangle_after_blur(inverse):
+    node = child(
+        state=VisualState(position=Vec2(90, 30), blur=12, border=8, opacity=0.4),
+    )
+    polygon = VectorPath.polygon(
+        Vec2(-65536, -65536),
+        Vec2(160, -65536),
+        Vec2(160, 65536),
+        Vec2(-65536, 65536),
+    )
+    actual = pixels(replace(node, clip=VectorClip(polygon, inverse=inverse)))
+    expected = pixels(
+        replace(node, clip=RectangleClip(-65536, -65536, 160, 65536, inverse=inverse))
+    )
+    assert any(actual)
+    bounded = VectorPath.polygon(Vec2(0, 0), Vec2(160, 0), Vec2(160, 240), Vec2(0, 240))
+    assert actual == pixels(replace(node, clip=VectorClip(bounded, inverse=inverse)))
+    # Native rectangle and vector-mask paths round the fill and border alpha
+    # separately. Compare displayed RGB; transparent straight RGB is undefined.
+    assert (
+        max(abs(a - b) for a, b in zip(actual[3::4], expected[3::4], strict=True)) <= 2
+    )
+    for background in (0, 255):
+
+        def displayed(data, background):
+            return [
+                round(
+                    data[i + c] * data[i + 3] / 255
+                    + background * (1 - data[i + 3] / 255)
+                )
+                for i in range(0, len(data), 4)
+                for c in range(3)
+            ]
+
+        assert (
+            max(
+                abs(a - b)
+                for a, b in zip(
+                    displayed(actual, background),
+                    displayed(expected, background),
+                    strict=True,
+                )
+            )
+            <= 1
+        )
+
+
 @pytest.mark.parametrize("gradient", [False, True])
 def test_shared_local_mask_uses_group_world_transform_not_child_transform(gradient):
     material = (
@@ -411,3 +459,60 @@ def test_boolean_work_budget_reports_the_mask_owner():
         )
     assert caught.value.object_id == leaf.id
     assert caught.value.origin == origin
+
+
+def test_shared_motion_and_mask_keep_parent_clock_across_child_exposures():
+    from kara_templater import RectangleFunction, StateFunction
+
+    calls = []
+
+    def motion(state, progress):
+        calls.append(progress)
+        return replace(state, position=Vec2(7, 3 + progress * 10))
+
+    leaves = (
+        replace(
+            child("first"),
+            lifetime=Lifetime(0.1, 1.1),
+            path=VectorPath.rectangle(30, 20),
+            state=VisualState(position=Vec2(30, 20)),
+        ),
+        replace(
+            child("second"),
+            lifetime=Lifetime(0.3, 0.9),
+            path=VectorPath.rectangle(30, 20),
+            state=VisualState(position=Vec2(70, 20), fill=PINK),
+        ),
+    )
+    mask = RectangleClip(
+        0,
+        0,
+        120,
+        80,
+        space="local",
+        deform=RectangleFunction(lambda t: (0, 0, 20 + 100 * t, 80)),
+    )
+    group = ObjectGroup(
+        id="root", lifetime=Lifetime(0.1, 1.1), children=leaves, clip=mask
+    ).animate(StateFunction(motion, frozenset(("position",))), duration=1)
+    doc = Document.create(width=160, height=100)
+    scene = Scene(doc).add(group)
+    assert not calls
+    with pytest.raises(SceneCompileError, match="budget"):
+        scene.compile(budget=SceneBudget(max_events=1))
+    assert not calls
+    budget = SceneBudget(fps=10)
+    output = scene.compile(budget=budget).document.dumps()
+    for time in (750, 350, 950):
+        local = time / 1000 - 0.1
+        fixed = replace(
+            group,
+            animations=(),
+            state=VisualState(position=Vec2(7, 3 + local * 10)),
+            clip=replace(mask, right=20 + 100 * local, deform=None),
+        )
+        reference = Scene(doc).add(fixed).compile(budget=budget).document.dumps()
+        pixels = rasterize(output, time, (160, 100)).rgba
+        assert any(pixels[3::4])
+        assert pixels == rasterize(reference, time, (160, 100)).rgba
+    assert scene.evaluator().at("second", 0.75).position == Vec2(77, 29.5)

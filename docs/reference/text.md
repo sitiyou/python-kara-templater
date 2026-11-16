@@ -7,6 +7,7 @@ Font-dependent layout, source clusters, and editable body/ruby binding. Unicode 
 ## Contents
 
 - [Box](#box)
+- [CharacterTarget](#charactertarget)
 - [DocumentLayout](#documentlayout)
 - [DrawableCharacter](#drawablecharacter)
 - [FontFace](#fontface)
@@ -27,6 +28,7 @@ Font-dependent layout, source clusters, and editable body/ruby binding. Unicode 
 - [layout_document_lyrics](#layout_document_lyrics)
 - [layout_document_text](#layout_document_text)
 - [layout_line](#layout_line)
+- [layout_lyrics](#layout_lyrics)
 - [load_font](#load_font)
 - [select_characters](#select_characters)
 - [text_extents](#text_extents)
@@ -75,6 +77,37 @@ The rectangle left coordinate plus its width, in script pixels.
 
 Type: `float`.
 
+## CharacterTarget
+
+An independently drawable cluster supplied by layout, never a codepoint.
+
+A layout backend must establish that the cluster can be drawn independently.
+This model deliberately does not split text or claim shaping support.
+
+[Source](../../kara_templater/characters.py#L13)
+
+```python
+CharacterTarget(
+    id: str,
+    unit_index: int,
+    region: Region,
+    center_y: float,
+    drawable: bool = True,
+    center_x: float | None = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `unit_index` | `int` | `required` |
+| `region` | `Region` | `required` |
+| `center_y` | `float` | `required` |
+| `drawable` | `bool` | `True` |
+| `center_x` | `float \| None` | `None` |
+
 ## DocumentLayout
 
 Measured editable text objects with decoded source ranges, singing spans, bounds, and source-record identity.
@@ -86,7 +119,7 @@ Range backgrounds can optionally follow local text animation.
 ```python
 DocumentLayout(
     id: str,
-    record_index: int,
+    record_index: int | None,
     source: DocumentText,
     lifetime: Lifetime,
     characters: tuple[PositionedText, ...],
@@ -100,7 +133,7 @@ DocumentLayout(
 | Name | Type | Default |
 | --- | --- | --- |
 | `id` | `str` | `required` |
-| `record_index` | `int` | `required` |
+| `record_index` | `int \| None` | `required` |
 | `source` | `DocumentText` | `required` |
 | `lifetime` | `Lifetime` | `required` |
 | `characters` | `tuple[PositionedText, ...]` | `required` |
@@ -154,7 +187,7 @@ An independently drawable shaped cluster with unit-local source range, advance/i
 
 A cluster can contain several Unicode code points.
 
-[Source](../../kara_templater/characters.py#L51)
+[Source](../../kara_templater/characters.py#L75)
 
 ```python
 DrawableCharacter(
@@ -194,7 +227,7 @@ Type: `CharacterTarget`.
 
 Actual face names reported by FreeType, not a font file identity.
 
-[Source](../../kara_templater/characters.py#L43)
+[Source](../../kara_templater/characters.py#L67)
 
 ```python
 FontFace(
@@ -306,7 +339,7 @@ LaidOutUnit(
 
 The available metrics cannot establish a safe independent drawing.
 
-[Source](../../kara_templater/characters.py#L14)
+[Source](../../kara_templater/characters.py#L38)
 
 Construction: `LayoutCapabilityError(*args)` using the inherited exception constructor.
 
@@ -469,7 +502,7 @@ Segment(
 
 Source text offsets and original absolute singing times, including zero duration.
 
-[Source](../../kara_templater/document_text.py#L335)
+[Source](../../kara_templater/document_text.py#L358)
 
 ```python
 SingingSpan(
@@ -498,7 +531,7 @@ Half-open Python string offsets in an immutable source unit.
 Offsets are source references, not drawable character indices. A range used
 for painting must end on the verified cluster boundaries.
 
-[Source](../../kara_templater/characters.py#L18)
+[Source](../../kara_templater/characters.py#L42)
 
 ```python
 TextRange(
@@ -549,7 +582,7 @@ Ink bounds are conservative outline control-point bounds (no blur/stroke),
 not exact raster extents. TextRange identities are independent of timing and
 appearance. Empty-outline spaces retain advance but are not pulse targets.
 
-[Source](../../kara_templater/characters.py#L195)
+[Source](../../kara_templater/characters.py#L219)
 
 ```python
 layout_characters(
@@ -584,7 +617,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L345)
+[Source](../../kara_templater/scene_text.py#L348)
 
 ```python
 layout_document_text(
@@ -614,6 +647,26 @@ layout_line(
 ) -> LaidOutLine
 ```
 
+## layout_lyrics
+
+Measure structured or parsed lyrics using Document styles and resolution.
+
+No ASS event is required or synthesized. Singing intervals retain their full
+seconds precision; record indices, if present, are provenance only.
+
+[Source](../../kara_templater/scene_lyrics.py#L179)
+
+```python
+layout_lyrics(
+    document: Document,
+    lyrics: DocumentLyrics,
+    *,
+    id: str,
+    display: Lifetime,
+    ruby_gap: float = 0,
+) -> LyricLayout
+```
+
 ## load_font
 
 Make an extra font file available to this interpreter's metrics renderer.
@@ -638,7 +691,7 @@ Select complete drawable clusters covered by a TextRange.
 Reject boundaries that cut a cluster instead of silently expanding or reshaping
 the selection.
 
-[Source](../../kara_templater/characters.py#L301)
+[Source](../../kara_templater/characters.py#L325)
 
 ```python
 select_characters(

@@ -8,111 +8,117 @@ import argparse
 from pathlib import Path
 
 from kara_templater import (
-    BLACK,
-    Body,
     Color,
-    DisplayWindow,
     Document,
-    HighlightStyle,
-    HighlightTrack,
-    KaraokeItem,
-    KaraokeLine,
-    LaidOutLine,
-    LineMatch,
-    Overlay,
-    Paint,
-    PaintStyle,
+    Highlight,
+    HighlightPass,
+    Layout,
+    Line,
+    LyricHighlights,
+    LyricLine,
     Region,
     Scene,
-    Segment,
-    SingingPass,
+    SceneBudget,
+    StatePatch,
     Style,
-    TextSpan,
-    TextStyle,
-    TextUnit,
     Track,
+    Vec2,
     prepare_tracks,
 )
+from kara_templater.scene_animation import TimeSpan
 
 SWEEP_CYAN = Color.hex("#33ddff")
 ECHO_PINK = Color.hex("#ff5599")
+# Three simultaneous ownership modes reserve conservative disjoint clip strips.
+BUDGET = SceneBudget(max_events=50_000)
 
 
-def disjoint(layout: LaidOutLine) -> tuple[HighlightTrack, ...]:
-    box = layout.units[0].box
+def disjoint(line: LyricLine) -> tuple[Highlight, ...]:
+    box = line.layout.body.bounds
+    whole = Region(box.left, box.right)
+    return tuple(
+        Highlight(
+            name,
+            0,
+            (HighlightPass(TimeSpan(1, 2.4), region),),
+            StatePatch(fill=SWEEP_CYAN),
+        )
+        for name, region in (
+            ("left", Region(whole.left, whole.center)),
+            ("right", Region(whole.center, whole.right)),
+        )
+    )
+
+
+def overlapping(line: LyricLine, *, opacity: float = 1) -> tuple[Highlight, ...]:
+    box = line.layout.body.bounds
     whole = Region(box.left, box.right)
     return (
-        HighlightTrack(
-            "left", 0, (SingingPass(1000, 2400, Region(whole.left, whole.center)),)
+        Highlight(
+            "main",
+            0,
+            (HighlightPass(TimeSpan(1, 2.4), whole),),
+            StatePatch(fill=SWEEP_CYAN, opacity=opacity),
         ),
-        HighlightTrack(
-            "right", 0, (SingingPass(1000, 2400, Region(whole.center, whole.right)),)
+        Highlight(
+            "echo",
+            0,
+            (HighlightPass(TimeSpan(1.2, 2), whole),),
+            StatePatch(fill=ECHO_PINK, opacity=opacity),
+            priority=10,
+            end="hide",
         ),
     )
 
 
-def overlapping(layout: LaidOutLine) -> tuple[HighlightTrack, ...]:
-    box = layout.units[0].box
-    whole = Region(box.left, box.right)
-    return (
-        HighlightTrack("main", 0, (SingingPass(1000, 2400, whole),)),
-        HighlightTrack(
-            "echo", 0, (SingingPass(1200, 2000, whole),), end_behavior="hide"
-        ),
-    )
+def layered(line: LyricLine) -> tuple[Highlight, ...]:
+    return overlapping(line, opacity=0.5)
 
 
 def build() -> Scene:
     styles = tuple(
-        Style(name=name, fontname="DejaVu Sans", fontsize=52, align=8, margin_v=margin)
-        for name, margin in (("regions", 60), ("priority", 200), ("layer", 340))
+        Style(
+            name=name,
+            fontname="DejaVu Sans",
+            fontsize=52,
+            outline=0,
+            shadow=0,
+        )
+        for name in ("regions", "priority", "layer")
     )
     document = Document.create(width=640, height=480, styles=styles)
-    source = KaraokeLine((TextUnit("Karaoke", (Segment(1000, 2400),)),))
-    items = tuple(
-        KaraokeItem(style.name, source, style.name, DisplayWindow(0, 3000))
-        for style in styles
+    for style in styles:
+        document.records.append(
+            Line(
+                start_time=1000,
+                end_time=2400,
+                style=style.name,
+                text=r"{\c&HA0A0A0&\k140}Karaoke",
+            )
+        )
+    configurations = tuple(
+        Track(
+            id=name,
+            source=lambda source, name=name: source.style == name,
+            layout=Layout(position=Vec2(160, y)),
+            preview=1,
+            tail=0.6,
+            factory=LyricHighlights(highlights=factory, mode=mode).apply,
+        )
+        for name, y, factory, mode in (
+            ("regions", 60, disjoint, "union"),
+            ("priority", 200, overlapping, "priority"),
+            ("layer", 340, layered, "layer"),
+        )
     )
-    configurations = []
-    for mode in ("regions", "priority", "layer"):
-        opacity = 0.5 if mode == "layer" else 1.0
-        highlight_styles = (
-            ()
-            if mode == "regions"
-            else (
-                HighlightStyle("main", Paint(SWEEP_CYAN, opacity=opacity)),
-                HighlightStyle("echo", Paint(ECHO_PINK, opacity=opacity), priority=10),
-            )
-        )
-        configurations.append(
-            Track(
-                source=LineMatch(style=mode),
-                body=Body(
-                    style=TextStyle(fill="#a0a0a0", stroke=BLACK, stroke_width=0),
-                    spans=(TextSpan(4, 7, overlay=PaintStyle(fill=ECHO_PINK)),),
-                ),
-                overlay=Overlay(
-                    style=PaintStyle(fill=SWEEP_CYAN),
-                    highlights=disjoint if mode == "regions" else overlapping,
-                    styles=highlight_styles,
-                    overlap="union" if mode == "regions" else mode,
-                ),
-            )
-        )
-    return prepare_tracks(
-        document,
-        items,
-        tracks=tuple(configurations),
-        mode="native",
-        owner="parallel-example",
-    ).scene
+    return prepare_tracks(document, tracks=configurations, owner="parallel-example")
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    result = build().compile()
+    result = build().compile(budget=BUDGET)
     result.document.save(args.output)
     print(f"{result.event_count} events; {result.peak_active} active")
 

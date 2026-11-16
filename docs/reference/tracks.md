@@ -1,87 +1,26 @@
 # Track authoring
 
-Reusable lyric configuration prepared as editable or native Scene content. Singing and display source clocks stay separate. See [Tracks](../guides/tracks.md).
+Independent lyric streams, allocation and semantic bindings into one Scene. Singing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).
 
 [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [DoubleLine](#doubleline)
-- [HighlightStyle](#highlightstyle)
 - [KaraokeItem](#karaokeitem)
 - [Layout](#layout)
-- [LineMatch](#linematch)
-- [Overlay](#overlay)
-- [PreparedTracks](#preparedtracks)
-- [RenderEstimate](#renderestimate)
-- [SingleLine](#singleline)
-- [SourceMatch](#sourcematch)
-- [Sweep](#sweep)
+- [LayoutContext](#layoutcontext)
+- [LayoutLine](#layoutline)
+- [LinePlan](#lineplan)
+- [LyricAnchor](#lyricanchor)
+- [LyricLine](#lyricline)
+- [LyricRole](#lyricrole)
+- [LyricRule](#lyricrule)
+- [LyricScene](#lyricscene)
+- [LyricSource](#lyricsource)
+- [LyricTarget](#lyrictarget)
+- [Placement](#placement)
 - [Track](#track)
-- [TrackGroup](#trackgroup)
 - [prepare_tracks](#prepare_tracks)
-
-## DoubleLine
-
-Allocate two alternating lyric rows with explicit position and gap.
-
-TrackGroup can share this allocation across independently selected children.
-
-[Source](../../kara_templater/track_layout.py#L100)
-
-```python
-DoubleLine(
-    *,
-    position: tuple[float, float] | None = None,
-    gap: float = 120,
-)
-```
-
-### DoubleLine.allocate
-
-Assign source items to rows without modifying their lyric text or singing clocks.
-
-```python
-DoubleLine.allocate(
-    items: tuple[KaraokeItem, ...],
-) -> dict[str, int]
-```
-
-### DoubleLine.place
-
-Apply the configured row placement to a measured lyric line.
-
-```python
-DoubleLine.place(
-    layout: LaidOutLine,
-    row: int,
-) -> LaidOutLine
-```
-
-## HighlightStyle
-
-Paint and priority for one explicitly named HighlightTrack.
-
-``after=None`` uses the lyric's sung paint. Larger priority wins when an
-Overlay uses priority composition; layer composition retains stack order.
-
-[Source](../../kara_templater/karaoke.py#L59)
-
-```python
-HighlightStyle(
-    track_id: str,
-    after: Paint | None = None,
-    priority: int = 0,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `track_id` | `str` | `required` |
-| `after` | `Paint \| None` | `None` |
-| `priority` | `int` | `0` |
 
 ## KaraokeItem
 
@@ -91,7 +30,7 @@ Structured lyrics with a stable identity and a millisecond display window.
 style; otherwise the frontend uses or creates ``style + '-ruby'``. Positive
 ``margins`` override left, right, and vertical source margins respectively.
 
-[Source](../../kara_templater/karaoke.py#L11)
+[Source](../../kara_templater/karaoke.py#L9)
 
 ```python
 KaraokeItem(
@@ -117,56 +56,70 @@ KaraokeItem(
 
 ## Layout
 
-Base interface for reusable lyric row allocation and placement.
+Allocate any positive number of rows, or override allocate entirely.
 
-Explicit layouts operate on measured lines without changing source text or
-singing clocks.
+Strict rotation is the default. 'available' searches from the next row for
+capacity. Optional preview/tail is shortened before required singing or
+animation could overlap. reset_after resets rotation after a singing gap;
+None preserves rotation across pauses. Lead and tags have no built-in meaning.
 
-[Source](../../kara_templater/track_layout.py#L10)
+position is the first row's top-left, defaulting to the context region.
+alignment controls horizontal alignment within that region. Bounds already
+include ruby and inline cue reservations. gap is row-origin spacing in pixels.
+
+[Source](../../kara_templater/lyric_layout.py#L149)
 
 ```python
 Layout(
     *,
     rows: int = 1,
-    position: tuple[float, float] | None = None,
+    position: Vec2 | None = None,
     gap: float = 120,
+    alignment: Literal['left', 'center', 'right'] = 'left',
+    policy: Literal['strict', 'available'] = 'strict',
+    reset_after: float | None = None,
 )
 ```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `rows` | `int` | `1` |
+| `position` | `Vec2 \| None` | `None` |
+| `gap` | `float` | `120` |
+| `alignment` | `Literal['left', 'center', 'right']` | `'left'` |
+| `policy` | `Literal['strict', 'available']` | `'strict'` |
+| `reset_after` | `float \| None` | `None` |
 
 ### Layout.allocate
 
-Assign source items to rows without modifying their lyric text or singing clocks.
+Plan the complete batch once, without modifying singing or input order.
+
+Chronological input is required; equal starts retain input order. For a
+handoff, shorten the prior tail first, then the next preview. Required
+intervals that cannot fit raise with both line identities and the row.
 
 ```python
 Layout.allocate(
-    items: tuple[KaraokeItem, ...],
-) -> dict[str, int]
+    lines: tuple[LayoutLine, ...],
+    context: LayoutContext,
+) -> tuple[Placement, ...]
 ```
 
-### Layout.place
+## LayoutContext
 
-Apply the configured row placement to a measured lyric line.
+Read-only placement region and explicitly supplied cross-track references.
 
-```python
-Layout.place(
-    layout: LaidOutLine,
-    row: int,
-) -> LaidOutLine
-```
+Other tracks are information for overrides, never implicitly allocated by the
+built-in algorithm. Coordinates and measurements use script pixels.
 
-## LineMatch
-
-Select lyric items by optional exact source style and body text.
-
-Both specified criteria must match.
-
-[Source](../../kara_templater/matching.py#L22)
+[Source](../../kara_templater/lyric_layout.py#L80)
 
 ```python
-LineMatch(
-    *,
-    style: str | None = None,
-    text: str | None = None,
+LayoutContext(
+    region: Box,
+    other_lines: tuple[LayoutLine, ...] = (),
 )
 ```
 
@@ -174,78 +127,34 @@ LineMatch(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `style` | `str \| None` | `None` |
-| `text` | `str \| None` | `None` |
+| `region` | `Box` | `required` |
+| `other_lines` | `tuple[LayoutLine, ...]` | `()` |
 
-### LineMatch.__call__
+## LayoutLine
 
-Whether the source item satisfies all supplied exact style/text criteria.
+Immutable measured input, with original singing and desired visibility.
 
-```python
-LineMatch.__call__(
-    item: KaraokeItem,
-) -> bool
-```
+entrance/exit are required animation durations in seconds, outside singing.
+display includes optional preview/tail and any explicitly reserved cue time.
+tags and cue markers carry source data; their layout meaning is user-defined.
+bounds includes body, ruby and reserved inline decorations in local pixels.
 
-## Overlay
-
-A sung paint/reveal declaration for Body and Ruby roles.
-
-Optional named highlights, styles, and overlap policy provide explicit parallel
-composition.
-
-[Source](../../kara_templater/track.py#L28)
+[Source](../../kara_templater/lyric_layout.py#L18)
 
 ```python
-Overlay(
+LayoutLine(
     *,
-    style: PaintStyle = PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET),
-    reveal: Sweep = Sweep(progress_curve=ProgressCurve(knots=((0, 0), (1, 1))), edges=EdgeSweep(padding_px=0, lead_ms=0, tail_ms=0), completion='release'),
-    targets: tuple[type[Body] | type[Ruby], ...] | None = None,
-    body: PaintStyle | None | Literal[StyleKeyword.UNSET] = StyleKeyword.UNSET,
-    ruby: PaintStyle | None | Literal[StyleKeyword.UNSET] = StyleKeyword.UNSET,
-    highlights: tuple[HighlightTrack, ...] | Callable[[LaidOutLine], tuple[HighlightTrack, ...]] | None = None,
-    styles: tuple[HighlightStyle, ...] = (),
-    overlap: Literal['union', 'priority', 'layer'] = 'union',
-)
-```
-
-### Overlay.enabled
-
-Whether this overlay applies to the requested Body or Ruby role.
-
-```python
-Overlay.enabled(
-    role: type[Body] | type[Ruby],
-) -> bool
-```
-
-### Overlay.resolve
-
-Resolve shared and role-specific sung paint against the selected base Paint.
-
-```python
-Overlay.resolve(
-    role: type[Body] | type[Ruby],
-    base: Paint,
-) -> Paint
-```
-
-## PreparedTracks
-
-A composable Scene with Track preparation diagnostics and layer count.
-
-Native preparation lowers callbacks before returning. Editable preparation
-defers their evaluation until Scene compilation. Both retain source records
-and support adding independent Scene objects before compilation.
-
-[Source](../../kara_templater/render.py#L58)
-
-```python
-PreparedTracks(
-    scene: Scene,
-    diagnostics: tuple[str, ...],
-    layer_count: int,
+    id: str,
+    singing: TimeSpan,
+    display: Lifetime,
+    bounds: Box,
+    entrance: float = 0,
+    exit: float = 0,
+    sources: tuple[SourceRef, ...] = (),
+    tags: frozenset[str] = frozenset({}),
+    cues: tuple[CueMarker, ...] = (),
+    lead: bool = False,
+    reserved: Lifetime | None = None,
 )
 ```
 
@@ -253,37 +162,397 @@ PreparedTracks(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `scene` | `Scene` | `required` |
-| `diagnostics` | `tuple[str, ...]` | `required` |
-| `layer_count` | `int` | `required` |
+| `id` | `str` | `required` |
+| `singing` | `TimeSpan` | `required` |
+| `display` | `Lifetime` | `required` |
+| `bounds` | `Box` | `required` |
+| `entrance` | `float` | `0` |
+| `exit` | `float` | `0` |
+| `sources` | `tuple[SourceRef, ...]` | `()` |
+| `tags` | `frozenset[str]` | `frozenset({})` |
+| `cues` | `tuple[CueMarker, ...]` | `()` |
+| `lead` | `bool` | `False` |
+| `reserved` | `Lifetime \| None` | `None` |
 
-### PreparedTracks.compile
+### LayoutLine.required
 
-Compile through Scene, including frontend diagnostics in the result.
+The minimum interval containing singing and entrance/exit animation.
+
+Type: `TimeSpan`.
+
+## LinePlan
+
+Inspectable source/view association and final layout/animation binding.
+
+[Source](../../kara_templater/orchestration.py#L125)
 
 ```python
-PreparedTracks.compile(
+LinePlan(
+    track_id: str,
+    source: LyricSource,
+    input: LayoutLine,
+    placement: Placement,
+    line: LyricLine,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `track_id` | `str` | `required` |
+| `source` | `LyricSource` | `required` |
+| `input` | `LayoutLine` | `required` |
+| `placement` | `Placement` | `required` |
+| `line` | `LyricLine` | `required` |
+
+## LyricAnchor
+
+Public type alias:
+
+```python
+type LyricAnchor = Literal['enter', 'exit', 'singing']
+```
+
+## LyricLine
+
+An editable lyric line, with the same animate method as any visual node.
+
+Body and ruby belong to syllable groups, so whole-line and syllable animation
+compose through the ordinary Scene hierarchy. query is a logical selection;
+it never reparents objects. The original measured layout remains available.
+required_display declares absolute-seconds visual intervals for allocation;
+it does not move the original singing clocks or create animation events.
+
+[Source](../../kara_templater/lyric_line.py#L153)
+
+```python
+LyricLine(
+    *,
+    id: str,
+    lifetime: Lifetime,
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0)),
+    clock_start: float | None = None,
+    animations: tuple[AnimationClip, ...] = (),
+    layer: int = 0,
+    origin: EventOrigin | None = None,
+    clip: RectangleClip | VectorClip | None = None,
+    material: PaintField | None = None,
+    reference: StateReference | None = None,
+    children: tuple[SceneObject, ...],
+    coverage: Coverage | None = None,
+    layout: LyricLayout,
+    targets: tuple[LyricTarget, ...],
+    independent: tuple[ObjectGroup, ...] = (),
+    required_display: tuple[TimeSpan, ...] = (),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `lifetime` | `Lifetime` | `required` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0))` |
+| `clock_start` | `float \| None` | `None` |
+| `animations` | `tuple[AnimationClip, ...]` | `()` |
+| `layer` | `int` | `0` |
+| `origin` | `EventOrigin \| None` | `None` |
+| `clip` | `RectangleClip \| VectorClip \| None` | `None` |
+| `material` | `PaintField \| None` | `None` |
+| `reference` | `StateReference \| None` | `None` |
+| `children` | `tuple[SceneObject, ...]` | `required` |
+| `coverage` | `Coverage \| None` | `None` |
+| `layout` | `LyricLayout` | `required` |
+| `targets` | `tuple[LyricTarget, ...]` | `required` |
+| `independent` | `tuple[ObjectGroup, ...]` | `()` |
+| `required_display` | `tuple[TimeSpan, ...]` | `()` |
+
+### LyricLine.animate
+
+Return a new node with an animation bound at local seconds from birth.
+
+The same operation works on text, paths and groups. Existing clips are
+preserved; conflicting channels or a clip beyond the lifetime raise
+before changing anything. Use a timeline for longer schedules.
+
+```python
+LyricLine.animate(
+    animation: StateAnimation,
+    *,
+    duration: float,
+    at: float = 0,
+    hold: bool = True,
+    breakpoints: tuple[float, ...] = (),
+) -> Self
+```
+
+### LyricLine.at
+
+Evaluate this object at absolute seconds using its local animation clock.
+
+Use SceneEvaluator for parent transforms and references.
+
+```python
+LyricLine.at(
+    time: float,
+) -> VisualState
+```
+
+### LyricLine.bind
+
+Resolve factories and semantic clocks into ordinary immutable clips.
+
+Sequences retain their authored seconds length unless duration overrides
+it. Unspecified pure animations use the singing interval length. Missing
+targets and zero-duration intervals do not invent animation time.
+
+```python
+LyricLine.bind(
+    *rules: LyricRule,
+) -> LyricLine
+```
+
+### LyricLine.copy
+
+Copy visuals and retarget semantic identities, retaining original source.
+
+delay shifts visual anchors and lifetimes, never edits the source singing
+spans. offset moves the lyric group; independently positioned cues retain
+their own positions. Already-bound animations retain their local clocks.
+
+```python
+LyricLine.copy(
+    *,
+    id: str,
+    offset: Vec2 | None = None,
+    delay: float = 0,
+) -> Self
+```
+
+### LyricLine.from_layout
+
+Build a line from shaped text, retaining repeat and ruby associations.
+
+Independent syllable animation requires boundaries that do not split a
+shaping cluster. Such boundaries fail explicitly, never split codepoints.
+
+```python
+LyricLine.from_layout(
+    layout: LyricLayout,
+    *,
+    tags: frozenset[str] = frozenset({}),
+    inline: tuple[ObjectGroup, ...] = (),
+    independent: tuple[ObjectGroup, ...] = (),
+) -> LyricLine
+```
+
+### LyricLine.objects
+
+The line and its independently positioned cues for Scene.add.
+
+Type: `tuple[ObjectGroup, ...]`.
+
+### LyricLine.query
+
+Select roles/tags without changing hierarchy; ancestors win over children.
+
+Multiple segment identities sharing one node are retained for their
+separate clocks. An explicitly selected ancestor suppresses descendants
+so a bulk transform cannot be applied twice through parent inheritance.
+
+```python
+LyricLine.query(
+    *roles: LyricRole,
+    tags: frozenset[str] = frozenset({}),
+) -> tuple[LyricTarget, ...]
+```
+
+### LyricLine.time_origin
+
+Absolute seconds origin for local animation, geometry and paint clocks.
+
+Type: `float`.
+
+### LyricLine.with_display
+
+Change shared lyric visibility while preserving all existing local clocks.
+
+Nodes with this line's original window follow the change. Independently
+timed decorations and independent cues retain their own windows.
+
+```python
+LyricLine.with_display(
+    display: Lifetime,
+) -> LyricLine
+```
+
+## LyricRole
+
+Public type alias:
+
+```python
+type LyricRole = Literal['line', 'syllable', 'segment', 'character', 'ruby', 'cue']
+```
+
+## LyricRule
+
+Bind a common animation to selected lyric nodes at a semantic anchor.
+
+enter/exit use the node's display start/end; exit ends at the anchor.
+singing binds each selected singing interval. An omitted duration uses a
+sequence's authored length, or otherwise the singing interval's length.
+A factory receives the measured line and selected semantic target once,
+before layout, and returns the same animation protocol as direct authoring.
+offset is relative seconds; display-anchor factories must return a sequence
+when duration is omitted.
+A callable anchor receives the measured line and target and returns absolute
+second intervals, before layout occupancy is allocated. This permits custom
+arrival clocks without adding another animation evaluator. Returned intervals
+already include any visual copy delay.
+No state interpolation or ASS encoding occurs in this declaration.
+target accepts a role, a queried semantic target, or a tuple of targets.
+Explicit targets must belong to the receiving line; current aliases are
+resolved at binding. Duplicate selections and selected descendants are
+suppressed. Role/tag queries and empty tuples may select nothing.
+
+[Source](../../kara_templater/lyric_line.py#L46)
+
+```python
+LyricRule(
+    target: LyricRole | LyricTarget | tuple[LyricTarget, ...],
+    anchor: LyricAnchor | LyricTarget | Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]],
+    animation: StateAnimation | Callable[[LyricLine, LyricTarget], StateAnimation],
+    duration: float | None = None,
+    offset: float = 0,
+    hold: bool = True,
+    tags: frozenset[str] = frozenset({}),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `target` | `LyricRole \| LyricTarget \| tuple[LyricTarget, ...]` | `required` |
+| `anchor` | `LyricAnchor \| LyricTarget \| Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]]` | `required` |
+| `animation` | `StateAnimation \| Callable[[LyricLine, LyricTarget], StateAnimation]` | `required` |
+| `duration` | `float \| None` | `None` |
+| `offset` | `float` | `0` |
+| `hold` | `bool` | `True` |
+| `tags` | `frozenset[str]` | `frozenset({})` |
+
+### LyricRule.singing_intervals
+
+Resolve source clocks, optionally from an explicit other-track target.
+
+A referenced target is an immutable snapshot of its source singing and
+visual delay, independent of input ordering or runtime evaluation order.
+Display anchors are resolved separately from the actual target lifetime.
+
+```python
+LyricRule.singing_intervals(
+    target: LyricTarget,
+) -> tuple[TimeSpan, ...]
+```
+
+## LyricScene
+
+A normal Scene with immutable lyric arrangement snapshots for inspection.
+
+[Source](../../kara_templater/orchestration.py#L136)
+
+```python
+LyricScene(
+    document: Document,
+    objects: list[SceneObject | NativeEvent] = _HAS_DEFAULT_FACTORY_CLASS(),
+    replace_records: set[int] = _HAS_DEFAULT_FACTORY_CLASS(),
+    owner: str = 'scene',
+    plans: tuple[LinePlan, ...] = (),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `document` | `Document` | `required` |
+| `objects` | `list[SceneObject \| NativeEvent]` | `list()` |
+| `replace_records` | `set[int]` | `set()` |
+| `owner` | `str` | `'scene'` |
+| `plans` | `tuple[LinePlan, ...]` | `()` |
+
+### LyricScene.add
+
+Append typed visual/native objects and return this Scene for composition.
+
+```python
+LyricScene.add(
+    *objects: SceneObject | NativeEvent,
+) -> Self
+```
+
+### LyricScene.compile
+
+Compile a new ASS Document and reports under explicit Scene budgets.
+
+Eligible continuous Tween lowering is opt-in.
+on_estimate runs after preflight and before frame callbacks; raising
+cancels compilation without changing the scene or source document.
+
+```python
+LyricScene.compile(
     *,
     budget: SceneBudget | None = None,
     native_tweens: bool = False,
+    on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult
 ```
 
-## RenderEstimate
+### LyricScene.evaluator
 
-Document cost before property callbacks; sampling counts precede merging.
-
-Native curve subdivision can increase the final count. This is neither an
-exact total nor an upper bound; the compiler enforces the final event limit.
-
-[Source](../../kara_templater/render.py#L25)
+Construct a seekable world-space evaluator for this scene hierarchy and its references.
 
 ```python
-RenderEstimate(
-    static_events: int,
-    sampling: tuple[SamplingEstimate, ...],
-    event_limit: int,
-    raster: tuple[RasterEstimate, ...] = (),
+LyricScene.evaluator() -> SceneEvaluator
+```
+
+### LyricScene.lines
+
+The bound lyric lines in track/source order.
+
+Type: `tuple[LyricLine, ...]`.
+
+### LyricScene.replace_source
+
+Mark a valid source event record for retention as a Comment during compilation.
+
+```python
+LyricScene.replace_source(
+    record_index: int,
+) -> None
+```
+
+## LyricSource
+
+An immutable source view used by Track predicates and metadata functions.
+
+id identifies source content independently of its track/view. Original
+singing intervals remain in lyrics; display is the original ASS visibility.
+
+[Source](../../kara_templater/orchestration.py#L36)
+
+```python
+LyricSource(
+    id: str,
+    record_index: int | None,
+    style: str,
+    actor: str,
+    effect: str,
+    display: Lifetime,
+    text_data: DocumentText,
+    projection: DocumentLyrics | None = None,
 )
 ```
 
@@ -291,97 +560,66 @@ RenderEstimate(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `static_events` | `int` | `required` |
-| `sampling` | `tuple[SamplingEstimate, ...]` | `required` |
-| `event_limit` | `int` | `required` |
-| `raster` | `tuple[RasterEstimate, ...]` | `()` |
+| `id` | `str` | `required` |
+| `record_index` | `int \| None` | `required` |
+| `style` | `str` | `required` |
+| `actor` | `str` | `required` |
+| `effect` | `str` | `required` |
+| `display` | `Lifetime` | `required` |
+| `text_data` | `DocumentText` | `required` |
+| `projection` | `DocumentLyrics \| None` | `None` |
 
-### RenderEstimate.estimated_events
+### LyricSource.from_lyrics
 
-Sum static, sampled, and raster estimates before merging and native subdivision.
+Create a structured source without synthesizing or replacing ASS records.
 
-This is not a final upper bound.
-
-Type: `int`.
-
-### RenderEstimate.target_samples
-
-Total declared target samples across native dynamic and raster preparations.
-
-Type: `int`.
-
-## SingleLine
-
-Place selected lyric lines on one configured row.
-
-Omitted position retains source positioning; explicit offsets and layout
-settings affect presentation only.
-
-[Source](../../kara_templater/track_layout.py#L89)
+The projection retains full-precision singing, appearance runs, ruby and
+cues. Regeneration requires supplying this source again; ASS output does
+not embed Python data or private serialization.
 
 ```python
-SingleLine(
+LyricSource.from_lyrics(
+    id: str,
+    lyrics: DocumentLyrics,
     *,
-    position: tuple[float, float] | None = None,
-)
+    display: Lifetime,
+    style: str = 'Default',
+    actor: str = '',
+    effect: str = '',
+) -> LyricSource
 ```
 
-### SingleLine.allocate
+### LyricSource.lyrics
 
-Assign source items to rows without modifying their lyric text or singing clocks.
+Project selected lyrics lazily; unselected raw events need no support.
 
-```python
-SingleLine.allocate(
-    items: tuple[KaraokeItem, ...],
-) -> dict[str, int]
-```
+Type: `DocumentLyrics`.
 
-### SingleLine.place
+### LyricSource.text
 
-Apply the configured row placement to a measured lyric line.
+Decoded body text, excluding ruby and custom markup.
 
-```python
-SingleLine.place(
-    layout: LaidOutLine,
-    row: int,
-) -> LaidOutLine
-```
+Type: `str`.
 
-## SourceMatch
+## LyricTarget
 
-A callable predicate selecting a KaraokeItem.
+Stable semantic identity referring to an existing visual node.
 
-Ordinary typed functions can provide domain-specific selection.
+Several repeated singing segments may refer to the same body node. Selecting
+them never creates copies or changes visual parentage. singing retains the
+original absolute seconds and decoded text offsets.
 
-[Source](../../kara_templater/matching.py#L11)
-
-### SourceMatch.__call__
-
-Whether this source item is selected by the predicate.
+[Source](../../kara_templater/lyric_line.py#L28)
 
 ```python
-SourceMatch.__call__(
-    item: KaraokeItem,
-    /,
-) -> bool
-```
-
-## Sweep
-
-Highlight progress and completion behavior.
-
-A progress curve maps singing time to a horizontal cursor. ``release``
-removes a completed sweep's clip after the singing interval, exposing the
-full sung decoration. ``clip`` retains clipping through the display window. Edge
-compensation is for low-level spans; Track overlays use uncompensated edges.
-
-[Source](../../kara_templater/karaoke.py#L36)
-
-```python
-Sweep(
-    progress_curve: ProgressCurve = ProgressCurve(knots=((0, 0), (1, 1))),
-    edges: EdgeSweep = EdgeSweep(padding_px=0, lead_ms=0, tail_ms=0),
-    completion: Literal['release', 'clip'] = 'release',
+LyricTarget(
+    id: str,
+    node_id: str,
+    role: LyricRole,
+    singing: tuple[SingingSpan, ...] = (),
+    tags: frozenset[str] = frozenset({}),
+    delay: float = 0,
+    aliases: tuple[str, ...] = (),
 )
 ```
 
@@ -389,95 +627,109 @@ Sweep(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `progress_curve` | `ProgressCurve` | `ProgressCurve(knots=((0, 0), (1, 1)))` |
-| `edges` | `EdgeSweep` | `EdgeSweep(padding_px=0, lead_ms=0, tail_ms=0)` |
-| `completion` | `Literal['release', 'clip']` | `'release'` |
+| `id` | `str` | `required` |
+| `node_id` | `str` | `required` |
+| `role` | `LyricRole` | `required` |
+| `singing` | `tuple[SingingSpan, ...]` | `()` |
+| `tags` | `frozenset[str]` | `frozenset({})` |
+| `delay` | `float` | `0` |
+| `aliases` | `tuple[str, ...]` | `()` |
+
+## Placement
+
+A visual origin and absolute display interval for one stable line id.
+
+row is optional metadata; free-form layouts do not need numbered slots.
+adjustments explains deliberate changes to desired visibility.
+
+[Source](../../kara_templater/lyric_layout.py#L97)
+
+```python
+Placement(
+    id: str,
+    position: Vec2,
+    display: Lifetime,
+    row: int | None = None,
+    adjustments: tuple[str, ...] = (),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `position` | `Vec2` | `required` |
+| `display` | `Lifetime` | `required` |
+| `row` | `int \| None` | `None` |
+| `adjustments` | `tuple[str, ...]` | `()` |
 
 ## Track
 
-Reusable lyric selection, body/ruby appearance, overlay, layout, and animation declarations.
+An independent lyric stream with selection, placement and binding rules.
 
-prepare_tracks binds a fresh configuration per source and produces composable
-Scene content.
+All times use seconds. preview/tail are desired, reducible display padding;
+rule durations and inline cue visibility are mandatory occupancy. The visual
+factory receives the measured, unpositioned line once before allocation.
+Authored visual intervals join occupancy; rule binding follows allocation.
+All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/track.py#L89)
+[Source](../../kara_templater/orchestration.py#L93)
 
 ```python
 Track(
     *,
-    source: SourceMatch,
-    body: Body | None = None,
-    ruby: Ruby | None = None,
-    overlay: Overlay | None = None,
-    layout: Layout | None = None,
-    animations: Iterable[Animation] = (),
-    sampling: SamplingSettings = SamplingSettings(step_ms=40, max_samples=100000),
-    styles: StyleSheet | None = None,
+    id: str,
+    source: Callable[[LyricSource], bool] = _all_sources,
+    layout: Layout = Layout(rows=1, position=None, gap=120, alignment='left', policy='strict', reset_after=None),
+    region: Box | None = None,
+    preview: float = 0.6,
+    tail: float = 0.3,
+    animations: tuple[LyricRule, ...] = (),
+    cues: Mapping[str, CuePreset] = _HAS_DEFAULT_FACTORY_CLASS(),
+    tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset({}),
+    styles: tuple[Style, ...] = (),
+    factory: Callable[[LyricLine], LyricLine] | None = None,
+    references: tuple[LayoutLine, ...] = (),
 )
 ```
 
-### Track.bind
+### Fields
 
-Bind fresh Track configurations to structured source items for internal/backend inspection.
-
-Use prepare_tracks for normal Document authoring.
-
-```python
-Track.bind(
-    items: tuple[KaraokeItem, ...],
-) -> dict[str, BoundTrack]
-```
-
-## TrackGroup
-
-Explicit shared row allocation for independently configured tracks.
-
-Children keep their source selectors, styles and animations. The group owns
-placement; children must omit layout. A shared absolute origin is required
-so different input style positions cannot move the allocated rows apart.
-
-[Source](../../kara_templater/track.py#L131)
-
-```python
-TrackGroup(
-    *tracks: Track,
-    layout: Layout,
-)
-```
-
-### TrackGroup.bind
-
-Bind child configurations with shared row allocation for internal/backend inspection.
-
-```python
-TrackGroup.bind(
-    items: tuple[KaraokeItem, ...],
-) -> dict[str, BoundTrack]
-```
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `source` | `Callable[[LyricSource], bool]` | `_all_sources` |
+| `layout` | `Layout` | `Layout(rows=1, position=None, gap=120, alignment='left', policy='strict', reset_after=None)` |
+| `region` | `Box \| None` | `None` |
+| `preview` | `float` | `0.6` |
+| `tail` | `float` | `0.3` |
+| `animations` | `tuple[LyricRule, ...]` | `()` |
+| `cues` | `Mapping[str, CuePreset]` | `dict()` |
+| `tags` | `frozenset[str] \| Callable[[LyricSource], frozenset[str]]` | `frozenset({})` |
+| `styles` | `tuple[Style, ...]` | `()` |
+| `factory` | `Callable[[LyricLine], LyricLine] \| None` | `None` |
+| `references` | `tuple[LayoutLine, ...]` | `()` |
 
 ## prepare_tracks
 
-Bind lyric configurations to a Scene while preserving unselected records.
+Measure, allocate and bind independent tracks into one ordinary Scene.
 
-``editable`` produces ObjectGroups whose callbacks run during compilation;
-SceneBudget controls sampling. ``native`` lowers to NativeEvents, retains
-native interpolation/style semantics, and uses Track.sampling for callbacks.
-Explicit raster settings require native mode; material coverage is exposed
-separately by prepare_track_coverage. Source times and margins use milliseconds.
+Same-source views are allowed and have distinct visual identities. Original
+records are retained once as owner-marked comments. Re-preparing owned output
+removes only that owner's generated events and regenerates from its sources.
+inputs adds structured LyricSource values alongside parsed ASS sources.
+These have no ASS record ownership and must be supplied again to regenerate
+them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/render.py#L81)
+[Source](../../kara_templater/orchestration.py#L325)
 
 ```python
 prepare_tracks(
     document: Document,
-    items: tuple[KaraokeItem, ...] | None = None,
     *,
-    tracks: tuple[Track | TrackGroup, ...],
-    mode: Literal['editable', 'native'] = 'editable',
-    owner: str = 'default',
-    settings: OutputSettings | None = None,
-    import_settings: ImportSettings | None = None,
-    on_estimate: Callable[[RenderEstimate], None] | None = None,
-    max_objects: int = 25000,
-) -> PreparedTracks
+    tracks: tuple[Track, ...],
+    owner: str = 'karaoke',
+    inputs: tuple[LyricSource, ...] = (),
+) -> LyricScene
 ```

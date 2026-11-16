@@ -8,56 +8,33 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 
 - [BLACK](#black)
 - [BLUE](#blue)
-- [Blur](#blur)
-- [Body](#body)
 - [CYAN](#cyan)
-- [CharacterPaint](#characterpaint)
 - [Color](#color)
-- [ColorKeyframe](#colorkeyframe)
-- [ColorKeyframes](#colorkeyframes)
 - [ColorRamp](#colorramp)
-- [ColorSpan](#colorspan)
 - [ColorStop](#colorstop)
-- [ColorStyle](#colorstyle)
-- [ColorTransition](#colortransition)
-- [ColorValue](#colorvalue)
 - [GRAY](#gray)
 - [GREEN](#green)
 - [Glow](#glow)
-- [INHERIT](#inherit)
+- [Highlight](#highlight)
+- [HighlightArrival](#highlightarrival)
+- [HighlightPass](#highlightpass)
 - [LinearGradient](#lineargradient)
+- [LyricGlow](#lyricglow)
+- [LyricHighlights](#lyrichighlights)
+- [LyricSweep](#lyricsweep)
 - [MAGENTA](#magenta)
-- [NumberStyle](#numberstyle)
 - [ORANGE](#orange)
 - [PINK](#pink)
 - [PURPLE](#purple)
 - [Paint](#paint)
+- [PaintActivity](#paintactivity)
 - [PaintBand](#paintband)
-- [PaintBounds](#paintbounds)
 - [PaintField](#paintfield)
 - [PaintPair](#paintpair)
-- [PaintStyle](#paintstyle)
-- [PaintedRegion](#paintedregion)
 - [RED](#red)
-- [Ruby](#ruby)
-- [RubyPaint](#rubypaint)
-- [RubySpan](#rubyspan)
 - [SoftSweep](#softsweep)
-- [StyleKeyword](#stylekeyword)
-- [StyleOverrides](#styleoverrides)
-- [StyleProperties](#styleproperties)
-- [StyleSheet](#stylesheet)
-- [StyleValues](#stylevalues)
-- [TextSpan](#textspan)
-- [TextStyle](#textstyle)
-- [TrackPaint](#trackpaint)
-- [UNSET](#unset)
 - [WHITE](#white)
 - [YELLOW](#yellow)
-- [compose_highlights](#compose_highlights)
-- [resolve_paints](#resolve_paints)
-- [resolve_ruby_paints](#resolve_ruby_paints)
-- [rule](#rule)
 
 ## BLACK
 
@@ -75,136 +52,12 @@ Public constant:
 BLUE = Color(red=0, green=0, blue=255)
 ```
 
-## Blur
-
-A configurable Track glow with color, pixel radius/width, and opacity.
-
-Resolve against an inherited glow while preserving explicit UNSET/INHERIT
-semantics.
-
-[Source](../../kara_templater/text_style.py#L38)
-
-```python
-Blur(
-    *,
-    color: ColorStyle = StyleKeyword.UNSET,
-    radius: NumberStyle = StyleKeyword.UNSET,
-    width: NumberStyle = StyleKeyword.UNSET,
-    opacity: NumberStyle = StyleKeyword.UNSET,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `color` | `ColorStyle` | `StyleKeyword.UNSET` |
-| `radius` | `NumberStyle` | `StyleKeyword.UNSET` |
-| `width` | `NumberStyle` | `StyleKeyword.UNSET` |
-| `opacity` | `NumberStyle` | `StyleKeyword.UNSET` |
-
-### Blur.resolve
-
-Resolve explicit, inherited, and unset glow fields against an optional existing glow.
-
-```python
-Blur.resolve(
-    base: Glow,
-    inherited: Glow,
-) -> Glow
-```
-
-## Body
-
-Track body text configuration with TextStyle, source-wide TextSpan declarations, and optional style classes.
-
-Each Track binding uses fresh configuration without changing the source text or
-timing.
-
-[Source](../../kara_templater/components.py#L102)
-
-```python
-Body(
-    *,
-    style: TextStyle | None = None,
-    spans: Iterable[TextSpan] = (),
-    id: str | None = None,
-    classes: str | Iterable[str] = (),
-    fill: ColorStyle = StyleKeyword.UNSET,
-    stroke: ColorStyle = StyleKeyword.UNSET,
-    stroke_width: NumberStyle = StyleKeyword.UNSET,
-    opacity: NumberStyle = StyleKeyword.UNSET,
-    font_size: NumberStyle = StyleKeyword.UNSET,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `kind` | `str` | `instance attribute` |
-| `id` | `str \| None` | `instance attribute` |
-| `classes` | `set[str]` | `instance attribute` |
-| `children` | `tuple[Component, ...]` | `instance attribute` |
-| `parent` | `Component \| None` | `instance attribute` |
-| `attributes` | `dict[str, str \| int]` | `instance attribute` |
-
-### Body.add_class
-
-Add validated nonempty style class names and return this component.
-
-```python
-Body.add_class(
-    *names: str,
-) -> Self
-```
-
-### Body.walk
-
-Iterate this style component and its descendants in declaration order.
-
-```python
-Body.walk() -> Iterator[Component]
-```
-
 ## CYAN
 
 Public constant:
 
 ```python
 CYAN = Color(red=0, green=255, blue=255)
-```
-
-## CharacterPaint
-
-A drawable character paired with its resolved unsung and sung paints.
-
-Character geometry and source range remain unchanged by paint selection.
-
-[Source](../../kara_templater/appearance.py#L44)
-
-```python
-CharacterPaint(
-    character: DrawableCharacter,
-    paints: PaintPair,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `character` | `DrawableCharacter` | `required` |
-| `paints` | `PaintPair` | `required` |
-
-### CharacterPaint.highlighted
-
-Return the sung paint or an explicit highlight-track paint override.
-
-```python
-CharacterPaint.highlighted(
-    track_override: Paint | None = None,
-) -> Paint
 ```
 
 ## Color
@@ -214,7 +67,7 @@ An immutable RGB color with integer channels in 0 through 255.
 hex accepts exactly #RRGGBB; ASS BGR conversion is performed at serialization
 boundaries.
 
-[Source](../../kara_templater/composition.py#L15)
+[Source](../../kara_templater/composition.py#L10)
 
 ```python
 Color(
@@ -242,77 +95,11 @@ Color.hex(
 ) -> Self
 ```
 
-## ColorKeyframe
-
-A color target at a normalized fraction or a millisecond TimeRef, with an incoming easing curve.
-
-It is resolved against the selected singing/display interval.
-
-[Source](../../kara_templater/material_animation.py#L72)
-
-```python
-ColorKeyframe(
-    at: float | TimeRef,
-    value: Color,
-    rate: Callable[[float], float] = linear,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `at` | `float \| TimeRef` | `required` |
-| `value` | `Color` | `required` |
-| `rate` | `Callable[[float], float]` | `linear` |
-
-### ColorKeyframe.rate
-
-Return normalized progress unchanged for linear interpolation.
-
-```python
-ColorKeyframe.rate(
-    p: float,
-) -> float
-```
-
-## ColorKeyframes
-
-An ordered sequence of color targets resolved for a material animation interval.
-
-Keyframe timing and source clocks remain explicit.
-
-[Source](../../kara_templater/material_animation.py#L92)
-
-```python
-ColorKeyframes(
-    *frames: ColorKeyframe,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `frames` | `tuple[ColorKeyframe, ...]` | `required` |
-
-### ColorKeyframes.resolve
-
-Resolve normalized fractions and TimeRef anchors against the selected millisecond interval.
-
-```python
-ColorKeyframes.resolve(
-    interval: tuple[float, float],
-    segments: tuple[Segment, ...],
-    window: DisplayWindow,
-) -> tuple[tuple[float, Color, Callable[[float], float]], ...]
-```
-
 ## ColorRamp
 
 Piecewise linear colors at absolute script coordinates; ends clamp.
 
-[Source](../../kara_templater/paint_fields.py#L82)
+[Source](../../kara_templater/paint_fields.py#L100)
 
 ```python
 ColorRamp(
@@ -336,39 +123,13 @@ ColorRamp.at(
 ) -> Color
 ```
 
-## ColorSpan
-
-Override before/after paint for a unit-local TextRange with explicit priority.
-
-Selected boundaries must preserve independently drawable clusters.
-
-[Source](../../kara_templater/appearance.py#L25)
-
-```python
-ColorSpan(
-    source: TextRange,
-    before: Paint | None = None,
-    after: Paint | None = None,
-    priority: int = 0,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `source` | `TextRange` | `required` |
-| `before` | `Paint \| None` | `None` |
-| `after` | `Paint \| None` | `None` |
-| `priority` | `int` | `0` |
-
 ## ColorStop
 
 An RGB color at a finite script-space position along a paint field axis.
 
 ColorRamp requires ordered stops.
 
-[Source](../../kara_templater/paint_fields.py#L68)
+[Source](../../kara_templater/paint_fields.py#L86)
 
 ```python
 ColorStop(
@@ -383,66 +144,6 @@ ColorStop(
 | --- | --- | --- |
 | `position` | `float` | `required` |
 | `color` | `Color` | `required` |
-
-## ColorStyle
-
-Public type alias:
-
-```python
-type ColorStyle = Color | str | StyleKeyword
-```
-
-## ColorTransition
-
-Interpolate RGB channels between two colors using normalized progress and an optional easing rate.
-
-Result channels are rounded into the valid integer range.
-
-[Source](../../kara_templater/material_animation.py#L50)
-
-```python
-ColorTransition(
-    start: Color,
-    end: Color,
-    rate: Callable[[float], float] = linear,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `start` | `Color` | `required` |
-| `end` | `Color` | `required` |
-| `rate` | `Callable[[float], float]` | `linear` |
-
-### ColorTransition.__call__
-
-Evaluate eased normalized progress and return an RGB color with rounded channels.
-
-```python
-ColorTransition.__call__(
-    progress: float,
-) -> Color
-```
-
-### ColorTransition.rate
-
-Return normalized progress unchanged for linear interpolation.
-
-```python
-ColorTransition.rate(
-    p: float,
-) -> float
-```
-
-## ColorValue
-
-Public type alias:
-
-```python
-type ColorValue = Color | tuple[Color, Color] | ColorTransition | ColorKeyframes | Callable[[float], Color]
-```
 
 ## GRAY
 
@@ -466,7 +167,7 @@ A paint glow with RGB color, nonnegative blur/border in script pixels, and opaci
 
 It is separate from the body fill and outline.
 
-[Source](../../kara_templater/composition.py#L48)
+[Source](../../kara_templater/composition.py#L43)
 
 ```python
 Glow(
@@ -486,12 +187,148 @@ Glow(
 | `border` | `float` | `0` |
 | `opacity` | `float` | `1` |
 
-## INHERIT
+## Highlight
 
-Public constant:
+A named paint contribution for one lyric unit, independent of Track streams.
+
+[Source](../../kara_templater/lyric_highlights.py#L102)
 
 ```python
-INHERIT = StyleKeyword.INHERIT
+Highlight(
+    id: str,
+    unit: int,
+    passes: tuple[HighlightPass, ...],
+    paint: StatePatch,
+    priority: int = 0,
+    repeat: Literal['hold', 'reset'] = 'hold',
+    end: Literal['hold', 'hide'] = 'hold',
+    glow: LyricGlow = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `unit` | `int` | `required` |
+| `passes` | `tuple[HighlightPass, ...]` | `required` |
+| `paint` | `StatePatch` | `required` |
+| `priority` | `int` | `0` |
+| `repeat` | `Literal['hold', 'reset']` | `'hold'` |
+| `end` | `Literal['hold', 'hide']` | `'hold'` |
+| `glow` | `LyricGlow` | `None` |
+
+### Highlight.regions
+
+Resolve owned regions at absolute seconds, applying repeat/end policy.
+
+```python
+Highlight.regions(
+    time: float,
+) -> tuple[Region, ...]
+```
+
+## HighlightArrival
+
+Bind common animations to measured character crossings before allocation.
+
+Use as LyricRule.anchor. first selects the earliest highlight per repeat round;
+each keeps every highlight, and names restricts either selection explicitly.
+Thresholds use original measured geometry, independent of animation and paint
+priority. The interval length is full character traversal. A partial traversal
+requires duration here; LyricRule.duration may further override that length.
+Nonlinear passes require a declared inverse_rate. No runtime state is retained.
+
+[Source](../../kara_templater/lyric_highlights.py#L590)
+
+```python
+HighlightArrival(
+    *,
+    highlights: tuple[Highlight, ...] | Callable[[LyricLine], tuple[Highlight, ...]],
+    threshold: Literal['enter', 'center', 'complete'] = 'enter',
+    selection: Literal['first', 'each'] = 'first',
+    names: frozenset[str] = frozenset({}),
+    retrigger: bool = True,
+    duration: float | None = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `highlights` | `tuple[Highlight, ...] \| Callable[[LyricLine], tuple[Highlight, ...]]` | `required` |
+| `threshold` | `Literal['enter', 'center', 'complete']` | `'enter'` |
+| `selection` | `Literal['first', 'each']` | `'first'` |
+| `names` | `frozenset[str]` | `frozenset({})` |
+| `retrigger` | `bool` | `True` |
+| `duration` | `float \| None` | `None` |
+
+### HighlightArrival.__call__
+
+Resolve this target's selected crossings and durations in absolute seconds.
+
+```python
+HighlightArrival.__call__(
+    line: LyricLine,
+    target: LyricTarget,
+) -> tuple[TimeSpan, ...]
+```
+
+## HighlightPass
+
+One left-to-right pass, with absolute seconds and measured line-local x.
+
+round identifies repeat groups; reset discards previous rounds. rate receives
+normalized progress. Declared breakpoints are seconds from the pass start.
+A zero-duration pass reveals its entire region at its start, as ASS k0 does.
+
+[Source](../../kara_templater/lyric_highlights.py#L40)
+
+```python
+HighlightPass(
+    time: TimeSpan,
+    region: Region,
+    round: int = 0,
+    rate: Callable[[float], float] = linear_rate,
+    breakpoints: tuple[float, ...] = (),
+    inverse_rate: Callable[[float], float] | None = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `time` | `TimeSpan` | `required` |
+| `region` | `Region` | `required` |
+| `round` | `int` | `0` |
+| `rate` | `Callable[[float], float]` | `linear_rate` |
+| `breakpoints` | `tuple[float, ...]` | `()` |
+| `inverse_rate` | `Callable[[float], float] \| None` | `None` |
+
+### HighlightPass.arrival
+
+Return an exact crossing clock using a declared monotone inverse.
+
+Arbitrary forward callbacks cannot be reliably inverted by sampling.
+A nonlinear rate therefore needs inverse_rate for arrival bindings.
+
+```python
+HighlightPass.arrival(
+    x: float,
+) -> float | None
+```
+
+### HighlightPass.front
+
+Return the line-local front coordinate at absolute Scene seconds.
+
+```python
+HighlightPass.front(
+    time: float,
+) -> float
 ```
 
 ## LinearGradient
@@ -500,7 +337,7 @@ A script-space x/y gradient for fill, outline, or both.
 
 Integer step controls color band width and the declared maximum band count.
 
-[Source](../../kara_templater/paint_fields.py#L135)
+[Source](../../kara_templater/paint_fields.py#L153)
 
 ```python
 LinearGradient(
@@ -552,20 +389,123 @@ Declared upper bound on emitted color bands at the configured step.
 
 Type: `int`.
 
+## LyricGlow
+
+Public type alias:
+
+```python
+type LyricGlow = Glow | GlowFunction | Callable[[LyricLine, LyricTarget], Glow | GlowFunction | None] | None
+```
+
+## LyricHighlights
+
+Build named union/priority/layer highlights with common visual objects.
+
+Clip mode clips completed drawing layers (including separate static glow).
+Its glow uses ordinary per-layer alpha and is cut after blur. Coverage mode
+assigns fractional material ownership before blur and closes component alpha;
+it rejects intentional layered overlap, which has different compositing.
+Existing masks/materials must be composed explicitly instead of overwritten.
+Ownership reaching a unit's outer edges includes its overhang, outline and
+glow, so a completed full-unit highlight owns the complete drawing. Interior
+region edges remain exact cuts. Clip uses disjoint rectangular strips so
+axis-aligned world-space edges share ASS integer pixel boundaries, avoiding
+antialiased vector-mask seams between translucent layers. Rotated/sheared
+masks still use vector clipping. Clip masks use local ±65536 outer bounds;
+use explicit custom masks for drawings outside that range.
+Glow factories receive the line and target once during construction, allowing
+distinct body/ruby geometry without invoking author selection on each frame.
+
+[Source](../../kara_templater/lyric_highlights.py#L306)
+
+```python
+LyricHighlights(
+    *,
+    highlights: tuple[Highlight, ...] | Callable[[LyricLine], tuple[Highlight, ...]],
+    mode: Literal['union', 'priority', 'layer'] = 'union',
+    strategy: Literal['clip', 'coverage'] = 'clip',
+    glow: LyricGlow = None,
+    settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `highlights` | `tuple[Highlight, ...] \| Callable[[LyricLine], tuple[Highlight, ...]]` | `required` |
+| `mode` | `Literal['union', 'priority', 'layer']` | `'union'` |
+| `strategy` | `Literal['clip', 'coverage']` | `'clip'` |
+| `glow` | `LyricGlow` | `None` |
+| `settings` | `RasterSettings` | `RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128)` |
+
+### LyricHighlights.apply
+
+Return decorated visuals, reserving each target's shifted pass intervals.
+
+Pass times use original source seconds. A copied target's delay shifts
+both rendering and required_display; source singing spans stay unchanged.
+
+```python
+LyricHighlights.apply(
+    line: LyricLine,
+) -> LyricLine
+```
+
+## LyricSweep
+
+Apply per-syllable singing sweeps to body and ruby, using Scene paint fields.
+
+Widths are soft-front widths in screen pixels; zero is a hard edge. Repeated
+singing restarts the sweep for the new interval. Zero-duration singing
+changes to the sung color at its exact start without reserving animation time. Translation and positive
+horizontal scaling follow the actual evaluated state; rotated/sheared fronts
+require an explicit custom material and raise instead of silently changing
+the effect. This is color replacement, not translucent overlay composition.
+Fill/outline may be factories receiving the measured line and semantic target;
+they resolve once per target when applying the sweep, not on every frame.
+A factory may return None to preserve that target's animated channel. If both
+channels are omitted, the target is left untouched, including its material.
+
+[Source](../../kara_templater/lyric_paint.py#L81)
+
+```python
+LyricSweep(
+    *,
+    fill: Color | Callable[[LyricLine, LyricTarget], Color | None] | None = None,
+    outline: Color | Callable[[LyricLine, LyricTarget], Color | None] | None = None,
+    width: float = 12,
+    outline_width: float | None = None,
+    step: int = 1,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `fill` | `Color \| Callable[[LyricLine, LyricTarget], Color \| None] \| None` | `None` |
+| `outline` | `Color \| Callable[[LyricLine, LyricTarget], Color \| None] \| None` | `None` |
+| `width` | `float` | `12` |
+| `outline_width` | `float \| None` | `None` |
+| `step` | `int` | `1` |
+
+### LyricSweep.apply
+
+Bind paint to measured clusters without splitting text or singing spans.
+
+```python
+LyricSweep.apply(
+    line: LyricLine,
+) -> LyricLine
+```
+
 ## MAGENTA
 
 Public constant:
 
 ```python
 MAGENTA = Color(red=255, green=0, blue=255)
-```
-
-## NumberStyle
-
-Public type alias:
-
-```python
-type NumberStyle = float | StyleKeyword
 ```
 
 ## ORANGE
@@ -598,7 +538,7 @@ Resolved fill, outline, border width, opacity, and optional glow for one drawing
 
 Distances use script pixels and opacity uses 0 through 1.
 
-[Source](../../kara_templater/composition.py#L76)
+[Source](../../kara_templater/composition.py#L71)
 
 ```python
 Paint(
@@ -619,6 +559,23 @@ Paint(
 | `border` | `float` | `0` |
 | `opacity` | `float` | `1` |
 | `glow` | `Glow \| None` | `None` |
+
+## PaintActivity
+
+Optional promise that a paint field is time-constant outside these spans.
+
+Intervals use signed local seconds, and their endpoints must also be breakpoints.
+Changes to the incoming VisualState are sampled independently. Omit this
+protocol when an arbitrary callback cannot make the constancy guarantee;
+the compiler then samples its complete visible lifetime.
+
+[Source](../../kara_templater/paint_fields.py#L70)
+
+### PaintActivity.active_intervals
+
+Finite positive-duration local intervals where time changes the field.
+
+Type: `tuple[TimeSpan, ...]`.
 
 ## PaintBand
 
@@ -646,45 +603,14 @@ PaintBand(
 | `fill` | `Color` | `required` |
 | `outline` | `Color` | `required` |
 
-## PaintBounds
-
-Required only when geometry callbacks have no statically known bound.
-
-[Source](../../kara_templater/material_animation.py#L160)
-
-```python
-PaintBounds(
-    *,
-    stroke_width: float | None = None,
-    blur_radius: float | None = None,
-    blur_width: float | None = None,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `stroke_width` | `float \| None` | `None` |
-| `blur_radius` | `float \| None` | `None` |
-| `blur_width` | `float \| None` | `None` |
-
-### PaintBounds.for_property
-
-Return the declared maximum for a bounded material property, if supplied.
-
-```python
-PaintBounds.for_property(
-    name: Literal['fill', 'stroke', 'stroke_width', 'blur_color', 'blur_radius', 'blur_width', 'blur_opacity'],
-) -> float | None
-```
-
 ## PaintField
 
 Pure local-time field. Bands must exactly partition the requested domain.
 
 Breakpoints delimit temporal discontinuities and changes of motion. An empty
 tuple declares a static field. max_bands bounds every invocation.
+Times are signed seconds from the owning object's clock origin; absolute
+breakpoints cannot precede Scene zero or exceed the object's display end.
 
 [Source](../../kara_templater/paint_fields.py#L39)
 
@@ -725,7 +651,7 @@ The unsung and sung Paint values for one visual target.
 
 Paint changes do not rewrite its source singing clock.
 
-[Source](../../kara_templater/appearance.py#L11)
+[Source](../../kara_templater/appearance.py#L8)
 
 ```python
 PaintPair(
@@ -741,71 +667,6 @@ PaintPair(
 | `before` | `Paint` | `Paint()` |
 | `after` | `Paint` | `Paint()` |
 
-## PaintStyle
-
-Track paint-only declarations for fill, stroke, width, opacity, and glow.
-
-It cannot change font layout; resolve produces a validated Paint.
-
-[Source](../../kara_templater/text_style.py#L68)
-
-```python
-PaintStyle(
-    *,
-    fill: ColorStyle = StyleKeyword.UNSET,
-    stroke: ColorStyle = StyleKeyword.UNSET,
-    stroke_width: NumberStyle = StyleKeyword.UNSET,
-    opacity: NumberStyle = StyleKeyword.UNSET,
-    blur: Blur | StyleKeyword | None = StyleKeyword.UNSET,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `fill` | `ColorStyle` | `StyleKeyword.UNSET` |
-| `stroke` | `ColorStyle` | `StyleKeyword.UNSET` |
-| `stroke_width` | `NumberStyle` | `StyleKeyword.UNSET` |
-| `opacity` | `NumberStyle` | `StyleKeyword.UNSET` |
-| `blur` | `Blur \| StyleKeyword \| None` | `StyleKeyword.UNSET` |
-
-### PaintStyle.resolve
-
-Resolve this sparse paint declaration against a base Paint and explicit inheritance source.
-
-```python
-PaintStyle.resolve(
-    base: Paint,
-    *,
-    inherited: Paint | None = None,
-) -> Paint
-```
-
-## PaintedRegion
-
-A disjoint highlighted body region with its paints ordered from bottom to top.
-
-It describes composition semantics before choosing an ASS encoding.
-
-[Source](../../kara_templater/composition.py#L113)
-
-```python
-PaintedRegion(
-    unit_index: int,
-    region: Region,
-    paints: tuple[Paint, ...],
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `unit_index` | `int` | `required` |
-| `region` | `Region` | `required` |
-| `paints` | `tuple[Paint, ...]` | `required` |
-
 ## RED
 
 Public constant:
@@ -814,131 +675,15 @@ Public constant:
 RED = Color(red=255, green=0, blue=0)
 ```
 
-## Ruby
-
-Track reading configuration with font/paint style, reading spans, vertical offset, and following policy.
-
-hide disables the reading while retaining its declaration.
-
-[Source](../../kara_templater/components.py#L137)
-
-```python
-Ruby(
-    *,
-    offset_y: float = 0,
-    follow: Literal['none', 'syllable'] | Follow = 'none',
-    style: TextStyle | None = None,
-    spans: Iterable[RubySpan] = (),
-    id: str | None = None,
-    classes: str | Iterable[str] = (),
-    fill: ColorStyle = StyleKeyword.UNSET,
-    stroke: ColorStyle = StyleKeyword.UNSET,
-    stroke_width: NumberStyle = StyleKeyword.UNSET,
-    opacity: NumberStyle = StyleKeyword.UNSET,
-    font_size: NumberStyle = StyleKeyword.UNSET,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `kind` | `str` | `instance attribute` |
-| `id` | `str \| None` | `instance attribute` |
-| `classes` | `set[str]` | `instance attribute` |
-| `children` | `tuple[Component, ...]` | `instance attribute` |
-| `parent` | `Component \| None` | `instance attribute` |
-| `attributes` | `dict[str, str \| int]` | `instance attribute` |
-
-### Ruby.add_class
-
-Add validated nonempty style class names and return this component.
-
-```python
-Ruby.add_class(
-    *names: str,
-) -> Self
-```
-
-### Ruby.hide
-
-Disable reading output while retaining its style and source-span declaration.
-
-```python
-Ruby.hide() -> None
-```
-
-### Ruby.walk
-
-Iterate this style component and its descendants in declaration order.
-
-```python
-Ruby.walk() -> Iterator[Component]
-```
-
-## RubyPaint
-
-An explicit paint pair for the reading at a unit and segment index.
-
-It overrides inherited body paint for that complete reading.
-
-[Source](../../kara_templater/appearance.py#L100)
-
-```python
-RubyPaint(
-    unit_index: int,
-    segment_index: int,
-    paints: PaintPair,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `unit_index` | `int` | `required` |
-| `segment_index` | `int` | `required` |
-| `paints` | `PaintPair` | `required` |
-
-## RubySpan
-
-A codepoint range within one source reading, independent of its layout.
-
-[Source](../../kara_templater/text_style.py#L170)
-
-```python
-RubySpan(
-    unit_index: int,
-    segment_index: int,
-    style: PaintStyle = PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET),
-    overlay: PaintStyle = PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET),
-    start: int = 0,
-    end: int | None = None,
-    classes: tuple[str, ...] = (),
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `unit_index` | `int` | `required` |
-| `segment_index` | `int` | `required` |
-| `style` | `PaintStyle` | `PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET)` |
-| `overlay` | `PaintStyle` | `PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET)` |
-| `start` | `int` | `0` |
-| `end` | `int \| None` | `None` |
-| `classes` | `tuple[str, ...]` | `()` |
-
 ## SoftSweep
 
 Left-to-right (or top-to-bottom) sweep; pairs are (unsung, sung).
 
 Widths are script pixels. The front travels past both ends so the declared
 span is completely unsung at start and completely sung at start+duration.
-start and duration are local seconds from the owning object's birth.
+start and duration are local seconds from the owning object's clock origin.
 
-[Source](../../kara_templater/paint_fields.py#L189)
+[Source](../../kara_templater/paint_fields.py#L207)
 
 ```python
 SoftSweep(
@@ -972,6 +717,12 @@ SoftSweep(
 | `axis` | `Literal['x', 'y']` | `'x'` |
 | `step` | `int` | `1` |
 | `rate` | `Callable[[float], float]` | `linear_rate` |
+
+### SoftSweep.active_intervals
+
+Only the sweep interval changes with time; both endpoints clamp.
+
+Type: `tuple[TimeSpan, ...]`.
 
 ### SoftSweep.bands
 
@@ -1023,275 +774,6 @@ The larger fill/outline transition width used to cover both sweep endpoints.
 
 Type: `float`.
 
-### SoftSweep.rate
-
-Return normalized Scene animation progress unchanged.
-
-```python
-SoftSweep.rate(
-    progress: float,
-) -> float
-```
-
-## StyleKeyword
-
-Explicit UNSET and INHERIT declarations for the style cascade.
-
-UNSET contributes no override; INHERIT reads the relevant source/parent value.
-
-[Source](../../kara_templater/stylesheet.py#L19)
-
-### Values
-
-- `StyleKeyword.INHERIT` = `'inherit'`
-- `StyleKeyword.UNSET` = `'unset'`
-
-## StyleOverrides
-
-Typed mutable base and sung-state style declarations.
-
-Only supported paint and font-size fields participate in the cascade.
-
-[Source](../../kara_templater/stylesheet.py#L160)
-
-```python
-StyleOverrides(
-    **values: Unpack[StyleProperties],
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `sung` | `StyleValues` | `instance attribute` |
-
-### StyleOverrides.fill
-
-Read or set the RGB fill declaration, including explicit style keywords.
-
-Type: `Color \| StyleKeyword`.
-
-### StyleOverrides.font_size
-
-Read or set the positive font-size declaration in script pixels or a style keyword.
-
-Type: `NumberStyle`.
-
-### StyleOverrides.opacity
-
-Read or set opacity in 0 through 1, including explicit style keywords.
-
-Type: `NumberStyle`.
-
-### StyleOverrides.stroke
-
-Read or set the RGB outline declaration, including explicit style keywords.
-
-Type: `Color \| StyleKeyword`.
-
-### StyleOverrides.stroke_width
-
-Read or set the nonnegative outline-width declaration in script pixels or a style keyword.
-
-Type: `NumberStyle`.
-
-## StyleProperties
-
-Typed optional style-declaration keys used by constructors and rule().
-
-Color and scalar fields retain explicit UNSET/INHERIT support.
-
-[Source](../../kara_templater/stylesheet.py#L60)
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `fill` | `ColorStyle` | `optional key` |
-| `stroke` | `ColorStyle` | `optional key` |
-| `stroke_width` | `NumberStyle` | `optional key` |
-| `opacity` | `NumberStyle` | `optional key` |
-| `font_size` | `NumberStyle` | `optional key` |
-
-## StyleSheet
-
-An immutable ordered collection of selector rules for Track components and
-
-source ranges. Rules combine specificity with explicit declarations and sung-
-state scope.
-
-[Source](../../kara_templater/stylesheet.py#L275)
-
-```python
-StyleSheet(
-    *rules: StyleRule,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `rules` | `tuple[StyleRule, ...]` | `required` |
-
-## StyleValues
-
-Explicit declarations. Assigning UNSET removes this level's override.
-
-[Source](../../kara_templater/stylesheet.py#L133)
-
-```python
-StyleValues(
-    **values: Unpack[StyleProperties],
-)
-```
-
-### StyleValues.fill
-
-Read or set the RGB fill declaration, including explicit style keywords.
-
-Type: `Color \| StyleKeyword`.
-
-### StyleValues.font_size
-
-Read or set the positive font-size declaration in script pixels or a style keyword.
-
-Type: `NumberStyle`.
-
-### StyleValues.opacity
-
-Read or set opacity in 0 through 1, including explicit style keywords.
-
-Type: `NumberStyle`.
-
-### StyleValues.stroke
-
-Read or set the RGB outline declaration, including explicit style keywords.
-
-Type: `Color \| StyleKeyword`.
-
-### StyleValues.stroke_width
-
-Read or set the nonnegative outline-width declaration in script pixels or a style keyword.
-
-Type: `NumberStyle`.
-
-## TextSpan
-
-Codepoint range in the complete body text; later spans take precedence.
-
-[Source](../../kara_templater/text_style.py#L143)
-
-```python
-TextSpan(
-    start: int,
-    end: int,
-    style: PaintStyle = PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET),
-    overlay: PaintStyle = PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET),
-    classes: tuple[str, ...] = (),
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `start` | `int` | `required` |
-| `end` | `int` | `required` |
-| `style` | `PaintStyle` | `PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET)` |
-| `overlay` | `PaintStyle` | `PaintStyle(fill=StyleKeyword.UNSET, stroke=StyleKeyword.UNSET, stroke_width=StyleKeyword.UNSET, opacity=StyleKeyword.UNSET, blur=StyleKeyword.UNSET)` |
-| `classes` | `tuple[str, ...]` | `()` |
-
-## TextStyle
-
-Track text appearance with PaintStyle fields plus optional font size, family, and spacing.
-
-Layout-changing values are applied before measurement.
-
-[Source](../../kara_templater/text_style.py#L112)
-
-```python
-TextStyle(
-    *,
-    fill: ColorStyle = StyleKeyword.UNSET,
-    stroke: ColorStyle = StyleKeyword.UNSET,
-    stroke_width: NumberStyle = StyleKeyword.UNSET,
-    opacity: NumberStyle = StyleKeyword.UNSET,
-    blur: Blur | StyleKeyword | None = StyleKeyword.UNSET,
-    font_size: NumberStyle = StyleKeyword.UNSET,
-    font_name: str | None = None,
-    spacing: float | None = None,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `fill` | `ColorStyle` | `StyleKeyword.UNSET` |
-| `stroke` | `ColorStyle` | `StyleKeyword.UNSET` |
-| `stroke_width` | `NumberStyle` | `StyleKeyword.UNSET` |
-| `opacity` | `NumberStyle` | `StyleKeyword.UNSET` |
-| `blur` | `Blur \| StyleKeyword \| None` | `StyleKeyword.UNSET` |
-| `font_size` | `NumberStyle` | `StyleKeyword.UNSET` |
-| `font_name` | `str \| None` | `None` |
-| `spacing` | `float \| None` | `None` |
-
-### TextStyle.apply_to_style
-
-Apply layout-affecting font size, family, and spacing before text measurement.
-
-```python
-TextStyle.apply_to_style(
-    style: Style,
-) -> Style
-```
-
-### TextStyle.resolve
-
-Resolve this sparse paint declaration against a base Paint and explicit inheritance source.
-
-```python
-TextStyle.resolve(
-    base: Paint,
-    *,
-    inherited: Paint | None = None,
-) -> Paint
-```
-
-## TrackPaint
-
-A HighlightTrack paired with a resolved Paint and integer composition priority.
-
-It is consumed by the low-level highlight compositor.
-
-[Source](../../kara_templater/composition.py#L97)
-
-```python
-TrackPaint(
-    track: HighlightTrack,
-    paint: Paint,
-    priority: int = 0,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `track` | `HighlightTrack` | `required` |
-| `paint` | `Paint` | `required` |
-| `priority` | `int` | `0` |
-
-## UNSET
-
-Public constant:
-
-```python
-UNSET = StyleKeyword.UNSET
-```
-
 ## WHITE
 
 Public constant:
@@ -1306,75 +788,4 @@ Public constant:
 
 ```python
 YELLOW = Color(red=255, green=255, blue=0)
-```
-
-## compose_highlights
-
-Resolve disjoint body regions; paints are ordered bottom to top.
-
-union requires identical appearance at overlaps. priority picks the highest
-priority and rejects conflicting ties. layer requires distinct priorities at
-overlaps and retains every paint, including intentional duplicate opacity.
-Before-singing paint is outside this operation and is drawn once per target.
-
-[Source](../../kara_templater/composition.py#L125)
-
-```python
-compose_highlights(
-    layers: tuple[TrackPaint, ...],
-    time_ms: float,
-    *,
-    overlap: str,
-) -> tuple[PaintedRegion, ...]
-```
-
-## resolve_paints
-
-Precedence: line defaults, source spans, then explicit track override.
-
-Equal-priority spans conflict only if they specify different values for the
-same before/after state. Every range must preserve drawable clusters.
-
-[Source](../../kara_templater/appearance.py#L59)
-
-```python
-resolve_paints(
-    characters: tuple[DrawableCharacter, ...],
-    *,
-    default: PaintPair = PaintPair(before=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, opacity=1, glow=None), after=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, opacity=1, glow=None)),
-    spans: tuple[ColorSpan, ...] = (),
-) -> tuple[CharacterPaint, ...]
-```
-
-## resolve_ruby_paints
-
-Inherit homogeneous associated body appearance, otherwise require a map.
-
-Ruby is associated through its measured segment partition, never a second
-text layout. Explicit overrides can assign one pair to each reading segment.
-
-[Source](../../kara_templater/appearance.py#L112)
-
-```python
-resolve_ruby_paints(
-    layout: LaidOutLine,
-    characters: tuple[CharacterPaint, ...],
-    *,
-    overrides: tuple[RubyPaint, ...] = (),
-) -> tuple[RubyPaint, ...]
-```
-
-## rule
-
-Build a validated selector rule from typed style declarations.
-
-Supported selectors identify roles, IDs, classes, attributes, and sung state.
-
-[Source](../../kara_templater/stylesheet.py#L264)
-
-```python
-rule(
-    selector: str,
-    **properties: Unpack[StyleProperties],
-) -> StyleRule
 ```

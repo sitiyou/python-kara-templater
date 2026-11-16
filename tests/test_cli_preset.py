@@ -1,0 +1,127 @@
+"""The CLI recipe preserves source placement/clocks through common orchestration."""
+
+from dataclasses import replace
+from typing import Literal
+
+import pytest
+
+from kara_templater import Document, Line, Style
+from kara_templater._cli_preset import preset_scene
+from kara_templater._raster import rasterize
+
+
+def preset(
+    document: Document,
+    *,
+    pulse: Literal["none", "char", "chars", "syllable"] = "none",
+    fade_in: float = 0,
+    fade_out: float = 0,
+    preview: float = 0,
+    tail: float = 0,
+    styles: tuple[str, ...] | None = None,
+):
+    return preset_scene(
+        document,
+        owner="preset-test",
+        before=None,
+        after=None,
+        pulse=pulse,
+        fade_in=fade_in,
+        fade_out=fade_out,
+        preview=preview,
+        tail=tail,
+        styles=styles,
+        raster=None,
+    )
+
+
+@pytest.mark.parametrize("alignment", range(1, 10))
+def test_source_alignment_and_event_margins_survive_common_allocation(alignment):
+    document = Document.create(
+        width=320,
+        height=180,
+        styles=(
+            Style(
+                fontname="DejaVu Sans",
+                fontsize=24,
+                align=alignment,
+                outline=0,
+                shadow=0,
+            ),
+        ),
+    )
+    document.records.append(
+        Line(
+            text=r"{\k100}AB",
+            start_time=1000,
+            end_time=3000,
+            margin_l=35,
+            margin_r=45,
+            margin_v=25,
+        )
+    )
+    scene = preset(document, preview=0.2, tail=0.4, fade_in=0.1, fade_out=0.2)
+    plan = scene.plans[0]
+    x = plan.placement.position.x + plan.input.bounds.left
+    y = plan.placement.position.y + plan.input.bounds.top
+    column, row = (alignment - 1) % 3, (alignment - 1) // 3
+    width, height = plan.input.bounds.width, plan.input.bounds.height
+    assert x == pytest.approx((35, (320 - width) / 2, 320 - 45 - width)[column])
+    assert y == pytest.approx((180 - 25 - height, (180 - height) / 2, 25)[row])
+    assert plan.placement.display.start == 0.8
+    assert plan.placement.display.end == 3.4
+    assert [(s.start, s.end) for s in plan.line.query("syllable")[0].singing] == [
+        (1, 2)
+    ]
+
+
+@pytest.mark.parametrize("decimal", (False, True))
+def test_fill_alpha_and_instantaneous_highlight_render_without_style_mutation(decimal):
+    style = Style(
+        fontname="DejaVu Sans",
+        fontsize=24,
+        shadow=0,
+        outline=0,
+    )
+    document = Document.create(width=96, height=64, styles=(style,))
+    document.styles["Default"].fields.update(
+        PrimaryColour=str(0x800000FF - 2**32) if decimal else "&H800000FF",
+        SecondaryColour=str(0xC000FF00) if decimal else "&HC000FF00",
+    )
+    document.records.append(Line(text=r"{\kt100\k0}A", start_time=0, end_time=2000))
+    original = document.dumps()
+    scene = preset(document, pulse="char")
+    span = scene.lines[0].query("character")[0].singing[0]
+    assert span.start == span.end == 1
+    result = scene.compile()
+    before = rasterize(result.document.dumps(), 500, (96, 64)).rgba
+    after = rasterize(result.document.dumps(), 1500, (96, 64)).rgba
+    assert max(before[3::4]) == pytest.approx(63, abs=1)
+    assert max(after[3::4]) == pytest.approx(127, abs=1)
+    assert document.dumps() == original
+
+
+def test_changing_style_selection_restores_unselected_source_and_preserves_other_events():
+    style = Style(fontname="DejaVu Sans", fontsize=20, shadow=0, outline=0)
+    document = Document.create(
+        width=320, height=180, styles=(style, replace(style, name="Other"))
+    )
+    document.records.extend(
+        (
+            Line(text=r"{\k100}A", start_time=1000, end_time=2000),
+            Line(text=r"{\k100}B", style="Other", start_time=3000, end_time=4000),
+            Line(text="untimed caption", start_time=0, end_time=500),
+        )
+    )
+    first = preset(document, styles=("Default",)).compile().document
+    second = preset(first, styles=("Other",)).compile().document
+    assert any(not line.comment and line.text == r"{\k100}A" for line in second.lines)
+    assert any(
+        not line.comment and line.text == "untimed caption" for line in second.lines
+    )
+    assert not any(
+        not line.comment and line.text == r"{\k100}B" for line in second.lines
+    )
+    assert (
+        preset(second, styles=("Other",)).compile().document.dumps() == second.dumps()
+    )

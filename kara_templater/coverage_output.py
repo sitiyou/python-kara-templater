@@ -1,25 +1,31 @@
 """Document-backed, explicitly sampled coverage materials → standard ASS."""
 
-from collections.abc import Collection, Mapping
-from copy import deepcopy
 from dataclasses import dataclass, replace
-from hashlib import sha256
-from math import ceil
+from math import ceil, isclose
 
 from ._raster import PositionedFrame, encode_frame, quantize_frame
+from ._raster_alpha import apply_opacity
 from ._scene_coverage import SceneCoverageSampler
-from .ass import Document, Line, Style
-from .composition import Glow
-from .coverage_animation import CoveragePartition, GlowFunction, ScopeOpacity
-from .paint_fields import PaintField
+from .ass import Line
+from .coverage_animation import GlowFunction
 from .raster_settings import RasterSettings
-from .scene import NativeEvent, ObjectGroup, PathObject, Scene, SceneObject
+from .scene import ObjectGroup, PathObject, SceneObject
+from .scene_animation import (
+    AnimationClip,
+    AnimationSequence,
+    FadeIn,
+    FadeOut,
+    Tween,
+    evaluate_clips,
+    linear_rate,
+    local_seconds,
+)
+from .scene_evaluation import SceneEvaluator
 from .scene_output import (
     SceneBudget,
     SceneCompileError,
-    SceneResult,
     _centiseconds,
-    _insert_events,
+    _expanded_clips,
 )
 from .sources import EventOrigin
 from .timeline import DisplayWindow
@@ -28,29 +34,89 @@ _DEFAULT_SETTINGS = RasterSettings()
 _DEFAULT_BUDGET = SceneBudget()
 
 
-@dataclass(frozen=True)
-class CoverageResult:
-    """Compiled output and the actual midpoint samples (absolute seconds).
+def _opacity_curve(group: ObjectGroup) -> tuple[tuple[int, float], ...] | None:
+    """Prove a continuous piecewise-linear curve without author callbacks."""
 
-    max_channel_error bounds spatial color quantization only. Temporal motion
-    is held between samples; no continuous-time image error bound is implied.
-    """
+    def known(clip: AnimationClip) -> bool:
+        animation = clip.animation
+        if "opacity" not in animation.channels:
+            return True
+        if type(animation) is AnimationSequence:
+            assert isinstance(animation, AnimationSequence)
+            return clip.hold and all(known(child) for child in animation.clips)
+        return type(animation) in (Tween, FadeIn, FadeOut)
 
-    output: SceneResult
-    sample_times: tuple[float, ...]
-    max_channel_error: int
+    if not all(known(clip) for clip in group.animations):
+        return None
+    clips = tuple(
+        clip
+        for clip in _expanded_clips(group.animations)
+        if "opacity" in clip.animation.channels
+    )
+    if not clips:
+        return None
+    for clip in clips:
+        animation = clip.animation
+        if type(animation) not in (Tween, FadeIn, FadeOut):
+            return None
+        assert isinstance(animation, (Tween, FadeIn, FadeOut))
+        if animation.rate is not linear_rate:
+            return None
+    start = group.lifetime.start
+    offset = local_seconds(start, group.time_origin)
+    duration = local_seconds(group.lifetime.end, start)
+    knots = sorted(
+        {
+            0.0,
+            duration,
+            *(
+                value
+                for clip in clips
+                for value in (clip.start - offset, clip.end - offset)
+                if 0 < value < duration
+            ),
+        }
+    )
+    if any(abs(start + t - _centiseconds(start + t) / 100) > 1e-8 for t in knots):
+        return None
 
-    @property
-    def document(self) -> Document:
-        """The standard ASS Document produced by coverage compilation."""
-        return self.output.document
+    def value(time: float) -> float:
+        return evaluate_clips(group.state, clips, time + offset).opacity
+
+    # Known curves are linear inside each interval. Derive their left endpoint
+    # from the midpoint, rather than nextafter: the common clock intentionally
+    # treats adjacent floating-point values as the same 1e-10s instant.
+    left_values = tuple(
+        2 * value((a + b) / 2) - value(a)
+        for a, b in zip(knots, knots[1:], strict=False)
+    )
+    for local, left in zip(knots[1:-1], left_values, strict=False):
+        if not isclose(
+            left,
+            value(local),
+            rel_tol=0,
+            abs_tol=1e-12,
+        ):
+            return None
+    return tuple(
+        (
+            _centiseconds(start + time) * 10,
+            min(1, max(0, left_values[-1])) if time == duration else value(time),
+        )
+        for time in knots
+    )
 
 
 def _sample_grid(
-    sampler: SceneCoverageSampler, settings: RasterSettings, budget: SceneBudget
+    sampler: SceneCoverageSampler,
+    settings: RasterSettings,
+    budget: SceneBudget,
+    interval: tuple[float, float] | None = None,
 ) -> tuple[tuple[int, ...], float]:
     group = sampler.group
-    start, end = map(_centiseconds, (group.lifetime.start, group.lifetime.end))
+    start, end = map(
+        _centiseconds, interval or (group.lifetime.start, group.lifetime.end)
+    )
     frames = ceil((end - start) / 100 * budget.fps)
     if end <= start or frames > settings.max_frames:
         raise SceneCompileError(
@@ -63,11 +129,11 @@ def _sample_grid(
     def visit(node: SceneObject) -> None:
         times.update(sampler.evaluator.breakpoints(node.id))
         if node.clip is not None and node.clip.deform is not None:
-            times.update(node.lifetime.start + t for t in node.clip.deform.breakpoints)
+            times.update(node.time_origin + t for t in node.clip.deform.breakpoints)
         if node.material is not None:
-            times.update(node.lifetime.start + t for t in node.material.breakpoints)
+            times.update(node.time_origin + t for t in node.material.breakpoints)
         if isinstance(node, PathObject) and node.deform is not None:
-            times.update(node.lifetime.start + t for t in node.deform.breakpoints)
+            times.update(node.time_origin + t for t in node.deform.breakpoints)
         if isinstance(node, ObjectGroup):
             for child in node.children:
                 visit(child)
@@ -80,7 +146,7 @@ def _sample_grid(
                 object_id=name,
                 origin=leaf.node.origin,
             )
-        birth = leaf.node.lifetime.start
+        birth = leaf.node.time_origin
         glow = sampler.glows.get(name)
         if isinstance(glow, GlowFunction):
             times.update(birth + t for t in glow.breakpoints)
@@ -93,7 +159,7 @@ def _sample_grid(
         owners = {node.id: node for node in (*leaf.parents, leaf.node)}
         for rule in sampler.scope_opacities.get(name, ()):
             times.update(
-                owners[rule.owner].lifetime.start + t for t in rule.breakpoints
+                owners[rule.owner].time_origin + t for t in rule.breakpoints
             )
     points = {start, end}
     points.update(_centiseconds(start / 100 + i / budget.fps) for i in range(1, frames))
@@ -108,60 +174,77 @@ def _sample_grid(
     return tuple(sorted(points)), error
 
 
-def compile_coverage(
-    document: Document,
+@dataclass(frozen=True)
+class _CoverageOutput:
+    events: tuple[Line, ...]
+    origin: EventOrigin | None
+    sample_times: tuple[float, ...]
+    max_channel_error: int
+    time_error: float
+    native_opacity: bool
+
+
+@dataclass(frozen=True)
+class _PreparedCoverage:
+    group: ObjectGroup
+    sampler: SceneCoverageSampler
+    points: tuple[int, ...]
+    time_error: float
+    has_parents: bool
+
+
+def _prepare_coverage(
     group: ObjectGroup,
     *,
-    glows: Mapping[str, Glow | GlowFunction] | None = None,
-    glow_materials: Mapping[str, PaintField] | None = None,
-    components: Collection[str] = (),
-    scope_opacities: Mapping[str, tuple[ScopeOpacity, ...]] | None = None,
-    partitions: Mapping[str, CoveragePartition] | None = None,
-    replace_records: Collection[int] = (),
-    owner: str = "coverage",
-    settings: RasterSettings = _DEFAULT_SETTINGS,
-    budget: SceneBudget = _DEFAULT_BUDGET,
-) -> CoverageResult:
-    """Compile one self-contained group without modifying its input Document.
-
-    Sources survive unless explicitly selected by record index. Recompiling with
-    the same owner replaces that owner's generated events. Fill, stroke and
-    explicit glow share coverage before blur; ordinary groups close alpha scopes.
-    Configuration keys are object identities and must be remapped when copying.
-    All output is standard ASS, sampled at script resolution and held on an ASS
-    centisecond grid. Declared discontinuities split that grid before callbacks.
-    """
-    if not owner:
-        raise ValueError("coverage owner must be nonempty")
-    source = deepcopy(document)
-    meta = Document.parse(source.dumps()).meta
-    resolution = (meta.res_x, meta.res_y)
-    scene = Scene(source, owner=owner)
-    for index in replace_records:
-        scene.replace_source(index)
-    style = Style(
-        name="KaraCoverage_" + sha256(owner.encode()).hexdigest()[:12],
-        outline=0,
-        shadow=0,
-        align=7,
-    )
-    if (
-        style.name in source.styles
-        and source.styles[style.name].serialize() != style.serialize()
-    ):
-        raise SceneCompileError("coverage style collides with a different source style")
+    resolution: tuple[int, int],
+    budget: SceneBudget,
+    parents: tuple[ObjectGroup, ...] = (),
+    interval: tuple[float, float] | None = None,
+    evaluator: SceneEvaluator | None = None,
+) -> _PreparedCoverage:
+    """Validate coverage and plan its sample grid without running callbacks."""
+    config = group.coverage
+    assert config is not None
+    settings = config.settings
+    branch = replace(group, coverage=None)
+    for parent in reversed(parents):
+        branch = replace(parent, children=(branch,))
     sampler = SceneCoverageSampler(
-        group,
+        branch,
+        evaluator=evaluator,
         resolution=resolution,
-        glows={} if glows is None else glows,
-        glow_materials=glow_materials,
-        components=components,
-        scope_opacities=scope_opacities,
-        partitions=partitions,
+        glows=config.glows,
+        glow_materials=config.glow_materials,
+        components=config.components,
+        scope_opacities=config.scope_opacities,
+        partitions=config.partitions,
         settings=settings,
         budget=budget,
     )
-    points, time_error = _sample_grid(sampler, settings, budget)
+    points, time_error = _sample_grid(sampler, settings, budget, interval)
+    return _PreparedCoverage(group, sampler, points, time_error, bool(parents))
+
+
+def _lower_coverage(
+    prepared: _PreparedCoverage, *, style: str, native_tweens: bool = False
+) -> _CoverageOutput:
+    """Sample the validated plan and encode its composed pixels as standard ASS."""
+    group, sampler = prepared.group, prepared.sampler
+    config = group.coverage
+    assert config is not None
+    settings, budget = config.settings, sampler.budget
+    resolution = sampler.resolution
+    points, time_error = prepared.points, prepared.time_error
+    # Parent and per-material weighted alpha need a separate factorization proof.
+    # Unsupported declarations retain the normal sampled composition semantics.
+    curve = (
+        _opacity_curve(group)
+        if native_tweens
+        and not prepared.has_parents
+        and not any(config.scope_opacities.values())
+        else None
+    )
+    sampler.exclude_root_opacity = curve is not None
     origins = tuple(
         leaf.node.origin
         for leaf in sampler.leaves.values()
@@ -177,6 +260,7 @@ def compile_coverage(
     previous: PositionedFrame | None = None
     pending: dict[str, Line] = {}
     count = characters = 0
+    events: list[Line] = []
     for left, right in zip(points, points[1:], strict=False):
         frame = sampler.frame((left + right) / 200)
         if frame is not None:
@@ -196,7 +280,7 @@ def compile_coverage(
             else encode_frame(
                 frame[2],
                 DisplayWindow(left * 10, right * 10),
-                style=style.name,
+                style=style,
                 position=(frame[0], frame[1]),
                 resolution=resolution,
                 neutral_style=True,
@@ -217,29 +301,39 @@ def compile_coverage(
             current[event.text] = event
             count += 1
             characters += len(event.text)
-            if count * 2 > budget.max_events or characters > settings.max_output_chars:
+            if count > budget.max_events or characters > settings.max_output_chars:
                 raise SceneCompileError(
                     "coverage output budget exceeded", object_id=group.id
                 )
             event.layer = group.layer
-            scene.add(NativeEvent(f"{group.id}/pixel:{count}", event, origin))
+            events.append(event)
         pending = current
-    # Insert after source index selection; the compiler consumes those indices
-    # before installing generated styles. Adding a style here would shift them.
-    output = scene.compile(budget=budget)
-    _insert_events(output.document, [], style)
-    byte_count = len(output.document.dumps().encode("utf-8")) + 3
-    if byte_count > budget.max_bytes:
-        raise SceneCompileError(
-            "coverage final byte budget exceeded", object_id=group.id
-        )
-    output = replace(
-        output,
-        byte_count=byte_count,
-        max_time_quantization=max(output.max_time_quantization, time_error),
-    )
-    return CoverageResult(
-        output,
+    if curve is not None:
+        characters = 0
+        changes: list[tuple[float, int]] = []
+        for event in events:
+            event.text = apply_opacity(event.text, round(event.start_time), curve)
+            size = len(event.text)
+            characters += size
+            changes.extend(((event.start_time, size), (event.end_time, -size)))
+        if characters > settings.max_output_chars:
+            raise SceneCompileError(
+                "coverage output budget exceeded after opacity lowering",
+                object_id=group.id,
+            )
+        active = 0
+        for _, delta in sorted(changes):
+            active += delta
+            if active > settings.max_frame_chars:
+                raise SceneCompileError(
+                    "coverage frame character budget exceeded after opacity lowering",
+                    object_id=group.id,
+                )
+    return _CoverageOutput(
+        tuple(events),
+        origin,
         tuple((a + b) / 200 for a, b in zip(points, points[1:], strict=False)),
         settings.max_channel_error,
+        time_error,
+        curve is not None,
     )

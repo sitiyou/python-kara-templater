@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from typing import Literal, Protocol
+from math import pi, sin
+from typing import Literal, Protocol, runtime_checkable
 
 from .composition import Color
 from .geometry import Affine2D, Vec2, finite
@@ -57,6 +58,32 @@ def smooth_rate(progress: float) -> float:
 
 
 @dataclass(frozen=True)
+class TimeSpan:
+    """A finite seconds interval, including zero-length singing spans.
+
+    The binding context determines whether its endpoints are absolute or local.
+    """
+
+    start: float
+    end: float
+
+    def __post_init__(self) -> None:
+        finite(self.start, self.end)
+        if self.end < self.start:
+            raise ValueError("interval end must not precede start")
+
+    @property
+    def duration(self) -> float:
+        """The seconds difference between end and start."""
+        return self.end - self.start
+
+    @property
+    def interval(self) -> TimeSpan:
+        """This seconds interval, suitable for Timeline.play(during=...)."""
+        return self
+
+
+@dataclass(frozen=True)
 class VisualState:
     """Finite drawing state in script pixels, degrees, RGB colors, and opacity 0 through 1.
 
@@ -76,6 +103,15 @@ class VisualState:
     shadow: Vec2 = Vec2()
 
     def __post_init__(self) -> None:
+        if not isinstance(self.fill, Color) or not isinstance(self.outline, Color):
+            raise TypeError("visual fill and outline must be Color values")
+        if any(
+            not isinstance(value, Vec2)
+            for value in (self.position, self.scale, self.skew, self.shadow)
+        ):
+            raise TypeError(
+                "visual position, scale, skew and shadow must be Vec2 values"
+            )
         finite(self.rotation, self.opacity, self.border, self.blur)
         if not 0 <= self.opacity <= 1 or self.border < 0 or self.blur < 0:
             raise ValueError("opacity must be in 0..1, border/blur must be nonnegative")
@@ -163,6 +199,7 @@ class StatePatch:
         )
 
 
+@runtime_checkable
 class StateAnimation(Protocol):
     """Protocol for a pure normalized-progress state animation with explicitly declared written channels.
 
@@ -202,6 +239,98 @@ class Tween:
 
 
 @dataclass(frozen=True)
+class FadeIn:
+    """Reveal the incoming opacity from zero, using normalized progress.
+
+    The final opacity is the captured base opacity, including any prior held
+    animation. This works identically on a drawing or a visual parent.
+    """
+
+    rate: Callable[[float], float] = linear_rate
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Only opacity is written."""
+        return frozenset(("opacity",))
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Reveal the captured opacity without changing other channels."""
+        return replace(base, opacity=base.opacity * self.rate(progress))
+
+
+@dataclass(frozen=True)
+class FadeOut:
+    """Reduce the incoming opacity to zero, using normalized progress."""
+
+    rate: Callable[[float], float] = linear_rate
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Only opacity is written."""
+        return frozenset(("opacity",))
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Fade the captured opacity without changing other channels."""
+        return replace(base, opacity=base.opacity * (1 - self.rate(progress)))
+
+
+@dataclass(frozen=True)
+class Jump:
+    """Move up and return to the captured position over normalized progress.
+
+    Height is in script pixels; a negative height moves downward. Durations and
+    lyric singing anchors belong to clip binding, not to this animation.
+    """
+
+    height: float = 12
+
+    def __post_init__(self) -> None:
+        finite(self.height)
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Only position is written."""
+        return frozenset(("position",))
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Return the captured position exactly at both endpoints."""
+        offset = 0.0 if progress in (0, 1) else -self.height * sin(pi * progress)
+        return replace(base, position=base.position + Vec2(0, offset))
+
+
+@dataclass(frozen=True)
+class ScalePulse:
+    """Scale up and back around a fixed local pivot over normalized progress.
+
+    peak multiplies the captured scale; values between zero and one shrink.
+    The peak occurs halfway through the clip. Position is adjusted to preserve
+    the pivot under existing scale, rotation and skew. Binding chooses duration
+    and lyric anchors; this animation works on ordinary objects and groups too.
+    """
+
+    pivot: Vec2 = Vec2()
+    peak: float = 1.1
+
+    def __post_init__(self) -> None:
+        finite(self.peak)
+        if self.peak <= 0:
+            raise ValueError("pulse peak must be positive")
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Scale and pivot compensation both participate in conflict detection."""
+        return frozenset(("position", "scale"))
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Return the captured state at endpoints and preserve all other channels."""
+        finite(progress)
+        factor = 1 + (self.peak - 1) * (1 - abs(2 * progress - 1))
+        scaled = replace(base, scale=base.scale * factor)
+        shift = base.transform.apply(self.pivot) - scaled.transform.apply(self.pivot)
+        return replace(scaled, position=base.position + shift)
+
+
+@dataclass(frozen=True)
 class StateKeyframe:
     """A target reached at a positive local time, with an incoming easing curve."""
 
@@ -233,7 +362,10 @@ class StateFunction:
 
     def sample(self, base: VisualState, progress: float) -> VisualState:
         """Call the custom normalized-progress evaluator with the incoming visual state."""
-        return self.function(base, progress)
+        value = self.function(base, progress)
+        if not isinstance(value, VisualState):
+            raise TypeError("state function must return VisualState")
+        return value
 
 
 @dataclass(frozen=True)
@@ -251,6 +383,22 @@ class AnimationClip:
     breakpoints: tuple[float, ...] = ()
 
     def __post_init__(self) -> None:
+        if isinstance(self.animation, AnimationSequence):
+            object.__setattr__(
+                self,
+                "breakpoints",
+                tuple(
+                    sorted(
+                        {
+                            *self.breakpoints,
+                            *(
+                                value * self.duration
+                                for value in self.animation.breakpoints
+                            ),
+                        }
+                    )
+                ),
+            )
         finite(self.start, self.duration, *self.breakpoints)
         if any(t < 0 or t > self.duration for t in self.breakpoints):
             raise ValueError("animation breakpoint outside its local duration")
@@ -288,7 +436,9 @@ def merge_channels(
 def validate_clips(clips: tuple[AnimationClip, ...]) -> None:
     for index, clip in enumerate(clips):
         for other in clips[index + 1 :]:
-            if max(clip.start, other.start) < min(clip.end, other.end):
+            if max(local_seconds(clip.start, 0), local_seconds(other.start, 0)) < min(
+                local_seconds(clip.end, 0), local_seconds(other.end, 0)
+            ):
                 conflict = clip.animation.channels & other.animation.channels
                 if conflict:
                     raise ValueError(
@@ -308,11 +458,17 @@ def evaluate_clips(
     captured: list[VisualState] = []
 
     def evaluate_prefix(at: float, count: int) -> VisualState:
+        # The same 1e-10s clock used by node seeking must also apply to authored
+        # boundaries: .1 + .2 and a seek to .3 denote the same instant.
+        at = local_seconds(at, 0)
         result = base
         for index, clip in enumerate(ordered[:count]):
-            if at < clip.start or (at >= clip.end and not clip.hold):
+            start, end = local_seconds(clip.start, 0), local_seconds(clip.end, 0)
+            if at < start or (at >= end and not clip.hold):
                 continue
-            progress = min(1, (at - clip.start) / clip.duration)
+            progress = (
+                1 if at >= end else min(1, local_seconds(at, start) / clip.duration)
+            )
             value = clip.animation.sample(captured[index], progress)
             result = merge_channels(result, value, clip.animation.channels)
         return result
@@ -322,7 +478,7 @@ def evaluate_clips(
     return evaluate_prefix(time, len(ordered))
 
 
-class SceneTimeline:
+class Timeline:
     """Author sequential/parallel plays. Times are local to the object's birth."""
 
     def __init__(self) -> None:
@@ -336,7 +492,7 @@ class SceneTimeline:
         at: float | None = None,
         hold: bool = True,
         breakpoints: tuple[float, ...] = (),
-    ) -> SceneTimeline:
+    ) -> Timeline:
         """Schedule animations; breakpoints are seconds from this play's start.
 
         All parallel animations receive these sampling boundaries. Repeating the
@@ -354,7 +510,7 @@ class SceneTimeline:
         self._cursor = max(self._cursor, start + duration)
         return self
 
-    def wait(self, duration: float) -> SceneTimeline:
+    def wait(self, duration: float) -> Timeline:
         """Advance the local seconds cursor without scheduling an animation."""
         finite(duration)
         if duration < 0:
@@ -362,9 +518,7 @@ class SceneTimeline:
         self._cursor += duration
         return self
 
-    def keyframes(
-        self, *frames: StateKeyframe, at: float | None = None
-    ) -> SceneTimeline:
+    def keyframes(self, *frames: StateKeyframe, at: float | None = None) -> Timeline:
         """Reach successive targets at local seconds, retaining completed values.
 
         Times must increase strictly from zero. Each frame interpolates its
@@ -393,7 +547,7 @@ class SceneTimeline:
         self._cursor = max(self._cursor, start + previous)
         return self
 
-    def repeat(self, count: int) -> SceneTimeline:
+    def repeat(self, count: int) -> Timeline:
         """Repeat a complete schedule while preserving clip-local clocks and breakpoints."""
         if type(count) is not int or count < 1 or self._cursor <= 0:
             raise ValueError("repeat requires a positive count and nonempty duration")
@@ -410,6 +564,64 @@ class SceneTimeline:
     def clips(self) -> tuple[AnimationClip, ...]:
         """The validated immutable AnimationClip schedule for assignment to an object."""
         return tuple(self._clips)
+
+    @property
+    def animation(self) -> AnimationSequence:
+        """Freeze this schedule as an animation reusable on any visual target.
+
+        The containing clip's duration scales the entire schedule, including
+        waits and repeats. Interior boundaries propagate into ordinary sampling.
+        """
+        return AnimationSequence(tuple(self._clips), self._cursor)
+
+
+@dataclass(frozen=True)
+class AnimationSequence:
+    """A nested schedule evaluated by the same clip evaluator as a visual node.
+
+    Build through Timeline.animation. Duration is the schedule's local length;
+    normalized outer progress maps onto that length. There is no secondary
+    evaluator or incremental playback state.
+    """
+
+    clips: tuple[AnimationClip, ...]
+    duration: float
+
+    def __post_init__(self) -> None:
+        finite(self.duration)
+        if self.duration <= 0 or not self.clips:
+            raise ValueError("animation sequence needs clips and positive duration")
+        validate_clips(self.clips)
+        if any(clip.end > self.duration for clip in self.clips):
+            raise ValueError("sequence clip extends beyond its duration")
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """All channels written by the schedule."""
+        return frozenset(
+            channel for clip in self.clips for channel in clip.animation.channels
+        )
+
+    @property
+    def breakpoints(self) -> tuple[float, ...]:
+        """Normalized internal boundaries, including nested child boundaries."""
+        return tuple(
+            sorted(
+                {
+                    value / self.duration
+                    for clip in self.clips
+                    for value in (
+                        clip.start,
+                        clip.end,
+                        *(clip.start + t for t in clip.breakpoints),
+                    )
+                }
+            )
+        )
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Evaluate the immutable schedule at normalized outer progress."""
+        return evaluate_clips(base, self.clips, round(progress * self.duration, 10))
 
 
 @dataclass(frozen=True)

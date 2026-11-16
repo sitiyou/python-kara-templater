@@ -13,9 +13,9 @@ from kara_templater import (
     Lifetime,
     PathObject,
     Scene,
-    SceneTimeline,
     StateKeyframe,
     StatePatch,
+    Timeline,
     Tween,
     Vec2,
     VectorPath,
@@ -31,7 +31,7 @@ def bounce(progress: float) -> float:
 
 
 def build() -> Scene:
-    motion = SceneTimeline().keyframes(
+    motion = Timeline().keyframes(
         StateKeyframe(0.65, StatePatch(position=Vec2(450, 360)), bounce),
         StateKeyframe(1.7, StatePatch(position=Vec2(830, 360), fill=PINK), smooth_rate),
         StateKeyframe(2.4, StatePatch(position=Vec2(640, 360), fill=CYAN), smooth_rate),

@@ -1,9 +1,10 @@
 # Configure lyric Tracks
 
-Track is a reusable lyric declaration: source selection, body/ruby appearance,
-highlight overlay, layout, and animations. `prepare_tracks` binds declarations to
-a Document and produces Scene content. Scene remains the common composition and
-compilation interface.
+Track declares an independent lyric stream: source selection, layout, display
+padding, cue content, visual factories and animation rules. `prepare_tracks`
+returns a LyricScene containing ordinary objects. Add decorations with
+`scene.add(...)` and compile with the same Scene compiler used for direct authoring.
+All authoring times below are seconds.
 
 ## Prepare existing lyrics
 
@@ -11,81 +12,193 @@ This script expects `input.ass` with supported karaoke timing:
 
 ```python
 from kara_templater import (
-    CYAN, WHITE, Body, Document, FadeInAnimation, LineMatch, Overlay,
-    PaintStyle, Ruby, SingingPulseAnimation, TextStyle, Track, prepare_tracks,
+    CYAN, Document, FadeIn, FadeOut, Layout, LyricRule, LyricSweep,
+    ScalePulse, Track, Vec2, prepare_tracks,
 )
 
-source = Document.load("input.ass")
-prepared = prepare_tracks(source, tracks=(
+scene = prepare_tracks(Document.load("input.ass"), tracks=(
     Track(
-        source=LineMatch(),
-        body=Body(style=TextStyle(fill=WHITE)),
-        ruby=Ruby(),
-        overlay=Overlay(style=PaintStyle(fill=CYAN)),
-        animations=(FadeInAnimation(duration=400), SingingPulseAnimation(peak=1.1)),
+        id="main",
+        layout=Layout(rows=2, position=Vec2(80, 280), gap=80),
+        preview=0.6,
+        tail=0.3,
+        animations=(
+            LyricRule("line", "enter", FadeIn(), duration=0.2),
+            LyricRule("syllable", "singing", ScalePulse()),
+            LyricRule("line", "exit", FadeOut(), duration=0.2),
+        ),
+        factory=LyricSweep(fill=CYAN, width=0).apply,
     ),
 ))
-result = prepared.compile()
-result.document.save("output.ass")
+scene.compile().document.save("output.ass")
 ```
 
-Use `prepared.scene.add(...)` to add independent decorations before compiling.
-Each input item can match at most one Track. Unmatched source events survive;
-preparing the same owner again replaces its earlier generated content.
+A rule selects targets and binds a common animation to an anchor. It does not
+have its own evaluator. Line fades compose with syllable pulses through the
+visual hierarchy. For direct control, a LyricLine supports `animate(...)` just
+like a text object or group. Animation factories receive the measured line and
+selected LyricTarget before layout, so their durations participate in occupancy.
 
-## Appearance and layout
+After preparation, `line.bind(LyricRule(line.query("ruby"), "singing", Jump()))`
+binds a queried collection without a manual target loop. A single LyricTarget is
+also accepted. Explicit targets must belong to that line; targets from another
+line or a differently identified copy raise before animation factories run. Targets selected
+before adding highlight layers resolve to the current visual contributions.
+Duplicate targets and descendants of selected ancestors are suppressed, without
+reparenting objects. Role/tag queries and empty collections may select nothing,
+so a shared ruby rule can safely apply to lines without readings. Unknown roles
+raise rather than silently selecting nothing. Direct binding must fit the existing
+line lifetime; Track rules remain the way to reserve animation time during layout.
 
-Body and Ruby use TextStyle for font/layout-affecting appearance. Overlay accepts
-PaintStyle, which cannot change font metrics. Blur groups glow color, width,
-radius, and opacity. TextSpan selects body-wide source ranges; RubySpan selects
-a reading by unit/segment and an optional range. Their paint overrides do not
-split the original singing segment. Range boundaries must align with drawable
-clusters.
+## Independent streams and source ownership
 
-Omitting layout preserves the source style's position. SingleLine and DoubleLine
-allocate explicit rows. TrackGroup shares row allocation across its children;
-its layout must have an absolute position and child Tracks must omit layout.
-Separate Tracks retain independent source selection and timing.
+Add another Track with its own `id`, source predicate and layout for harmony or
+translation. For example, `source=lambda source: source.style == "Harmony"`
+selects that style. Tracks allocate independently; two tracks may intentionally
+show the same source. Their view IDs remain distinct from the original record's
+replacement ownership.
 
-Use ordinary constructors and factories for reuse. Subclass Track or Animation
-when that makes a domain-specific configuration clearer. There is no class-field
-constructor transformation. StyleSheet with rule() supports role/class/source
-selectors and sung-state appearance when a cascade is useful.
+Unmatched events survive. Preparing the same owner again replaces that owner's
+generated events; changing selection restores its unselected sources. Inspect
+`scene.plans` for source associations, placements and bound lines. `scene.lines`
+provides the lyric objects. `LyricSource.from_lyrics(...)` supplies structured
+DocumentLyrics through `prepare_tracks(..., inputs=...)` without creating fake
+ASS records. Supply those Python inputs again when regenerating.
 
-## Output modes
+## Allocation is the layout extension point
 
-| Choice | Content and evaluation | Limits |
-| --- | --- | --- |
-| `prepare_tracks(..., mode="editable")` (default) | Editable ObjectGroups; callbacks run at Scene compilation | Uses SceneBudget; supported ordinary text styles; per-drawing-layer opacity |
-| `prepare_tracks(..., mode="native")` | Lowered NativeEvents; callbacks run during preparation | Preserves native interpolation and styles; optional OutputSettings/raster |
-| `prepare_track_coverage(...)` | Editable material components and explicit coverage bindings | Color-before-blur and scoped opacity; explicit glow bounds and raster cost |
+`Layout(rows=1)`, `Layout(rows=2)` and `Layout(rows=3)` use the same allocator.
+The default is strict rotation; `policy="available"` chooses a free row.
+Optional preview and tail may shrink to fit, while singing and required animation
+occupancy are preserved. Insufficient capacity raises an error.
 
-Editable output rejects unsupported Underline, StrikeOut, Angle, or nonordinary
-BorderStyle rather than dropping them. Use native mode for those source style
-semantics. Native and sampled motion can differ between sample times. Editable
-mode uses SceneBudget rather than OutputSettings or native on_estimate.
+For a custom policy, override one batch function. This example places lead cues
+on their own row, resets rotation, and puts a tagged exception at a fixed point:
 
-For native mode, OutputSettings.resolution must equal Document PlayRes, and
-Track.sampling controls dynamic property preparation. on_estimate receives a
-RenderEstimate before property sampling, allowing cost inspection or cancellation.
-It is an estimate before merging and native subdivision, not a final upper bound.
-The final Scene compilation still applies whole-document budgets.
+```python
+from kara_templater import Layout, LayoutContext, LayoutLine, Placement, Vec2
 
-## Parallel highlights
+class CustomLayout(Layout):
+    def allocate(
+        self, lines: tuple[LayoutLine, ...], context: LayoutContext
+    ) -> tuple[Placement, ...]:
+        row = 0
+        result = []
+        for line in lines:
+            if line.lead:
+                row = 0
+                position = Vec2(80, 180)
+            elif "solo" in line.tags:
+                position = Vec2(80, 240)
+            else:
+                position = Vec2(80, 300 + 70 * row)
+                row = (row + 1) % 2
+            result.append(Placement(line.id, position, line.display))
+        return tuple(result)
+```
 
-Overlay.highlights accepts explicit HighlightTrack values or a typed layout
-function returning them. HighlightStyle assigns paint and priority by track ID.
-Overlay.overlap chooses union, priority, or layer composition. Explicit highlights
-own their progress curves; avoid supplying a conflicting Sweep.progress_curve.
+This example deliberately permits overlap and leaves display windows unchanged.
+An allocator that needs collision handling can read all measured bounds and
+required intervals, then choose its own policy. The engine validates complete
+identity mapping and required visibility; it does not run the default allocator
+first or overwrite the returned positions. lead and tags are input data, with no
+control events, reset hooks or persistent state protocol. Cross-track information
+is explicit through Track.references and LayoutContext.other_lines.
 
-Union merges compatible coverage, priority chooses the highest-priority paint,
-and layer retains translucent stacks over the base. Per-range sung appearance
-still applies where no explicit highlight paint overrides it. See
-[parallel_tracks.py](../../examples/parallel_tracks.py) for all three policies.
-Native and editable modes support these declarations. Coverage Track output
-currently requires union highlights with a shared paint and rejects the other
-policies explicitly.
+The complete [lyric orchestration example](../../examples/lyric_orchestration.py)
+uses one song and the same animation declarations for these configurations:
 
-For independent full-word glows, custom shapes, or new motion, add ordinary Scene
-objects rather than depending on generated ASS layers. See [materials](materials.md),
-[animation](animation.md), and the [gallery](../examples/README.md).
+```sh
+uv run python -m examples.lyric_orchestration build/layout-one.ass --rows 1
+uv run python -m examples.lyric_orchestration build/layout-two.ass --rows 2
+uv run python -m examples.lyric_orchestration build/layout-three.ass --rows 3
+uv run python -m examples.lyric_orchestration build/layout-custom.ass --custom
+uv run python -m examples.lyric_orchestration build/layout-continue.ass --custom --keep-rotation --advance-solo
+```
+
+Its `SongLayout.allocate` keeps the cursor and occupancy in ordinary local
+variables. `reset_on_lead` and `advance_solo` are choices made by that example's
+function, with no engine hooks. The separate harmony Track stays at the top.
+In Python, pass your allocator to `build(layout=...)`; the lyric rules remain
+unchanged. Add `--dense` to demonstrate overlapping singing: one row reports
+insufficient capacity, while two or three rows can accommodate it.
+
+## Semantic targets and appearance
+
+`Track.styles` supplies named ASS styles before text measurement. A style with
+an existing name overrides that name for this Track; the source Document remains
+unchanged. Font size changes therefore affect the bounds passed to the allocator,
+including ruby measurement. Use source style runs for different fonts within a
+line. Visual factories run once after measurement, before allocation, on an
+unpositioned line. Changing a glyph's font there does not request another text
+measurement pass. Layout placement is applied after the factory returns.
+For additional geometry, a factory can return an updated `line.layout.bounds`
+in line-local pixels to declare its layout footprint. The allocator receives
+that box together with reserved inline cue bounds. Dynamic geometry callbacks
+are not sampled to guess a footprint; declare a box covering the intended motion.
+
+Appearance composition uses explicit Python factories and immutable replacements.
+Apply base role or range appearance first, then select singing colors with
+LyricSweep's target factory. Unspecified paint channels retain their base values;
+returning `None` skips that target. There is no separate CSS selector cascade.
+
+LyricLine exposes line, syllable, segment, character, ruby and cue targets.
+`line.query(...)` selects existing targets without reparenting. Ancestor/descendant
+selections are deduplicated. A shared visual pivot can use an explicit group or
+an animation factory that converts the same center to each target’s local
+coordinates; ordinary whole-line animations need no manually constructed Group.
+
+Syllable targets include their body and ruby children. Use `character` to animate
+only body glyphs, or `ruby` for readings. For example,
+`LyricRule("character", "singing", FadeOut())` fades the body during its singing
+interval while readings keep their local opacity. Both still inherit whole-line
+motion and opacity. These rules share the ordinary object hierarchy; selecting
+body glyphs does not detach readings or change the source's syllable grouping.
+Group opacity multiplies each child's opacity, so a line at 0.6 and a body glyph
+at 0.25 produce body opacity 0.15 while an unchanged reading remains at 0.6.
+
+Ruby targets identify shaped glyphs, not a parent group for the entire reading.
+To pulse a reading around its center while coloring its glyphs independently,
+a rule factory can locate the target in `line.layout.ruby`, take that reading's
+`layout.bounds` center, and subtract the glyph's original
+`object.state.position`. Pass that local point as `ScalePulse(pivot=..., peak=...)`.
+Bind the factory with `LyricRule("ruby", "singing", factory)`. Each glyph retains
+the reading's singing clock; LyricSweep also uses the full reading bounds for its
+sweep. This changes neither parentage nor the body animation.
+
+LyricSweep provides per-syllable soft color transitions. LyricHighlights provides
+named passes with union, priority or layered ownership; HighlightArrival binds
+animations to measured character crossings. Factories may choose colors or glow
+by target. Python styles and factories construct appearance without embedding
+custom runtime tags in the output. See [materials](materials.md),
+[animation](animation.md), and [parallel_tracks.py](../../examples/parallel_tracks.py).
+
+All paths compile through Scene. Clip layers, coverage and whole-group RGBA
+composition have different blur/alpha semantics and explicit costs. Unsupported
+source styles are diagnosed rather than silently discarded; there is no Track
+native/editable mode switch. See [compilation](compilation.md) for sampling,
+continuous native tween eligibility and budgets.
+
+Visual factories can reserve authored time before allocation. LyricHighlights
+adds its absolute pass intervals; GlowFunction.from_animation declares its
+local animation interval. Existing object animations and explicit
+`line.required_display` intervals also participate. Unknown callback duration
+is not inferred by sampling it or by treating every breakpoint as a visibility
+requirement; a custom glow can declare `required_interval`, or the factory can
+return a line with explicit absolute `required_display` intervals.
+
+Attached decorations with their own lifetimes reserve their visible intervals,
+including any time restrictions imposed by independently timed parent groups.
+Children sharing the lyric window follow its allocated visibility instead.
+Objects in `line.independent` keep their own display windows and do not reserve
+the lyric's row; coordinate them explicitly in a custom allocator if needed.
+
+A required effect tail cannot be trimmed to accommodate another lyric. Optional
+preview/tail can still shrink. `LyricLine.with_display` preserves existing local
+clock origins while changing shared lyric visibility, so trimming preview does
+not restart the factory's materials or masks. The factory is not rerun after
+allocation; semantic animation rules then bind to its current target aliases.
+An early highlighter or attached decoration can also extend the display start.
+Existing animation clocks remain fixed, so custom callbacks may receive negative
+local seconds before their original origin. Highlight masks and partitions use
+their absolute pass times even in that early window.

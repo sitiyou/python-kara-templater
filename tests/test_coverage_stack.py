@@ -2,9 +2,9 @@
 
 import pytest
 
+from kara_templater import OutputCapabilityError
 from kara_templater._coverage_stack import compose_stacks
 from kara_templater._raster import RasterBudget, RasterFrame
-from kara_templater.ass_output import OutputCapabilityError
 
 
 def pixel(red, green, blue, alpha):

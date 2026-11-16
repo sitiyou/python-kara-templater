@@ -7,7 +7,7 @@ from dataclasses import dataclass, replace
 from .ass import Document, Line, Style
 from .characters import FontFace, LayoutCapabilityError, layout_characters
 from .composition import Color
-from .document_text import DocumentText, TextRun, resolve_singing
+from .document_text import DocumentText, TextRun, _packed_color, resolve_singing
 from .document_text import SingingSpan as SingingSpan
 from .geometry import Vec2, VectorPath
 from .layout import text_extents
@@ -49,7 +49,7 @@ class DocumentLayout:
     """
 
     id: str
-    record_index: int
+    record_index: int | None
     source: DocumentText
     lifetime: Lifetime
     characters: tuple[PositionedText, ...]
@@ -126,10 +126,10 @@ class DocumentLayout:
                     points.update(
                         t
                         for t in (
-                            item.object.lifetime.start + clip.start,
-                            item.object.lifetime.start + clip.end,
+                            item.object.time_origin + clip.start,
+                            item.object.time_origin + clip.end,
                             *(
-                                item.object.lifetime.start + clip.start + point
+                                item.object.time_origin + clip.start + point
                                 for point in clip.breakpoints
                             ),
                         )
@@ -218,8 +218,7 @@ def _style_supported(style: Style) -> None:
             "document text binding does not yet lower underline/strikeout"
         )
     for name in ("primarycolour", "secondarycolour", "outlinecolour", "backcolour"):
-        value = fields.get(name, "&H00000000").strip().removesuffix("&")
-        if value.upper().startswith("&H") and int(value[2:], 16) >> 24:
+        if _packed_color(fields.get(name, "&H00000000")) >> 24:
             raise LayoutCapabilityError(
                 "per-channel style alpha requires channel-opacity lowering"
             )
@@ -228,7 +227,7 @@ def _style_supported(style: Style) -> None:
 def _layout_document_view(
     document: Document,
     source: DocumentText,
-    record_index: int,
+    record_index: int | None,
     *,
     id: str | None = None,
     display: Lifetime | None = None,
@@ -242,14 +241,20 @@ def _layout_document_view(
     shaping run, and painting half of a ligature is explicitly rejected.
     """
     source.require_supported()
-    record = document.records[record_index]
-    assert isinstance(record, Line)
+    if display is None or singing is None:
+        if record_index is None:
+            raise ValueError(
+                "structured text needs explicit display and singing intervals"
+            )
+        record = document.records[record_index]
+        if not isinstance(record, Line):
+            raise TypeError("text binding requires an event record")
+        if display is None:
+            display = Lifetime(record.start_time / 1000, record.end_time / 1000)
+        if singing is None:
+            singing = resolve_singing(source, record.start_time / 1000)
     identifier = f"record:{record_index}" if id is None else id
-    lifetime = (
-        Lifetime(record.start_time / 1000, record.end_time / 1000)
-        if display is None
-        else display
-    )
+    lifetime = display
     styles = document.styles
     groups: list[list[TextRun]] = []
     for run in source.runs:
@@ -335,9 +340,7 @@ def _layout_document_view(
         source,
         lifetime,
         tuple(items),
-        resolve_singing(source, record.start_time / 1000)
-        if singing is None
-        else singing,
+        singing,
         _union(tuple(item.bounds for item in items)),
     )
 

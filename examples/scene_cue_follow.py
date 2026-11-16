@@ -17,11 +17,11 @@ from kara_templater import (
     Line,
     PathObject,
     Scene,
-    SceneTimeline,
     StateKeyframe,
     StatePatch,
     Style,
     TextCue,
+    Timeline,
     Vec2,
     VectorPath,
     VisualState,
@@ -71,7 +71,7 @@ def build() -> Scene:
         ),
     )
     lyric = bound.group(position=Vec2(300, 300))
-    motion = SceneTimeline().keyframes(
+    motion = Timeline().keyframes(
         StateKeyframe(2.5, StatePatch(position=Vec2(520, 260), rotation=12)),
         StateKeyframe(5, StatePatch(position=Vec2(300, 300), rotation=0)),
     )

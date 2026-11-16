@@ -235,6 +235,76 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "template-cli",
         check,
     )
+    # Exercise the karaoke authoring entry points as installed-package clients,
+    # including the layout override and both effect script contracts.
+    author_examples = []
+    for name, arguments in (
+        ("lyric_orchestration", ()),
+        ("lyric_orchestration_three", ("--rows", "3")),
+        ("lyric_orchestration_custom", ("--custom",)),
+        ("parallel_tracks", ()),
+        ("output_layers", ()),
+        ("track_colors", ()),
+        ("syllable_pulse", ()),
+        ("layered_glow", ()),
+    ):
+        module = (
+            "lyric_orchestration" if name.startswith("lyric_orchestration") else name
+        )
+        inputs = (
+            ["examples/karaoke.ass"]
+            if module == "syllable_pulse"
+            else ["tests/fixtures/layered_glow.ass"]
+            if module == "layered_glow"
+            else []
+        )
+        target = artifacts / f"{name}.ass"
+        duration = run(
+            [str(python), "-m", f"examples.{module}", *inputs, str(target), *arguments],
+            name,
+            check,
+        )
+        author_examples.append(
+            {
+                "name": name,
+                "seconds": duration,
+                "bytes": target.stat().st_size,
+                "sha256": sha256(target),
+            }
+        )
+    for name in ("layered_glow", "layered_glow_classes"):
+        run(
+            [
+                str(python),
+                "-m",
+                "kara_templater",
+                "tests/fixtures/layered_glow.ass",
+                f"output/{name}-builder.ass",
+                "--effect",
+                f"examples/{name}.py",
+                "--max-events",
+                "30000",
+            ],
+            f"{name}-builder-cli",
+            check,
+        )
+    (check / "tracks_recipe.py").write_text(
+        "from kara_templater import Track, LyricRule, FadeIn\n"
+        "tracks = (Track(id='lyrics', animations=(LyricRule('line', 'enter', FadeIn(), duration=0.1),)),)\n"
+    )
+    run(
+        [
+            str(python),
+            "-m",
+            "kara_templater",
+            "examples/karaoke.ass",
+            "output/tracks-cli.ass",
+            "--effect",
+            "tracks_recipe.py",
+        ],
+        "tracks-cli",
+        check,
+    )
     strategy_examples = []
     for strategy in ("layers", "raster", "diffused"):
         target = artifacts / f"sweep-{strategy}.ass"
@@ -280,6 +350,8 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "pytest_seconds": seconds,
         "pytest_summary": (logs / "pytest.log").read_text().splitlines()[-1],
         "scene_examples": examples,
+        "karaoke_author_examples": author_examples,
+        "builder_and_tracks_cli_passed": True,
         "default_cli_passed": True,
         "explicit_v010_template_cli_passed": True,
         "sweep_strategy_examples": strategy_examples,

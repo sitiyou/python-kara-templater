@@ -18,8 +18,8 @@ from kara_templater import (
     ObjectGroup,
     PathObject,
     Scene,
-    SceneTimeline,
     StateFunction,
+    Timeline,
     Vec2,
     VectorPath,
     VisualState,
@@ -71,7 +71,7 @@ def build() -> Scene:
             state, position=writing.tip(time), opacity=float(writing.pen_down(time))
         )
 
-    pen_motion = SceneTimeline().play(
+    pen_motion = Timeline().play(
         StateFunction(pen_state, frozenset(("position", "opacity"))),
         duration=lifetime.end,
         breakpoints=writing.breakpoints,

@@ -12,9 +12,9 @@ from kara_templater import (
     Document,
     Lifetime,
     Scene,
-    SceneTimeline,
     StatePatch,
     TextObject,
+    Timeline,
     Tween,
     Vec2,
     VisualState,
@@ -36,7 +36,7 @@ def build() -> Scene:
             opacity=0,
         ),
         animations=(
-            SceneTimeline()
+            Timeline()
             .wait(0.5)
             .play(
                 Tween(

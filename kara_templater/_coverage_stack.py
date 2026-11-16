@@ -7,7 +7,7 @@ After finishing a scope, discard its coverage plane to enter the next scope.
 """
 
 from ._raster import PositionedFrame, RasterBudget, RasterCanvas
-from .ass_output import OutputCapabilityError
+from .raster_settings import OutputCapabilityError
 
 type CoverageStack = tuple[PositionedFrame, ...]
 

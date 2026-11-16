@@ -1,211 +1,144 @@
-"""Measure three pulse modes against independently positioned static ASS frames.
+"""Compare common lyric pulses with independently calculated static ASS frames.
 
 Run: python -m tools.validate_pulse_geometry OUTPUT
 """
 
 import argparse
 import json
-import shutil
-from math import floor
+from dataclasses import replace
 from pathlib import Path
 
-from PIL import Image, ImageChops
+from PIL import Image
 
+from examples.output_layers import highlights, pulse
 from kara_templater import (
-    DisplayWindow,
     Document,
-    KaraokeLine,
+    HighlightArrival,
+    Layout,
     Line,
-    Pulse,
-    Segment,
+    LyricLine,
+    LyricRule,
+    LyricTarget,
+    ScalePulse,
+    SceneBudget,
     Style,
-    TextLayer,
-    TextUnit,
-    compile_layers,
-    layout_characters,
-    layout_line,
+    Track,
+    Vec2,
     load_font,
-    plan_pulses,
-    tracks_from_layout,
+    prepare_tracks,
 )
-from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
-from tools.render_effects import render
+from kara_templater._raster import rasterize
 
 
-def main():
+def scaling(line: LyricLine, target: LyricTarget) -> ScalePulse:
+    animation = pulse(line, target)
+    assert isinstance(animation, ScalePulse)
+    return replace(animation, peak=1.4)
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     output = parser.parse_args().output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    font_path = Path(__file__).resolve().parents[1] / "tests/fonts/DejaVuSans.ttf"
-    font = load_font(font_path)
-    (output / "fonts").mkdir(exist_ok=True)
-    shutil.copy2(font_path, output / "fonts" / font_path.name)
-    style = Style(fontname=font.family, fontsize=64, align=5, spacing=12)
-    source = KaraokeLine((TextUnit("W i", (Segment(1000, 2000),)),))
-    layout = layout_line(source, style=style, resolution=(640, 480))
-    chars = tuple(
-        c for c in layout_characters(layout, style=style) if c.target.drawable
+    font = load_font(Path(__file__).resolve().parents[1] / "tests/fonts/DejaVuSans.ttf")
+    style = Style(fontname=font.family, fontsize=64, spacing=12, outline=0, shadow=0)
+    source = Document.create(width=640, height=480, styles=(style,))
+    source.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}W i"))
+    track = Track(
+        id="word", preview=0.5, tail=0.8, layout=Layout(position=Vec2(100, 200))
     )
-    assert [c.text for c in chars] == ["W", "i"]
-    window = DisplayWindow(500, 2800)
-    header = (
-        "[Script Info]\nPlayResX: 640\nPlayResY: 480\nScaledBorderAndShadow: yes\n"
-        "[V4+ Styles]\nFormat: "
-        + STYLE_FORMAT
-        + "\n"
-        + style.serialize()
-        + "\n[Events]\nFormat: "
-        + EVENT_FORMAT
-        + "\n"
-    )
-    # Compute expected trigger from the fixed linear body mapping, independently
-    # of plan_pulses/ScaleAnimation. Quantize the three ASS animation knots.
-    starts = [
-        1000 + 1000 * (c.timing_region.left - layout.box.left) / layout.box.width
-        for c in chars
-    ]
-    quantize = lambda value: floor(value / 10 + 0.5) * 10
-    times = sorted(
-        {
-            990,
-            1000,
-            1100,
-            1200,
-            1400,
-            1500,
-            1600,
-            2000,
-            2400,
-            *(
-                quantize(s + offset) + delta
-                for s in starts
-                for offset in (0, 200, 400)
-                for delta in (-10, 0, 10)
-            ),
-            *(t + delta for t in (1000, 1500, 2000) for delta in (-10, 0, 10)),
-        }
-    )
-    modes = {
-        "each": Pulse.each_char(scale=1.4, duration_ms=400),
-        "simultaneous": Pulse.simultaneous_chars(scale=1.4, duration_ms=1000),
-        "whole": Pulse.whole_syllable(scale=1.4, duration_ms=1000),
-    }
-    checks, geometry, counts = [], {}, {}
-    for mode, pulse in modes.items():
-        plan = plan_pulses(
-            (pulse,),
-            layout=layout,
-            characters=tuple(c.target for c in chars),
-            tracks=tracks_from_layout(layout),
-            window=window,
+    plain = prepare_tracks(source, tracks=(track,))
+    line = plain.lines[0]
+    box = line.layout.body.bounds
+    evaluator = plain.evaluator()
+    characters = tuple(
+        (target, character, evaluator.at(target.node_id, 0.5))
+        for target, character in zip(
+            line.query("character"), line.layout.body.characters, strict=True
         )
-        layers = tuple(
-            TextLayer(
-                c.id,
-                c.text,
-                style,
-                c.box,
-                window,
-                animations=tuple(a for a in plan.animations if a.target_id == c.id),
-            )
-            for c in chars
+        if not character.object.text.isspace()
+    )
+    assert [item.object.text for _, item, _ in characters] == ["W", "i"]
+    times = (990, 1000, 1100, 1250, 1400, 1500, 1600, 1800, 1990, 2000, 2400)
+    checks = []
+    counts = {}
+    for mode in ("each", "simultaneous", "whole"):
+        rule = LyricRule(
+            "syllable" if mode == "whole" else "character",
+            HighlightArrival(highlights=highlights) if mode == "each" else "singing",
+            scaling,
+            duration=0.4 if mode == "each" else 1,
         )
-        compiled = compile_layers(layers)
-        document = Document.parse(header)
-        document.records.extend(compiled.events)
-        document.save(output / f"{mode}.ass")
-        reference = Document.parse(header)
-        geometry[mode] = []
+        scene = prepare_tracks(source, tracks=(replace(track, animations=(rule,)),))
+        result = scene.compile(budget=SceneBudget(fps=100, max_events=100_000))
+        result.document.save(output / f"{mode}.ass")
+        counts[mode] = result.event_count
         for time in times:
-            positions, scales = [], []
-            for index, char in enumerate(chars):
-                start = starts[index] if mode == "each" else 1000
-                duration = 400 if mode == "each" else 1000
-                a, m, b = [
-                    quantize(start + offset) for offset in (0, duration / 2, duration)
-                ]
-                phase = (
-                    0
-                    if time <= a or time >= b
-                    else (time - a) / (m - a)
-                    if time < m
-                    else (b - time) / (b - m)
+            # Sampled ASS exposures use their 10 ms midpoint, not the frame edge.
+            sample = (time + 5) / 1000
+            reference = Document.create(width=640, height=480, styles=(style,))
+            for target, character, base in characters:
+                start = (
+                    1 + (character.bounds.left - box.left) / box.width
+                    if mode == "each"
+                    else 1
                 )
-                scale = 1 + 0.4 * phase
-                px = layout.box.center if mode == "whole" else char.box.center
-                py = layout.box.middle if mode == "whole" else char.box.middle
-                x = px + (char.box.center - px) * scale
-                y = py + (char.box.middle - py) * scale
-                positions.append(x)
-                scales.append(scale)
-                # Static ASS: no animation planner, moves, transforms or output
-                # compiler are used to construct the reference events.
+                duration = 0.4 if mode == "each" else 1
+                progress = (sample - start) / duration
+                factor = 1 + 0.4 * max(0, 1 - abs(2 * progress - 1))
+                pivot = (
+                    line.state.position + Vec2(box.center, box.middle)
+                    if mode == "whole"
+                    else base.position
+                    + Vec2(character.bounds.width / 2, character.bounds.height / 2)
+                )
+                position = pivot + (base.position - pivot) * factor
+                actual = scene.evaluator().at(target.node_id, sample)
+                assert abs(actual.position.x - position.x) < 1e-8
+                assert abs(actual.position.y - position.y) < 1e-8
+                assert abs(actual.scale.x - base.scale.x * factor) < 1e-8
                 reference.records.append(
                     Line(
-                        start_time=time,
-                        end_time=time + 10,
+                        start_time=0,
+                        end_time=3000,
                         text=(
-                            rf"{{\an5\q2\shad0\pos({x:.9f},{y:.9f})"
-                            rf"\fscx{100 * scale:.9f}\fscy{100 * scale:.9f}"
-                            rf"\bord0\blur0\1c&HFFFFFF&\3c&H000000&\alpha&H00&}}{char.text}"
+                            rf"{{\an7\q2\pos({position.x:.3f},{position.y:.3f})"
+                            rf"\fscx{100 * base.scale.x * factor:.3f}\fscy{100 * base.scale.y * factor:.3f}}}"
+                            + character.object.text
                         ),
                     )
                 )
-            geometry[mode].append(
-                {
-                    "time_ms": time,
-                    "centers_x": positions,
-                    "center_distance": positions[1] - positions[0],
-                    "scales": scales,
-                }
-            )
-        reference.save(output / f"{mode}-reference.ass")
-        for name in (mode, mode + "-reference"):
-            render(name + ".ass", str(output / f"{name}-%02d.png"), times)
-        for index, time in enumerate(times):
-            actual = Image.open(output / f"{mode}-{index + 1:02d}.png").convert("RGB")
-            expected = Image.open(
-                output / f"{mode}-reference-{index + 1:02d}.png"
-            ).convert("RGB")
-            difference = ImageChops.difference(actual, expected)
-            maximum = max(difference.tobytes())
+            actual = rasterize(result.document.dumps(), time, (640, 480)).rgba
+            expected = rasterize(reference.dumps(), time, (640, 480)).rgba
+            maximum = max(abs(a - b) for a, b in zip(actual, expected, strict=True))
             checks.append(
                 {
-                    "name": f"{mode}-{time}",
+                    "mode": mode,
+                    "time_ms": time,
                     "max_channel_difference": maximum,
                     "passed": maximum == 0,
                 }
             )
             if maximum:
-                difference.save(output / f"failure-{mode}-{time}.png")
-        counts[mode] = len(compiled.events)
-    manifest = {
+                reference.save(output / f"{mode}-{time}-reference.ass")
+                Image.frombytes("RGBA", (640, 480), actual).save(
+                    output / f"{mode}-{time}-actual.png"
+                )
+                Image.frombytes("RGBA", (640, 480), expected).save(
+                    output / f"{mode}-{time}-expected.png"
+                )
+    report = {
         "font_sha256": font.sha256,
-        "text": "W i",
-        "spacing": 12,
-        "times_ms": times,
-        "frames": len(times) * 6,
         "events": counts,
-        "expected_trigger_ms": starts,
-        "geometry": geometry,
         "checks": checks,
-        "renderer": sorted(
-            {
-                line[line.index("libass") :]
-                for line in (output / "whole-%02d.log").read_text().splitlines()
-                if "libass" in line
-            }
-        ),
-        "limitations": [
-            "Static references share measured layout but independently calculate trigger, scale, pivot and positions.",
-            "This isolates pulse geometry with plain white glyphs; sweep, glow and ruby combinations have separate validation.",
-            "ASS animation knots are rounded to 10 ms; geometry records describe rendered, quantized time.",
-        ],
+        "reference": "Measured glyph geometry, independent triangular scale and pivot math, direct static ASS tags.",
     }
-    (output / "validation.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(json.dumps(manifest, indent=2))
-    if not all(c["passed"] for c in checks):
+    (output / "validation.json").write_text(json.dumps(report, indent=2) + "\n")
+    print(
+        f"{sum(1 for check in checks if check['passed'])}/{len(checks)} pulse reference frames passed"
+    )
+    if not all(check["passed"] for check in checks):
         raise SystemExit("Pulse geometry validation failed")
 
 

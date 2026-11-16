@@ -14,6 +14,7 @@ import subprocess
 from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
+from typing import TypedDict
 
 from PIL import Image, ImageChops, ImageDraw
 
@@ -23,28 +24,26 @@ from kara_templater import (
     BLUE,
     RED,
     WHITE,
-    Animate,
-    Blur,
-    Body,
-    Display,
-    DisplayWindow,
-    KaraokeItem,
-    KaraokeLine,
+    Color,
+    Coverage,
+    Glow,
+    Highlight,
+    HighlightPass,
+    Layout,
     Line,
-    LineMatch,
-    On,
-    OutputSettings,
-    Overlay,
-    PaintStyle,
+    LyricHighlights,
+    LyricLine,
+    ObjectGroup,
     RasterSettings,
-    Ruby,
+    Region,
     SceneBudget,
-    Segment,
-    TextStyle,
-    TextUnit,
+    SceneObject,
+    StatePatch,
+    TimeSpan,
     Track,
+    Tween,
+    Vec2,
     _metrics,
-    layout_line,
     load_font,
     prepare_tracks,
 )
@@ -78,87 +77,177 @@ CASES = (
 )
 
 
-def generate(case, mode, destination, *, raster=False, font_size=56):
+def static_paint(
+    line: LyricLine, fill: Color, glow: Glow, *, raster: bool
+) -> LyricLine:
+    """Independent static reference: no highlight masks or ownership partitions."""
+    components = []
+    glows = {}
+
+    def paint(node: SceneObject) -> SceneObject:
+        if isinstance(node, ObjectGroup):
+            return replace(
+                node, children=tuple(paint(child) for child in node.children)
+            )
+        body = replace(node, state=replace(node.state, fill=fill))
+        identity = f"{node.id}/static-material"
+        if raster:
+            components.append(identity)
+            glows[node.id] = glow
+            children = (body,)
+        else:
+            halo = replace(
+                body.copy(id=f"{node.id}/static-glow"),
+                layer=body.layer - 1,
+                state=replace(
+                    body.state,
+                    fill=glow.color,
+                    outline=glow.color,
+                    blur=glow.blur,
+                    border=glow.border,
+                    opacity=body.state.opacity * glow.opacity,
+                    shadow=Vec2(),
+                ),
+            )
+            children = (body, halo)
+        return ObjectGroup(
+            id=identity, lifetime=node.lifetime, children=children, origin=node.origin
+        )
+
+    result = paint(line)
+    assert isinstance(result, LyricLine)
+    return (
+        replace(
+            result,
+            coverage=Coverage(
+                components=tuple(components),
+                glows=glows,
+                settings=RasterSettings(max_output_chars=256_000_000, max_frames=500),
+            ),
+        )
+        if raster
+        else result
+    )
+
+
+def generate(
+    case: Case,
+    mode: str,
+    destination: Path,
+    *,
+    raster: bool = False,
+    font_size: float = 56,
+) -> dict[str, object]:
     source = document(fontname=case.font, text=case.text)
     source.records = [r for r in source.records if not isinstance(r, Line)]
-    source.styles["Default"].italic = case.italic
-    source.styles["Default"].fontsize = font_size
-    units = (
-        (TextUnit("A", (Segment(1000, 1500),)), TextUnit("B", (Segment(1500, 2000),)))
+    style = source.styles["Default"]
+    style.italic, style.fontsize, style.outline, style.shadow = (
+        case.italic,
+        font_size,
+        2,
+        0,
+    )
+    source.records.append(
+        replace(style, name="Default-furigana", fontsize=24, outline=1)
+    )
+    text = (
+        r"{\kt100\k50}A{\k50}B"
         if case.adjacent
-        else (
-            TextUnit(case.text, (Segment(1000, 2000, "ka ra" if case.ruby else ""),)),
+        else r"{\kt100\k100}"
+        + case.text
+        + ("|ka ra" if case.ruby and mode != "geometry" else "")
+    )
+    source.records.append(Line(text=text, start_time=0, end_time=3000))
+    glow = Glow(RED, blur=case.radius, border=4, opacity=0.5)
+
+    def paint(line: LyricLine) -> LyricLine:
+        def opacity(node: SceneObject) -> SceneObject:
+            if isinstance(node, ObjectGroup):
+                return replace(node, children=tuple(opacity(c) for c in node.children))
+            return replace(
+                node,
+                state=replace(
+                    node.state, fill=WHITE, outline=BLACK, opacity=case.opacity
+                ),
+            )
+
+        base = opacity(line)
+        assert isinstance(base, LyricLine)
+        if mode != "sweep":
+            return static_paint(
+                base,
+                BLUE if mode == "after" else WHITE,
+                replace(glow, color=BLUE) if mode == "after" else glow,
+                raster=raster,
+            )
+        highlights = tuple(
+            Highlight(
+                str(index),
+                index,
+                tuple(
+                    HighlightPass(
+                        TimeSpan(s.singing.start, s.singing.end),
+                        Region(box.left, box.right),
+                    )
+                    for s in unit.segments
+                ),
+                StatePatch(fill=BLUE),
+                glow=replace(glow, color=BLUE),
+            )
+            for index, unit in enumerate(line.layout.lyrics.units)
+            for box in (line.layout.body.range_bounds(unit.start, unit.end),)
         )
+        return LyricHighlights(
+            highlights=highlights,
+            glow=glow,
+            strategy="coverage" if raster else "clip",
+            settings=RasterSettings(max_output_chars=256_000_000, max_frames=500),
+        ).apply(base)
+
+    geometry = mode == "geometry"
+    if geometry:
+        style.outline = 0
+    config = Track(
+        id="matrix",
+        layout=Layout(position=Vec2(0, 220), alignment="center"),
+        preview=0,
+        tail=0,
+        factory=None if geometry else paint,
     )
-    item = KaraokeItem("matrix", KaraokeLine(units), "Default", DisplayWindow(0, 3000))
-    base = TextStyle(
-        fill=WHITE,
-        stroke=BLACK,
-        stroke_width=2,
-        opacity=case.opacity,
-        blur=Blur(color=RED, radius=case.radius, width=4, opacity=0.5),
-    )
-    after = (
-        replace(base, fill=BLUE, blur=replace(base.blur, color=BLUE))
-        if isinstance(base.blur, Blur)
-        else base
-    )
-    selected = after if mode == "after" else base
-    if mode == "geometry":
-        selected = TextStyle(fill=WHITE, stroke_width=0, blur=None)
-        layout = layout_line(
-            item.source, style=source.styles["Default"], resolution=(640, 480)
+    # Bind display-wide motion directly; it does not reserve a pre-singing entrance.
+    start = perf_counter()
+    scene = prepare_tracks(source, tracks=(config,), owner="matrix")
+    line = scene.lines[0]
+    if case.dynamic and not geometry:
+        scene.objects[0] = line.animate(
+            Tween(StatePatch(scale=Vec2(1.2, 1.2))), duration=3
         )
+    if geometry:
+        position = line.state.position
+        box = line.layout.body.bounds
         reference = document(fontname=case.font, text=case.text)
         reference.styles["Default"].italic = case.italic
         reference.styles["Default"].fontsize = font_size
         reference.records = [r for r in reference.records if not isinstance(r, Line)]
         reference.records.append(
             Line(
-                text=rf"{{\an5\pos({layout.box.center},{layout.box.middle})\bord0\shad0\blur0\1c&HFFFFFF&\alpha&H00&}}"
+                text=rf"{{\an5\pos({position.x + box.center},{position.y + box.middle})\bord0\shad0\blur0\1c&HFFFFFF&\alpha&H00&}}"
                 + case.text,
                 start_time=0,
                 end_time=3000,
             )
         )
         reference.save(destination.parent / "whole.ass")
-    track = Track(
-        source=LineMatch(),
-        body=Body(style=selected),
-        ruby=Ruby(style=replace(selected, font_size=24, stroke_width=1), offset_y=-4)
-        if case.ruby and mode != "geometry"
-        else None,
-        overlay=Overlay(style=PaintStyle(fill=BLUE, blur=Blur(color=BLUE)))
-        if mode == "sweep"
-        else None,
-        animations=(
-            On(Display.Start, Animate(scale=lambda p: 1 + 0.2 * p, duration=3000)),
-        )
-        if case.dynamic and mode != "geometry"
-        else (),
-    )
-    start = perf_counter()
-    result = prepare_tracks(
-        source,
-        items=(item,),
-        tracks=(track,),
-        settings=OutputSettings(
-            resolution=(640, 480),
-            max_events=2_000_000 if raster else 10000,
-            raster=RasterSettings(max_output_chars=256_000_000) if raster else None,
-        ),
-        mode="native",
-    ).compile(
+    result = scene.compile(
         budget=SceneBudget(
-            max_events=2_000_000 if raster else 10_000,
+            max_events=2_000_000 if raster else 30_000,
             max_bytes=256_000_000 if raster else 10 * 1024 * 1024,
             max_active=50_000 if raster else 1000,
         )
     )
-    elapsed = perf_counter() - start
     result.document.save(destination)
     return {
-        "compile_seconds": elapsed,
+        "compile_seconds": perf_counter() - start,
         "events": result.event_count,
         "objects": len(result.objects),
         "ass_bytes": destination.stat().st_size,
@@ -200,7 +289,19 @@ def capture(directory, mode, background, *, rgb=False):
     return perf_counter() - start
 
 
-def compare(first, second):
+class PixelDifference(TypedDict):
+    max_channel_error: int
+    mean_channel_error: float
+    changed_pixels: int
+
+
+class BoundaryDifference(PixelDifference):
+    background: str
+    time_ms: int
+    phase: str
+
+
+def compare(first: Image.Image, second: Image.Image) -> PixelDifference:
     difference = ImageChops.difference(first, second)
     pixels = difference.tobytes()
     return {
@@ -229,6 +330,7 @@ def main():
     font = root / "tests/fonts/DejaVuSans.ttf"
     registered = load_font(font)
     results = []
+    failures = []
     for case in CASES:
         if args.case and case.name not in args.case:
             continue
@@ -262,7 +364,7 @@ def main():
             case.font, args.font_size, 0, int(case.italic), 100, 100, 0, 1, case.text
         )[4]
         elapsed = {}
-        comparisons = []
+        comparisons: list[BoundaryDifference] = []
         hashes = []
         montage = Image.new("RGB", (640 * len(TIMES), 510 * 2))
         draw = ImageDraw.Draw(montage)
@@ -302,6 +404,15 @@ def main():
                         }
                     )
         montage.save(directory / "montage.png")
+        static_error = max(
+            c["max_channel_error"] for c in comparisons if c["phase"] == "static"
+        )
+        shape_passed = (
+            shape_error["max_channel_error"] <= 32
+            and shape_error["changed_pixels"] <= 500
+        )
+        if static_error > 1 or not shape_passed:
+            failures.append(case.name)
         font_selection = list(
             dict.fromkeys(
                 line.split("fontselect: ", 1)[1]
@@ -331,30 +442,35 @@ def main():
                 "system_font_sha256": system_fonts,
                 "renderer_seconds": elapsed,
                 "endpoints": comparisons,
+                "static_endpoints_passed": static_error <= 1,
+                "geometry_passed": shape_passed,
                 "frames": hashes,
             }
         )
         print(
             case.name,
-            "max boundary error",
-            max(c["max_channel_error"] for c in comparisons),
+            "max static endpoint error",
+            static_error,
             "geometry error",
             shape_error["max_channel_error"],
             flush=True,
         )
     report = {
         "font_sha256": registered.sha256,
-        "backend": "raster" if args.raster else "native",
+        "tool_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "backend": "coverage" if args.raster else "clip",
         "font_size": args.font_size,
         "compositing_format": "rgb24" if args.rgb else "yuv420p",
         "times_ms": TIMES,
         "ffmpeg": subprocess.run(
             ["ffmpeg", "-version"], capture_output=True, text=True, check=True
         ).stdout.splitlines()[0],
-        "contract": "Static endpoints and onset compared to static paints on two backgrounds; unstyled geometry compared to independent whole-text ASS. Intermediate frames are captured for review, not certified against an independent material compositor.",
+        "contract": "Static endpoints match independent static paints within 1/255 on both backgrounds. Whole-text geometry allows 32/255 at up to 500 pixels for split-glyph positioning quantization. Onset may already show the sampled interval's midpoint; it and intermediate frames are captured, not certified against an independent material compositor.",
         "cases": results,
     }
     (output / "report.json").write_text(json.dumps(report, indent=2) + "\n")
+    if failures:
+        raise SystemExit(f"validation failed: {', '.join(failures)}")
 
 
 if __name__ == "__main__":

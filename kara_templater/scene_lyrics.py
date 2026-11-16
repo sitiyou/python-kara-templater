@@ -5,7 +5,7 @@ from dataclasses import dataclass, replace
 from .ass import Document, Line, Style
 from .characters import LayoutCapabilityError
 from .document_lyrics import DocumentLyrics, LyricUnit, RubyText
-from .document_text import _appearance
+from .document_text import DocumentText, _appearance
 from .geometry import Vec2
 from .model import Box
 from .scene import Lifetime, ObjectGroup
@@ -162,15 +162,78 @@ def layout_document_lyrics(
     crossing a shaping cluster are rejected when independent placement is needed.
     Joined ruby runs share a row; explicit break/spill markers start a new group.
     """
+    record = document.records[record_index]
+    if not isinstance(record, Line):
+        raise TypeError("lyric binding requires an event record")
+    return layout_lyrics(
+        document,
+        document.lyrics_at(record_index),
+        id=f"record:{record_index}" if id is None else id,
+        display=Lifetime(record.start_time / 1000, record.end_time / 1000)
+        if display is None
+        else display,
+        ruby_gap=ruby_gap,
+    )
+
+
+def layout_lyrics(
+    document: Document,
+    lyrics: DocumentLyrics,
+    *,
+    id: str,
+    display: Lifetime,
+    ruby_gap: float = 0,
+) -> LyricLayout:
+    """Measure structured or parsed lyrics using Document styles and resolution.
+
+    No ASS event is required or synthesized. Singing intervals retain their full
+    seconds precision; record indices, if present, are provenance only.
+    """
     from .geometry import finite
 
     finite(ruby_gap)
     if ruby_gap < 0:
         raise ValueError("ruby gap cannot be negative")
-    record = document.records[record_index]
-    if not isinstance(record, Line):
-        raise TypeError("lyric binding requires an event record")
-    lyrics = document.lyrics_at(record_index)
+
+    def validate_text(source: DocumentText) -> None:
+        source.require_supported()
+        offset = 0
+        for run in source.runs:
+            if run.start != offset or run.end != run.start + len(run.text):
+                raise ValueError(
+                    f"{id}: text runs must cover contiguous decoded ranges"
+                )
+            offset = run.end
+        if "\n" in source.text or "\r" in source.text:
+            raise ValueError(f"{id}: multiline lyric layout is not yet supported")
+        if any(cue.offset > offset for cue in source.cues):
+            raise ValueError(f"{id}: cue lies outside decoded text")
+
+    validate_text(lyrics.source)
+    validate_text(lyrics.body)
+    end = 0
+    for unit in lyrics.units:
+        if unit.start != end or unit.end < unit.start:
+            raise ValueError(f"{id}: lyric units must cover contiguous body ranges")
+        end = unit.end
+        for segment in unit.segments:
+            if (segment.singing.start_offset, segment.singing.end_offset) != (
+                unit.start,
+                unit.end,
+            ):
+                raise ValueError(f"{id}: singing offsets do not match their lyric unit")
+            if (
+                not 0
+                <= segment.source_start
+                <= segment.source_end
+                <= len(lyrics.source.text)
+            ):
+                raise ValueError(f"{id}: singing source range lies outside source text")
+            if segment.ruby is not None:
+                validate_text(segment.ruby.source)
+    if end != len(lyrics.body.text):
+        raise ValueError(f"{id}: lyric units must cover the complete body")
+    record_index = lyrics.source.record_index
     singing = tuple(
         segment.singing for unit in lyrics.units for segment in unit.segments
     )

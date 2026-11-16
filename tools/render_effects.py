@@ -14,7 +14,6 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw
 
 from examples.output_layers import build
-from kara_templater import KaraokeLine, Segment, TextUnit, layout_line
 from kara_templater.ass import Document, Line
 from kara_templater.fonts import load_font
 
@@ -69,9 +68,11 @@ def main():
     registered = load_font(font)
     (output / "fonts").mkdir(exist_ok=True)
     shutil.copyfile(font, output / "fonts" / font.name)
-    script, result = build(
+    scene = build(
         args.text, spacing=args.spacing, fontname=registered.family, italic=args.italic
     )
+    result = scene.compile()
+    script = result.document.dumps()
     (output / "layers.ass").write_text(script, encoding="utf-8-sig")
     times = (500, 1000, 1250, 1500, 1750, 2000, 2200)
     render("layers.ass", str(output / "frame-%02d.png"), times)
@@ -79,16 +80,14 @@ def main():
     # Compare independently positioned glyphs with a whole-text reference.
     document = Document.parse(script)
     document.records = [r for r in document.records if not isinstance(r, Line)]
-    for index in range(3):
+    for index, plan in enumerate(scene.plans):
         style = document.styles[f"Mode{index}"]
-        layout = layout_line(
-            KaraokeLine((TextUnit(args.text, (Segment(1000, 2000),)),)),
-            style=style,
-            resolution=(640, 480),
-        )
+        box = plan.line.layout.body.bounds
+        center = plan.placement.position.x + box.center
+        middle = plan.placement.position.y + box.middle
         document.records.append(
             Line(
-                text=rf"{{\an5\pos({layout.box.center},{layout.box.middle})\bord0\shad0\1c&HDDDDDD&}}{args.text}",
+                text=rf"{{\an5\pos({center},{middle})\bord0\shad0\1c&HDDDDDD&}}{args.text}",
                 start_time=0,
                 end_time=3000,
                 style=style.name,
@@ -117,7 +116,7 @@ def main():
         "font_family": registered.family,
         "resolution": [640, 480],
         "times_ms": times,
-        "events": len(result.events),
+        "events": result.event_count,
         "diagnostics": result.diagnostics,
         "font_file": str(font),
         "font_sha256": hashlib.sha256(font.read_bytes()).hexdigest(),
@@ -135,7 +134,7 @@ def main():
         },
         "limitations": [
             "System libass renders frames; bundled patched libass measures layout.",
-            "Clip interpolation error <= 0.25 px plus integer-coordinate rounding <= 0.5 px.",
+            "Clip and pulse motion use the shared Scene sampling grid.",
             "Timeline boundaries use nearest 10 ms; character outlines use 1/64 px positions.",
         ],
     }

@@ -15,9 +15,9 @@ from kara_templater.scene import (
 )
 from kara_templater.scene_animation import (
     AnimationClip,
-    SceneTimeline,
     StateFunction,
     StatePatch,
+    Timeline,
     Tween,
     VisualState,
 )
@@ -131,7 +131,7 @@ def test_identity_and_affine_combination_report():
 
 
 def test_timeline_takeover_release_and_random_access():
-    timeline = SceneTimeline().play(Tween(StatePatch(position=Vec2(20, 0))), duration=1)
+    timeline = Timeline().play(Tween(StatePatch(position=Vec2(20, 0))), duration=1)
     timeline.play(Tween(StatePatch(position=Vec2(40, 0))), duration=1, hold=False)
     node = text(animations=timeline.clips)
     assert node.at(1.5).position == Vec2(30, 0)
@@ -141,7 +141,7 @@ def test_timeline_takeover_release_and_random_access():
 
 
 def test_parallel_channels_conflicts_and_declared_writes():
-    timeline = SceneTimeline().play(
+    timeline = Timeline().play(
         Tween(StatePatch(opacity=0)),
         Tween(StatePatch(position=Vec2(10, 0))),
         duration=1,
@@ -387,3 +387,109 @@ def test_song_offset_copy_keeps_half_grid_boundaries_and_alpha_identical():
     assert early == late
     for time in (0.025, 0.065, 0.315, 0.565, 0.995):
         assert node.at(time) == node.copy(id="copy", delay=144).at(time + 144)
+
+
+def test_sampled_callback_failure_preserves_origin_time_and_original_cause():
+    from kara_templater import EventOrigin, SourceRef
+
+    origin = EventOrigin((SourceRef("line", 1, 2),), "custom", ("echo",))
+    failure = RuntimeError("broken property")
+    calls = []
+
+    def fail(state, progress):
+        calls.append(progress)
+        raise failure
+
+    node = text(
+        origin=origin,
+        animations=(AnimationClip(0, 3, StateFunction(fail)),),
+    )
+    scene = Scene(document()).add(node)
+    with pytest.raises(SceneCompileError, match="budget"):
+        scene.compile(budget=SceneBudget(max_events=1))
+    assert not calls
+    with pytest.raises(SceneCompileError, match="sample at 0.010000s") as caught:
+        scene.compile()
+    assert caught.value.object_id == node.id
+    assert caught.value.origin == origin
+    cause: BaseException = caught.value
+    while cause.__cause__ is not None:
+        cause = cause.__cause__
+    assert cause is failure
+    assert calls == [pytest.approx(0.01 / 3)]
+
+
+def test_event_merging_keeps_sampling_callbacks_and_visibility_gaps():
+    calls = []
+
+    def constant(state, progress):
+        calls.append(progress)
+        return replace(state, opacity=0.5)
+
+    node = replace(
+        text(),
+        lifetime=Lifetime(0, 0.12),
+        animations=(AnimationClip(0, 0.12, StateFunction(constant)),),
+    )
+    result = Scene(Document.create()).add(node).compile()
+    assert calls == pytest.approx(
+        [t / 0.12 for t in (0.01, 0.03, 0.05, 0.07, 0.09, 0.11)]
+    )
+    assert result.event_count == 1
+    events = [e for e in result.document.lines if not e.comment]
+    assert [(e.start_time, e.end_time) for e in events] == [(0, 120)]
+
+    def interrupted(state, progress):
+        return replace(state, opacity=0 if 1 / 3 <= progress < 2 / 3 else 0.5)
+
+    changed = replace(
+        node,
+        animations=(
+            AnimationClip(
+                0, 0.12, StateFunction(interrupted), breakpoints=(0.04, 0.08)
+            ),
+        ),
+    )
+    output = Scene(Document.create()).add(changed).compile()
+    visible = [
+        event
+        for event in output.document.lines
+        if not event.comment and r"\alpha&HFF&" not in event.text
+    ]
+    assert [(e.start_time, e.end_time) for e in visible] == [(0, 40), (80, 120)]
+    assert (
+        output.document.dumps()
+        == Scene(Document.create()).add(changed).compile().document.dumps()
+    )
+
+
+def test_sub_alpha_precision_changes_merge_only_after_all_samples_are_evaluated():
+    calls = []
+
+    def nearly_constant(state, progress):
+        value = 0.5 + progress * 1e-10
+        calls.append(value)
+        return replace(state, opacity=value)
+
+    node = replace(
+        text(),
+        lifetime=Lifetime(0, 0.12),
+        animations=(AnimationClip(0, 0.12, StateFunction(nearly_constant)),),
+    )
+    result = Scene(Document.create()).add(node).compile()
+    assert len(calls) == len(set(calls)) == 6
+    # Distinct float states have identical serialized ASS alpha; merging is exact
+    # at the output representation, without skipping callback samples.
+    assert result.event_count == 1
+
+
+def test_invalid_state_callback_reports_target_and_sample_time():
+    invalid = StateFunction(lambda state, p: None)  # ty: ignore[invalid-argument-type]
+    scene = Scene(Document.create()).add(
+        text(animations=(AnimationClip(0, 3, invalid),))
+    )
+    with pytest.raises(
+        SceneCompileError, match="sample at 0.010000s.*must return VisualState"
+    ) as caught:
+        scene.compile()
+    assert caught.value.object_id == "text"

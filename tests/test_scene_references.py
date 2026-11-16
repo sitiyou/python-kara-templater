@@ -263,3 +263,30 @@ def test_rendered_world_follow_matches_explicit_transform():
     pixels = rasterize(actual, 1000, (320, 240)).rgba
     assert any(pixels)
     assert pixels == rasterize(reference, 1000, (320, 240)).rgba
+
+
+def test_repeated_reference_lookup_shares_one_state_within_a_seek():
+    calls = []
+
+    def motion(base, progress):
+        calls.append(progress)
+        return replace(base, position=Vec2(7, 3))
+
+    def double_lookup(base, time, lookup):
+        first = lookup("source", time)
+        assert lookup("source", time) is first
+        return replace(base, position=first.position)
+
+    scene = Scene(Document.create()).add(
+        text("source", animations=(AnimationClip(0, 3, StateFunction(motion)),)),
+        text(
+            "copy",
+            reference=ReferenceFunction(
+                double_lookup, ("source",), frozenset(("position",))
+            ),
+        ),
+    )
+    evaluator = scene.evaluator()
+    assert not calls
+    assert evaluator.at("copy", 0.3).position == Vec2(7, 3)
+    assert calls == [pytest.approx(0.1)]

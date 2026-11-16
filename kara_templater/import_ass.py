@@ -144,7 +144,7 @@ def parse_karaoke(line: Line) -> KaraokeLine:
                         next_start = start_time + value
                         if next_start < cursor:
                             raise ValueError(
-                                "kt cannot reverse time within a unit sequence; use explicit HighlightTrack objects"
+                                "kt cannot reverse time within a unit sequence; use explicit HighlightPass regions for independent singing"
                             )
                         cursor = next_start
                     else:

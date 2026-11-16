@@ -2,6 +2,7 @@ from dataclasses import replace
 
 import pytest
 
+from kara_templater import Highlight, HighlightPass, StatePatch, TimeSpan
 from kara_templater.model import (
     Box,
     LaidOutLine,
@@ -12,12 +13,8 @@ from kara_templater.model import (
 )
 from kara_templater.timeline import (
     DisplayWindow,
-    EdgeSweep,
-    HighlightTrack,
     ProgressCurve,
     Region,
-    SingingPass,
-    tracks_from_layout,
     union_regions,
 )
 
@@ -30,34 +27,15 @@ def test_invalid_display_window(start, end):
         DisplayWindow(start, end)
 
 
-def test_body_timing_and_character_arrivals_ignore_decorations():
-    singing = SingingPass(1000, 2000, Region(100, 300))
-    baseline = [singing.position_at(t) for t in (900, 1000, 1250, 1500, 2000)]
-    for paint, edges in (
-        (Region(100, 300), EdgeSweep()),
-        (Region(-500, 900), EdgeSweep(120, 250, 400)),
-    ):
-        assert edges.position_at(singing, paint, 1250) == 150
-        assert edges.position_at(singing, paint, 1500) == 200
-        assert singing.arrival(150) == 1250
-        assert [
-            singing.position_at(t) for t in (900, 1000, 1250, 1500, 2000)
-        ] == baseline
-    edges = EdgeSweep(10, 200, 300)
-    assert edges.position_at(singing, Region(80, 320), 800) == 70
-    assert edges.position_at(singing, Region(80, 320), 900) == 85
-    assert edges.position_at(singing, Region(80, 320), 1000) == 100
-    assert edges.position_at(singing, Region(80, 320), 2000) == 300
-    assert edges.position_at(singing, Region(80, 320), 2300) == 330
-
-
 def test_piecewise_speed_pause_and_earliest_arrival():
     curve = ProgressCurve(((0, 0), (0.2, 0.4), (0.6, 0.4), (1, 1)))
-    singing = SingingPass(1000, 2000, Region(20, 120), curve)
-    assert singing.position_at(1100) == pytest.approx(40)
-    assert singing.position_at(1400) == pytest.approx(60)
-    assert singing.arrival(60) == pytest.approx(1200)
-    assert singing.arrival(90) == pytest.approx(1800)
+    singing = HighlightPass(
+        TimeSpan(1, 2), Region(20, 120), rate=curve.at, inverse_rate=curve.arrival
+    )
+    assert singing.front(1.1) == pytest.approx(40)
+    assert singing.front(1.4) == pytest.approx(60)
+    assert singing.arrival(60) == pytest.approx(1.2)
+    assert singing.arrival(90) == pytest.approx(1.8)
     assert singing.arrival(10) is None
     assert (
         ProgressCurve.two_stage(time_fraction=0.25, progress_fraction=0.5).at(0.25)
@@ -80,46 +58,45 @@ def test_invalid_curves(knots):
 
 
 def test_zero_duration_and_empty_region():
-    singing = SingingPass(100, 100, Region(20, 120))
-    assert singing.position_at(99) == 20
-    assert singing.position_at(100) == 120
-    assert singing.arrival(70) == 100
-    assert SingingPass(100, 200, Region(20, 20)).arrival(20) is None
-    track = HighlightTrack("instant", 0, (singing,))
-    assert track.regions_at(100) == (Region(20, 120),)
+    singing = HighlightPass(TimeSpan(0.1, 0.1), Region(20, 120))
+    assert singing.front(0.099) == 20
+    assert singing.front(0.1) == 120
+    assert singing.arrival(70) == 0.1
+    assert HighlightPass(TimeSpan(0.1, 0.2), Region(20, 20)).arrival(20) is None
+    track = Highlight("instant", 0, (singing,), StatePatch())
+    assert track.regions(0.1) == (Region(20, 120),)
 
 
 def test_disjoint_regions_pause_repetition_and_exit():
     passes = (
-        SingingPass(100, 200, Region(0, 20)),
-        SingingPass(300, 400, Region(40, 60)),
-        SingingPass(600, 800, Region(0, 20), round_id=1),
+        HighlightPass(TimeSpan(0.1, 0.2), Region(0, 20)),
+        HighlightPass(TimeSpan(0.3, 0.4), Region(40, 60)),
+        HighlightPass(TimeSpan(0.6, 0.8), Region(0, 20), round=1),
     )
-    track = HighlightTrack("a", 0, passes)
-    assert track.regions_at(50) == ()
-    assert track.regions_at(250) == (Region(0, 20),)
-    assert track.regions_at(350) == (Region(0, 20), Region(40, 50))
-    assert track.regions_at(700) == (Region(0, 20), Region(40, 60))
-    assert replace(track, repeat="reset").regions_at(700) == (Region(0, 10),)
-    assert replace(track, end_behavior="hide").regions_at(800) == ()
+    track = Highlight("a", 0, passes, StatePatch())
+    assert track.regions(0.05) == ()
+    assert track.regions(0.25) == (Region(0, 20),)
+    assert [r.left for r in track.regions(0.35)] == [0, 40]
+    assert [r.right for r in track.regions(0.35)] == pytest.approx([20, 50])
+    assert track.regions(0.7) == (Region(0, 20), Region(40, 60))
+    assert replace(track, repeat="reset").regions(0.7)[0].right == pytest.approx(10)
+    assert replace(track, end="hide").regions(0.8) == ()
     assert union_regions((Region(0, 10), Region(5, 20), Region(40, 60))) == (
         Region(0, 20),
         Region(40, 60),
     )
 
 
-def test_repeated_region_and_overlapping_time_require_explicit_models():
-    with pytest.raises(ValueError, match="round_id"):
-        HighlightTrack(
+def test_overlapping_passes_require_separate_highlights():
+    with pytest.raises(ValueError, match="nonoverlapping"):
+        Highlight(
             "a",
             0,
-            (SingingPass(0, 100, Region(0, 20)), SingingPass(100, 200, Region(0, 20))),
-        )
-    with pytest.raises(ValueError, match="separate tracks"):
-        HighlightTrack(
-            "a",
-            0,
-            (SingingPass(0, 100, Region(0, 20)), SingingPass(50, 200, Region(30, 50))),
+            (
+                HighlightPass(TimeSpan(0, 0.1), Region(0, 20)),
+                HighlightPass(TimeSpan(0.05, 0.2), Region(30, 50)),
+            ),
+            StatePatch(),
         )
 
 
@@ -139,18 +116,27 @@ def test_layout_mapping_preserves_ruby_partition_and_static_units():
             LaidOutUnit(TextUnit(" "), Box(90, 0, 10, 20), ()),
         ),
     )
-    tracks = tracks_from_layout(layout)
+    tracks = tuple(
+        Highlight(
+            str(index),
+            index,
+            tuple(
+                HighlightPass(
+                    TimeSpan(part.source.start_ms / 1000, part.source.end_ms / 1000),
+                    Region(part.left, part.right),
+                )
+                for part in unit.segments
+            ),
+            StatePatch(),
+        )
+        for index, unit in enumerate(layout.units)
+        if unit.segments
+    )
     assert len(tracks) == 1
-    assert tracks[0].regions_at(250) == (Region(0, 60),)
-    assert tracks[0].regions_at(350) == (Region(0, 75),)
-
-
-@pytest.mark.parametrize(
-    "kwargs", [{"padding_px": -1}, {"lead_ms": 1.5}, {"tail_ms": -1}]
-)
-def test_edge_validation(kwargs):
-    with pytest.raises(ValueError):
-        EdgeSweep(**kwargs)
+    assert tracks[0].regions(0.25) == (Region(0, 60),)
+    assert len(tracks[0].regions(0.35)) == 1
+    assert tracks[0].regions(0.35)[0].left == 0
+    assert tracks[0].regions(0.35)[0].right == pytest.approx(75)
 
 
 def test_unit_order_is_spatial_not_temporal_with_adjacent_and_instant_segments():
@@ -175,12 +161,28 @@ def test_unit_order_is_spatial_not_temporal_with_adjacent_and_instant_segments()
         )
         for i, segments in enumerate(schedules)
     )
-    tracks = tracks_from_layout(LaidOutLine(Box(0, 0, 300, 20), units))
-    assert [t.unit_index for t in tracks] == [0, 1, 2]
+    tracks = tuple(
+        Highlight(
+            str(index),
+            index,
+            tuple(
+                HighlightPass(
+                    TimeSpan(part.source.start_ms / 1000, part.source.end_ms / 1000),
+                    Region(part.left, part.right),
+                )
+                for part in unit.segments
+            ),
+            StatePatch(),
+        )
+        for index, unit in enumerate(units)
+    )
+    assert [t.unit for t in tracks] == [0, 1, 2]
     # The later written unit sings first; both are active at 1050 ms.
-    assert tracks[0].regions_at(1050) == (Region(0, 25),)
-    assert tracks[1].regions_at(1050) == (Region(100, 170),)
-    assert tracks[0].regions_at(1100) == (Region(0, 50),)
-    assert tracks[0].regions_at(1200) == (Region(0, 75),)
-    assert tracks[2].regions_at(899) == ()
-    assert tracks[2].regions_at(900) == (Region(200, 300),)
+    assert tracks[0].regions(1.05) == (Region(0, 25),)
+    assert tracks[1].regions(1.05) == (Region(100, 170),)
+    assert tracks[0].regions(1.1) == (Region(0, 50),)
+    assert len(tracks[0].regions(1.2)) == 1
+    assert tracks[0].regions(1.2)[0].left == 0
+    assert tracks[0].regions(1.2)[0].right == pytest.approx(75)
+    assert tracks[2].regions(0.899) == ()
+    assert tracks[2].regions(0.9) == (Region(200, 300),)

@@ -1,125 +1,157 @@
-"""Check crossing fractional clip clocks against an unpartitioned glyph.
+"""Compare common highlight partitions with one fully painted glyph.
 
-Run: python -m tools.validate_clip_seams OUTPUT
+Run: python -m tools.validate_clip_seams OUTPUT [--scale] [--fade]
+Use --strategy coverage to diagnose fractional material partitions instead.
 """
 
 import argparse
 import json
-import shutil
 from dataclasses import replace
 from pathlib import Path
+from typing import Literal
 
 from PIL import Image, ImageChops
 
 from kara_templater import (
-    Box,
-    ClipSpan,
-    Color,
-    DisplayWindow,
+    BLUE,
+    RED,
+    WHITE,
     Document,
-    Fade,
+    FadeIn,
+    FadeOut,
     Glow,
-    OutputSettings,
-    Paint,
+    Highlight,
+    HighlightPass,
+    Lifetime,
+    Line,
+    LyricHighlights,
+    LyricLine,
     Region,
-    ScaleAnimation,
+    ScalePulse,
+    Scene,
+    SceneBudget,
+    StatePatch,
     Style,
-    TextLayer,
-    compile_layers,
+    TimeSpan,
+    Vec2,
+    layout_document_lyrics,
     load_font,
 )
-from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
-from kara_templater.masks import PaintedMask, compose_masks
-from tools.render_effects import render
+from kara_templater._raster import rasterize
 
 
-def main():
+def subjects(
+    *,
+    font: str = "DejaVu Sans",
+    scale: bool = False,
+    fade: bool = False,
+    strategy: Literal["clip", "coverage"] = "coverage",
+) -> tuple[Scene, Scene]:
+    source = Document.create(
+        width=160,
+        height=120,
+        styles=(Style(fontname=font, fontsize=32, outline=0, shadow=0),),
+    )
+    source.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}M"))
+    line = LyricLine.from_layout(
+        layout_document_lyrics(
+            source, len(source.records) - 1, display=Lifetime(0.5, 2.5)
+        )
+    )
+    line = replace(line, state=replace(line.state, position=Vec2(50, 40), opacity=0.5))
+    box = line.layout.body.bounds
+    halo = Glow(WHITE, blur=2, opacity=0.5)
+    whole = Region(box.left, box.right)
+    highlights = (
+        Highlight(
+            "main",
+            0,
+            (HighlightPass(TimeSpan(1, 2), whole),),
+            StatePatch(outline=RED),
+            glow=halo,
+        ),
+        Highlight(
+            "cover",
+            0,
+            (
+                HighlightPass(
+                    TimeSpan(1.23, 1.81),
+                    Region(
+                        box.left + box.width * 0.1 + 0.2,
+                        box.right - box.width * 0.1 + 0.3,
+                    ),
+                ),
+            ),
+            StatePatch(outline=BLUE),
+            priority=1,
+            end="hide",
+            glow=halo,
+        ),
+    )
+    reference = (
+        Highlight(
+            "whole",
+            0,
+            (HighlightPass(TimeSpan(0.5, 0.5), whole),),
+            StatePatch(outline=RED),
+            glow=halo,
+        ),
+    )
+    result = []
+    for selected in (highlights, reference):
+        decorated = LyricHighlights(
+            highlights=selected, mode="priority", strategy=strategy, glow=halo
+        ).apply(line)
+        if scale:
+            decorated = decorated.animate(
+                ScalePulse(Vec2(box.center, box.middle), peak=1.4), at=0.5, duration=1
+            )
+        if fade:
+            decorated = decorated.animate(FadeIn(), duration=1).animate(
+                FadeOut(), at=1, duration=1
+            )
+        result.append(
+            Scene(source, replace_records={len(source.records) - 1}).add(decorated)
+        )
+    return result[0], result[1]
+
+
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--scale", action="store_true")
     parser.add_argument("--fade", action="store_true")
+    parser.add_argument("--strategy", choices=("clip", "coverage"), default="clip")
     args = parser.parse_args()
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
-    font_path = Path(__file__).resolve().parents[1] / "tests/fonts/DejaVuSans.ttf"
-    font = load_font(font_path)
-    (output / "fonts").mkdir(exist_ok=True)
-    shutil.copy2(font_path, output / "fonts" / font_path.name)
-    style = Style(fontname=font.family, fontsize=160, align=5)
-    window = DisplayWindow(500, 2500)
-    paint = Paint(opacity=0.5, glow=Glow(blur=8, opacity=0.5))
-    # Zero-width outline colors distinguish semantic regions without changing
-    # their visible appearance. Any partition seam is therefore extra output.
-    masks = (
-        PaintedMask(
-            "main",
-            replace(paint, outline=Color(255, 0, 0)),
-            0,
-            (ClipSpan(1000, 2000, Region(0, 180.3), Region(0, 460.7)),),
-        ),
-        PaintedMask(
-            "cover",
-            replace(paint, outline=Color(0, 0, 255)),
-            1,
-            (ClipSpan(1230, 1810, Region(0, 210.2), Region(0, 440.6)),),
-        ),
+    font = load_font(Path(__file__).resolve().parents[1] / "tests/fonts/DejaVuSans.ttf")
+    scenes = subjects(
+        font=font.family, scale=args.scale, fade=args.fade, strategy=args.strategy
     )
-    regions = compose_masks(
-        masks, domain=Region(0, 640), window=window, before=paint, overlap="priority"
-    )
-    base = TextLayer("reference", "M", style, Box(220, 180, 200, 120), window, paint)
-    if args.fade:
-        base = replace(base, fade=Fade(1000, 1000))
-    if args.scale:
-        base = replace(
-            base,
-            animations=(
-                ScaleAnimation("reference", "main", 0, 1000, 2000, 1.4, (320, 240)),
-            ),
+    outputs = tuple(
+        scene.compile(
+            budget=SceneBudget(
+                fps=100,
+                max_events=500_000,
+                max_active=100_000,
+                max_bytes=128 * 1024 * 1024,
+            )
         )
-    from kara_templater.ass_output import quantize
-
-    layers = tuple(
-        replace(
-            base,
-            source_id=f"region:{i}",
-            paint=r.paints[0],
-            clips=(r.interpolation_span or r.span,),
-            active_window=DisplayWindow(
-                quantize(r.span.start_ms), quantize(r.span.end_ms)
-            ),
-        )
-        for i, r in enumerate(regions)
-        if quantize(r.span.end_ms) > quantize(r.span.start_ms)
+        for scene in scenes
     )
-    header = (
-        "[Script Info]\nPlayResX: 640\nPlayResY: 480\nScaledBorderAndShadow: yes\n"
-        "[V4+ Styles]\nFormat: "
-        + STYLE_FORMAT
-        + "\n"
-        + style.serialize()
-        + "\n[Events]\nFormat: "
-        + EVENT_FORMAT
-        + "\n"
-    )
-    times = tuple(range(1000, 2010, 10))
-    events, frames = {}, {}
-    for name, group in (("partitioned", layers), ("reference", (base,))):
-        compiled = compile_layers(group, settings=OutputSettings(resolution=(640, 480)))
-        document = Document.parse(header)
-        document.records.extend(compiled.events)
-        document.save(output / f"{name}.ass")
-        events[name] = len(compiled.events)
-        render(name + ".ass", str(output / f"{name}-%03d.png"), times)
-        frames[name] = [
-            Image.open(output / f"{name}-{i + 1:03d}.png").convert("RGB")
-            for i in range(len(times))
-        ]
+    for name, compiled in zip(("partitioned", "reference"), outputs, strict=True):
+        compiled.document.save(output / f"{name}.ass")
+    scripts = tuple(compiled.document.dumps() for compiled in outputs)
     checks = []
-    for index, time in enumerate(times):
-        difference = ImageChops.difference(
-            frames["partitioned"][index], frames["reference"][index]
+    for time in range(1000, 2010, 10):
+        frames = tuple(
+            Image.frombytes(
+                "RGBA", (160, 120), rasterize(script, time, (160, 120)).rgba
+            )
+            for script in scripts
         )
+        difference = ImageChops.difference(*frames)
         maximum = max(difference.tobytes())
         checks.append(
             {"time_ms": time, "max_channel_difference": maximum, "passed": maximum == 0}
@@ -129,19 +161,17 @@ def main():
     report = {
         "scale": args.scale,
         "fade": args.fade,
+        "strategy": args.strategy,
         "font_sha256": font.sha256,
-        "frames": 2 * len(times),
-        "events": events,
-        "local_clock_regions": sum(r.shared_local_clock for r in regions),
+        "events": [item.event_count for item in outputs],
         "checks": checks,
-        "limitations": [
-            "Same visible paint across semantic partitions; unpartitioned reference detects extra cracks or overdraw.",
-            "--scale adds a 1.4x pulse and checks that adaptive clip cuts preserve the native animation clock.",
-        ],
+        "reference": "Same visible paint without moving internal partitions; detects cracks and extra alpha.",
     }
     (output / "validation.json").write_text(json.dumps(report, indent=2) + "\n")
-    print(json.dumps(report, indent=2))
-    if not all(c["passed"] for c in checks):
+    print(
+        f"{sum(1 for check in checks if check['passed'])}/{len(checks)} seam frames passed"
+    )
+    if not all(check["passed"] for check in checks):
         raise SystemExit("Clip seams detected")
 
 

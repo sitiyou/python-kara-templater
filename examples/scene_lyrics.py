@@ -11,10 +11,11 @@ from pathlib import Path
 from kara_templater import (
     PINK,
     WHITE,
-    AnimationClip,
     Document,
     Lifetime,
     Line,
+    LyricLine,
+    LyricRule,
     ObjectGroup,
     Scene,
     SoftSweep,
@@ -81,6 +82,9 @@ def build() -> Scene:
     )
     index = len(document.records) - 1
     layout = layout_document_lyrics(document, index, display=Lifetime(0, 5), ruby_gap=8)
+    lyric = LyricLine.from_layout(layout).bind(
+        LyricRule("syllable", "singing", StateFunction(pulse, frozenset(("scale",))))
+    )
     offset = Vec2(640 - layout.body.bounds.center, 340)
     scene = Scene(document)
     scene.replace_source(index)
@@ -89,7 +93,8 @@ def build() -> Scene:
         segment = unit.segments[0]
         body_box = layout.body.range_bounds(unit.start, unit.end)
         ruby_box = next(r.layout.bounds for r in layout.ruby if r.unit_index == ui)
-        group = layout.unit_group(ui)
+        group = lyric.children[ui]
+        assert isinstance(group, ObjectGroup)
         children: list[TextObject] = []
         for child in group.children:
             assert isinstance(child, TextObject) and child.origin is not None
@@ -109,17 +114,7 @@ def build() -> Scene:
                     ),
                 )
             )
-        group = replace(
-            group,
-            children=tuple(children),
-            animations=(
-                AnimationClip(
-                    segment.singing.start,
-                    segment.singing.end - segment.singing.start,
-                    StateFunction(pulse, frozenset(("scale",))),
-                ),
-            ),
-        )
+        group = replace(group, children=tuple(children))
         groups.extend(
             (
                 glow(group, id=f"wide:{ui}", border=5, blur=10, opacity=0.35),

@@ -1,39 +1,82 @@
-"""Generate a native ASS example: python -m examples.output_layers /tmp/layers.ass."""
+"""Compare character-arrival, simultaneous-character and syllable animations.
+
+python -m examples.output_layers build/layers.ass
+All three rows bind the same custom animation and use ordinary Scene compilation.
+"""
 
 import argparse
 from pathlib import Path
 
 from kara_templater import (
     Color,
-    DisplayWindow,
-    KaraokeLine,
-    Paint,
-    Pulse,
-    Segment,
+    Document,
+    FadeIn,
+    FadeOut,
+    Highlight,
+    HighlightArrival,
+    HighlightPass,
+    Layout,
+    Line,
+    LyricHighlights,
+    LyricLine,
+    LyricRule,
+    LyricScene,
+    LyricTarget,
+    Region,
+    ScalePulse,
+    SceneResult,
+    StateAnimation,
+    StatePatch,
     Style,
-    TextUnit,
-    layout_characters,
-    layout_line,
-    plan_pulses,
-    tracks_from_layout,
+    TimeSpan,
+    Track,
+    Vec2,
+    prepare_tracks,
 )
-from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
-from kara_templater.ass_output import (
-    Fade,
-    OutputSettings,
-    TextLayer,
-    compile_layers,
-    sweep_spans,
-)
-from kara_templater.timeline import EdgeSweep, Region
 
 
-def build(text="Karaoke", *, spacing=0, fontname="DejaVu Sans", italic=False):
-    window = DisplayWindow(0, 3000)
-    layers, styles = [], []
-    modes = (Pulse.each_char(), Pulse.simultaneous_chars(), Pulse.whole_syllable())
-    for index, pulse in enumerate(modes):
-        style = Style(
+def pulse(line: LyricLine, target: LyricTarget) -> StateAnimation:
+    if target.role == "syllable":
+        return ScalePulse()  # Syllable groups already use the body center.
+    character = next(
+        character
+        for item, character in zip(
+            line.query("character"), line.layout.body.characters, strict=True
+        )
+        if item.id == target.id
+    )
+    scale = character.layout_scale
+    assert scale is not None
+    return ScalePulse(
+        Vec2(
+            character.bounds.width / (2 * scale.x),
+            character.bounds.height / (2 * scale.y),
+        )
+    )
+
+
+def highlights(line: LyricLine) -> tuple[Highlight, ...]:
+    box = line.layout.body.bounds
+    return (
+        Highlight(
+            "sung",
+            0,
+            (HighlightPass(TimeSpan(1, 2), Region(box.left, box.right)),),
+            StatePatch(fill=Color.hex("#33ddff")),
+        ),
+    )
+
+
+def build(
+    text: str = "Karaoke",
+    *,
+    spacing: float = 0,
+    fontname: str = "DejaVu Sans",
+    italic: bool = False,
+) -> LyricScene:
+    """Build three independent streams, with no manual per-character scheduling."""
+    styles = tuple(
+        Style(
             name=f"Mode{index}",
             fontname=fontname,
             italic=italic,
@@ -41,63 +84,55 @@ def build(text="Karaoke", *, spacing=0, fontname="DejaVu Sans", italic=False):
             align=8,
             margin_v=60 + 140 * index,
             spacing=spacing,
+            outline=0,
+            shadow=0,
         )
-        styles.append(style)
-        source = KaraokeLine((TextUnit(text, (Segment(1000, 2000),)),))
-        layout = layout_line(source, style=style, resolution=(640, 480))
-        chars = layout_characters(layout, style=style)
-        tracks = tracks_from_layout(layout)
-        plan = plan_pulses(
-            (pulse,),
-            layout=layout,
-            characters=tuple(c.target for c in chars),
-            tracks=tracks,
-            window=window,
-        )
-        spans = sweep_spans(
-            tracks[0].passes[0],
-            paint=Region(layout.box.left - 12, layout.box.right + 12),
-            window=window,
-            edges=EdgeSweep(lead_ms=100, tail_ms=100),
-        )
-        for char in chars:
-            animations = tuple(a for a in plan.animations if a.target_id == char.id)
-            for highlight in (False, True):
-                layers.append(
-                    TextLayer(
-                        f"row:{index}/{char.id}/{'after' if highlight else 'before'}",
-                        char.text,
-                        style,
-                        char.box,
-                        window,
-                        Paint(Color.hex("#33ddff" if highlight else "#dddddd")),
-                        Fade(300, 300),
-                        spans if highlight else None,
-                        animations,
-                        index * 2 + int(highlight),
-                    )
-                )
-    result = compile_layers(tuple(layers), settings=OutputSettings((640, 480)))
-    script = (
-        "[Script Info]\nScriptType: v4.00+\nPlayResX: 640\nPlayResY: 480\nScaledBorderAndShadow: yes\nWrapStyle: 2\n\n[V4+ Styles]\nFormat: "
-        + STYLE_FORMAT
-        + "\n"
+        for index in range(3)
     )
-    script += "\n".join(style.serialize() for style in styles)
-    script += "\n\n[Events]\nFormat: " + EVENT_FORMAT + "\n"
-    script += "\n".join(event.serialize() for event in result.events) + "\n"
-    return script, result
+    document = Document.create(width=640, height=480, styles=styles)
+    for style in styles:
+        document.records.append(
+            Line(
+                start_time=1000,
+                end_time=2000,
+                style=style.name,
+                text=r"{\c&HDDDDDD&\k100}" + text,
+            )
+        )
+    rules = (
+        LyricRule("character", HighlightArrival(highlights=highlights), pulse),
+        LyricRule("character", "singing", pulse),
+        LyricRule("syllable", "singing", pulse),
+    )
+    return prepare_tracks(
+        document,
+        tracks=tuple(
+            Track(
+                id=style.name,
+                source=lambda source, name=style.name: source.style == name,
+                layout=Layout(position=Vec2(0, style.margin_v), alignment="center"),
+                preview=1,
+                tail=1,
+                animations=(
+                    LyricRule("line", "enter", FadeIn(), duration=0.3),
+                    rule,
+                    LyricRule("line", "exit", FadeOut(), duration=0.3),
+                ),
+                factory=LyricHighlights(highlights=highlights).apply,
+            )
+            for style, rule in zip(styles, rules, strict=True)
+        ),
+        owner="pulse-comparison",
+    )
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    script, result = build()
-    args.output.write_text(script, encoding="utf-8-sig")
-    print(
-        f"{len(result.events)} events; {len(result.diagnostics)} diagnostics; {args.output}"
-    )
+    result: SceneResult = build().compile()
+    result.document.save(args.output)
+    print(f"{result.event_count} events; {result.peak_active} active; {args.output}")
 
 
 if __name__ == "__main__":

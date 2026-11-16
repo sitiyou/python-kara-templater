@@ -18,24 +18,30 @@ flowchart LR
 
 ass.py preserves ordered records and serializes standard ASS. Document text and
 lyric modules project decoded text, styles, singing spans, ruby, and cue markers
-with source mappings. KaraokeItem/TextUnit/Segment are the millisecond-based
-structured Track input; Scene objects and their public time boundary use seconds.
+with source mappings. LyricSource wraps parsed or structured DocumentLyrics. Track authoring, lyric
+anchors and Scene object clocks use seconds; raw ASS records retain milliseconds.
 
 scene.py defines text, path, group, and native-event objects. scene_animation.py
-and choreography.py provide typed animation declarations and seekable evaluation.
+provides typed animation declarations and seekable evaluation.
 SceneEvaluator composes hierarchy and reference dependencies in world coordinates.
 Geometry, masks, paint fields, particles, and cues are independent typed extensions.
 
 ## Frontends
 
-prepare_tracks shares source import, style binding, selection, ownership, and
-layout across its editable and native modes. _track_compiler prepares geometry
-and property/material bindings. Editable mode converts these into Scene objects;
-native mode lowers to source-mapped NativeEvents. Native lowering values such as
-TrackContext and TrackPlan are implementation details.
+orchestration.prepare_tracks selects independent Track streams, measures lyric
+objects, resolves animation durations, constructs factory visuals once, collects
+authored visual intervals, calls Layout.allocate once per stream, and binds
+common animations to the prepared LyricLine targets. Visibility changes retain
+explicit local clock origins rather than rebuilding factory callbacks. LyricScene adds inspectable
+plans to Scene without overriding compilation. Arbitrary row counts use the same
+allocator; custom policies override its batch function. Source ownership and
+same-source visual views remain separate.
 
-prepare_track_coverage shares Track preparation but exposes explicit component
-and material bindings. Coverage, ordinary per-layer drawing, and completed-group
+The CLI default recipe uses this frontend, including its source-position
+allocator and before/after paint rules. Effect scripts return a Scene or declare
+Tracks. No new lyrics are pre-encoded into NativeEvents before compilation.
+
+ObjectGroup.coverage declares explicit component and material bindings. Coverage, ordinary per-layer drawing, and completed-group
 RGBA rasterization have different composition semantics and explicit budgets.
 They are not interchangeable names for one rendering operation.
 

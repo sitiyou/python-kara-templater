@@ -18,24 +18,39 @@ clocks and pivots. --fade-in-ms/--fade-out-ms control fades;
 Repeat --style to restrict imported styles. --owner selects a stable generation
 owner for replacement on subsequent runs.
 
+The preset retains source alignment and event/style margins through a layout
+allocator. Lyrics become ordinary Scene objects, with shared fades, pulses and
+highlight masks. Whole-scene budgets apply to the resulting sampled output.
+Fade durations reserve time outside singing; insufficient time before zero is
+an error rather than a silently shortened animation.
+
+--raster explicitly chooses coverage composition for the preset;
+--raster-color-error sets its spatial color tolerance in 0..255 before ASS
+transforms. This is not a final YUV420 video error bound. Script effects declare
+their own material strategy and budget settings instead of using these flags.
+
 ## Track configurations
 
 An effect file may export a sequence named tracks:
 
 ```python
-from kara_templater import CYAN, Body, LineMatch, Overlay, PaintStyle, Track
+from kara_templater import CYAN, FadeIn, Layout, LyricRule, LyricSweep, Track, Vec2
 
 tracks = (
-    Track(source=LineMatch(), body=Body(), overlay=Overlay(style=PaintStyle(fill=CYAN))),
+    Track(
+        id="main",
+        layout=Layout(rows=2, position=Vec2(80, 280), gap=80),
+        animations=(LyricRule("line", "enter", FadeIn(), duration=0.2),),
+        factory=LyricSweep(fill=CYAN, width=0).apply,
+    ),
 )
 ```
 
 Run `kara-templater input.ass output.ass --effect my_tracks.py`.
-TrackGroup values are also accepted. Configure colors, pulses, and fades inside
-the file rather than combining the preset appearance flags with --effect.
-The CLI prepares Track configurations in native mode, retaining ordinary source
-style semantics. --raster explicitly enables the native Track material-raster
-exit; --raster-color-error bounds its spatial color approximation in 0..255.
+Configure selection, layout, preview/tail, colors and animations in the Track
+declarations. Each Track is an independent lyric stream, with layout expressed
+by its allocator. The CLI binds these declarations into one Scene and invokes
+the same compiler as the builder entry point.
 
 ## Scene builders
 

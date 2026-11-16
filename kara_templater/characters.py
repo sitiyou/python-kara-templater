@@ -4,11 +4,35 @@ from dataclasses import dataclass, replace
 from unicodedata import category, name
 
 from . import _metrics
-from .animation import CharacterTarget
 from .ass import Style
 from .model import Box, LaidOutLine
 from .sources import _source_location
-from .timeline import Region
+from .timeline import Region, _finite
+
+
+@dataclass(frozen=True)
+class CharacterTarget:
+    """An independently drawable cluster supplied by layout, never a codepoint.
+
+    A layout backend must establish that the cluster can be drawn independently.
+    This model deliberately does not split text or claim shaping support.
+    """
+
+    id: str
+    unit_index: int
+    region: Region
+    center_y: float
+    drawable: bool = True
+    center_x: float | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.id, str) or not self.id:
+            raise ValueError("character target needs a stable id")
+        if type(self.unit_index) is not int or self.unit_index < 0:
+            raise ValueError("unit_index must be a nonnegative integer")
+        _finite(self.center_y, "center_y")
+        if self.center_x is not None:
+            _finite(self.center_x, "center_x")
 
 
 class LayoutCapabilityError(ValueError):
@@ -101,7 +125,7 @@ def _clusters(text):
         accepted = (
             kind == "Zs"
             or char
-            in "々ー●"  # Japanese marks and karaoke guide dots; shape-checked below.
+            in "々ー●|"  # Japanese marks and karaoke guide dots; shape-checked below.
             or 0x1100 <= ord(char) <= 0x1112
             or 0x1161 <= ord(char) <= 0x1175
             or 0x11A8 <= ord(char) <= 0x11C2

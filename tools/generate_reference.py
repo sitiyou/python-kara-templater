@@ -37,7 +37,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     "documents": (
         "Documents and lyric input",
         ("ass", "document_text", "document_lyrics", "import_ass", "sources"),
-        "Records, decoded text, input selection, and source mappings. Line and Track input clocks are milliseconds; Document text singing spans use seconds. See [Documents](../guides/documents.md).",
+        "Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric singing spans and Track authoring use seconds. See [Documents](../guides/documents.md).",
     ),
     "scenes": (
         "Scenes and compilation",
@@ -45,14 +45,14 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
         "Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile returns a new Document under explicit resource limits. See [objects](../guides/objects.md) and [compilation](../guides/compilation.md).",
     ),
     "animation": (
-        "Animation and choreography",
-        ("scene_animation", "choreography", "motion", "properties"),
-        "Pure state/property animation and typed event composition. Scene and composition clocks use seconds; Track Animate/event/property intervals use milliseconds. See the [time-unit table](../guides/animation.md).",
+        "Animation and timing",
+        ("scene_animation", "easing"),
+        "Pure state/property animation and typed composition. Scene, semantic lyric rules, and animation sequences use seconds. See the [time-unit table](../guides/animation.md).",
     ),
     "tracks": (
         "Track authoring",
-        ("karaoke", "track", "track_layout", "matching", "render"),
-        "Reusable lyric configuration prepared as editable or native Scene content. Singing and display source clocks stay separate. See [Tracks](../guides/tracks.md).",
+        ("karaoke", "orchestration", "lyric_layout", "lyric_line"),
+        "Independent lyric streams, allocation and semantic bindings into one Scene. Singing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).",
     ),
     "text": (
         "Text measurement and layout",
@@ -79,11 +79,9 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
             "colors",
             "composition",
             "appearance",
-            "components",
-            "text_style",
-            "stylesheet",
             "paint_fields",
-            "material_animation",
+            "lyric_highlights",
+            "lyric_paint",
         ),
         "RGB colors, typed appearance, spatial fields, and material animation. Pixel distances and opacity in 0..1 are authoring values; ASS encodings are output details. See [materials](../guides/materials.md).",
     ),
@@ -104,14 +102,13 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
             "coverage_output",
             "scene_raster",
             "raster_settings",
-            "track_coverage",
         ),
         "Explicit coverage/material and whole-group RGBA output. These retain distinct composition semantics and require deliberate resource limits. See [materials](../guides/materials.md).",
     ),
     "native": (
-        "Native layers and singing timelines",
-        ("animation", "timeline", "ass_output", "sampling", "follow"),
-        "Low-level typed building blocks for native ASS layers, highlight timing, and sampling. Clocks use milliseconds unless a description says otherwise. Compose lowered events into Scene with NativeEvent.",
+        "Regions and progress curves",
+        ("timeline",),
+        "Horizontal regions, normalized progress curves, and millisecond input display windows. HighlightPass and Scene animation clocks use seconds. Output goes through the common Scene compiler.",
     ),
     "templates": (
         "Python templates",
@@ -388,6 +385,9 @@ def describe_class(value: type, name: str, *, level: int = 2) -> list[str]:
         ]
         lines.append("")
     for member, function, property_member in members(value):
+        if is_dataclass(value) and member in {field.name for field in fields(value)}:
+            # Callable defaults are configuration fields, not instance methods.
+            continue
         description = inspect.cleandoc(function.__doc__) if function.__doc__ else None
         if not description:
             raise ValueError(

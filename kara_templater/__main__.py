@@ -4,74 +4,14 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
-from .animation import Pulse
+from ._cli_preset import preset_scene
 from .ass import Document
-from .ass_output import OutputSettings
-from .components import Body, Ruby
 from .composition import Color
 from .engine import apply_templates
-from .import_ass import ImportSettings, paint_pair_from_style
-from .matching import LineMatch
-from .motion import (
-    Animate,
-    Animation,
-    FadeInAnimation,
-    FadeOutAnimation,
-    HighlightAnimation,
-    On,
-    Syllable,
-)
-from .properties import Transition, there_and_back
+from .orchestration import Track, prepare_tracks
 from .raster_settings import RasterSettings
-from .render import RenderEstimate, prepare_tracks
 from .scene import Scene
 from .scene_output import SceneBudget
-from .text_style import PaintStyle, TextStyle
-from .track import Overlay, Track, TrackGroup
-
-
-def _preset_tracks(
-    document: Document,
-    *,
-    before: Color | None,
-    after: Color | None,
-    pulse: str,
-    fade_in_ms: int,
-    fade_out_ms: int,
-) -> tuple[Track, ...]:
-    animations: list[Animation] = []
-    if fade_in_ms:
-        animations.append(FadeInAnimation(duration=fade_in_ms))
-    if fade_out_ms:
-        animations.append(FadeOutAnimation(duration=fade_out_ms))
-    if pulse in {"char", "chars"}:
-        trigger = Pulse() if pulse == "char" else Pulse.simultaneous_chars()
-        animations.append(HighlightAnimation(trigger=trigger))
-    elif pulse == "syllable":
-        animations.append(
-            On(Syllable.Singing, Animate(scale=Transition(1, 1.1, rate=there_and_back)))
-        )
-    return tuple(
-        Track(
-            source=LineMatch(style=name),
-            body=Body(
-                style=TextStyle(
-                    fill=paints.before.fill if before is None else before,
-                    opacity=paints.before.opacity,
-                )
-            ),
-            ruby=Ruby(),
-            overlay=Overlay(
-                style=PaintStyle(
-                    fill=paints.after.fill if after is None else after,
-                    opacity=paints.after.opacity,
-                )
-            ),
-            animations=animations,
-        )
-        for name, style in document.styles.items()
-        for paints in (paint_pair_from_style(style),)
-    )
 
 
 def main() -> None:
@@ -104,7 +44,7 @@ def main() -> None:
     parser.add_argument(
         "--raster",
         action="store_true",
-        help="pre-blur material compositing for Track scripts (higher output cost)",
+        help="explicit coverage compositing for the default preset (higher output cost)",
     )
     parser.add_argument(
         "--raster-color-error",
@@ -180,6 +120,8 @@ def main() -> None:
             )
             result.save(args.output)
             return
+        if min(args.lead_ms, args.tail_ms, args.fade_in_ms, args.fade_out_ms) < 0:
+            raise ValueError("display padding and fade durations must be nonnegative")
         if args.raster_color_error is not None and not args.raster:
             raise ValueError("--raster-color-error requires --raster")
         raster_settings = (
@@ -189,7 +131,7 @@ def main() -> None:
         )
         document = Document.load(args.input)
         scene: Scene | None = None
-        tracks: tuple[Track | TrackGroup, ...] | None = None
+        tracks: tuple[Track, ...] | None = None
         if args.effect:
             if (
                 args.before
@@ -228,15 +170,19 @@ def main() -> None:
                     raise TypeError("build(document) must return Scene")
                 scene = built
             if declared_tracks is not None:
+                if args.raster or args.lead_ms or args.tail_ms or args.style:
+                    raise ValueError(
+                        "configure timing, selection and materials inside tracks"
+                    )
                 if not isinstance(declared_tracks, (tuple, list)) or not all(
-                    isinstance(track, (Track, TrackGroup)) for track in declared_tracks
+                    isinstance(track, Track) for track in declared_tracks
                 ):
                     raise TypeError(
-                        "tracks must be a sequence of Track or TrackGroup instances"
+                        "tracks must be a sequence of orchestration.Track instances"
                     )
-                validated_tracks: list[Track | TrackGroup] = []
+                validated_tracks: list[Track] = []
                 for track in declared_tracks:
-                    assert isinstance(track, (Track, TrackGroup))
+                    assert isinstance(track, Track)
                     validated_tracks.append(track)
                 tracks = tuple(validated_tracks)
             if scene is None and tracks is None:
@@ -244,46 +190,29 @@ def main() -> None:
                     "effect file must export tracks or build(document) -> Scene"
                 )
         else:
-            tracks = _preset_tracks(
+            scene = preset_scene(
                 document,
+                owner=args.owner,
                 before=args.before,
                 after=args.after,
                 pulse=args.pulse,
-                fade_in_ms=args.fade_in_ms,
-                fade_out_ms=args.fade_out_ms,
+                fade_in=args.fade_in_ms / 1000,
+                fade_out=args.fade_out_ms / 1000,
+                preview=args.lead_ms / 1000,
+                tail=args.tail_ms / 1000,
+                styles=tuple(args.style) if args.style else None,
+                raster=raster_settings,
             )
-
-        def report_estimate(estimate: RenderEstimate) -> None:
-            if estimate.sampling or estimate.raster:
-                print(
-                    f"Preflight: {estimate.target_samples} property samples, "
-                    f"estimated {estimate.estimated_events} events before merging/subdivision "
-                    f"(limit {estimate.event_limit})",
-                    flush=True,
-                )
-
-        if scene is not None:
-            result = scene.compile(budget=budget)
-        else:
+        if scene is None:
             assert tracks is not None
-            prepared = prepare_tracks(
-                document,
-                tracks=tracks,
-                mode="native",
-                owner=args.owner,
-                on_estimate=report_estimate,
-                import_settings=ImportSettings(
-                    args.lead_ms,
-                    args.tail_ms,
-                    tuple(args.style) if args.style else None,
-                ),
-                settings=OutputSettings(
-                    (document.meta.res_x, document.meta.res_y),
-                    max_events=args.max_events,
-                    raster=raster_settings,
-                ),
+            scene = prepare_tracks(document, tracks=tracks, owner=args.owner)
+        if raster_settings is not None:
+            print(
+                f"Coverage: spatial color tolerance {raster_settings.max_channel_error}/255 "
+                "before ASS transforms; not a YUV420 video error bound.",
+                flush=True,
             )
-            result = prepared.compile(budget=budget)
+        result = scene.compile(budget=budget)
         result.document.save(args.output)
         print(
             f"Generated {result.event_count} events ({result.peak_active} active, {result.byte_count} bytes)"

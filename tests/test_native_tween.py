@@ -142,7 +142,7 @@ def test_ineligible_tweens_remain_sampled(change: str):
             lifetime=Lifetime(0, 2),
             state=VisualState(opacity=0.5),
             children=(node,),
-        )
+        ).animate(Tween(StatePatch(rotation=30)), duration=1)
         if change == "parent"
         else node
     )
@@ -223,3 +223,170 @@ def test_sequential_and_parallel_path_tweens_preserve_capture_and_birth_clock():
             assert alphas and all(abs(alpha - expected) <= 1 for alpha in alphas)
         else:
             assert not alphas
+
+
+def test_common_fades_on_parent_match_continuous_handwritten_ass():
+    from kara_templater import FadeIn, FadeOut
+
+    node = TextObject(
+        id="word",
+        text="W",
+        font_size=48,
+        lifetime=Lifetime(0, 2),
+        state=VisualState(position=Vec2(100, 80), opacity=0.5),
+    )
+    parent = ObjectGroup(
+        id="line",
+        lifetime=Lifetime(0, 2),
+        children=(node,),
+        state=VisualState(position=Vec2(100, 100), opacity=0.8),
+    )
+    parent = parent.animate(FadeIn(), duration=0.4).animate(
+        FadeOut(), at=1.6, duration=0.4
+    )
+    scene = Scene(Document.create(width=640, height=360)).add(parent)
+    native = scene.compile(native_tweens=True, budget=SceneBudget(max_events=1))
+    assert native.event_count == 1
+    assert native.objects[0].strategy == "native-tween"
+    assert scene.compile().event_count > 20
+    reference = Document.create(
+        width=640,
+        height=360,
+        styles=(
+            Style(fontname="DejaVu Sans", fontsize=48, align=7, outline=0, shadow=0),
+        ),
+    )
+    reference.records.append(
+        Line(
+            start_time=0,
+            end_time=2000,
+            text=(
+                r"{\an7\pos(200,180)\alpha&HFF&\t(0,400,\alpha&H99&)"
+                r"\t(1600,2000,\alpha&HFF&)}W"
+            ),
+        )
+    )
+    for time in (50, 200, 400, 1000, 1700, 1900):
+        assert (
+            ImageChops.difference(
+                rgba(native.document.dumps(), time), rgba(reference.dumps(), time)
+            ).getbbox()
+            is None
+        )
+
+
+def test_inherited_opacity_products_and_delayed_reveal_remain_sampled():
+    from kara_templater import FadeIn
+
+    child = TextObject(id="word", text="W", lifetime=Lifetime(0, 2)).animate(
+        FadeIn(), duration=1
+    )
+    parent = ObjectGroup(
+        id="parent", lifetime=child.lifetime, children=(child,)
+    ).animate(FadeIn(), duration=1)
+    scene = Scene(Document.create()).add(parent)
+    assert scene.evaluator().at("word", 0.5).opacity == 0.25
+    assert scene.compile(native_tweens=True).objects[0].strategy.startswith("sampled")
+    delayed = TextObject(id="late", text="W", lifetime=Lifetime(0, 2)).animate(
+        FadeIn(), at=0.5, duration=0.5
+    )
+    assert (
+        Scene(Document.create())
+        .add(delayed)
+        .compile(native_tweens=True)
+        .objects[0]
+        .strategy.startswith("sampled")
+    )
+
+
+def test_linear_nested_sequence_keeps_native_interpolation_and_released_scope_does_not():
+    from kara_templater import Timeline
+
+    inner = Timeline().play(Tween(StatePatch(opacity=1)), duration=0.2).animation
+    sequence = (
+        Timeline()
+        .play(inner, duration=0.4)
+        .wait(0.4)
+        .play(Tween(StatePatch(opacity=0)), duration=0.4)
+        .animation
+    )
+    node = TextObject(
+        id="word",
+        text="W",
+        lifetime=Lifetime(0, 2),
+        state=VisualState(position=Vec2(200, 180), opacity=0),
+    ).animate(sequence, duration=1.2)
+    result = (
+        Scene(Document.create(width=640, height=360))
+        .add(node)
+        .compile(native_tweens=True)
+    )
+    assert result.objects[0].strategy == "native-tween"
+    assert result.event_count == 1
+    reference = Document.create(
+        width=640,
+        height=360,
+        styles=(
+            Style(fontname="DejaVu Sans", fontsize=48, align=7, outline=0, shadow=0),
+        ),
+    )
+    reference.records.append(
+        Line(
+            start_time=0,
+            end_time=2000,
+            text=(
+                r"{\an7\pos(200,180)\alpha&HFF&\t(0,400,\alpha&H00&)"
+                r"\t(800,1200,\alpha&HFF&)}W"
+            ),
+        )
+    )
+    for time in (200, 600, 1000, 1300):
+        assert (
+            ImageChops.difference(
+                rgba(result.document.dumps(), time), rgba(reference.dumps(), time)
+            ).getbbox()
+            is None
+        )
+    released = replace(node, animations=(replace(node.animations[0], hold=False),))
+    assert (
+        Scene(Document.create())
+        .add(released)
+        .compile(native_tweens=True)
+        .objects[0]
+        .strategy.startswith("sampled")
+    )
+
+
+def test_instant_opacity_changes_use_common_sampling_and_preserve_exact_boundaries():
+    from kara_templater import StateFunction
+
+    base = TextObject(
+        id="word",
+        text="W",
+        font_size=64,
+        lifetime=Lifetime(0, 3),
+        state=VisualState(position=Vec2(200, 180)),
+    )
+    jump = StateFunction(
+        lambda state, progress: replace(
+            state, opacity=0.2 if progress < 1 / 3 else 0.8
+        ),
+        frozenset(("opacity",)),
+    )
+    node = base.animate(jump, duration=3, breakpoints=(1,))
+    document = Document.create(width=640, height=360)
+    scene = Scene(document).add(node)
+    result = scene.compile(native_tweens=True)
+    assert result.objects[0].strategy.startswith("sampled")
+    assert result.event_count == 2
+    for time, opacity in ((0, 0.2), (990, 0.2), (1000, 0.8), (2500, 0.8)):
+        reference = (
+            Scene(document)
+            .add(replace(base, state=replace(base.state, opacity=opacity)))
+            .compile()
+        )
+        assert (
+            rgba(result.document.dumps(), time).tobytes()
+            == rgba(reference.document.dumps(), time).tobytes()
+        )
+    assert scene.compile(native_tweens=True).document.dumps() == result.document.dumps()

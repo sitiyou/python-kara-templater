@@ -5,6 +5,7 @@ The fixed small viewport makes the explicit pixel-output cost practical.
 """
 
 import argparse
+from dataclasses import replace
 from math import sin, tau
 from pathlib import Path
 
@@ -12,22 +13,23 @@ from kara_templater import (
     CYAN,
     PINK,
     WHITE,
-    CoverageResult,
+    Coverage,
     Document,
     Glow,
     GlowFunction,
     Lifetime,
     ObjectGroup,
     RasterSettings,
+    Scene,
     SceneBudget,
-    SceneTimeline,
+    SceneResult,
     SoftSweep,
     StatePatch,
     TextObject,
+    Timeline,
     Tween,
     Vec2,
     VisualState,
-    compile_coverage,
 )
 
 BUDGET = SceneBudget(
@@ -41,7 +43,7 @@ def glow(state: VisualState, seconds: float) -> Glow:
     return Glow(color=PINK, border=3, blur=3 + sin(tau * seconds / 3), opacity=0.7)
 
 
-def build() -> CoverageResult:
+def build() -> SceneResult:
     lifetime = Lifetime(0, 5)
     sweep = SoftSweep(
         left=45,
@@ -63,7 +65,7 @@ def build() -> CoverageResult:
         material=sweep,
     )
     fade = (
-        SceneTimeline()
+        Timeline()
         .play(Tween(StatePatch(opacity=1)), duration=0.4)
         .wait(4.2)
         .play(Tween(StatePatch(opacity=0)), duration=0.4)
@@ -75,9 +77,7 @@ def build() -> CoverageResult:
         state=VisualState(opacity=0),
         animations=fade.clips,
     )
-    return compile_coverage(
-        Document.create(width=320, height=180),
-        group,
+    config = Coverage(
         glows={word.id: GlowFunction(glow, max_blur=4, max_border=3)},
         glow_materials={
             word.id: SoftSweep(
@@ -85,7 +85,11 @@ def build() -> CoverageResult:
             )
         },
         settings=RASTER_SETTINGS,
-        budget=BUDGET,
+    )
+    return (
+        Scene(Document.create(width=320, height=180))
+        .add(replace(group, coverage=config))
+        .compile(budget=BUDGET)
     )
 
 
@@ -96,8 +100,8 @@ def main() -> None:
     result = build()
     result.document.save(args.output)
     print(
-        f"{len(result.sample_times)} samples, {result.output.event_count} events, "
-        f"{result.output.peak_active} active, {result.output.byte_count} bytes"
+        f"{len(result.objects[0].sample_times)} samples, {result.event_count} events, "
+        f"{result.peak_active} active, {result.byte_count} bytes"
     )
 
 

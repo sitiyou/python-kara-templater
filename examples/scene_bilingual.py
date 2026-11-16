@@ -22,13 +22,13 @@ from kara_templater import (
     PathObject,
     ReferenceFunction,
     Scene,
-    SceneTimeline,
     StateFunction,
     StateKeyframe,
     StateLookup,
     StatePatch,
     Style,
     TextCue,
+    Timeline,
     Vec2,
     VectorPath,
     VisualState,
@@ -87,7 +87,7 @@ def singing_line(
                 ),
             )
         )
-    motion = SceneTimeline().keyframes(
+    motion = Timeline().keyframes(
         StateKeyframe(2.5, StatePatch(position=position + Vec2(60, 0)), smooth_rate),
         StateKeyframe(5, StatePatch(position=position), smooth_rate),
     )

@@ -15,9 +15,9 @@ from kara_templater import (
     PathObject,
     RectangleClip,
     Scene,
-    SceneTimeline,
     StatePatch,
     TextObject,
+    Timeline,
     Tween,
     Vec2,
     VectorPath,
@@ -28,7 +28,7 @@ from kara_templater import (
 
 def build() -> Scene:
     lifetime = Lifetime(0, 5.5)
-    timeline = SceneTimeline().wait(0.5)
+    timeline = Timeline().wait(0.5)
     for scale, duration, pause in (
         (0, 1, 0.1),
         (-1, 0.9, 0.5),
