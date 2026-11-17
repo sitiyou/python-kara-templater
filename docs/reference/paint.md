@@ -20,6 +20,7 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 - [HighlightPass](#highlightpass)
 - [LinearGradient](#lineargradient)
 - [LyricGlow](#lyricglow)
+- [LyricGradient](#lyricgradient)
 - [LyricHighlights](#lyrichighlights)
 - [LyricSweep](#lyricsweep)
 - [MAGENTA](#magenta)
@@ -191,7 +192,7 @@ Glow(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L102)
+[Source](../../kara_templater/lyric_highlights.py#L146)
 
 ```python
 Highlight(
@@ -203,6 +204,7 @@ Highlight(
     repeat: Literal['hold', 'reset'] = 'hold',
     end: Literal['hold', 'hide'] = 'hold',
     glow: LyricGlow = None,
+    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
 )
 ```
 
@@ -218,6 +220,7 @@ Highlight(
 | `repeat` | `Literal['hold', 'reset']` | `'hold'` |
 | `end` | `Literal['hold', 'hide']` | `'hold'` |
 | `glow` | `LyricGlow` | `None` |
+| `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None` | `None` |
 
 ### Highlight.regions
 
@@ -240,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L590)
+[Source](../../kara_templater/lyric_highlights.py#L794)
 
 ```python
 HighlightArrival(
@@ -284,7 +287,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L40)
+[Source](../../kara_templater/lyric_highlights.py#L84)
 
 ```python
 HighlightPass(
@@ -333,9 +336,15 @@ HighlightPass.front(
 
 ## LinearGradient
 
-A script-space x/y gradient for fill, outline, or both.
+An x/y gradient for fill, outline, or both; screen coordinates by default.
 
 Integer step controls color band width and the declared maximum band count.
+Local space attaches colors to the drawing during scale/translation. It
+currently requires an ordinary positive axis-aligned drawing with a local,
+non-inverse RectangleKeyframes clip fixed along the color axis, no parent
+masks, and no coverage material composition. Unsupported combinations raise
+instead of silently changing coordinate spaces. With native_tweens, eligible
+scale/opacity curves and a single move share native band events.
 
 [Source](../../kara_templater/paint_fields.py#L153)
 
@@ -346,6 +355,7 @@ LinearGradient(
     outline: ColorRamp | None = None,
     axis: Literal['x', 'y'] = 'x',
     step: int = 1,
+    space: Literal['screen', 'local'] = 'screen',
 )
 ```
 
@@ -357,6 +367,7 @@ LinearGradient(
 | `outline` | `ColorRamp \| None` | `None` |
 | `axis` | `Literal['x', 'y']` | `'x'` |
 | `step` | `int` | `1` |
+| `space` | `Literal['screen', 'local']` | `'screen'` |
 
 ### LinearGradient.bands
 
@@ -397,6 +408,42 @@ Public type alias:
 type LyricGlow = Glow | GlowFunction | Callable[[LyricLine, LyricTarget], Glow | GlowFunction | None] | None
 ```
 
+## LyricGradient
+
+Evenly spaced vertical colors attached to each measured body/ruby glyph.
+
+Pass as material to LyricHighlights.from_singing. Coordinates are derived
+from undecorated glyph bounds, independent of glow/outline;
+step is color-band width in local script pixels. This factory produces an
+ordinary LinearGradient and inherits its renderer restrictions.
+
+[Source](../../kara_templater/lyric_highlights.py#L40)
+
+```python
+LyricGradient(
+    colors: tuple[Color, ...],
+    step: int = 1,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `colors` | `tuple[Color, ...]` | `required` |
+| `step` | `int` | `1` |
+
+### LyricGradient.__call__
+
+Resolve a local fill gradient once during lyric preparation.
+
+```python
+LyricGradient.__call__(
+    line: LyricLine,
+    target: LyricTarget,
+) -> LinearGradient
+```
+
 ## LyricHighlights
 
 Build named union/priority/layer highlights with common visual objects.
@@ -416,7 +463,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L306)
+[Source](../../kara_templater/lyric_highlights.py#L416)
 
 ```python
 LyricHighlights(
@@ -426,6 +473,7 @@ LyricHighlights(
     strategy: Literal['clip', 'coverage'] = 'clip',
     glow: LyricGlow = None,
     settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
+    base_paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
 )
 ```
 
@@ -438,8 +486,9 @@ LyricHighlights(
 | `strategy` | `Literal['clip', 'coverage']` | `'clip'` |
 | `glow` | `LyricGlow` | `None` |
 | `settings` | `RasterSettings` | `RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128)` |
+| `base_paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
 
-### LyricHighlights.apply
+### LyricHighlights.__call__
 
 Return decorated visuals, reserving each target's shifted pass intervals.
 
@@ -447,9 +496,41 @@ Pass times use original source seconds. A copied target's delay shifts
 both rendering and required_display; source singing spans stay unchanged.
 
 ```python
-LyricHighlights.apply(
+LyricHighlights.__call__(
     line: LyricLine,
 ) -> LyricLine
+```
+
+### LyricHighlights.from_singing
+
+Sweep source singing across body/ruby without authoring clip geometry.
+
+Singing progress uses undecorated measured text bounds. For a single
+linear interval in clip mode, outline/glow margins are traversed in
+separate 20 ms shoulders before/after singing, reserved automatically.
+Known rectangle keyframes allow continuous native ASS lowering. Repeated
+intervals retain the general ownership evaluator; coverage keeps its
+color-before-blur semantics. Source singing clocks never change.
+material applies only to the sung drawing, leaving the separate glow
+color intact. It accepts a PaintField or a (line, target) factory called
+once during preparation; use LyricGradient for measured vertical colors.
+Materials require clip strategy. Local gradients currently require a
+positive single singing interval and axis-aligned scale/translation.
+base_paint changes only the unsung drawing; sung layers retain the
+original appearance before applying paint. Use base_paint with opacity=0
+to reveal text instead of recoloring an already visible baseline.
+
+```python
+LyricHighlights.from_singing(
+    paint: StatePatch,
+    *,
+    glow: LyricGlow = None,
+    base_glow: LyricGlow = None,
+    base_paint: StatePatch | None = None,
+    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
+    strategy: Literal['clip', 'coverage'] = 'clip',
+    settings: RasterSettings | None = None,
+) -> LyricHighlights
 ```
 
 ## LyricSweep
@@ -490,12 +571,12 @@ LyricSweep(
 | `outline_width` | `float \| None` | `None` |
 | `step` | `int` | `1` |
 
-### LyricSweep.apply
+### LyricSweep.__call__
 
 Bind paint to measured clusters without splitting text or singing spans.
 
 ```python
-LyricSweep.apply(
+LyricSweep.__call__(
     line: LyricLine,
 ) -> LyricLine
 ```
@@ -683,7 +764,7 @@ Widths are script pixels. The front travels past both ends so the declared
 span is completely unsung at start and completely sung at start+duration.
 start and duration are local seconds from the owning object's clock origin.
 
-[Source](../../kara_templater/paint_fields.py#L207)
+[Source](../../kara_templater/paint_fields.py#L216)
 
 ```python
 SoftSweep(

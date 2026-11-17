@@ -8,6 +8,7 @@ from kara_templater import (
     Document,
     Lifetime,
     Line,
+    LyricAnimationContext,
     LyricLine,
     LyricRule,
     ObjectGroup,
@@ -128,14 +129,14 @@ def test_colored_ruby_glyphs_share_reading_pivot_and_sweep_clock():
     characters = {item.object.id: item for item in reading.characters}
     colors = dict(zip(characters, (RED, GREEN, BLUE), strict=True))
 
-    def pulse(line, target):
+    def pulse(timing: LyricAnimationContext):
         # Convert the shared reading center to each glyph's local coordinates.
-        character = characters[target.node_id]
+        character = characters[timing.target.node_id]
         return ScalePulse(pivot=center - character.object.state.position, peak=1.4)
 
     painted = LyricSweep(
         fill=lambda line, target: colors.get(target.node_id), width=0
-    ).apply(line)
+    )(line)
     animated = painted.bind(LyricRule("ruby", "singing", pulse))
     scene = Scene(document).add(animated)
     evaluator = scene.evaluator()

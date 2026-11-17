@@ -152,18 +152,27 @@ def _bands(
 
 @dataclass(frozen=True, kw_only=True)
 class LinearGradient:
-    """A script-space x/y gradient for fill, outline, or both.
+    """An x/y gradient for fill, outline, or both; screen coordinates by default.
 
     Integer step controls color band width and the declared maximum band count.
+    Local space attaches colors to the drawing during scale/translation. It
+    currently requires an ordinary positive axis-aligned drawing with a local,
+    non-inverse RectangleKeyframes clip fixed along the color axis, no parent
+    masks, and no coverage material composition. Unsupported combinations raise
+    instead of silently changing coordinate spaces. With native_tweens, eligible
+    scale/opacity curves and a single move share native band events.
     """
 
     fill: ColorRamp | None = None
     outline: ColorRamp | None = None
     axis: Literal["x", "y"] = "x"
     step: int = 1
+    space: Literal["screen", "local"] = "screen"
 
     def __post_init__(self) -> None:
         _settings(self.axis, self.step)
+        if self.space not in ("screen", "local"):
+            raise ValueError("gradient space must be screen or local")
         if self.fill is None and self.outline is None:
             raise ValueError("gradient requires a fill or outline ramp")
 

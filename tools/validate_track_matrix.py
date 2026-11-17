@@ -202,7 +202,7 @@ def generate(
             glow=glow,
             strategy="coverage" if raster else "clip",
             settings=RasterSettings(max_output_chars=256_000_000, max_frames=500),
-        ).apply(base)
+        )(base)
 
     geometry = mode == "geometry"
     if geometry:
@@ -212,7 +212,7 @@ def generate(
         layout=Layout(position=Vec2(0, 220), alignment="center"),
         preview=0,
         tail=0,
-        factory=None if geometry else paint,
+        effects=() if geometry else (paint,),
     )
     # Bind display-wide motion directly; it does not reserve a pre-singing entrance.
     start = perf_counter()

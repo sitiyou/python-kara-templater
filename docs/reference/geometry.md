@@ -19,6 +19,7 @@ Script-space geometry, masks, deformation, path layout, and authored writing/mor
 - [PathItem](#pathitem)
 - [Polyline](#polyline)
 - [TextOutline](#textoutline)
+- [TrailPath](#trailpath)
 - [Vec2](#vec2)
 - [VectorPath](#vectorpath)
 - [WritePath](#writepath)
@@ -447,6 +448,20 @@ Compute the signed polygon area of this point sequence.
 
 Type: `float`.
 
+### Polyline.slice
+
+Return a normalized arc-length interval, clamped to the path ends.
+
+Reversed intervals raise ValueError; an empty interval contains one point.
+Interpolated endpoints retain interior vertices without resampling.
+
+```python
+Polyline.slice(
+    start: float,
+    end: float,
+) -> Polyline
+```
+
 ## TextOutline
 
 Measured text geometry with layout bounds and actual font faces.
@@ -470,6 +485,85 @@ TextOutline(
 | `path` | `VectorPath \| None` | `required` |
 | `layout_bounds` | `Box` | `required` |
 | `fonts` | `tuple[FontFace, ...]` | `required` |
+
+## TrailPath
+
+A stroked path extending at its head and retracting behind a delayed tail.
+
+duration is the head traversal time; lag is the tail delay, both in seconds.
+At start the path is empty; after start+duration+lag it is empty again.
+Head and tail use the same rate at delayed normalized times, clamped to the
+endpoints. A nonmonotone rate may bring the tail ahead of the head, in which
+case the interval is empty. width/tolerance are local path units.
+This is ordinary GeometryAnimation; pass line to MoveAlong for matching
+arc-length motion. It does not record another object's motion history.
+
+[Source](../../kara_templater/path_animation.py#L195)
+
+```python
+TrailPath(
+    path: Contour | Polyline,
+    duration: float = 1,
+    lag: float = 0.2,
+    start: float = 0,
+    width: float = 2,
+    rate: Callable[[float], float] = linear_rate,
+    tolerance: float = 0.25,
+    max_points: int = 4096,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `path` | `Contour \| Polyline` | `required` |
+| `duration` | `float` | `1` |
+| `lag` | `float` | `0.2` |
+| `start` | `float` | `0` |
+| `width` | `float` | `2` |
+| `rate` | `Callable[[float], float]` | `linear_rate` |
+| `tolerance` | `float` | `0.25` |
+| `max_points` | `int` | `4096` |
+
+### TrailPath.breakpoints
+
+Head/tail start and completion times in the object's local clock.
+
+Type: `tuple[float, ...]`.
+
+### TrailPath.full_path
+
+The complete stroked path, suitable as the owning PathObject's base.
+
+Type: `VectorPath`.
+
+### TrailPath.line
+
+The shared arc-length path; contour flattening respects tolerance/budget.
+
+Type: `Polyline`.
+
+### TrailPath.sample
+
+Stroke only the interval between delayed tail and current head.
+
+```python
+TrailPath.sample(
+    base: VectorPath,
+    time: float,
+) -> VectorPath | None
+```
+
+### TrailPath.tip
+
+Position of the head at local seconds; holds at either endpoint.
+
+```python
+TrailPath.tip(
+    time: float,
+) -> Vec2
+```
 
 ## Vec2
 
@@ -700,7 +794,7 @@ Adaptive de Casteljau subdivision; tolerance is in local path units.
 Flatness bounds the control polygon's distance to its chord. This is not
 an arc-length error bound, and later object scaling magnifies the distance.
 
-[Source](../../kara_templater/path_geometry.py#L97)
+[Source](../../kara_templater/path_geometry.py#L115)
 
 ```python
 flatten(
@@ -718,7 +812,7 @@ Intersect filled contours with a convex polygon, retaining hole winding.
 Curves are flattened explicitly. This is a bounded intersection operation,
 not a general union/difference engine for arbitrary self-intersecting paths.
 
-[Source](../../kara_templater/path_geometry.py#L266)
+[Source](../../kara_templater/path_geometry.py#L284)
 
 ```python
 intersect_convex(
@@ -783,7 +877,7 @@ Interpolate explicitly paired contours and vertices, including hole winding.
 This is not automatic glyph matching. Even valid endpoint correspondence can
 self-intersect between endpoints; authors must preview their chosen mapping.
 
-[Source](../../kara_templater/path_geometry.py#L233)
+[Source](../../kara_templater/path_geometry.py#L251)
 
 ```python
 morph(
@@ -837,7 +931,7 @@ path_boolean(
 
 Conservative control-point bounds, before appearance and transforms.
 
-[Source](../../kara_templater/path_geometry.py#L335)
+[Source](../../kara_templater/path_geometry.py#L353)
 
 ```python
 path_bounds(
@@ -849,7 +943,7 @@ path_bounds(
 
 Explicit correspondence preparation; contour order and winding are retained.
 
-[Source](../../kara_templater/path_geometry.py#L178)
+[Source](../../kara_templater/path_geometry.py#L196)
 
 ```python
 resample_path(
@@ -865,7 +959,7 @@ resample_path(
 
 Fill an open polyline with bevel joins and butt caps; empty length is invisible.
 
-[Source](../../kara_templater/path_geometry.py#L150)
+[Source](../../kara_templater/path_geometry.py#L168)
 
 ```python
 stroke(

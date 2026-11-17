@@ -21,11 +21,9 @@ from kara_templater import (
     LyricLine,
     LyricRule,
     LyricScene,
-    LyricTarget,
     Region,
     ScalePulse,
     SceneResult,
-    StateAnimation,
     StatePatch,
     Style,
     TimeSpan,
@@ -33,26 +31,6 @@ from kara_templater import (
     Vec2,
     prepare_tracks,
 )
-
-
-def pulse(line: LyricLine, target: LyricTarget) -> StateAnimation:
-    if target.role == "syllable":
-        return ScalePulse()  # Syllable groups already use the body center.
-    character = next(
-        character
-        for item, character in zip(
-            line.query("character"), line.layout.body.characters, strict=True
-        )
-        if item.id == target.id
-    )
-    scale = character.layout_scale
-    assert scale is not None
-    return ScalePulse(
-        Vec2(
-            character.bounds.width / (2 * scale.x),
-            character.bounds.height / (2 * scale.y),
-        )
-    )
 
 
 def highlights(line: LyricLine) -> tuple[Highlight, ...]:
@@ -100,9 +78,9 @@ def build(
             )
         )
     rules = (
-        LyricRule("character", HighlightArrival(highlights=highlights), pulse),
-        LyricRule("character", "singing", pulse),
-        LyricRule("syllable", "singing", pulse),
+        LyricRule("character", HighlightArrival(highlights=highlights), ScalePulse()),
+        LyricRule("character", "singing", ScalePulse()),
+        LyricRule("syllable", "singing", ScalePulse()),
     )
     return prepare_tracks(
         document,
@@ -113,12 +91,12 @@ def build(
                 layout=Layout(position=Vec2(0, style.margin_v), alignment="center"),
                 preview=1,
                 tail=1,
-                animations=(
+                effects=(
                     LyricRule("line", "enter", FadeIn(), duration=0.3),
                     rule,
                     LyricRule("line", "exit", FadeOut(), duration=0.3),
+                    LyricHighlights(highlights=highlights),
                 ),
-                factory=LyricHighlights(highlights=highlights).apply,
             )
             for style, rule in zip(styles, rules, strict=True)
         ),

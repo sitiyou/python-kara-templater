@@ -27,6 +27,7 @@ Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile
 - [VectorClip](#vectorclip)
 - [VisualNode](#visualnode)
 - [compile_scene](#compile_scene)
+- [render_enhanced](#render_enhanced)
 
 ## CoverageEstimate
 
@@ -35,7 +36,7 @@ Callback-free coverage work counts, before pixels or ASS rectangles exist.
 frames includes declared breakpoints; target_samples is frames times drawable
 leaves. Neither predicts encoded event count, memory use, or elapsed time.
 
-[Source](../../kara_templater/scene_output.py#L112)
+[Source](../../kara_templater/scene_output.py#L116)
 
 ```python
 CoverageEstimate(
@@ -95,7 +96,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L501)
+[Source](../../kara_templater/scene.py#L507)
 
 ```python
 NativeEvent(
@@ -120,7 +121,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
 
-[Source](../../kara_templater/scene.py#L409)
+[Source](../../kara_templater/scene.py#L415)
 
 ```python
 ObjectGroup(
@@ -213,7 +214,7 @@ Per-object output strategy, event count, source origin, sample interval, and obs
 
 Optional metrics apply only to relevant strategies.
 
-[Source](../../kara_templater/scene_output.py#L139)
+[Source](../../kara_templater/scene_output.py#L143)
 
 ```python
 ObjectReport(
@@ -251,7 +252,7 @@ A visual VectorPath drawing with state, lifetime, and optional geometry deformat
 
 Coordinates are local to its local origin and parent transforms.
 
-[Source](../../kara_templater/scene.py#L376)
+[Source](../../kara_templater/scene.py#L380)
 
 ```python
 PathObject(
@@ -471,7 +472,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L519)
+[Source](../../kara_templater/scene.py#L525)
 
 ```python
 Scene(
@@ -518,6 +519,28 @@ Scene.compile(
 ) -> SceneResult
 ```
 
+### Scene.enhance
+
+Attach sampled GPU effects to an explicit ordinary-ASS fallback.
+
+Returns a new Document with versioned private Comment records. Ordinary
+players display fallback unchanged; render_enhanced replaces its visual
+presentation with this complete Scene. Resolution must match. Existing
+Python callbacks run at export only; portable data stores reusable glyph
+masks and numeric draws at integer fps (1..240), not executable code.
+This initial backend supports text/static paths, affine animation, normal
+local/screen rectangle clips and continuous LinearGradient. Unsupported
+materials, native events, coverage groups, inherited/vector/inverse clips
+and deformed paths raise. Export has bounded frame/mask/payload budgets.
+
+```python
+Scene.enhance(
+    fallback: Document,
+    *,
+    fps: int = 60,
+) -> Document
+```
+
 ### Scene.evaluator
 
 Construct a seekable world-space evaluator for this scene hierarchy and its references.
@@ -545,7 +568,7 @@ boolean work; exceeding a limit raises instead of reducing quality.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
 
-[Source](../../kara_templater/scene_output.py#L72)
+[Source](../../kara_templater/scene_output.py#L76)
 
 ```python
 SceneBudget(
@@ -580,7 +603,7 @@ An invalid scene or exceeded compilation limit with object_id and optional sourc
 
 Callback causes remain available for diagnosis.
 
-[Source](../../kara_templater/scene_output.py#L56)
+[Source](../../kara_templater/scene_output.py#L60)
 
 ```python
 SceneCompileError(
@@ -599,7 +622,7 @@ estimated_events counts ordinary/native output estimates, excluding coverage
 rectangles whose count is unknown until rendering. coverage reports their
 planned work separately. Final budgets still apply to all output.
 
-[Source](../../kara_templater/scene_output.py#L126)
+[Source](../../kara_templater/scene_output.py#L130)
 
 ```python
 SceneEstimate(
@@ -689,7 +712,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/scene_output.py#L158)
+[Source](../../kara_templater/scene_output.py#L162)
 
 ```python
 SceneResult(
@@ -728,7 +751,7 @@ budgets. Text is literal Unicode: braces and backslashes are displayed,
 not interpreted as ASS tags; newlines become hard line breaks. CR and NUL
 are rejected.
 
-[Source](../../kara_templater/scene.py#L340)
+[Source](../../kara_templater/scene.py#L344)
 
 ```python
 TextObject(
@@ -952,7 +975,7 @@ Type: `float`.
 
 Return a new Document. Source records and caller-owned nodes never mutate.
 
-[Source](../../kara_templater/scene_output.py#L1242)
+[Source](../../kara_templater/scene_output.py#L1681)
 
 ```python
 compile_scene(
@@ -962,4 +985,30 @@ compile_scene(
     native_tweens: bool = False,
     on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult
+```
+
+## render_enhanced
+
+Burn an enhanced ASS into video with GPU coverage/gradient rendering.
+
+Requires ModernGL, a working OpenGL 3.3 context and FFmpeg on PATH. Frames
+stream as premultiplied RGBA to FFmpeg; video is encoded with libx264 and
+optional input audio with AAC. Original audio/video timing is retained for
+the selected interval, rebased to zero. Resolution/fps come from the payload.
+Start must be on that frame grid; duration rounds up to a whole frame. Output
+is atomically replaced only on success; existing files require overwrite.
+
+[Source](../../kara_templater/gpu_render.py#L16)
+
+```python
+render_enhanced(
+    document: Document,
+    video: str | pathlib.Path,
+    output: str | pathlib.Path,
+    *,
+    start: float = 0,
+    duration: float | None = None,
+    backend: str = 'egl',
+    overwrite: bool = False,
+) -> None
 ```

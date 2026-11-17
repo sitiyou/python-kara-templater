@@ -40,8 +40,10 @@ tracks = (
     Track(
         id="main",
         layout=Layout(rows=2, position=Vec2(80, 280), gap=80),
-        animations=(LyricRule("line", "enter", FadeIn(), duration=0.2),),
-        factory=LyricSweep(fill=CYAN, width=0).apply,
+        effects=(
+            LyricRule("line", "enter", FadeIn(), duration=0.2),
+            LyricSweep(fill=CYAN, width=0),
+        ),
     ),
 )
 ```

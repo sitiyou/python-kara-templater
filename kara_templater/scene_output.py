@@ -5,9 +5,9 @@ from __future__ import annotations
 from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from hashlib import sha256
-from math import ceil
+from math import ceil, floor
 from urllib.parse import quote
 
 from ._scene_clipping import (
@@ -20,7 +20,8 @@ from ._scene_clipping import _path as _mask_path
 from .ass import EVENT_FORMAT, STYLE_FORMAT, Document, Line, Style
 from .composition import Color
 from .geometry import LineSegment, Vec2, VectorPath, finite
-from .paint_fields import PaintActivity
+from .layout import text_extents
+from .paint_fields import LinearGradient, PaintActivity, PaintBand
 from .path_boolean import path_boolean
 from .path_geometry import intersect_convex
 from .path_motion import MoveAlong
@@ -38,6 +39,7 @@ from .scene import (
 from .scene_animation import (
     AnimationClip,
     AnimationSequence,
+    DriftOut,
     FadeIn,
     FadeOut,
     ScalePulse,
@@ -47,6 +49,8 @@ from .scene_animation import (
     linear_rate,
     local_seconds,
     merge_channels,
+    smooth_rate,
+    smoother_rate,
 )
 from .scene_evaluation import SceneEvaluator, SceneReferenceError, compose_states
 from .sources import EventOrigin
@@ -174,6 +178,12 @@ class SceneResult:
 
 
 @dataclass(frozen=True)
+class _ScalePolynomial:
+    knots: tuple[tuple[float, Vec2], ...]
+    controls: tuple[int, ...]
+
+
+@dataclass(frozen=True)
 class _Leaf:
     node: TextObject | PathObject
     parents: tuple[ObjectGroup, ...]
@@ -181,6 +191,11 @@ class _Leaf:
     end: float
     evaluator: SceneEvaluator
     force_affine: bool = False
+    rectangle_anchor: Vec2 | None = None
+    scale_polynomials: tuple[_ScalePolynomial, ...] = ()
+    rectangle_states: dict[float, VisualState] = field(
+        default_factory=dict, compare=False
+    )
 
     @property
     def dynamic(self) -> bool:
@@ -372,6 +387,8 @@ def _native_tween(leaf: _Leaf) -> bool:
     )
     if len(clips) != len(owned):
         return False
+    if sum("position" in clip.animation.channels for clip in clips) > 1:
+        return False  # ASS permits one move command per event.
     for index, clip in enumerate(clips):
         animation = clip.animation
         if (
@@ -382,6 +399,7 @@ def _native_tween(leaf: _Leaf) -> bool:
             or not animation.channels
             <= frozenset(
                 (
+                    "position",
                     "scale",
                     "rotation",
                     "opacity",
@@ -410,21 +428,29 @@ def _native_tween(leaf: _Leaf) -> bool:
     return True
 
 
+def _number(value: float) -> str:
+    """Retain six-decimal ASS precision without redundant zero suffixes."""
+    result = f"{value:.6f}".rstrip("0").rstrip(".")
+    return "0" if result == "-0" else result
+
+
 def _tween_tag(
-    clip: AnimationClip, target: VisualState, *, start_offset: float = 0
+    clip: AnimationClip, target: VisualState, *, start_offset: float = 0,
+    omit_scale: bool = False,
 ) -> str:
     tags = {
-        "scale": rf"\fscx{target.scale.x * 100:.6f}\fscy{target.scale.y * 100:.6f}",
-        "rotation": rf"\frz{-target.rotation:.6f}",
+        "scale": rf"\fscx{_number(target.scale.x * 100)}\fscy{_number(target.scale.y * 100)}",
+        "rotation": rf"\frz{_number(-target.rotation)}",
         "opacity": rf"\alpha&H{round((1 - target.opacity) * 255):02X}&",
         "fill": rf"\1c{_color(target.fill)}\2c{_color(target.fill)}",
         "outline": rf"\3c{_color(target.outline)}",
-        "border": rf"\bord{target.border:.6f}",
-        "blur": rf"\blur{target.blur:.6f}",
-        "shadow": rf"\xshad{target.shadow.x:.6f}\yshad{target.shadow.y:.6f}",
+        "border": rf"\bord{_number(target.border)}",
+        "blur": rf"\blur{_number(target.blur)}",
+        "shadow": rf"\xshad{_number(target.shadow.x)}\yshad{_number(target.shadow.y)}",
     }
     target_tags = "".join(
-        tag for channel, tag in tags.items() if channel in clip.animation.channels
+        tag for channel, tag in tags.items()
+        if channel in clip.animation.channels and not (omit_scale and channel == "scale")
     )
     return (
         rf"\t({round((clip.start + start_offset) * 1000)},{round((clip.end + start_offset) * 1000)},{target_tags})"
@@ -458,10 +484,12 @@ def _centiseconds(time: float) -> int:
 
 def _rectangle_state(leaf: _Leaf, time: float) -> VisualState:
     """Evaluate proven curves at original knots, outside cropped visibility too."""
-    state = leaf.node.at(time)
-    for parent in reversed(leaf.parents):
-        state = compose_states(parent.at(time), state)
-    return state
+    if time not in leaf.rectangle_states:
+        state = leaf.node.at(time)
+        for parent in reversed(leaf.parents):
+            state = compose_states(parent.at(time), state)
+        leaf.rectangle_states[time] = state
+    return leaf.rectangle_states[time]
 
 
 def _rectangle_animation_known(clips: tuple[AnimationClip, ...]) -> bool:
@@ -472,7 +500,8 @@ def _rectangle_animation_known(clips: tuple[AnimationClip, ...]) -> bool:
             if not clip.hold or not _rectangle_animation_known(animation.clips):
                 return False
         elif type(animation) is ScalePulse:
-            pass  # The released value equals the pulse endpoint.
+            if animation.rate is not linear_rate:
+                return False
         elif type(animation) in (Tween, FadeIn, FadeOut):
             assert isinstance(animation, (Tween, FadeIn, FadeOut))
             if type(animation) is Tween and type(animation.target) is not StatePatch:
@@ -484,6 +513,157 @@ def _rectangle_animation_known(clips: tuple[AnimationClip, ...]) -> bool:
         else:
             return False
     return True
+
+
+def _scale_polynomials(node: TextObject | PathObject) -> tuple[_ScalePolynomial, ...]:
+    """Known scale polynomials as ordered ASS transforms, without clipped controls."""
+    result = []
+    for clip in _expanded_clips(node.animations):
+        if "scale" not in clip.animation.channels:
+            continue
+        motion = clip.animation
+        if type(motion) not in (ScalePulse, DriftOut):
+            return ()
+        assert isinstance(motion, (ScalePulse, DriftOut))
+        if motion.rate not in (smooth_rate, smoother_rate) or not clip.hold:
+            return ()
+        first, last = node.time_origin + clip.start, node.time_origin + clip.end
+        times = (
+            (first, first + clip.duration * motion.peak_at, last)
+            if isinstance(motion, ScalePulse) else (first, last)
+        )
+        knots = tuple((time, node.at(time).scale) for time in times)
+        controls = (-2, 1, 1) if motion.rate is smooth_rate else (6, -9, 1, 1, 1)
+        for (a, initial), (b, final) in zip(knots, knots[1:], strict=False):
+            start, end = round(a * 1000) / 1000, round(b * 1000) / 1000
+            delta = final - initial
+            if end <= start:
+                return ()
+            # Both rates have speed <= 2. Bound phase-time rounding independently
+            # of the existing geometry approximation, plus scale serialization.
+            error = 2 * max(abs(delta.x), abs(delta.y)) * max(abs(start - a), abs(end - b)) / min(b - a, end - start)
+            if error + 1e-8 > 0.001 or any(
+                min(value.x, value.y) <= 1e-8
+                for coefficient in controls
+                for value in (initial + delta * coefficient,)
+            ):
+                return ()
+        result.append(_ScalePolynomial(knots, controls))
+    return tuple(result)
+
+
+def _eased_rectangle_leaf(leaf: _Leaf, *, max_sections: int = 25_000) -> _Leaf:
+    """Approximate known smooth motion internally, retaining source endpoints.
+
+    The continuous linear-interpolation error is bounded by M*h*h/8, where M
+    bounds the second derivative of each channel. Both supported rate polynomials have |f''| <= 6.
+    Bounds are 0.1 parent pixels, 0.001 scale units and 1/255 opacity; rectangle
+    edge rounding/interpolation is checked separately by the existing planner.
+    Arbitrary callbacks, non-grid clocks and unrepresentable short curves keep
+    their original sampler. Author-owned declarations and the evaluator survive.
+    """
+    node = leaf.node
+    clips = _expanded_clips(node.animations)
+    if (
+        not isinstance(node.clip, RectangleClip)
+        or type(node.clip.deform) is not RectangleKeyframes
+        or any(not (
+            _rectangle_animation_known((clip,))
+            or (type(clip.animation) in (ScalePulse, DriftOut)
+                and isinstance(clip.animation, (ScalePulse, DriftOut))
+                and clip.animation.rate in (smooth_rate, smoother_rate) and clip.hold
+                and (not isinstance(clip.animation, DriftOut)
+                     or clip.animation.travel_rate in (None, linear_rate, clip.animation.rate)))
+        ) for clip in clips)
+        or leaf.evaluator.referenced(node.id)
+    ) or any(
+        parent.state.scale != Vec2(1, 1)
+        or parent.state.rotation != 0 or parent.state.skew != Vec2()
+        or not _rectangle_animation_known(parent.animations)
+        or any(clip.animation.channels - {"opacity"} for clip in parent.animations)
+        for parent in leaf.parents
+    ):
+        return leaf
+    result: list[AnimationClip] = []
+    changed = False
+    for clip in clips:
+        motion = clip.animation
+        if type(motion) not in (ScalePulse, DriftOut):
+            result.append(clip)
+            continue
+        assert isinstance(motion, (ScalePulse, DriftOut))
+        if motion.rate not in (smooth_rate, smoother_rate):
+            result.append(clip)
+            continue
+        begin, finish = node.time_origin + clip.start, node.time_origin + clip.end
+        if any(abs(t - _centiseconds(t) / 100) > 1e-9 for t in (begin, finish)):
+            return leaf
+        knots = (begin, finish)
+        if isinstance(motion, ScalePulse):
+            knots = (begin, begin + clip.duration * motion.peak_at, finish)
+        # Each phase interpolates between two channel endpoints.
+        # Even across the pulse peak the first derivative is continuous, so the
+        # maximum of the two phase bounds remains valid for a crossing section.
+        phases: list[tuple[float, float, float]] = []
+        for a, b in zip(knots, knots[1:], strict=False):
+            first, last = node.at(a), node.at(b)
+            # A separately linear travel contributes no curvature. Remove it
+            # before bounding the eased pivot compensation; endpoint cancellation
+            # must never hide that compensation's second derivative.
+            displacement = last.position - first.position
+            if isinstance(motion, DriftOut) and motion.travel_rate is linear_rate:
+                displacement -= motion.offset
+            delta = (
+                abs(displacement.x) / 0.1,
+                abs(displacement.y) / 0.1,
+                abs(last.scale.x - first.scale.x) / 0.001,
+                abs(last.scale.y - first.scale.y) / 0.001,
+                abs(last.opacity - first.opacity) * 255,
+            )
+            phases.append((a, b, max(delta) / (b - a) ** 2))
+        pending = [(begin, finish)]
+        sections: list[tuple[float, float]] = []
+        while pending:
+            if len(result) + len(sections) + len(pending) > max_sections:
+                return leaf
+            a, b = pending.pop()
+            # Quintic smootherstep: f'' = 60*p*(2*p*p - 3*p + 1).
+            # Its global absolute maximum is 10/sqrt(3) < 6; cubic
+            # smoothstep admits the tighter endpoint bound on each subinterval.
+            curvature = max(
+                (
+                    factor * (6 if motion.rate is smoother_rate else max(
+                        abs(6 - 12 * (max(a, left) - left) / (right - left)),
+                        abs(6 - 12 * (min(b, right) - left) / (right - left)),
+                    ))
+                    for left, right, factor in phases
+                    if max(a, left) < min(b, right)
+                ), default=0,
+            )
+            if curvature * (b - a) ** 2 / 8 > 1:
+                middle = _centiseconds((a + b) / 2) / 100
+                if not a < middle < b:
+                    return leaf
+                pending.extend(((middle, b), (a, middle)))
+                continue
+            sections.append((a, b))
+        for a, b in sections:
+            target = node.at(b)
+            result.append(AnimationClip(
+                start=local_seconds(a, node.time_origin), duration=local_seconds(b, a),
+                animation=Tween(StatePatch(
+                    position=target.position, scale=target.scale,
+                    opacity=target.opacity if "opacity" in motion.channels else None,
+                )),
+            ))
+        changed = True
+    if not changed:
+        return leaf
+    candidate = replace(
+        leaf, node=replace(node, animations=tuple(result)), rectangle_states={},
+        scale_polynomials=_scale_polynomials(node),
+    )
+    return candidate if _native_rectangle(candidate) else leaf
 
 
 def _rectangle_owned_clips(leaf: _Leaf) -> tuple[tuple[float, AnimationClip], ...]:
@@ -499,12 +679,84 @@ def _rectangle_geometry_knots(leaf: _Leaf) -> tuple[float, ...]:
     for origin, clip in _rectangle_owned_clips(leaf):
         points.update((origin + clip.start, origin + clip.end))
         if type(clip.animation) is ScalePulse:
-            points.add(origin + clip.start + clip.duration / 2)
+            points.add(origin + clip.start + clip.duration * clip.animation.peak_at)
     if not points:
         return leaf.start, leaf.end
     return tuple(
         sorted({min(leaf.start, min(points)), *points, max(leaf.end, max(points))})
     )
+
+
+def _local_gradient_domain(leaf: _Leaf) -> tuple[int, int]:
+    node = leaf.node
+    material, clip = node.material, node.clip
+    assert isinstance(material, LinearGradient) and material.space == "local"
+    if (
+        not isinstance(clip, RectangleClip)
+        or clip.space != "local"
+        or clip.inverse
+        or type(clip.deform) is not RectangleKeyframes
+        or any(parent.clip is not None for parent in leaf.parents)
+    ):
+        raise SceneCompileError(
+            "local gradient needs a non-inverse local RectangleKeyframes clip without parent masks",
+            object_id=node.id,
+        )
+    axis = 0 if material.axis == "x" else 1
+    edges = {(bounds[axis], bounds[axis + 2]) for _, bounds in clip.deform.keyframes}
+    if len(edges) != 1:
+        raise SceneCompileError(
+            "local gradient clip must stay fixed along its color axis",
+            object_id=node.id,
+        )
+    left, right = next(iter(edges))
+    if right <= left:
+        raise SceneCompileError(
+            "local gradient needs positive color-axis extent", object_id=node.id
+        )
+    return floor(left), ceil(right)
+
+
+def _native_rectangle_material(leaf: _Leaf) -> bool:
+    """Static bands perpendicular to a sweep retain linear clip edges.
+
+    Restrict this proof to opacity animation: moving/scaling geometry or color
+    animation may change band membership or the material's inherited colors.
+    Inverse masks and edges crossing bands still use the general sampler.
+    """
+    node = leaf.node
+    if node.material is None:
+        return True
+    if type(node.material) is not LinearGradient:
+        return False
+    clip = node.clip
+    assert isinstance(clip, RectangleClip)
+    allowed = (
+        {"opacity", "position", "scale"}
+        if node.material.space == "local"
+        else {"opacity"}
+    )
+    if clip.inverse or any(
+        animation.animation.channels - allowed
+        for _, animation in _rectangle_owned_clips(leaf)
+    ):
+        return False
+    axis = 0 if node.material.axis == "x" else 1
+    if node.material.space == "local":
+        if clip.space != "local":
+            return False
+        assert isinstance(clip.deform, RectangleKeyframes)
+        edges = {
+            (bounds[axis], bounds[axis + 2]) for _, bounds in clip.deform.keyframes
+        }
+    else:
+        edges = {
+            (bounds[axis], bounds[axis + 2])
+            for time in _rectangle_knots(leaf)
+            for before in (False, True)
+            for bounds in (_rectangle_bounds(leaf, time, before=before),)
+        }
+    return len(edges) == 1
 
 
 def _native_rectangle(leaf: _Leaf) -> bool:
@@ -513,11 +765,12 @@ def _native_rectangle(leaf: _Leaf) -> bool:
         not isinstance(node.clip, RectangleClip)
         or type(node.clip.deform) is not RectangleKeyframes
         or leaf.affine_paths
-        or node.material is not None
         or leaf.evaluator.referenced(node.id)
         or any(parent.clip is not None for parent in leaf.parents)
         or (isinstance(node, PathObject) and node.deform is not None)
     ):
+        return False
+    if not _native_rectangle_material(leaf):
         return False
     if not _rectangle_animation_known(node.animations):
         return False
@@ -542,7 +795,8 @@ def _native_rectangle(leaf: _Leaf) -> bool:
         # in general be emitted as a linear ASS alpha transform.
         return False
     if any(
-        type(clip.animation) is FadeIn and (clip.start != 0 or origin > leaf.start)
+        type(clip.animation) is FadeIn
+        and local_seconds(origin + clip.start, leaf.start) > 0
         for origin, clip in owned
     ):
         return False
@@ -577,7 +831,12 @@ def _rectangle_knots(leaf: _Leaf) -> tuple[float, ...]:
 
 
 def _rectangle_bounds(
-    leaf: _Leaf, time: float, *, before: bool = False
+    leaf: _Leaf,
+    time: float,
+    *,
+    before: bool = False,
+    band: PaintBand | None = None,
+    state: VisualState | None = None,
 ) -> tuple[float, float, float, float]:
     clip = leaf.node.clip
     assert isinstance(clip, RectangleClip)
@@ -585,8 +844,14 @@ def _rectangle_bounds(
     left, top, right, bottom = clip.deform.bounds_at(
         local_seconds(time, leaf.node.time_origin), before=before
     )
+    if band is not None:
+        assert isinstance(leaf.node.material, LinearGradient)
+        if leaf.node.material.axis == "x":
+            left, right = max(left, band.start), min(right, band.end)
+        else:
+            top, bottom = max(top, band.start), min(bottom, band.end)
     if clip.space == "local":
-        state = _rectangle_state(leaf, time)
+        state = _rectangle_state(leaf, time) if state is None else state
         first = state.transform.apply(Vec2(left, top))
         last = state.transform.apply(Vec2(right, bottom))
         return first.x, first.y, last.x, last.y
@@ -594,7 +859,7 @@ def _rectangle_bounds(
 
 
 def _rectangle_sections(
-    leaf: _Leaf, budget: SceneBudget
+    leaf: _Leaf, budget: SceneBudget, *, band: PaintBand | None = None
 ) -> tuple[tuple[float, float], ...]:
     knots = _rectangle_knots(leaf)
     pending = list(
@@ -612,9 +877,9 @@ def _rectangle_sections(
         first, last = pending.pop()
         if _centiseconds(max(first, leaf.start)) >= _centiseconds(min(last, leaf.end)):
             continue
-        a = _rectangle_bounds(leaf, first)
-        b = _rectangle_bounds(leaf, last, before=True)
-        middle = _rectangle_bounds(leaf, (first + last) / 2)
+        a = _rectangle_bounds(leaf, first, band=band)
+        b = _rectangle_bounds(leaf, last, before=True, band=band)
+        middle = _rectangle_bounds(leaf, (first + last) / 2, band=band)
         error = 0.0
         for start, mid, end in zip(a, middle, b, strict=True):
             # Each world-space edge is quadratic: linear bounds times linear
@@ -650,8 +915,70 @@ def _rectangle_sections(
     return tuple(sections)
 
 
+def _rectangle_groupable(leaf: _Leaf) -> bool:
+    """ASS can carry scale/alpha curves and at most one continuous move."""
+    material = leaf.node.material
+    if not isinstance(material, LinearGradient):
+        return False
+    owned = _rectangle_owned_clips(leaf)
+    if material.space == "screen":
+        return all(not clip.animation.channels - {"opacity"} for _, clip in owned)
+    moves = [clip for _, clip in owned if "position" in clip.animation.channels]
+    return len(moves) <= 1 and all(
+        type(clip.animation) is Tween
+        and clip.animation.channels == frozenset(("position",))
+        for clip in moves
+    )
+
+
+def _rectangle_linear_anchor(leaf: _Leaf, first: float, last: float) -> bool:
+    """Prove one linear move over the known piecewise-linear output anchor."""
+    anchor = leaf.rectangle_anchor
+    if anchor is None:
+        return False
+    points = (first, last, *(time for time in _rectangle_geometry_knots(leaf)
+                            if first < time < last))
+    origin = _rectangle_state(leaf, first).transform.apply(anchor)
+    end = _rectangle_state(leaf, last).transform.apply(anchor)
+    return all(
+        abs(position.x - expected.x) <= 1e-8 and abs(position.y - expected.y) <= 1e-8
+        for time in points
+        for position in (_rectangle_state(leaf, time).transform.apply(anchor),)
+        for expected in (origin.lerp(end, (time - first) / (last - first)),)
+    )
+
+
+def _rectangle_groups(
+    leaf: _Leaf, sections: tuple[tuple[float, float], ...]
+) -> tuple[tuple[tuple[float, float], ...], ...]:
+    groups: list[list[tuple[float, float]]] = []
+    for first, last in sections:
+        if (
+            groups
+            and (_rectangle_groupable(leaf)
+                 or _rectangle_linear_anchor(leaf, groups[-1][0][0], last))
+            and abs(groups[-1][-1][1] - first) <= 1e-9
+            and all(abs(a - b) <= 1e-8 for a, b in zip(
+                _rectangle_bounds(leaf, first, before=True),
+                _rectangle_bounds(leaf, first), strict=True,
+            ))
+        ):
+            # Compatible clip/scale/alpha transforms can share one ASS event.
+            # A single move retains its original clock below. Keep resets
+            # separate: an instantaneous discontinuity is not a linear tween.
+            groups[-1].append((first, last))
+        else:
+            groups.append([(first, last)])
+    return tuple(tuple(group) for group in groups)
+
+
 def _rectangle_events(
-    leaf: _Leaf, style: str, sections: tuple[tuple[float, float], ...]
+    leaf: _Leaf,
+    style: str,
+    sections: tuple[tuple[float, float], ...],
+    *,
+    band: PaintBand | None = None,
+    groups: tuple[tuple[tuple[float, float], ...], ...] | None = None,
 ) -> tuple[Line, ...]:
     node = leaf.node
     clip = node.clip
@@ -660,7 +987,21 @@ def _rectangle_events(
     kind = "iclip" if clip.inverse else "clip"
 
     def tag(time: float, *, before: bool = False) -> str:
-        left, top, right, bottom = _rectangle_bounds(leaf, time, before=before)
+        local = (
+            isinstance(node.material, LinearGradient) and node.material.space == "local"
+        )
+        left, top, right, bottom = _rectangle_bounds(
+            leaf,
+            time,
+            before=before,
+            band=band if local else None,
+        )
+        if band is not None and not local:
+            assert isinstance(node.material, LinearGradient)
+            if node.material.axis == "x":
+                left, right = max(round(left), band.start), min(round(right), band.end)
+            else:
+                top, bottom = max(round(top), band.start), min(round(bottom), band.end)
         return f"\\{kind}({round(left)},{round(top)},{round(right)},{round(bottom)})"
 
     animations: list[tuple[float, AnimationClip]] = []
@@ -671,12 +1012,15 @@ def _rectangle_events(
                     origin,
                     replace(
                         animation,
-                        start=animation.start + index * animation.duration / 2,
-                        duration=animation.duration / 2,
+                        start=animation.start + start * animation.duration,
+                        duration=(end - start) * animation.duration,
                         breakpoints=(),
                     ),
                 )
-                for index in (0, 1)
+                for start, end in (
+                    (0, animation.animation.peak_at),
+                    (animation.animation.peak_at, 1),
+                )
             )
         else:
             animations.append((origin, animation))
@@ -689,16 +1033,19 @@ def _rectangle_events(
         default=node.time_origin,
     )
     events: list[Line] = []
-    for first, last in sections:
+    for group in _rectangle_groups(leaf, sections) if groups is None else groups:
+        first, last = group[0][0], group[-1][1]
         start = _centiseconds(max(first, leaf.start))
         end = _centiseconds(min(last, leaf.end))
         if start >= end:
             continue
-        initial, final = tag(first), tag(last, before=True)
-        tags = initial
-        if initial != final:
-            a, b = round(first * 1000) - start * 10, round(last * 1000) - start * 10
-            tags += rf"\t({a},{b},1,{final})"
+        tags = tag(first)
+        for section_start, section_end in group:
+            initial, final = tag(section_start), tag(section_end, before=True)
+            if initial != final:
+                a = round(section_start * 1000) - start * 10
+                b = round(section_end * 1000) - start * 10
+                tags += rf"\t({a},{b},1,{final})"
         state = replace(
             _rectangle_state(leaf, node.time_origin),
             opacity=_rectangle_state(leaf, alpha_start).opacity,
@@ -706,16 +1053,44 @@ def _rectangle_events(
         for origin, animation in sorted(
             animations, key=lambda pair: pair[0] + pair[1].start
         ):
+            if origin + animation.start >= end / 100:
+                continue
             target = _rectangle_state(leaf, origin + animation.end)
             if round((origin + animation.end) * 1000) <= start * 10:
                 # ASS treats a transform ending at 0 as ending at event end.
                 # Fold completed channels into the header instead, retaining
                 # original clocks only for active/future transforms.
                 state = merge_channels(
-                    state, target, animation.animation.channels - {"position"}
+                    state, target,
+                    animation.animation.channels
+                    - ({"position", "scale"} if leaf.scale_polynomials else {"position"}),
                 )
             else:
-                tags += _tween_tag(animation, target, start_offset=origin - start / 100)
+                tags += _tween_tag(
+                    animation, target, start_offset=origin - start / 100,
+                    omit_scale=bool(leaf.scale_polynomials),
+                )
+        for polynomial in leaf.scale_polynomials:
+            for (a, initial), (b, final) in zip(
+                polynomial.knots, polynomial.knots[1:], strict=False,
+            ):
+                if initial == final:
+                    continue
+                begin_ms, end_ms = round(a * 1000), round(b * 1000)
+                if begin_ms >= end * 10:
+                    continue
+                if end_ms <= start * 10:
+                    state = replace(state, scale=final)
+                    continue
+                # Each transform blends the value left by its predecessor.
+                # These controls expand to 3p²-2p³ or 6p⁵-15p⁴+10p³.
+                # Unlike rectangular clips, libass keeps scale values in float.
+                for coefficient in polynomial.controls:
+                    value = initial + (final - initial) * coefficient
+                    tags += (
+                        rf"\t({begin_ms - start * 10},{end_ms - start * 10},"
+                        rf"\fscx{_number(value.x * 100)}\fscy{_number(value.y * 100)})"
+                    )
         geometry_start, geometry_end = next(
             (
                 (origin + animation.start, origin + animation.end)
@@ -728,12 +1103,40 @@ def _rectangle_events(
             ),
             (max(first, leaf.start), max(first, leaf.start)),
         )
-        state = replace(state, position=_rectangle_state(leaf, geometry_start).position)
+        if _rectangle_groupable(leaf):
+            movement = next(
+                (
+                    (origin, animation)
+                    for origin, animation in animations
+                    if "position" in animation.animation.channels
+                ),
+                None,
+            )
+            if movement is not None:
+                origin, animation = movement
+                geometry_start, geometry_end = (
+                    origin + animation.start,
+                    origin + animation.end,
+                )
+        if leaf.rectangle_anchor is not None and not _rectangle_groupable(leaf):
+            geometry_start, geometry_end = max(first, leaf.start), min(last, leaf.end)
+        start_state = _rectangle_state(leaf, geometry_start)
         target = _rectangle_state(leaf, geometry_end)
+        event_leaf = leaf
+        if leaf.rectangle_anchor is not None:
+            assert isinstance(node, TextObject)
+            anchor = leaf.rectangle_anchor
+            state = replace(state, position=start_state.transform.apply(anchor))
+            target = replace(target, position=target.transform.apply(anchor))
+            event_leaf = replace(leaf, node=replace(node, alignment=5))
+        else:
+            state = replace(state, position=start_state.position)
         a = round(geometry_start * 1000) - start * 10
         b = round(geometry_end * 1000) - start * 10
+        if band is not None:
+            state = replace(state, fill=band.fill, outline=band.outline)
         event = _event(
-            leaf,
+            event_leaf,
             state,
             start,
             end,
@@ -742,8 +1145,8 @@ def _rectangle_events(
         )
         if state.position != target.position:
             event.text = event.text.replace(
-                rf"\pos({state.position.x:.6f},{state.position.y:.6f})",
-                rf"\move({state.position.x:.6f},{state.position.y:.6f},{target.position.x:.6f},{target.position.y:.6f},{a},{b})",
+                rf"\pos({_number(state.position.x)},{_number(state.position.y)})",
+                rf"\move({_number(state.position.x)},{_number(state.position.y)},{_number(target.position.x)},{_number(target.position.y)},{a},{b})",
                 1,
             )
         event.text = event.text.replace("}", tags + "}", 1)
@@ -756,19 +1159,31 @@ def _active_intervals(leaf: _Leaf) -> tuple[tuple[float, float], ...]:
     node = leaf.node
     if leaf.evaluator.referenced(node.id):
         return ((leaf.start, leaf.end),)
-    if (isinstance(node, PathObject) and node.deform is not None) or (
-        any(
-            isinstance(n.clip, (RectangleClip, VectorClip))
-            and n.clip.deform is not None
-            for n in (*leaf.parents, node)
-        )
-    ):
+    if isinstance(node, PathObject) and node.deform is not None:
         return ((leaf.start, leaf.end),)
     intervals = [
         (n.time_origin + c.start, n.time_origin + c.end)
         for n in (*leaf.parents, node)
         for c in n.animations
     ]
+    for owner in (*leaf.parents, node):
+        mask = owner.clip
+        if not isinstance(mask, (RectangleClip, VectorClip)) or mask.deform is None:
+            continue
+        if (
+            not isinstance(mask, RectangleClip)
+            or type(mask.deform) is not RectangleKeyframes
+        ):
+            return ((leaf.start, leaf.end),)
+        # Known curves hold outside their keys and on equal-valued sections.
+        # Instantaneous resets are still inserted by _boundaries; they need no
+        # intervening samples. Arbitrary callbacks retain full-lifetime sampling.
+        keys = mask.deform.keyframes
+        intervals.extend(
+            (owner.time_origin + start, owner.time_origin + end)
+            for (start, first), (end, last) in zip(keys, keys[1:], strict=False)
+            if end > start and first != last
+        )
     if isinstance(node.material, PaintActivity):
         intervals.extend(
             (
@@ -876,11 +1291,11 @@ def _tags(state: VisualState) -> str:
     alpha = round((1 - state.opacity) * 255)
     # Rotation is clockwise in the scene; ASS frz is counterclockwise.
     return (
-        rf"\fscx{state.scale.x * 100:.6f}\fscy{state.scale.y * 100:.6f}"
-        rf"\frz{-state.rotation:.6f}\frx0\fry0\fax{state.skew.x:.6f}\fay{state.skew.y:.6f}"
+        rf"\fscx{_number(state.scale.x * 100)}\fscy{_number(state.scale.y * 100)}"
+        rf"\frz{_number(-state.rotation)}\frx0\fry0\fax{_number(state.skew.x)}\fay{_number(state.skew.y)}"
         rf"\1c{_color(state.fill)}\2c{_color(state.fill)}\3c{_color(state.outline)}\4c&H000000&"
-        rf"\alpha&H{alpha:02X}&\bord{state.border:.6f}\blur{state.blur:.6f}\be0"
-        rf"\xshad{state.shadow.x:.6f}\yshad{state.shadow.y:.6f}"
+        rf"\alpha&H{alpha:02X}&\bord{_number(state.border)}\blur{_number(state.blur)}\be0"
+        rf"\xshad{_number(state.shadow.x)}\yshad{_number(state.shadow.y)}"
     )
 
 
@@ -896,12 +1311,12 @@ def _event(
     paint_clip: RectangleClip | VectorClip | None = None,
 ) -> Line:
     node = leaf.node
-    position = rf"\pos({state.position.x:.6f},{state.position.y:.6f})"
+    position = rf"\pos({_number(state.position.x)},{_number(state.position.y)})"
     if move:
         clip = node.animations[0]
         target = node.at(node.time_origin + clip.end).position
         position = (
-            rf"\move({state.position.x:.6f},{state.position.y:.6f},{target.x:.6f},{target.y:.6f},"
+            rf"\move({_number(state.position.x)},{_number(state.position.y)},{_number(target.x)},{_number(target.y)},"
             f"{round(clip.start * 1000)},{round(clip.end * 1000)})"
         )
     clipping = ""
@@ -931,8 +1346,8 @@ def _event(
             .replace("\n", r"\N")
         )
         geometry = (
-            rf"\an{node.alignment}\fn{node.font}\fe{node.encoding}\fs{node.font_size:.6f}"
-            rf"\b{int(node.bold)}\i{int(node.italic)}\u0\s0\fsp{node.spacing:.6f}\p0"
+            rf"\an{node.alignment}\fn{node.font}\fe{node.encoding}\fs{_number(node.font_size)}"
+            rf"\b{int(node.bold)}\i{int(node.italic)}\u0\s0\fsp{_number(node.spacing)}\p0"
         )
     else:
         assert path is not None or isinstance(node, PathObject)
@@ -1067,6 +1482,30 @@ def _painted_events(
             path_points,
             affine,
         )
+    if isinstance(material, LinearGradient) and material.space == "local":
+        if affine or state.rotation % 360 != 0:
+            raise ValueError(
+                "local gradient currently requires positive axis-aligned transforms"
+            )
+        domain = _local_gradient_domain(leaf)
+        result: list[Line] = []
+        for band in material.bands(*domain, 0, paint_state):
+            bounds = _rectangle_bounds(leaf, time, band=band, state=paint_state)
+            left, top, right, bottom = (round(value) for value in bounds)
+            if left >= right or top >= bottom:
+                continue
+            result.append(
+                _event(
+                    leaf,
+                    replace(state, fill=band.fill, outline=band.outline),
+                    start,
+                    end,
+                    style,
+                    path=path,
+                    paint_clip=RectangleClip(left, top, right, bottom),
+                )
+            )
+        return _PaintedFrame(tuple(result), clip_points, path_points, affine)
     limit = width if material.axis == "x" else height
     bands = material.bands(
         0, limit, local_seconds(time, leaf.node.time_origin), paint_state
@@ -1259,6 +1698,15 @@ def compile_scene(
             str(error), object_id=error.object_id, origin=error.origin
         ) from error
     leaves, native, coverage, object_order = _leaves(scene, evaluator)
+    approximated: set[str] = set()
+    if native_tweens:
+        lowered = []
+        for leaf in leaves:
+            candidate = _eased_rectangle_leaf(leaf, max_sections=budget.max_events)
+            if candidate is not leaf:
+                approximated.add(leaf.node.id)
+            lowered.append(candidate)
+        leaves = tuple(lowered)
     meta = Document.parse(scene.document.dumps()).meta
     width, height = meta.res_x, meta.res_y
     outlines: dict[str, VectorPath | None] = {}
@@ -1266,6 +1714,7 @@ def compile_scene(
     max_quantization = 0.0
     diagnostics: dict[str, None] = {}
     rectangle_plans: dict[str, tuple[tuple[float, float], ...]] = {}
+    rectangle_anchors: dict[str, Vec2] = {}
     for leaf in leaves:
         node = leaf.node
         if isinstance(node, TextObject) and leaf.affine_paths:
@@ -1287,6 +1736,8 @@ def compile_scene(
                     origin=node.origin,
                 )
         band_bound = 1
+        if isinstance(node.material, LinearGradient) and node.material.space == "local":
+            _local_gradient_domain(leaf)
         if node.material is not None:
             band_bound = node.material.max_bands
             if type(band_bound) is not int or not 1 <= band_bound <= budget.max_bands:
@@ -1356,6 +1807,14 @@ def compile_scene(
             geometry_breaks += len(node.deform.breakpoints)
         rectangle = native_tweens and _native_rectangle(leaf)
         if rectangle:
+            if isinstance(node, TextObject) and node.alignment == 7 and "\n" not in node.text:
+                text_width, text_height, _, _ = text_extents(Style(
+                    fontname=node.font, fontsize=node.font_size, bold=node.bold,
+                    italic=node.italic, spacing=node.spacing, encoding=node.encoding,
+                ), node.text)
+                leaf = replace(leaf, rectangle_anchor=Vec2(text_width / 2, text_height / 2))
+            if leaf.rectangle_anchor is not None:
+                rectangle_anchors[node.id] = leaf.rectangle_anchor
             rectangle_plans[node.id] = _rectangle_sections(leaf, budget)
         native_strategy = (
             not leaf.dynamic
@@ -1366,7 +1825,7 @@ def compile_scene(
         if not native_strategy:
             diagnostics.update(dict.fromkeys(_sampling_diagnostics(leaf)))
         estimate += band_bound * (
-            len(rectangle_plans[node.id])
+            len(_rectangle_groups(leaf, rectangle_plans[node.id]))
             if rectangle
             else 1
             if native_strategy
@@ -1519,14 +1978,58 @@ def compile_scene(
         peak_bands = 0
         peak_clip_points = 0
         if rectangle:
-            events = _rectangle_events(leaf, style.name, rectangle_plans[node.id])
-            for event in events:
-                append(event, node.id, node.origin)
+            if node.id in rectangle_anchors:
+                leaf = replace(leaf, rectangle_anchor=rectangle_anchors[node.id])
+            bands: tuple[PaintBand | None, ...] = (None,)
+            if node.material is not None:
+                assert isinstance(node.material, LinearGradient)
+                axis = 0 if node.material.axis == "x" else 1
+                bounds = _rectangle_bounds(leaf, leaf.start)
+                domain = (0, width if axis == 0 else height)
+                if node.material.space == "local":
+                    domain = _local_gradient_domain(leaf)
+                bands = tuple(
+                    band
+                    for band in node.material.bands(
+                        *domain,
+                        0,
+                        _rectangle_state(leaf, node.time_origin),
+                    )
+                    if node.material.space == "local"
+                    or (
+                        band.end > round(bounds[axis])
+                        and band.start < round(bounds[axis + 2])
+                    )
+                )
+            grouped_sections = _rectangle_groups(leaf, rectangle_plans[node.id])
+            for band in bands:
+                sections = rectangle_plans[node.id]
+                groups = grouped_sections
+                if (
+                    isinstance(node.material, LinearGradient)
+                    and node.material.space == "local"
+                    and budget.clip_error_px < 0.5
+                ):
+                    # The fixed local color-axis edges are linear on each
+                    # geometry section, so endpoint rounding costs <= 0.5 px.
+                    # The other two edges are already covered by the base plan.
+                    sections = _rectangle_sections(leaf, budget, band=band)
+                    groups = _rectangle_groups(leaf, sections)
+                for event in _rectangle_events(
+                    leaf,
+                    style.name,
+                    sections,
+                    band=band,
+                    groups=groups,
+                ):
+                    append(event, node.id, node.origin)
             strategy = "native-clip"
+            if node.id in approximated:
+                strategy += "-eased"
             peak_path_points = (
                 node.path.point_count if isinstance(node, PathObject) else 0
             )
-            peak_bands = 1
+            peak_bands = len(bands)
         elif not leaf.dynamic or move or tween:
             peak_path_points = (
                 node.path.point_count if isinstance(node, PathObject) else 0
@@ -1564,6 +2067,21 @@ def compile_scene(
             for event in events:
                 if tween:
                     event.text = event.text.replace("}", _tween_tags(leaf) + "}", 1)
+                    movement = next((
+                        clip for clip in _expanded_clips(node.animations)
+                        if "position" in clip.animation.channels
+                    ), None)
+                    if movement is not None:
+                        a = leaf.at(node.time_origin + movement.start).position
+                        b = leaf.at(node.time_origin + movement.end).position
+                        start_ms = round((node.time_origin + movement.start - leaf.start) * 1000)
+                        end_ms = round((node.time_origin + movement.end - leaf.start) * 1000)
+                        initial = leaf.at(leaf.start).position
+                        event.text = event.text.replace(
+                            rf"\pos({_number(initial.x)},{_number(initial.y)})",
+                            rf"\move({_number(a.x)},{_number(a.y)},{_number(b.x)},{_number(b.y)},{start_ms},{end_ms})",
+                            1,
+                        )
                 append(event, node.id, node.origin)
             strategy = (
                 "native-tween" if tween else "native-move" if move else "native-static"
@@ -1629,7 +2147,14 @@ def compile_scene(
                         if isinstance(error, (SceneReferenceError, SceneClipError))
                         else node.origin,
                     ) from error
-                events = frame.events
+                # Sampled events carry a constant alpha for their entire slice.
+                # Once a glyph has departed, its held zero opacity must not keep
+                # emitting gradient bands until the rest of the line finishes.
+                # Still evaluate geometry/materials above so their validation
+                # and callback contracts do not depend on current visibility.
+                # This is deliberately not applied to native tween headers:
+                # a FadeIn starts transparent but becomes visible in that event.
+                events = () if state.opacity == 0 else frame.events
                 affine |= frame.affine
                 peak_path_points = max(peak_path_points, frame.path_points)
                 peak_clip_points = max(peak_clip_points, frame.clip_points)

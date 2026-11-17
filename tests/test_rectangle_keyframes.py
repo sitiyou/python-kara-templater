@@ -232,3 +232,59 @@ def test_overridden_curve_evaluation_is_not_assumed_linear():
         .compile(native_tweens=True)
     )
     assert result.objects[0].strategy == "sampled"
+
+
+@pytest.mark.parametrize("inverse", (False, True))
+def test_sampled_known_masks_budget_only_changing_sections_and_keep_resets(inverse):
+    from kara_templater import AnimationClip, RectangleFunction, StateFunction
+
+    # A late arbitrary animation forces sampled output. Long held mask ranges
+    # must not inflate preflight, including an instantaneous reset in the hold.
+    mask = RectangleKeyframes(
+        (
+            (1, (0, 0, 0, 12)),
+            (2, (0, 0, 16, 12)),
+            (15, (0, 0, 16, 12)),
+            (15, (0, 0, 8, 12)),
+            (29, (0, 0, 8, 12)),
+        )
+    )
+    node = PathObject(
+        id="long-hold",
+        lifetime=Lifetime(0, 30),
+        path=VectorPath.rectangle(16, 12),
+        clip=RectangleClip(0, 0, 16, 12, inverse=inverse, deform=mask),
+        animations=(
+            AnimationClip(
+                29,
+                1,
+                StateFunction(
+                    lambda state, p: replace(state, opacity=1 - p),
+                    frozenset(("opacity",)),
+                ),
+            ),
+        ),
+    )
+    doc = Document.create(width=32, height=32)
+    result = Scene(doc).add(node).compile(budget=SceneBudget(fps=10, max_events=50))
+    assert result.event_count < 30
+    # Independent full-duration callback path: same masks, but cannot optimize
+    # from declared keyframe semantics. Compare actual libass pixels.
+    assert isinstance(node.clip, RectangleClip)
+    reference = (
+        Scene(doc)
+        .add(
+            replace(
+                node,
+                clip=replace(
+                    node.clip, deform=RectangleFunction(mask.sample, mask.breakpoints)
+                ),
+            )
+        )
+        .compile(budget=SceneBudget(fps=10))
+    )
+    for time in (0, 950, 1050, 1450, 1950, 2500, 14950, 15000, 15050, 28500, 29550):
+        assert (
+            rasterize(result.document.dumps(), time, (32, 32)).rgba
+            == rasterize(reference.document.dumps(), time, (32, 32)).rgba
+        )

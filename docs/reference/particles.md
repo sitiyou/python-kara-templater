@@ -8,9 +8,13 @@ Deterministic emissions, delayed copies, and pure world-space dependencies. Time
 
 - [Emission](#emission)
 - [FollowObject](#followobject)
+- [LyricParticles](#lyricparticles)
 - [ParticleContext](#particlecontext)
 - [ParticleFactory](#particlefactory)
+- [Petal](#petal)
 - [ReferenceFunction](#referencefunction)
+- [Ribbon](#ribbon)
+- [Sparkle](#sparkle)
 - [StateLookup](#statelookup)
 - [StateReference](#statereference)
 - [echoes](#echoes)
@@ -123,6 +127,60 @@ FollowObject.translated(
 ) -> FollowObject
 ```
 
+## LyricParticles
+
+Emit particles at the singing front or throughout the measured lyric line.
+
+placement="front" uses each singing segment. placement="line" scatters
+particles across the body bounds from the original preview start through the
+last positive singing end, including unsung text and pauses. Its rate is per
+whole line, not per character or segment. Empty/zero-only lines emit nothing.
+Copy delays shift both schedules; later visual tails never extend emission.
+Line placement uses stable named random channels and captures a fixed point.
+
+rate is particles per second per singing segment in front mode; duration comes from the
+particle factory. Repeated segments restart the front. Zero-length segments
+emit nothing. Particle births are rounded to the ASS 10 ms grid; source
+singing clocks are unchanged. Position is captured in line-local layout coordinates at birth;
+line transforms apply to particles, independent character motion does not
+retarget already emitted particles. Use a custom factory for different paths,
+shapes, animation and lifetimes through the existing ParticleContext protocol.
+
+[Source](../../kara_templater/lyric_particles.py#L144)
+
+```python
+LyricParticles(
+    *,
+    factory: ParticleFactory = Sparkle(color=Color(red=255, green=245, blue=210), size=3, duration=0.45, travel=Vec2(x=12, y=-24)),
+    rate: float = 12,
+    seed: int = 0,
+    id: str = 'particles',
+    max_particles: int = 256,
+    placement: Literal['front', 'line'] = 'front',
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `factory` | `ParticleFactory` | `Sparkle(color=Color(red=255, green=245, blue=210), size=3, duration=0.45, travel=Vec2(x=12, y=-24))` |
+| `rate` | `float` | `12` |
+| `seed` | `int` | `0` |
+| `id` | `str` | `'particles'` |
+| `max_particles` | `int` | `256` |
+| `placement` | `Literal['front', 'line']` | `'front'` |
+
+### LyricParticles.__call__
+
+Preflight all emissions, then construct visuals and reserve their tails.
+
+```python
+LyricParticles.__call__(
+    line: LyricLine,
+) -> LyricLine
+```
+
 ## ParticleContext
 
 Particle factory input with birth, seed, source position, optional origin, and named random channels.
@@ -206,6 +264,44 @@ ParticleFactory.__call__(
 ) -> SceneObject
 ```
 
+## Petal
+
+A seeded falling petal with curved drift, rotation and projected flutter.
+
+size/fall are script pixels, duration is seconds. Unlike Sparkle this uses
+a sampled custom Transform for flutter, so inspect compilation cost.
+
+[Source](../../kara_templater/lyric_particles.py#L63)
+
+```python
+Petal(
+    *,
+    color: Color = Color(red=255, green=155, blue=195),
+    size: float = 4,
+    duration: float = 0.9,
+    fall: float = 40,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `color` | `Color` | `Color(red=255, green=155, blue=195)` |
+| `size` | `float` | `4` |
+| `duration` | `float` | `0.9` |
+| `fall` | `float` | `40` |
+
+### Petal.__call__
+
+Build an ordinary path object with deterministic custom motion.
+
+```python
+Petal.__call__(
+    context: ParticleContext,
+) -> PathObject
+```
+
 ## ReferenceFunction
 
 A pure world-state callback with explicit dependency IDs, written channels, and second-based breakpoints.
@@ -273,6 +369,89 @@ Return a reference adjusted for a spatial translation.
 ReferenceFunction.translated(
     offset: Vec2,
 ) -> ReferenceFunction
+```
+
+## Ribbon
+
+A curved luminous strand whose tail follows its head along one path.
+
+duration is head travel time and lag is tail delay in seconds. width, travel
+and bend use local script pixels. Keyed variation changes travel/bend once
+at birth; geometry then uses the same TrailPath available to custom authors.
+ASS samples the changing stroke, so inspect output costs at high rates.
+
+[Source](../../kara_templater/lyric_particles.py#L104)
+
+```python
+Ribbon(
+    *,
+    color: Color = Color(red=255, green=170, blue=220),
+    width: float = 1.5,
+    duration: float = 0.55,
+    lag: float = 0.18,
+    travel: Vec2 = Vec2(x=52, y=-18),
+    bend: Vec2 = Vec2(x=16, y=-46),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `color` | `Color` | `Color(red=255, green=170, blue=220)` |
+| `width` | `float` | `1.5` |
+| `duration` | `float` | `0.55` |
+| `lag` | `float` | `0.18` |
+| `travel` | `Vec2` | `Vec2(x=52, y=-18)` |
+| `bend` | `Vec2` | `Vec2(x=16, y=-46)` |
+
+### Ribbon.__call__
+
+Create one seeded path trail with an independent head/tail clock.
+
+```python
+Ribbon.__call__(
+    context: ParticleContext,
+) -> PathObject
+```
+
+## Sparkle
+
+A small four-point sparkle drifting upward while fading.
+
+A ParticleFactory usable with LyricParticles or emit_particles. size and
+travel are script pixels, duration is seconds; variation uses keyed seed
+channels. The ordinary linear Tween can compile to one ASS event per spark.
+
+[Source](../../kara_templater/lyric_particles.py#L23)
+
+```python
+Sparkle(
+    *,
+    color: Color = Color(red=255, green=245, blue=210),
+    size: float = 3,
+    duration: float = 0.45,
+    travel: Vec2 = Vec2(x=12, y=-24),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `color` | `Color` | `Color(red=255, green=245, blue=210)` |
+| `size` | `float` | `3` |
+| `duration` | `float` | `0.45` |
+| `travel` | `Vec2` | `Vec2(x=12, y=-24)` |
+
+### Sparkle.__call__
+
+Create one seeded sparkle from the captured emitter position.
+
+```python
+Sparkle.__call__(
+    context: ParticleContext,
+) -> PathObject
 ```
 
 ## StateLookup

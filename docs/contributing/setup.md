@@ -93,3 +93,12 @@ checks, use the isolated workflow in [release builds](releasing.md).
 Gallery and detailed playback tools additionally need FFmpeg built with libass.
 Provide the same fonts to the metrics renderer and FFmpeg/player. See
 [fonts and preview](../guides/fonts-and-preview.md).
+
+## Optional GPU renderer
+
+`uv sync --group checks --extra gpu` installs ModernGL and its glcontext dependency.
+Exporting enhanced ASS does not need them; rendering does. Install FFmpeg and a
+host OpenGL 3.3+ driver/context backend separately. Linux EGL hardware execution
+is currently validated; no Windows/macOS GPU claim is made. Run optional pixel and
+video tests with `uv run --extra gpu python -m pytest tests/test_gpu*`.
+See [GPU rendering](../guides/gpu-rendering.md) for the data-only playback workflow.

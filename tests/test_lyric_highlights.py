@@ -85,7 +85,7 @@ def test_highlighted_line_uses_common_scene_and_target_aliases_follow_animation(
     doc, line = source()
     decorated = LyricHighlights(
         highlights=highlights, mode="priority", strategy=strategy
-    ).apply(line)
+    )(line)
     target = decorated.query("character")[0]
     assert len(target.aliases) >= 2
     assert len(set(target.aliases)) == len(target.aliases)
@@ -148,7 +148,7 @@ def test_rendered_priority_has_one_alpha_contribution(strategy):
     def pixels(mode, chosen, method):
         decorated = LyricHighlights(
             highlights=chosen, mode=mode, strategy=method
-        ).apply(line)
+        )(line)
         scene = Scene(doc, replace_records={len(doc.records) - 1}).add(decorated)
         result = scene.compile(budget=BUDGET)
         assert all(
@@ -176,9 +176,9 @@ def test_sweep_cannot_silently_repaint_only_one_highlight_contribution():
     from kara_templater import LyricSweep
 
     _, line = source()
-    decorated = LyricHighlights(highlights=highlights, mode="priority").apply(line)
+    decorated = LyricHighlights(highlights=highlights, mode="priority")(line)
     with pytest.raises(ValueError, match="compose existing material/highlight"):
-        LyricSweep(fill=RED).apply(decorated)
+        LyricSweep(fill=RED)(decorated)
 
 
 def test_clip_glow_is_separate_layers_with_shared_character_motion():
@@ -192,7 +192,7 @@ def test_clip_glow_is_separate_layers_with_shared_character_motion():
     )
     decorated = LyricHighlights(
         highlights=(red,), glow=Glow(BLUE, blur=2, border=1)
-    ).apply(line)
+    )(line)
     target = decorated.query("character")[0]
     assert any(identity.endswith("/glow") for identity in target.aliases)
     assert any("/highlight:red" in identity for identity in target.aliases)
@@ -219,7 +219,7 @@ def test_clip_glow_is_separate_layers_with_shared_character_motion():
         LyricHighlights(
             highlights=(red,),
             glow=GlowFunction(lambda state, time: Glow(), max_blur=0, max_border=0),
-        ).apply(line)
+        )(line)
 
 
 @pytest.mark.parametrize("strategy", ("clip", "coverage"))
@@ -236,7 +236,7 @@ def test_glow_factories_resolve_once_per_target_and_validate_dynamic_strategy(st
     red = replace(highlights(line)[0], glow=choose)
     decorated = LyricHighlights(
         highlights=(red,), glow=choose, strategy=strategy
-    ).apply(line)
+    )(line)
     expected = [target.id for target in line.query("character") for _ in range(2)]
     assert calls == expected
     scene = Scene(doc).add(decorated)
@@ -247,13 +247,13 @@ def test_glow_factories_resolve_once_per_target_and_validate_dynamic_strategy(st
         return GlowFunction(lambda state, time: Glow(), max_blur=0, max_border=0)
 
     with pytest.raises(ValueError, match="dynamic glow"):
-        LyricHighlights(highlights=(replace(red, glow=dynamic),)).apply(line)
+        LyricHighlights(highlights=(replace(red, glow=dynamic),))(line)
 
 
 def test_explicit_target_selected_before_painting_uses_current_aliases():
     doc, line = source()
     selected = line.query("character")[0]
-    decorated = LyricHighlights(highlights=highlights).apply(line)
+    decorated = LyricHighlights(highlights=highlights)(line)
     current = decorated.query("character")[0]
     assert current.aliases
     animated = decorated.bind(LyricRule(selected, "singing", Jump()))
@@ -281,8 +281,8 @@ def test_delayed_highlight_copy_reserves_and_renders_the_same_interval(strategy)
         ),
         strategy=strategy,
     )
-    before = effect.apply(line).copy(id="copy", delay=2)
-    after = effect.apply(line.copy(id="copy", delay=2))
+    before = effect(line).copy(id="copy", delay=2)
+    after = effect(line.copy(id="copy", delay=2))
     assert before.required_display == after.required_display == (TimeSpan(3, 5.5),)
     assert before.lifetime == after.lifetime == Lifetime(2, 5.5)
     assert before.layout.lyrics == after.layout.lyrics == line.layout.lyrics
@@ -415,7 +415,7 @@ def test_adjacent_passes_match_whole_sweep_at_handoff_and_after_window_crop(
     for selected in (pieces, (common,)):
         visual = LyricHighlights(
             highlights=selected, strategy=strategy, glow=glow
-        ).apply(line)
+        )(line)
         if crop:
             visual = visual.with_display(Lifetime(1.25, 2.25))
         outputs.append(
@@ -448,7 +448,7 @@ def test_fill_and_halo_keep_independent_alpha_and_character_origins():
             ),
         ),
         strategy="clip",
-    ).apply(line)
+    )(line)
     result = Scene(doc).add(decorated).compile()
     events = [event for event, _ in result.event_origins]
     assert len(events) == 4  # two character fills and their two halos
@@ -515,7 +515,7 @@ def test_equal_priority_different_unit_paints_remain_independent(mode, strategy)
     for order in (chosen, chosen[::-1]):
         decorated = LyricHighlights(
             highlights=order, mode=mode, strategy=strategy
-        ).apply(line)
+        )(line)
         result = (
             Scene(doc, replace_records={len(doc.records) - 1})
             .add(decorated)

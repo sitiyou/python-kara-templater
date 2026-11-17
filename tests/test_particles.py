@@ -186,7 +186,7 @@ def test_echo_preserves_step_boundaries_and_custom_opacity():
         (line.start_time, line.end_time)
         for line in result.document.lines
         if not line.comment
-    ] == [(100, 330), (330, 1100)]
+    ] == [(330, 1100)]  # Fully transparent samples do not become ASS events.
 
 
 def test_split_geometry_has_local_moving_cells_and_preserves_sources():

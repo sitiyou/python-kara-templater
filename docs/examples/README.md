@@ -26,6 +26,36 @@ python -m examples.lyric_orchestration build/custom-layout.ass --custom
 The effects below also include direct object and material examples for custom
 geometry and composition. See [Tracks](../guides/tracks.md) for the authoring API.
 
+## Reference-informed karaoke styles
+
+[Eight karaoke motion studies](../tutorials/lyric-studies.md) separates sweep,
+emphasis, scatter, curved copies, particle reveal, petals, echoes and sparkles.
+The same short/held-note fixture has English/Japanese variants and an independent
+harmony track. Its runnable author recipes mix built-ins and simple custom curves.
+[Independent ornament clocks](../../examples/lyric_ornament.py) adds a stationary
+arch with the opposite exit order from its text, using the same effect interface.
+
+[Design karaoke that stays readable](../tutorials/karaoke-design.md) compares three
+complete styles based on observed Bilibili karaoke: red/white broadcast contrast,
+warm serif lettering, and pink lettering with a staggered exit. They share one
+original lyric fixture, main/harmony Tracks, ruby and a lead cue.
+
+![Design comparison](assets/karaoke-design-comparison-ja.jpg)
+
+[Source: karaoke_designs.py](../../examples/karaoke_designs.py)
+
+```sh
+python -m examples.karaoke_designs build/broadcast.ass --style broadcast
+python -m examples.karaoke_designs build/amber.ass --style amber
+python -m examples.karaoke_designs build/candy.ass --style candy
+```
+
+Add `--japanese` for Japanese phrases with kana ruby and Sarasa UI J / Noto Serif CJK JP fonts,
+as shown above. English mode uses DejaVu Sans/Serif. These previews use 15 fps;
+unlike the other
+fixtures below, they cover 14 seconds. The tutorial gives reference timestamps,
+reproduction differences, suggested parameters and measured ASS event costs.
+
 ## Choose an effect
 
 - [Layered lyric glow](#layered-lyric-glow)
@@ -255,3 +285,9 @@ For a minimal script that uses only the installed package, start with
 [getting started](../getting-started.md). For your own callbacks and factories,
 read the [custom animation tutorial](../tutorials/custom-animation.md) and
 [task guides](../README.md).
+
+## GPU gradient
+
+[GPU gradient example](../../examples/gpu_gradient.py) exports ordinary fallback lyrics plus continuous shader color and eased motion. See [the GPU guide](../guides/gpu-rendering.md) for optional rendering requirements and limits.
+
+![GPU gradient](assets/gpu-gradient.gif)

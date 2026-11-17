@@ -238,7 +238,8 @@ def test_circle_and_writing_geometry_limits():
         resample_path(circle, 2)
 
 
-def test_clip_discontinuity_splits_event_even_off_regular_sample_grid():
+@pytest.mark.parametrize("initial_opacity", (0, 0.25))
+def test_clip_discontinuity_splits_event_even_off_regular_sample_grid(initial_opacity):
     from kara_templater import AnimationClip, StateFunction
 
     node = TextObject(
@@ -250,7 +251,7 @@ def test_clip_discontinuity_splits_event_even_off_regular_sample_grid():
                 0,
                 1,
                 StateFunction(
-                    lambda s, p: replace(s, opacity=0 if p < 0.23 else 1),
+                    lambda s, p: replace(s, opacity=initial_opacity if p < 0.23 else 1),
                     frozenset(("opacity",)),
                 ),
                 breakpoints=(0.23,),
@@ -259,7 +260,7 @@ def test_clip_discontinuity_splits_event_even_off_regular_sample_grid():
     )
     result = Scene(document()).add(node).compile()
     times = [(l.start_time, l.end_time) for l in result.document.lines if not l.comment]
-    assert times == [(0, 230), (230, 1000)]
+    assert times == ([(0, 230)] if initial_opacity else []) + [(230, 1000)]
     with pytest.raises(ValueError, match="breakpoint"):
         AnimationClip(0, 1, StateFunction(lambda s, p: s), breakpoints=(2,))
 

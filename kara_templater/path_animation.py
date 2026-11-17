@@ -9,7 +9,7 @@ from typing import Protocol
 
 from .geometry import Contour, Vec2, VectorPath, finite
 from .path_geometry import GeometryError, Polyline, flatten, morph, stroke
-from .scene_animation import linear_rate
+from .scene_animation import linear_rate, local_seconds
 
 
 class GeometryAnimation(Protocol):
@@ -190,3 +190,80 @@ class WritePath:
             if drawn is not None:
                 contours.extend(drawn.contours)
         return VectorPath(tuple(contours)) if contours else None
+
+
+@dataclass(frozen=True)
+class TrailPath:
+    """A stroked path extending at its head and retracting behind a delayed tail.
+
+    duration is the head traversal time; lag is the tail delay, both in seconds.
+    At start the path is empty; after start+duration+lag it is empty again.
+    Head and tail use the same rate at delayed normalized times, clamped to the
+    endpoints. A nonmonotone rate may bring the tail ahead of the head, in which
+    case the interval is empty. width/tolerance are local path units.
+    This is ordinary GeometryAnimation; pass line to MoveAlong for matching
+    arc-length motion. It does not record another object's motion history.
+    """
+
+    path: Contour | Polyline
+    duration: float = 1
+    lag: float = 0.2
+    start: float = 0
+    width: float = 2
+    rate: Callable[[float], float] = linear_rate
+    tolerance: float = 0.25
+    max_points: int = 4096
+
+    def __post_init__(self) -> None:
+        finite(self.duration, self.lag, self.start, self.width, self.tolerance)
+        if self.start < 0 or min(self.duration, self.lag, self.width, self.tolerance) <= 0:
+            raise ValueError("trail needs nonnegative start and positive duration/lag/width/tolerance")
+        if type(self.max_points) is not int or self.max_points < 4:
+            raise ValueError("trail point bound must be an integer >= 4")
+        if self.line.length == 0:
+            raise GeometryError("trail path has zero length")
+        if 4 * len(self.line.points) - 4 > self.max_points:
+            raise GeometryError("trail geometry exceeds declared point bound")
+
+    @cached_property
+    def line(self) -> Polyline:
+        """The shared arc-length path; contour flattening respects tolerance/budget."""
+        return self.path if isinstance(self.path, Polyline) else flatten(
+            self.path, tolerance=self.tolerance, max_points=self.max_points,
+        )
+
+    @cached_property
+    def full_path(self) -> VectorPath:
+        """The complete stroked path, suitable as the owning PathObject's base."""
+        result = stroke(self.line, self.width, max_points=self.max_points)
+        assert result is not None
+        return result
+
+    @property
+    def breakpoints(self) -> tuple[float, ...]:
+        """Head/tail start and completion times in the object's local clock."""
+        return tuple(sorted({self.start, self.start + self.lag,
+                             self.start + self.duration,
+                             self.start + self.duration + self.lag}))
+
+    def _progress(self, time: float) -> float:
+        finite(time)
+        p = local_seconds(time, self.start) / self.duration
+        if p <= 0:
+            return 0
+        if p >= 1:
+            return 1
+        value = self.rate(p)
+        finite(value)
+        return max(0, min(1, value))
+
+    def tip(self, time: float) -> Vec2:
+        """Position of the head at local seconds; holds at either endpoint."""
+        return self.line.point(self._progress(time))
+
+    def sample(self, base: VectorPath, time: float) -> VectorPath | None:
+        """Stroke only the interval between delayed tail and current head."""
+        head, tail = self._progress(time), self._progress(time - self.lag)
+        if tail >= head:
+            return None
+        return stroke(self.line.slice(tail, head), self.width, max_points=self.max_points)

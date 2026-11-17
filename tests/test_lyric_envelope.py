@@ -10,9 +10,8 @@ from kara_templater import (
     Document,
     Lifetime,
     Line,
-    LyricLine,
+    LyricAnimationContext,
     LyricRule,
-    LyricTarget,
     StateFunction,
     StatePatch,
     Style,
@@ -64,9 +63,8 @@ class Accent:
             .animation
         )
 
-    def __call__(self, line: LyricLine, target: LyricTarget) -> AnimationSequence:
-        span = target.singing[0]
-        return self.sequence(span.end - span.start)
+    def __call__(self, timing: LyricAnimationContext) -> AnimationSequence:
+        return self.sequence(timing.duration)
 
 
 class LinearRelease(Accent):
@@ -90,7 +88,7 @@ def test_reusable_factory_extends_layout_and_matches_direct_animation(singing):
         id="lyrics",
         preview=0,
         tail=0,
-        animations=(LyricRule("syllable", "singing", accent),),
+        effects=(LyricRule("syllable", "singing", accent),),
     )
     first = prepare_tracks(source, tracks=(config,))
     second = prepare_tracks(source, tracks=(config,))
@@ -112,7 +110,8 @@ def test_reusable_factory_extends_layout_and_matches_direct_animation(singing):
         assert target.at(time).scale.y == pytest.approx(direct.at(time).scale.y)
     assert first.compile().document.dumps() == second.compile().document.dumps()
     assert source.dumps() == original
-    assert config.animations[0].animation is accent
+    assert isinstance(config.effects[0], LyricRule)
+    assert config.effects[0].animation is accent
 
 
 def test_plain_subclass_override_changes_only_the_authored_release_rate():
@@ -135,7 +134,7 @@ def test_zero_singing_without_authored_duration_keeps_base_drawing():
                 id="zero",
                 preview=0,
                 tail=0,
-                animations=(
+                effects=(
                     LyricRule(
                         "syllable", "singing", Tween(StatePatch(scale=Vec2(2, 2)))
                     ),

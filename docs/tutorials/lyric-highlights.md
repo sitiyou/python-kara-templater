@@ -6,33 +6,57 @@ is reached by the singing front. It uses only the installed library and writes
 
 ```python
 from kara_templater import (
-    CYAN, Document, FadeIn, FadeOut, Highlight, HighlightArrival, HighlightPass,
-    Jump, Layout, Line, LyricHighlights, LyricLine, LyricRule, Region, StatePatch,
-    Style, TimeSpan, Track, Vec2, prepare_tracks,
+    CYAN,
+    Document,
+    FadeIn,
+    FadeOut,
+    Highlight,
+    HighlightArrival,
+    HighlightPass,
+    Jump,
+    Layout,
+    Line,
+    LyricHighlights,
+    LyricLine,
+    LyricRule,
+    Region,
+    StatePatch,
+    Style,
+    TimeSpan,
+    Track,
+    Vec2,
+    prepare_tracks,
 )
 
 document = Document.create(
-    width=640, height=360,
+    width=640,
+    height=360,
     styles=(Style(fontname="DejaVu Sans", fontsize=44, shadow=0),),
 )
-document.records.append(Line(
-    text=r"{\k100}Sing {\k100}with {\k100}me",
-    start_time=1000, end_time=4000,
-))
+document.records.append(
+    Line(
+        text=r"{\k100}Sing {\k100}with {\k100}me",
+        start_time=1000,
+        end_time=4000,
+    )
+)
 
 
 def highlights(line: LyricLine) -> tuple[Highlight, ...]:
     return tuple(
         Highlight(
-            f"unit:{index}", index,
+            f"unit:{index}",
+            index,
             tuple(
                 HighlightPass(
                     TimeSpan(segment.singing.start, segment.singing.end),
-                    Region(box.left, box.right), round=round_id,
+                    Region(box.left, box.right),
+                    round=round_id,
                 )
                 for round_id, segment in enumerate(unit.segments)
             ),
-            StatePatch(fill=CYAN), repeat="reset",
+            StatePatch(fill=CYAN),
+            repeat="reset",
         )
         for index, unit in enumerate(line.layout.lyrics.units)
         if unit.segments
@@ -40,19 +64,25 @@ def highlights(line: LyricLine) -> tuple[Highlight, ...]:
     )
 
 
-scene = prepare_tracks(document, tracks=(
-    Track(
-        id="main",
-        layout=Layout(position=Vec2(70, 160)),
-        preview=0.5, tail=0.5,
-        factory=LyricHighlights(highlights=highlights).apply,
-        animations=(
-            LyricRule("line", "enter", FadeIn(), duration=0.25),
-            LyricRule("character", HighlightArrival(highlights=highlights), Jump(24)),
-            LyricRule("line", "exit", FadeOut(), duration=0.4),
+scene = prepare_tracks(
+    document,
+    tracks=(
+        Track(
+            id="main",
+            layout=Layout(position=Vec2(70, 160)),
+            preview=0.5,
+            tail=0.5,
+            effects=(
+                LyricRule("line", "enter", FadeIn(), duration=0.25),
+                LyricRule(
+                    "character", HighlightArrival(highlights=highlights), Jump(24)
+                ),
+                LyricRule("line", "exit", FadeOut(), duration=0.4),
+                LyricHighlights(highlights=highlights),
+            ),
         ),
     ),
-))
+)
 scene.compile().document.save("lyric-arc.ass")
 ```
 

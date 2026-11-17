@@ -291,7 +291,7 @@ def test_scale_crosses_zero_without_negative_ass_tags_or_backend_switch():
     assert output.objects[0].strategy == "sampled-affine-path"
     events = [line for line in output.document.lines if not line.comment]
     assert all(
-        r"\p1" in line.text and r"\fscx100.000000" in line.text for line in events
+        r"\p1" in line.text and r"\fscx100" in line.text for line in events
     )
     assert not any(line.start_time <= 990 < line.end_time for line in events)
     assert any(rasterize(output.document.dumps(), 0, (320, 240)).rgba)

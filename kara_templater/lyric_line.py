@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Literal, Self
 
 from .characters import LayoutCapabilityError
@@ -15,14 +15,23 @@ from .scene_animation import (
     AnimationSequence,
     StateAnimation,
     TimeSpan,
+    _resolve_pivot,
     local_seconds,
 )
 from .scene_lyrics import LyricLayout
-from .scene_text import DocumentLayout
+from .scene_text import DocumentLayout, PositionedText
 
 type LyricRole = Literal["line", "syllable", "segment", "character", "ruby", "cue"]
 _LYRIC_ROLES = frozenset(("line", "syllable", "segment", "character", "ruby", "cue"))
-type LyricAnchor = Literal["enter", "exit", "singing"]
+type LyricAnchor = Literal["enter", "exit", "singing", "after_singing"]
+
+
+def _character_center(character: PositionedText) -> Vec2:
+    assert character.layout_scale is not None
+    return Vec2(
+        character.bounds.width / character.layout_scale.x / 2,
+        character.bounds.height / character.layout_scale.y / 2,
+    )
 
 
 @dataclass(frozen=True)
@@ -32,6 +41,9 @@ class LyricTarget:
     Several repeated singing segments may refer to the same body node. Selecting
     them never creates copies or changes visual parentage. singing retains the
     original absolute seconds and decoded text offsets.
+    center is the undecorated measured center in the node's local coordinates.
+    Line/syllable centers use body text, so ruby/glow do not shift the pivot.
+    A factory changing a target's local coordinate origin must update center too.
     """
 
     id: str
@@ -39,8 +51,42 @@ class LyricTarget:
     role: LyricRole
     singing: tuple[SingingSpan, ...] = ()
     tags: frozenset[str] = frozenset()
+
     delay: float = 0
     aliases: tuple[str, ...] = ()
+    center: Vec2 = Vec2()
+
+
+@dataclass(frozen=True)
+class LyricAnimationContext:
+    """Measured target and current timing request for an animation factory.
+
+    interval contains absolute seconds, including a visual copy's delay, before
+    rule offset/stagger. It is None for display-relative enter/exit, whose final
+    times depend on allocation. target retains all original singing spans.
+    requested_duration is the rule's optional explicit override. Factories run
+    once per resolved interval (once per target for display anchors), never per
+    rendered frame. Return an ordinary StateAnimation or AnimationSequence.
+    """
+
+    line: LyricLine
+    target: LyricTarget
+    interval: TimeSpan | None
+    requested_duration: float | None = None
+
+    @property
+    def duration(self) -> float:
+        """Requested seconds, or the current interval's length including zero.
+
+        Raises ValueError for a display anchor without an explicit duration.
+        Such a factory can return an authored sequence without reading duration.
+        This value excludes gaps between repeated singing intervals.
+        """
+        if self.requested_duration is not None:
+            return self.requested_duration
+        if self.interval is not None:
+            return self.interval.duration
+        raise ValueError("display animation factory has no requested duration")
 
 
 @dataclass(frozen=True)
@@ -50,10 +96,18 @@ class LyricRule:
     enter/exit use the node's display start/end; exit ends at the anchor.
     singing binds each selected singing interval. An omitted duration uses a
     sequence's authored length, or otherwise the singing interval's length.
-    A factory receives the measured line and selected semantic target once,
+    after_singing starts at the selected target's last singing end and requires
+    a duration or sequence length. Select segment to trigger after each repeat,
+    character to trigger only after that character's final singing interval.
+    A factory receives a LyricAnimationContext once per resolved interval,
     before layout, and returns the same animation protocol as direct authoring.
+    Repeated singing intervals can therefore choose different amplitudes/curves.
     offset is relative seconds; display-anchor factories must return a sequence
     when duration is omitted.
+    stagger adds nonnegative seconds between targets in selection order. For
+    exit, the last target ends at the display end (plus offset); earlier targets
+    finish earlier. Other anchors shift later targets forward from their own
+    anchor, so singing with stagger deliberately offsets original singing clocks.
     A callable anchor receives the measured line and target and returns absolute
     second intervals, before layout occupancy is allocated. This permits custom
     arrival clocks without adding another animation evaluator. Returned intervals
@@ -71,14 +125,17 @@ class LyricRule:
         | LyricTarget
         | Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]]
     )
-    animation: StateAnimation | Callable[[LyricLine, LyricTarget], StateAnimation]
+    animation: StateAnimation | Callable[[LyricAnimationContext], StateAnimation]
     duration: float | None = None
     offset: float = 0
     hold: bool = True
     tags: frozenset[str] = frozenset()
+    stagger: float = 0
 
     def __post_init__(self) -> None:
-        finite(self.offset)
+        finite(self.offset, self.stagger)
+        if self.stagger < 0:
+            raise ValueError("lyric stagger must be nonnegative seconds")
         if isinstance(self.target, str):
             if self.target not in _LYRIC_ROLES:
                 raise ValueError("unknown lyric target")
@@ -93,6 +150,7 @@ class LyricRule:
             "enter",
             "exit",
             "singing",
+            "after_singing",
         ):
             raise ValueError("unknown lyric anchor")
         if isinstance(self.anchor, LyricTarget) and not self.anchor.singing:
@@ -104,7 +162,7 @@ class LyricRule:
                 and isinstance(self.animation, StateAnimation)
                 and not isinstance(self.animation, AnimationSequence)
             ):
-                raise ValueError("display anchors require an explicit duration")
+                raise ValueError("display/after_singing anchors require an explicit duration")
         else:
             finite(self.duration)
             if self.duration <= 0:
@@ -118,10 +176,14 @@ class LyricRule:
         Display anchors are resolved separately from the actual target lifetime.
         """
         source = self.anchor if isinstance(self.anchor, LyricTarget) else target
-        return tuple(
+        intervals = tuple(
             TimeSpan(span.start + source.delay, span.end + source.delay)
             for span in source.singing
         )
+        if self.anchor == "after_singing" and intervals:
+            end = max(span.end for span in intervals)
+            return (TimeSpan(end, end),)
+        return intervals
 
 
 @dataclass(frozen=True)
@@ -132,6 +194,22 @@ class _LyricBinding:
     duration: float
     offset: float
     hold: bool
+
+    def retarget(self, names: Mapping[str, str], delay: float) -> _LyricBinding:
+        target = self.target
+        if target.node_id in names:
+            target = replace(
+                target,
+                id=names[target.node_id] + target.id[len(target.node_id) :],
+                node_id=names[target.node_id],
+                aliases=tuple(names.get(name, name) for name in target.aliases),
+                delay=target.delay + delay,
+            )
+        return replace(
+            self,
+            target=target,
+            at=self.at + delay if isinstance(self.at, (int, float)) else self.at,
+        )
 
     def clip(self, node: SceneObject) -> AnimationClip:
         start = (
@@ -165,6 +243,7 @@ class LyricLine(ObjectGroup):
     targets: tuple[LyricTarget, ...]
     independent: tuple[ObjectGroup, ...] = ()
     required_display: tuple[TimeSpan, ...] = ()
+    _scheduled: tuple[_LyricBinding, ...] = field(default=(), repr=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -199,7 +278,10 @@ class LyricLine(ObjectGroup):
                 ),
             )
         )
-        targets = [LyricTarget(body.id, body.id, "line", line_interval, tags)]
+        targets = [LyricTarget(
+            body.id, body.id, "line", line_interval, tags,
+            center=Vec2(body.bounds.center, body.bounds.middle),
+        )]
         children: list[SceneObject] = []
         assigned: set[str] = set()
         for index, unit in enumerate(layout.lyrics.units):
@@ -254,6 +336,7 @@ class LyricLine(ObjectGroup):
                             "character",
                             spans,
                             tags,
+                            center=_character_center(character),
                         )
                     )
             for ruby in layout.ruby:
@@ -266,6 +349,7 @@ class LyricLine(ObjectGroup):
                                 "ruby",
                                 (unit.segments[ruby.segment_index].singing,),
                                 tags,
+                                center=_character_center(character),
                             )
                         )
         # Untimed/unassigned drawable text is retained as ordinary children.
@@ -377,6 +461,9 @@ class LyricLine(ObjectGroup):
         return replace(
             copied,
             independent=independent,
+            _scheduled=tuple(
+                binding.retarget(names, delay) for binding in self._scheduled
+            ),
             targets=tuple(
                 replace(
                     target,
@@ -396,6 +483,9 @@ class LyricLine(ObjectGroup):
             required_display=tuple(
                 TimeSpan(span.start + delay, span.end + delay)
                 for span in self.required_display
+            ),
+            _scheduled=tuple(
+                binding.retarget(names, delay) for binding in self._scheduled
             ),
             targets=tuple(
                 replace(
@@ -486,50 +576,57 @@ class LyricLine(ObjectGroup):
         bindings: list[_LyricBinding] = []
         selections = tuple((rule, self._rule_targets(rule)) for rule in rules)
         for rule, targets in selections:
-            for target in targets:
-                animation = (
-                    rule.animation
-                    if isinstance(rule.animation, StateAnimation)
-                    else rule.animation(self, target)
+            for index, target in enumerate(targets):
+                offset = rule.offset + rule.stagger * (
+                    index - len(targets) + 1 if rule.anchor == "exit" else index
                 )
-                duration = rule.duration
-                if duration is None and isinstance(animation, AnimationSequence):
-                    duration = animation.duration
-                if rule.anchor != "enter" and rule.anchor != "exit":
-                    intervals = (
-                        rule.singing_intervals(target)
-                        if isinstance(rule.anchor, (str, LyricTarget))
-                        else rule.anchor(self, target)
+                display_anchor = rule.anchor in ("enter", "exit")
+                intervals: tuple[TimeSpan | None, ...] = (
+                    (None,)
+                    if display_anchor
+                    else rule.singing_intervals(target)
+                    if isinstance(rule.anchor, (str, LyricTarget))
+                    else rule.anchor(self, target)
+                )
+                for span in intervals:
+                    animation = (
+                        rule.animation
+                        if isinstance(rule.animation, StateAnimation)
+                        else rule.animation(LyricAnimationContext(
+                            self, target, span, rule.duration,
+                        ))
                     )
-                    for span in intervals:
-                        length = span.duration if duration is None else duration
-                        if length > 0:
-                            bindings.append(
-                                _LyricBinding(
-                                    target,
-                                    animation,
-                                    span.start,
-                                    length,
-                                    rule.offset,
-                                    rule.hold,
-                                )
-                            )
-                else:
+                    animation = _resolve_pivot(animation, target.center)
+                    duration = rule.duration
+                    if duration is None and isinstance(animation, AnimationSequence):
+                        duration = animation.duration
                     if duration is None:
-                        raise ValueError(
-                            "display anchors require an explicit duration or animation sequence"
-                        )
-                    bindings.append(
-                        _LyricBinding(
-                            target,
-                            animation,
-                            "enter" if rule.anchor == "enter" else "exit",
-                            duration,
-                            rule.offset,
-                            rule.hold,
-                        )
-                    )
+                        if span is None or rule.anchor == "after_singing":
+                            raise ValueError(
+                                "display/after_singing anchors require an explicit "
+                                "duration or animation sequence"
+                            )
+                        duration = span.duration
+                    if duration > 0:
+                        bindings.append(_LyricBinding(
+                            target, animation,
+                            span.start if span is not None
+                            else "enter" if rule.anchor == "enter" else "exit",
+                            duration, offset, rule.hold,
+                        ))
         return tuple(bindings)
+
+    def schedule(self, *rules: LyricRule) -> LyricLine:
+        """Declare animations inside a Track effect, returning a new line.
+
+        Factories resolve once per interval against this measured line. Track preparation
+        reserves their time before layout and attaches clips after decoration
+        and allocation, including any subsequently added material aliases.
+        Display-relative enter/exit anchors use the final allocated lifetime.
+        This method does not attach clips immediately; use bind for an already
+        allocated line used directly in a Scene.
+        """
+        return replace(self, _scheduled=(*self._scheduled, *self._resolve(rules)))
 
     def bind(self, *rules: LyricRule) -> LyricLine:
         """Resolve factories and semantic clocks into ordinary immutable clips.

@@ -11,9 +11,8 @@ from pathlib import Path
 from kara_templater import (
     Document,
     Layout,
-    LyricLine,
+    LyricAnimationContext,
     LyricRule,
-    LyricTarget,
     StatePatch,
     Timeline,
     Track,
@@ -36,12 +35,12 @@ class SyllablePulse:
         if self.peak <= 0 or self.last_release <= 0:
             raise ValueError("pulse peak and release must be positive")
 
-    def __call__(self, line: LyricLine, target: LyricTarget) -> StateAnimation:
-        if not target.singing:
+    def __call__(self, timing: LyricAnimationContext) -> StateAnimation:
+        if not timing.target.singing:
             return Tween(StatePatch(scale=Vec2(1, 1)))
-        targets = line.query("syllable")
-        index = targets.index(target)
-        current = target.singing[0]
+        targets = timing.line.query("syllable")
+        index = targets.index(timing.target)
+        current = timing.target.singing[0]
         following = targets[index + 1] if index + 1 < len(targets) else None
         next_span = (
             following.singing[0]
@@ -71,7 +70,7 @@ class SyllablePulse:
 track = Track(
     id="lyrics",
     layout=Layout(rows=2, position=Vec2(100, 350), gap=80),
-    animations=(LyricRule("syllable", "singing", SyllablePulse()),),
+    effects=(LyricRule("syllable", "singing", SyllablePulse()),),
 )
 
 

@@ -72,7 +72,7 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
         tracks=(
             Track(
                 id="main",
-                animations=(LyricRule("line", "enter", FadeIn(), duration=0.1),),
+                effects=(LyricRule("line", "enter", FadeIn(), duration=0.1),),
             ),
         ),
     )
@@ -101,7 +101,7 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
         tracks=(
             Track(
                 id="main",
-                animations=(LyricRule("line", "enter", FadeIn(), duration=0.1),),
+                effects=(LyricRule("line", "enter", FadeIn(), duration=0.1),),
             ),
         ),
     ).compile()

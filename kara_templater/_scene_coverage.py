@@ -27,7 +27,7 @@ from .ass import Document, Style
 from .composition import Color, Glow
 from .coverage_animation import CoveragePartition, GlowFunction, ScopeOpacity
 from .geometry import Vec2, VectorPath, finite
-from .paint_fields import PaintBand, PaintField
+from .paint_fields import LinearGradient, PaintBand, PaintField
 from .raster_settings import RasterSettings
 from .scene import (
     ObjectGroup,
@@ -414,6 +414,10 @@ class SceneCoverageSampler:
         def sample_field(
             field: PaintField | None, base: VisualState
         ) -> tuple[PaintBand, ...]:
+            if isinstance(field, LinearGradient) and field.space == "local":
+                raise ValueError(
+                    "local gradients currently require ordinary ASS compilation, not coverage materials"
+                )
             start = -self.overscan
             limit = (
                 self.resolution[1 if field is not None and field.axis == "y" else 0]

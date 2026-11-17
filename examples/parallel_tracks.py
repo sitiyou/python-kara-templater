@@ -103,7 +103,7 @@ def build() -> Scene:
             layout=Layout(position=Vec2(160, y)),
             preview=1,
             tail=0.6,
-            factory=LyricHighlights(highlights=factory, mode=mode).apply,
+            effects=(LyricHighlights(highlights=factory, mode=mode),),
         )
         for name, y, factory, mode in (
             ("regions", 60, disjoint, "union"),

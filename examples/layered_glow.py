@@ -22,6 +22,7 @@ from kara_templater import (
     Layout,
     LayoutContext,
     LayoutLine,
+    LyricAnimationContext,
     LyricHighlights,
     LyricLine,
     LyricRule,
@@ -99,10 +100,9 @@ def sung_glow(line: LyricLine, target: LyricTarget) -> Glow:
     return replace(base_glow(line, target), color=SUNG_GLOW)
 
 
-def pulse(line: LyricLine, target: LyricTarget) -> AnimationSequence:
+def pulse(timing: LyricAnimationContext) -> AnimationSequence:
     """Attack, sustain through singing, then release; the layout reserves release."""
-    span = target.singing[0]
-    duration = span.end - span.start
+    duration = timing.duration
     attack = min(0.08, duration)
     timeline = Timeline()
     if attack:
@@ -172,7 +172,7 @@ class Paint:
             glow=base_glow,
             strategy=self.strategy,
             settings=self.settings,
-        ).apply(shifted)
+        )(shifted)
 
 
 def configuration(style: Style, *, paint: Paint | None = None) -> Track:
@@ -200,8 +200,10 @@ def configuration(style: Style, *, paint: Paint | None = None) -> Track:
         tail=0,
         tags=frozenset(("lead",)) if lead else frozenset(),
         styles=(body, ruby),
-        factory=Paint() if paint is None else paint,
-        animations=rules if lead else (*rules, LyricRule("syllable", "singing", pulse)),
+        effects=(
+            *(rules if lead else (*rules, LyricRule("syllable", "singing", pulse))),
+            Paint() if paint is None else paint,
+        ),
     )
 
 

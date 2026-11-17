@@ -101,7 +101,7 @@ def subjects(
     for selected in (highlights, reference):
         decorated = LyricHighlights(
             highlights=selected, mode="priority", strategy=strategy, glow=halo
-        ).apply(line)
+        )(line)
         if scale:
             decorated = decorated.animate(
                 ScalePulse(Vec2(box.center, box.middle), peak=1.4), at=0.5, duration=1

@@ -67,6 +67,7 @@ from .easing import BackRate, ease_in, ease_in_out, ease_out, there_and_back
 from .engine import Engine, TemplateError, apply_templates
 from .fonts import LoadedFont, load_font
 from .geometry import Affine2D, Contour, CubicSegment, LineSegment, Vec2, VectorPath
+from .gpu_render import render_enhanced
 from .group_geometry import merge_geometry
 from .import_ass import (
     AssImportError,
@@ -78,16 +79,26 @@ from .import_ass import (
 )
 from .karaoke import KaraokeItem
 from .layout import layout_line, text_extents
+from .lyric_effects import LyricEcho, ScatterOut, lyric_effects
 from .lyric_highlights import (
     Highlight,
     HighlightArrival,
     HighlightPass,
     LyricGlow,
+    LyricGradient,
     LyricHighlights,
 )
 from .lyric_layout import Layout, LayoutContext, LayoutLine, Placement
-from .lyric_line import LyricAnchor, LyricLine, LyricRole, LyricRule, LyricTarget
+from .lyric_line import (
+    LyricAnchor,
+    LyricAnimationContext,
+    LyricLine,
+    LyricRole,
+    LyricRule,
+    LyricTarget,
+)
 from .lyric_paint import LyricSweep
+from .lyric_particles import LyricParticles, Petal, Ribbon, Sparkle
 from .model import (
     Box,
     KaraokeLine,
@@ -103,7 +114,14 @@ from .object_references import (
     StateLookup,
     StateReference,
 )
-from .orchestration import LinePlan, LyricScene, LyricSource, Track, prepare_tracks
+from .orchestration import (
+    LinePlan,
+    LyricEffect,
+    LyricScene,
+    LyricSource,
+    Track,
+    prepare_tracks,
+)
 from .paint_fields import (
     ColorRamp,
     ColorStop,
@@ -125,6 +143,7 @@ from .path_animation import (
     GeometryAnimation,
     MorphPath,
     PathFunction,
+    TrailPath,
     WritePath,
     WritingStroke,
 )
@@ -160,6 +179,8 @@ from .scene_animation import (
     AnimationClip,
     AnimationSequence,
     Channel,
+    CurveIn,
+    DriftOut,
     FadeIn,
     FadeOut,
     Jump,
@@ -170,10 +191,12 @@ from .scene_animation import (
     StatePatch,
     Timeline,
     TimeSpan,
+    Transform,
     Tween,
     VisualState,
     linear_rate,
     smooth_rate,
+    smoother_rate,
 )
 from .scene_evaluation import SceneEvaluator, SceneReferenceError
 from .scene_lyrics import (
@@ -208,6 +231,7 @@ from .timeline import (
 )
 
 __all__ = [
+    "render_enhanced",
     "BackRate",
     "ease_in",
     "ease_out",
@@ -215,16 +239,27 @@ __all__ = [
     "there_and_back",
     "LinePlan",
     "LyricScene",
+    "LyricEffect",
     "LyricSource",
     "LyricSweep",
     "LyricGlow",
     "LyricHighlights",
+    "LyricEcho",
+    "ScatterOut",
+    "CurveIn",
+    "LyricParticles",
+    "Petal",
+    "Ribbon",
+    "Sparkle",
+    "lyric_effects",
+    "LyricGradient",
     "HighlightArrival",
     "HighlightPass",
     "Highlight",
     "LyricRole",
     "LyricAnchor",
     "LyricTarget",
+    "LyricAnimationContext",
     "LyricRule",
     "LyricLine",
     "Placement",
@@ -279,6 +314,8 @@ __all__ = [
     "ImportedKaraoke",
     "Jump",
     "ScalePulse",
+    "DriftOut",
+    "Transform",
     "KaraokeItem",
     "KaraokeLine",
     "LaidOutLine",
@@ -375,6 +412,7 @@ __all__ = [
     "VisualNode",
     "VisualState",
     "WHITE",
+    "TrailPath",
     "WritePath",
     "WritingStroke",
     "YELLOW",
@@ -410,6 +448,7 @@ __all__ = [
     "resample_path",
     "select_characters",
     "smooth_rate",
+    "smoother_rate",
     "split_karaoke",
     "split_path",
     "stroke",

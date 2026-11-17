@@ -49,7 +49,7 @@ def orchestrate(document: "Document") -> "LyricScene":
                 id="main",
                 source=lambda source: source.style == "Main",
                 layout=CustomLayout(rows=3),
-                animations=(LyricRule("line", "enter", FadeIn(), duration=0.2),),
+                effects=(LyricRule("line", "enter", FadeIn(), duration=0.2),),
             ),
         ),
     )
@@ -95,8 +95,8 @@ def paint_targets(line: LyricLine) -> LyricLine:
     def color(line: LyricLine, target: LyricTarget) -> Color | None:
         return RED if target.role == "character" else None
 
-    assert_type(LyricSweep(fill=color).apply(line), LyricLine)
-    return LyricSweep(fill=color, outline=color).apply(line)
+    assert_type(LyricSweep(fill=color)(line), LyricLine)
+    return LyricSweep(fill=color, outline=color)(line)
 
 
 def bind_selected(line: LyricLine, target: LyricTarget) -> LyricLine:
@@ -110,5 +110,5 @@ def glow_targets(line: LyricLine) -> LyricLine:
     def glow(line: LyricLine, target: LyricTarget) -> Glow:
         return Glow(border=1 if target.role == "ruby" else 2)
 
-    assert_type(LyricHighlights(highlights=(), glow=glow).apply(line), LyricLine)
+    assert_type(LyricHighlights(highlights=(), glow=glow)(line), LyricLine)
     return line

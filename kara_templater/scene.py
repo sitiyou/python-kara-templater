@@ -261,6 +261,10 @@ class VisualNode:
                 raise ValueError("reference and local animation write the same channel")
         validate_clips(self.animations)
         for clip in self.animations:
+            if clip.start < -self.time_origin - 1e-9:
+                raise ValueError(
+                    f"{self.id}: animation starts before absolute time zero"
+                )
             if clip.end > self.lifetime.end - self.time_origin + 1e-9:
                 raise ValueError(f"{self.id}: animation extends beyond lifetime")
 
@@ -390,7 +394,9 @@ class PathObject(VisualNode):
                 raise ValueError("geometry animation requires a positive point bound")
             finite(*self.deform.breakpoints)
             if any(
-                t < -self.time_origin or t > self.lifetime.end - self.time_origin
+                local_seconds(t, 0) < local_seconds(0, self.time_origin)
+                or local_seconds(t, 0)
+                > local_seconds(self.lifetime.end, self.time_origin)
                 for t in self.deform.breakpoints
             ):
                 raise ValueError("geometry breakpoint outside object lifetime")
@@ -547,6 +553,23 @@ class Scene:
         from .scene_evaluation import SceneEvaluator
 
         return SceneEvaluator(self)
+
+    def enhance(self, fallback: Document, *, fps: int = 60) -> Document:
+        """Attach sampled GPU effects to an explicit ordinary-ASS fallback.
+
+        Returns a new Document with versioned private Comment records. Ordinary
+        players display fallback unchanged; render_enhanced replaces its visual
+        presentation with this complete Scene. Resolution must match. Existing
+        Python callbacks run at export only; portable data stores reusable glyph
+        masks and numeric draws at integer fps (1..240), not executable code.
+        This initial backend supports text/static paths, affine animation, normal
+        local/screen rectangle clips and continuous LinearGradient. Unsupported
+        materials, native events, coverage groups, inherited/vector/inverse clips
+        and deformed paths raise. Export has bounded frame/mask/payload budgets.
+        """
+        from ._gpu_bundle import encode_scene
+
+        return encode_scene(self, fallback, fps=fps)
 
     def compile(
         self,

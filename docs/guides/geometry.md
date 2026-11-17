@@ -91,3 +91,40 @@ paths to preserve transforms; unsupported/degenerate combinations raise
 GeometryError or SceneCompileError with object/source context. Native ASS has
 no general shader, arbitrary blend stack, or 3D camera; see
 [ASS and playback](../ass-and-playback.md).
+
+
+## Path trails
+
+`TrailPath` shows an arc-length interval of a path, extending at its head and
+retracting at its delayed tail. It implements the same `GeometryAnimation` as
+`WritePath`; it does not create a second scene or record motion history.
+
+```python
+from kara_templater import (
+    Contour, CubicSegment, Lifetime, PathObject, TrailPath, Vec2,
+)
+
+trail = TrailPath(
+    Contour(Vec2(), (CubicSegment(Vec2(10, -60), Vec2(60, -40), Vec2(80, 0)),),
+            closed=False),
+    duration=0.6, lag=0.2, width=2,
+)
+strand = PathObject(
+    id="strand", lifetime=Lifetime(1, 1.8),
+    path=trail.full_path, deform=trail,
+)
+```
+
+The head starts at local time zero and reaches the end at 0.6 s; the tail starts
+at 0.2 s and reaches the end at 0.8 s. Empty intervals draw nothing. `start`
+offsets this local schedule, while the owning object controls its absolute clock.
+`rate` changes progress; use a monotone easing for a forward trail. If a custom
+rate puts the tail ahead of the head, that interval is invisible. Values outside
+[0, 1] clamp to the endpoints. Endpoints are held outside the traversal interval.
+
+A Contour is flattened with explicit `tolerance` and `max_points`. `trail.line`
+is the resulting Polyline: pass it to `MoveAlong` to use the same arc-length
+geometry, or use `trail.tip(time)` for the head position on its exact local clock.
+`Polyline.slice(start, end)` exposes the underlying normalized interval operation
+for custom geometry. Strokes use bevel joins and butt caps. Changing path geometry
+is sampled in ASS; `max_points` limits each frame, not the number of events.

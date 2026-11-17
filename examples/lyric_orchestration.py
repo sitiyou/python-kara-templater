@@ -158,10 +158,11 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
         source=lambda source: source.style == "Main",
         layout=layout or Layout(rows=2, position=Vec2(100, 290), gap=80),
         tags=lambda source: frozenset((source.actor,)) if source.actor else frozenset(),
-        animations=(
+        effects=(
             LyricRule("line", "enter", fade, duration=0.15),
             LyricRule("line", "exit", FadeOut(), duration=0.15),
             LyricRule("segment", "singing", Jump(height=8)),
+            LyricSweep(fill=PINK, width=16, step=2),
         ),
         cues={
             "bars": CuePreset(
@@ -169,14 +170,15 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
             ),
             "count": CuePreset(factory=TextCue(font_size=36), position=Vec2(820, 80)),
         },
-        factory=LyricSweep(fill=PINK, width=16, step=2).apply,
     )
     harmony = Track(
         id="harmony",
         source=lambda source: source.style == "Harmony",
         layout=Layout(position=Vec2(100, 50)),
-        animations=(LyricRule("line", "enter", fade, duration=0.15),),
-        factory=LyricSweep(fill=CYAN, width=12, step=2).apply,
+        effects=(
+            LyricRule("line", "enter", fade, duration=0.15),
+            LyricSweep(fill=CYAN, width=12, step=2),
+        ),
     )
     scene = prepare_tracks(song(dense=dense), tracks=(main, harmony))
     accent = PathObject(

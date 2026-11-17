@@ -37,7 +37,7 @@ def source() -> Document:
 
 def track() -> Track:
     return Track(
-        id="main", preview=0, tail=0, factory=LyricSweep(fill=PINK, width=0).apply
+        id="main", preview=0, tail=0, effects=(LyricSweep(fill=PINK, width=0),)
     )
 
 
@@ -91,7 +91,7 @@ def test_corrupt_native_provenance_fails_before_lyric_factories():
         return line
 
     with pytest.raises(SceneCompileError, match="damaged native-event provenance"):
-        prepare_tracks(output, tracks=(replace(track(), factory=factory),))
+        prepare_tracks(output, tracks=(replace(track(), effects=(factory,)),))
     assert not calls
 
 
@@ -104,7 +104,8 @@ def test_mixed_scene_preflight_and_final_budgets_keep_repeated_compile_stable():
 
     configured = replace(
         track(),
-        animations=(
+        effects=(
+            *track().effects,
             LyricRule(
                 "character",
                 "singing",

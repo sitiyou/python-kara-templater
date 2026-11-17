@@ -5,7 +5,15 @@ from dataclasses import replace
 import pytest
 
 from examples.syllable_pulse import SyllablePulse
-from kara_templater import Document, Line, LyricRule, Style, Track, prepare_tracks
+from kara_templater import (
+    Document,
+    Line,
+    LyricAnimationContext,
+    LyricRule,
+    Style,
+    Track,
+    prepare_tracks,
+)
 
 
 def prepare(text=r"{\k40}A{\kt60\k80}B", *, end=2400):
@@ -15,7 +23,7 @@ def prepare(text=r"{\k40}A{\kt60\k80}B", *, end=2400):
         id="lyrics",
         preview=0.2,
         tail=0,
-        animations=(LyricRule("syllable", "singing", SyllablePulse(peak=1.2)),),
+        effects=(LyricRule("syllable", "singing", SyllablePulse(peak=1.2)),),
     )
     return doc, track
 
@@ -59,11 +67,11 @@ def test_zero_duration_uses_authored_release_and_factory_runs_once_per_target():
     calls = []
     pulse = SyllablePulse()
 
-    def factory(line, target):
-        calls.append(target.id)
-        return pulse(line, target)
+    def factory(timing: LyricAnimationContext):
+        calls.append(timing.target.id)
+        return pulse(timing)
 
-    track = replace(track, animations=(LyricRule("syllable", "singing", factory),))
+    track = replace(track, effects=(LyricRule("syllable", "singing", factory),))
     scene = prepare_tracks(doc, tracks=(track,))
     assert scene.plans[0].placement.display.end == pytest.approx(1.2)
     assert len(calls) == 1

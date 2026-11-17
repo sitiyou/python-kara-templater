@@ -1,10 +1,29 @@
 # Configure lyric Tracks
 
 Track declares an independent lyric stream: source selection, layout, display
-padding, cue content, visual factories and animation rules. `prepare_tracks`
+padding, cue content and effects. `prepare_tracks`
 returns a LyricScene containing ordinary objects. Add decorations with
 `scene.add(...)` and compile with the same Scene compiler used for direct authoring.
 All authoring times below are seconds.
+
+## One effect entry point
+
+`Track.effects` combines built-ins and custom authoring in one tuple:
+
+- A `LyricRule` selects lyric targets and declares their animation clocks.
+- A callable receives a measured `LyricLine` and returns its decorated replacement.
+  `LyricHighlights`, `LyricSweep`, `LyricEcho` and `LyricParticles` are callable
+  built-ins; an ordinary Python function has the same contract.
+
+Timing rules resolve once from the source before decoration. Callable effects
+run once in tuple order. The engine collects all required visibility, allocates
+layout once, then binds rules to the final glyphs and their highlight aliases.
+Interleaving a rule with callables does not turn it into an immediate animation
+or a second evaluator. Overlapping animation channels retain Scene's conflict
+rules. Effects must preserve the line's identity; source text/timing stay intact.
+For simple custom motion, place a `Transform` in a `LyricRule`; no custom class
+or iteration over individual characters is required. For a reusable composition
+of decoration functions, `lyric_effects(...)` returns an ordinary callable effect.
 
 ## Prepare existing lyrics
 
@@ -12,32 +31,45 @@ This script expects `input.ass` with supported karaoke timing:
 
 ```python
 from kara_templater import (
-    CYAN, Document, FadeIn, FadeOut, Layout, LyricRule, LyricSweep,
-    ScalePulse, Track, Vec2, prepare_tracks,
+    CYAN,
+    Document,
+    FadeIn,
+    FadeOut,
+    Layout,
+    LyricRule,
+    LyricSweep,
+    ScalePulse,
+    Track,
+    Vec2,
+    prepare_tracks,
 )
 
-scene = prepare_tracks(Document.load("input.ass"), tracks=(
-    Track(
-        id="main",
-        layout=Layout(rows=2, position=Vec2(80, 280), gap=80),
-        preview=0.6,
-        tail=0.3,
-        animations=(
-            LyricRule("line", "enter", FadeIn(), duration=0.2),
-            LyricRule("syllable", "singing", ScalePulse()),
-            LyricRule("line", "exit", FadeOut(), duration=0.2),
+scene = prepare_tracks(
+    Document.load("input.ass"),
+    tracks=(
+        Track(
+            id="main",
+            layout=Layout(rows=2, position=Vec2(80, 280), gap=80),
+            preview=0.6,
+            tail=0.3,
+            effects=(
+                LyricRule("line", "enter", FadeIn(), duration=0.2),
+                LyricRule("syllable", "singing", ScalePulse()),
+                LyricRule("line", "exit", FadeOut(), duration=0.2),
+                LyricSweep(fill=CYAN, width=0),
+            ),
         ),
-        factory=LyricSweep(fill=CYAN, width=0).apply,
     ),
-))
+)
 scene.compile().document.save("output.ass")
 ```
 
 A rule selects targets and binds a common animation to an anchor. It does not
 have its own evaluator. Line fades compose with syllable pulses through the
 visual hierarchy. For direct control, a LyricLine supports `animate(...)` just
-like a text object or group. Animation factories receive the measured line and
-selected LyricTarget before layout, so their durations participate in occupancy.
+like a text object or group. Animation factories receive a `LyricAnimationContext` for each resolved interval
+before layout, so their durations participate in occupancy. The context exposes
+`line`, `target`, `interval` and `duration`; see [duration-aware animation](animation.md#change-parameters-for-each-singing-interval).
 
 After preparation, `line.bind(LyricRule(line.query("ruby"), "singing", Jump()))`
 binds a queried collection without a manual target loop. A single LyricTarget is
@@ -48,7 +80,28 @@ Duplicate targets and descendants of selected ancestors are suppressed, without
 reparenting objects. Role/tag queries and empty collections may select nothing,
 so a shared ruby rule can safely apply to lines without readings. Unknown roles
 raise rather than silently selecting nothing. Direct binding must fit the existing
-line lifetime; Track rules remain the way to reserve animation time during layout.
+line lifetime. Inside a Track callable, use `line.schedule(...)` instead to
+reserve animation time automatically:
+
+```python
+from kara_templater import DriftOut, LyricLine, LyricRule, Transform, Vec2
+
+def drift(line: LyricLine) -> LyricLine:
+    return line.schedule(
+        LyricRule("character", "singing", Transform(
+            scale=lambda p: 1 + 0.06 * 16 * p * p * (1 - p) ** 2,
+        )),
+        LyricRule("character", "after_singing", DriftOut(offset=Vec2(12, -36)),
+                  offset=0.14, duration=0.56),
+    )
+```
+
+Pass `drift` in `Track.effects`. Scheduling returns a new line; retain or return
+that value. Factories resolve once per interval when scheduled, while clip attachment waits
+until all decorations and the single layout allocation are complete. Later
+highlight layers receive the scheduled animation too. Enter/exit use the final
+display window. Calling `schedule` outside Track preparation only records work;
+use `bind` for immediate animation on an already allocated Scene line.
 
 ## Independent streams and source ownership
 

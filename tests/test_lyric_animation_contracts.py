@@ -128,7 +128,7 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
         layout=Layout(rows=2),
         preview=preview,
         tail=0,
-        animations=(material,),
+        effects=(material,),
     )
     plain = prepare_tracks(document, tracks=(config,))
     extended = prepare_tracks(
@@ -136,7 +136,7 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
         tracks=(
             replace(
                 config,
-                animations=(
+                effects=(
                     material,
                     LyricRule("line", "exit", FadeOut(), duration=0.2),
                 ),
@@ -169,7 +169,7 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
                 replace(
                     config,
                     layout=Layout(rows=1),
-                    animations=(
+                    effects=(
                         material,
                         LyricRule("line", "exit", FadeOut(), duration=0.2),
                     ),

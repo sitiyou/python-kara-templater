@@ -18,8 +18,7 @@ class LayeredGlow(Track):
             tail=config.tail,
             tags=config.tags,
             styles=config.styles,
-            factory=config.factory,
-            animations=config.animations,
+            effects=config.effects,
         )
 
 

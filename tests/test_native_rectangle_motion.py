@@ -23,6 +23,7 @@ from kara_templater import (
     Vec2,
     VectorPath,
     VisualState,
+    linear_rate,
 )
 from kara_templater._raster import rasterize
 
@@ -48,7 +49,10 @@ def subject(fade: bool = False, pivot_x: float = 0) -> PathObject:
                 )
             ),
         ),
-    ).animate(ScalePulse(pivot=Vec2(pivot_x, 10), peak=2), at=1, duration=1)
+    ).animate(
+        ScalePulse(pivot=Vec2(pivot_x, 10), peak=2, rate=linear_rate),
+        at=1, duration=1,
+    )
     return (
         node.animate(FadeIn(), duration=2).animate(FadeOut(), at=2, duration=0.5)
         if fade
@@ -82,15 +86,15 @@ def test_native_motion_bounds_error_keeps_original_clocks_and_matches_static_pix
             expected = 50 + (1 - scale) * pivot_x + 100 * (t - 1) * scale
             actual = first[2] + (last[2] - first[2]) * p
             assert abs(actual - expected) <= 0.75 + 1e-8
-        # Each subdivision must retain both original scale phases.
-        transforms = re.findall(r"\\t\((-?\d+),(-?\d+),\\fscx(\d+)\.000000", event.text)
+        # Each subdivision retains the original clock of every intersecting phase.
+        transforms = re.findall(r"\\t\((-?\d+),(-?\d+),\\fscx(\d+)", event.text)
         assert [
             (event.start_time + int(a), event.start_time + int(b), int(s))
             for a, b, s in transforms
         ] == [
             phase
             for phase in ((1000, 1500, 200), (1500, 2000, 100))
-            if phase[1] > event.start_time
+            if phase[1] > event.start_time and phase[0] < event.end_time
         ]
         if fade:
             match = re.search(r"\\t\((-?\d+),(-?\d+),\\alpha&H00&", event.text)
@@ -139,6 +143,28 @@ def test_native_subdivision_enforces_event_and_spatial_limits_with_origin():
         scene.compile(native_tweens=True, budget=SceneBudget(clip_error_px=0.01))
     assert caught.value.object_id == node.id
     assert caught.value.origin is node.origin
+
+
+def test_asymmetric_pulse_uses_actual_peak_clock_and_unknown_easing_samples():
+    node = replace(subject(), animations=()).animate(
+        ScalePulse(peak=2, peak_at=0.3, rate=linear_rate), at=1, duration=1,
+    )
+    doc = Document.create(width=300, height=100)
+    result = Scene(doc).add(node).compile(native_tweens=True)
+    assert result.objects[0].strategy == "native-clip"
+    phases = set()
+    for event in result.document.lines:
+        for a, b, scale in re.findall(
+            r"\\t\((-?\d+),(-?\d+),\\fscx(\d+)", event.text
+        ):
+            phases.add((event.start_time + int(a), event.start_time + int(b), int(scale)))
+    assert (1000, 1300, 200) in phases
+    assert (1300, 2000, 100) in phases
+    eased = replace(node, animations=()).animate(
+        ScalePulse(peak=2, peak_at=0.3, rate=lambda p: p * p), at=1, duration=1,
+    )
+    nonlinear = Scene(doc).add(eased).compile(native_tweens=True)
+    assert nonlinear.objects[0].strategy == "sampled"
 
 
 @pytest.mark.parametrize("error", (0, -1, float("nan"), float("inf")))
@@ -279,13 +305,11 @@ def test_native_decoration_channels_keep_original_clocks_through_clip_cuts():
     result = Scene(doc).add(node).compile(native_tweens=True)
     for event in result.document.lines:
         if 1000 <= event.start_time < 1500:
-            match = re.search(
-                r"\\t\((-?\d+),(-?\d+),\\bord6\.000000\\blur16\.000000", event.text
-            )
+            match = re.search(r"\\t\((-?\d+),(-?\d+),\\bord6\\blur16", event.text)
             assert match
             assert event.start_time + int(match[1]) == 1000
             assert event.start_time + int(match[2]) == 1500
-            assert r"\bord3.000000\blur8.000000" in event.text
+            assert r"\bord3\blur8" in event.text
     for time, scale in ((1250, 1.5), (1500, 2), (1750, 1.5)):
         reference = (
             Scene(doc)

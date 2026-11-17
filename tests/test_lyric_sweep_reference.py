@@ -97,7 +97,7 @@ def test_sweep_materials_match_independent_gaussian_reference(
         ),
         glow=before_glow,
         strategy="coverage",
-    ).apply(line)
+    )(line)
     line = line.bind(
         LyricRule(
             scope,

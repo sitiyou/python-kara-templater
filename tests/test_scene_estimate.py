@@ -3,7 +3,7 @@
 from dataclasses import FrozenInstanceError, replace
 
 import pytest
-from test_lyric_coverage import BUDGET, source, track
+from test_lyric_coverage import BUDGET, paint, source, track
 
 from kara_templater import (
     GlowFunction,
@@ -27,7 +27,7 @@ def subject(calls):
     document = source()
     scene = prepare_tracks(
         document,
-        tracks=(track(animations=(LyricRule("character", "singing", animation),)),),
+        tracks=(track(effects=(*((LyricRule("character", "singing", animation),)), paint,), ),),
     )
     scene.add(
         PathObject(

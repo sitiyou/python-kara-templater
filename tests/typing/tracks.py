@@ -9,6 +9,7 @@ from kara_templater import (
     Layout,
     LayoutContext,
     LayoutLine,
+    LyricAnimationContext,
     LyricLine,
     LyricRule,
     LyricScene,
@@ -19,6 +20,7 @@ from kara_templater import (
     ScalePulse,
     StateAnimation,
     Track,
+    Transform,
     Vec2,
     prepare_tracks,
 )
@@ -40,8 +42,10 @@ def selected(source: LyricSource) -> bool:
     return source.style == "Default"
 
 
-def animate(line: LyricLine, target: LyricTarget) -> StateAnimation:
-    assert_type(line.query("syllable"), tuple[LyricTarget, ...])
+def animate(timing: LyricAnimationContext) -> StateAnimation:
+    assert_type(timing.line.query("syllable"), tuple[LyricTarget, ...])
+    assert_type(timing.duration, float)
+    assert_type(timing.target, LyricTarget)
     return ScalePulse()
 
 
@@ -51,11 +55,16 @@ class Lead(Track):
             id=id,
             source=selected,
             layout=Layout() if layout is None else layout,
-            animations=(
+            effects=(
+                LyricSweep(fill=RED),
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
                 LyricRule("syllable", "singing", animate),
+                LyricRule(
+                    "character", "after_singing",
+                    Transform(offset=lambda p: Vec2(0, -20 * p), opacity=lambda p: 1 - p),
+                    duration=0.3, offset=0.1,
+                ),
             ),
-            factory=LyricSweep(fill=RED).apply,
         )
 
 

@@ -22,7 +22,7 @@ def test_cli_track_configuration_and_scene_builder(tmp_path):
         "from kara_templater import RED\n"
         "from kara_templater import Track\n"
         "from kara_templater import LyricSweep\n"
-        "tracks = (Track(id='lyrics', factory=LyricSweep(fill=RED, width=0).apply),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricSweep(fill=RED, width=0),)),)\n"
     )
     scene_script = tmp_path / "scene.py"
     scene_script.write_text(
@@ -68,7 +68,7 @@ def test_cli_sampling_error_keeps_source_and_writes_no_partial_file(tmp_path):
         "from kara_templater import LyricRule\n"
         "def broken(state, progress):\n"
         "    raise RuntimeError('property failed')\n"
-        "tracks = (Track(id='lyrics', animations=(LyricRule('syllable', 'singing', StateFunction(broken, frozenset(('position',)))),)),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricRule('syllable', 'singing', StateFunction(broken, frozenset(('position',)))),)),)\n"
     )
     output = tmp_path / "result.ass"
     result = cli(EXAMPLE, output, "--effect", script)
@@ -87,7 +87,7 @@ def test_cli_preflight_precedes_dynamic_callbacks(tmp_path):
         "def sample(state, progress):\n"
         "    print('PROPERTY_STARTED', flush=True)\n"
         "    return state\n"
-        "tracks = (Track(id='lyrics', animations=(LyricRule('syllable', 'singing', StateFunction(sample, frozenset(('position',)))),)),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricRule('syllable', 'singing', StateFunction(sample, frozenset(('position',)))),)),)\n"
     )
     output = tmp_path / "output.ass"
     rejected = cli(EXAMPLE, output, "--effect", script, "--max-events", 1)

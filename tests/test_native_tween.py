@@ -111,7 +111,6 @@ def test_continuous_tween_matches_handwritten_ass_and_reduces_cost():
     [
         "ease",
         "release",
-        "position",
         "negative-scale",
         "skew",
         "fractional-birth",
@@ -125,10 +124,6 @@ def test_ineligible_tweens_remain_sampled(change: str):
         clip = replace(clip, animation=Tween(StatePatch(opacity=1), smooth_rate))
     elif change == "release":
         clip = replace(clip, hold=False)
-    elif change == "position":
-        clip = replace(
-            clip, animation=Tween(StatePatch(position=Vec2(300, 200), opacity=1))
-        )
     elif change == "negative-scale":
         clip = replace(clip, animation=Tween(StatePatch(scale=Vec2(-1, 1))))
     elif change == "skew":

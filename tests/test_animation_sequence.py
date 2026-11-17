@@ -7,9 +7,8 @@ from test_lyric_line import subject
 
 from kara_templater import (
     Lifetime,
-    LyricLine,
+    LyricAnimationContext,
     LyricRule,
-    LyricTarget,
     StatePatch,
     TextObject,
     Timeline,
@@ -48,8 +47,8 @@ def test_context_factory_returns_the_same_composable_animation_protocol():
     _, line = subject()
     calls = []
 
-    def factory(current: LyricLine, target: LyricTarget):
-        calls.append((current.id, target.id))
+    def factory(timing: LyricAnimationContext):
+        calls.append((timing.line.id, timing.target.id))
         return animation()
 
     bound = line.bind(LyricRule("syllable", "singing", factory, duration=0.5))
@@ -105,8 +104,8 @@ def test_lyric_factory_combines_material_and_geometry_on_common_timeline():
     document, line = subject()
     calls: list[str] = []
 
-    def factory(current: LyricLine, target: LyricTarget):
-        calls.append(target.id)
+    def factory(timing: LyricAnimationContext):
+        calls.append(timing.target.id)
         return (
             Timeline()
             .play(Tween(StatePatch(fill=RED)), at=0, duration=0.5)

@@ -12,6 +12,9 @@ Independent lyric streams, allocation and semantic bindings into one Scene. Sing
 - [LayoutLine](#layoutline)
 - [LinePlan](#lineplan)
 - [LyricAnchor](#lyricanchor)
+- [LyricAnimationContext](#lyricanimationcontext)
+- [LyricEcho](#lyricecho)
+- [LyricEffect](#lyriceffect)
 - [LyricLine](#lyricline)
 - [LyricRole](#lyricrole)
 - [LyricRule](#lyricrule)
@@ -19,7 +22,9 @@ Independent lyric streams, allocation and semantic bindings into one Scene. Sing
 - [LyricSource](#lyricsource)
 - [LyricTarget](#lyrictarget)
 - [Placement](#placement)
+- [ScatterOut](#scatterout)
 - [Track](#track)
+- [lyric_effects](#lyric_effects)
 - [prepare_tracks](#prepare_tracks)
 
 ## KaraokeItem
@@ -184,7 +189,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L125)
+[Source](../../kara_templater/orchestration.py#L129)
 
 ```python
 LinePlan(
@@ -211,7 +216,122 @@ LinePlan(
 Public type alias:
 
 ```python
-type LyricAnchor = Literal['enter', 'exit', 'singing']
+type LyricAnchor = Literal['enter', 'exit', 'singing', 'after_singing']
+```
+
+## LyricAnimationContext
+
+Measured target and current timing request for an animation factory.
+
+interval contains absolute seconds, including a visual copy's delay, before
+rule offset/stagger. It is None for display-relative enter/exit, whose final
+times depend on allocation. target retains all original singing spans.
+requested_duration is the rule's optional explicit override. Factories run
+once per resolved interval (once per target for display anchors), never per
+rendered frame. Return an ordinary StateAnimation or AnimationSequence.
+
+[Source](../../kara_templater/lyric_line.py#L60)
+
+```python
+LyricAnimationContext(
+    line: LyricLine,
+    target: LyricTarget,
+    interval: TimeSpan | None,
+    requested_duration: float | None = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `line` | `LyricLine` | `required` |
+| `target` | `LyricTarget` | `required` |
+| `interval` | `TimeSpan \| None` | `required` |
+| `requested_duration` | `float \| None` | `None` |
+
+### LyricAnimationContext.duration
+
+Requested seconds, or the current interval's length including zero.
+
+Raises ValueError for a display anchor without an explicit duration.
+Such a factory can return an authored sequence without reading duration.
+This value excludes gaps between repeated singing intervals.
+
+Type: `float`.
+
+## LyricEcho
+
+Emit offset, fading copies at each character/ruby singing onset.
+
+Copies use the selected glyph's prepared static appearance, optionally
+overridden by paint. They deliberately show the full glyph, without its
+sweep mask, material, reference or existing animation; this is an onset echo,
+not a historical motion trail. Parent line/syllable transforms still apply.
+Ordinary lyric rules continue to target the original glyph, not its echoes.
+
+spacing/duration are seconds; offset is the parent-space distance between
+successive copies. opacity multiplies original opacity, then decay reduces
+each later copy. animation uses the common animation protocol, with the
+measured target center as default pivot, and is stretched to duration.
+The default is a linear fade, using native ASS where available. delay shifts
+all copy births relative to the onset; negative values allow approaching
+copies before singing, but no copy may precede Scene zero. Required display
+is extended without changing singing times.
+
+[Source](../../kara_templater/lyric_effects.py#L77)
+
+```python
+LyricEcho(
+    *,
+    id: str = 'echo',
+    target: Literal['character', 'ruby'] = 'character',
+    count: int = 3,
+    spacing: float = 0.06,
+    duration: float = 0.45,
+    offset: Vec2 = Vec2(x=0, y=-8),
+    opacity: float = 0.35,
+    decay: float = 0.65,
+    paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
+    max_copies: int = 256,
+    animation: StateAnimation = FadeOut(rate=linear_rate),
+    delay: float = 0,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `'echo'` |
+| `target` | `Literal['character', 'ruby']` | `'character'` |
+| `count` | `int` | `3` |
+| `spacing` | `float` | `0.06` |
+| `duration` | `float` | `0.45` |
+| `offset` | `Vec2` | `Vec2(x=0, y=-8)` |
+| `opacity` | `float` | `0.35` |
+| `decay` | `float` | `0.65` |
+| `paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
+| `max_copies` | `int` | `256` |
+| `animation` | `StateAnimation` | `FadeOut(rate=linear_rate)` |
+| `delay` | `float` | `0` |
+
+### LyricEcho.__call__
+
+Expand a bounded onset schedule into copies under the glyph's parent.
+
+```python
+LyricEcho.__call__(
+    line: LyricLine,
+) -> LyricLine
+```
+
+## LyricEffect
+
+Public type alias:
+
+```python
+type LyricEffect = LyricRule | Callable[[LyricLine], LyricLine]
 ```
 
 ## LyricLine
@@ -224,7 +344,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L153)
+[Source](../../kara_templater/lyric_line.py#L231)
 
 ```python
 LyricLine(
@@ -369,6 +489,23 @@ LyricLine.query(
 ) -> tuple[LyricTarget, ...]
 ```
 
+### LyricLine.schedule
+
+Declare animations inside a Track effect, returning a new line.
+
+Factories resolve once per interval against this measured line. Track preparation
+reserves their time before layout and attaches clips after decoration
+and allocation, including any subsequently added material aliases.
+Display-relative enter/exit anchors use the final allocated lifetime.
+This method does not attach clips immediately; use bind for an already
+allocated line used directly in a Scene.
+
+```python
+LyricLine.schedule(
+    *rules: LyricRule,
+) -> LyricLine
+```
+
 ### LyricLine.time_origin
 
 Absolute seconds origin for local animation, geometry and paint clocks.
@@ -403,10 +540,18 @@ Bind a common animation to selected lyric nodes at a semantic anchor.
 enter/exit use the node's display start/end; exit ends at the anchor.
 singing binds each selected singing interval. An omitted duration uses a
 sequence's authored length, or otherwise the singing interval's length.
-A factory receives the measured line and selected semantic target once,
+after_singing starts at the selected target's last singing end and requires
+a duration or sequence length. Select segment to trigger after each repeat,
+character to trigger only after that character's final singing interval.
+A factory receives a LyricAnimationContext once per resolved interval,
 before layout, and returns the same animation protocol as direct authoring.
+Repeated singing intervals can therefore choose different amplitudes/curves.
 offset is relative seconds; display-anchor factories must return a sequence
 when duration is omitted.
+stagger adds nonnegative seconds between targets in selection order. For
+exit, the last target ends at the display end (plus offset); earlier targets
+finish earlier. Other anchors shift later targets forward from their own
+anchor, so singing with stagger deliberately offsets original singing clocks.
 A callable anchor receives the measured line and target and returns absolute
 second intervals, before layout occupancy is allocated. This permits custom
 arrival clocks without adding another animation evaluator. Returned intervals
@@ -417,17 +562,18 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L46)
+[Source](../../kara_templater/lyric_line.py#L92)
 
 ```python
 LyricRule(
     target: LyricRole | LyricTarget | tuple[LyricTarget, ...],
     anchor: LyricAnchor | LyricTarget | Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]],
-    animation: StateAnimation | Callable[[LyricLine, LyricTarget], StateAnimation],
+    animation: StateAnimation | Callable[[LyricAnimationContext], StateAnimation],
     duration: float | None = None,
     offset: float = 0,
     hold: bool = True,
     tags: frozenset[str] = frozenset({}),
+    stagger: float = 0,
 )
 ```
 
@@ -437,11 +583,12 @@ LyricRule(
 | --- | --- | --- |
 | `target` | `LyricRole \| LyricTarget \| tuple[LyricTarget, ...]` | `required` |
 | `anchor` | `LyricAnchor \| LyricTarget \| Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]]` | `required` |
-| `animation` | `StateAnimation \| Callable[[LyricLine, LyricTarget], StateAnimation]` | `required` |
+| `animation` | `StateAnimation \| Callable[[LyricAnimationContext], StateAnimation]` | `required` |
 | `duration` | `float \| None` | `None` |
 | `offset` | `float` | `0` |
 | `hold` | `bool` | `True` |
 | `tags` | `frozenset[str]` | `frozenset({})` |
+| `stagger` | `float` | `0` |
 
 ### LyricRule.singing_intervals
 
@@ -461,7 +608,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L136)
+[Source](../../kara_templater/orchestration.py#L140)
 
 ```python
 LyricScene(
@@ -508,6 +655,28 @@ LyricScene.compile(
     native_tweens: bool = False,
     on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult
+```
+
+### LyricScene.enhance
+
+Attach sampled GPU effects to an explicit ordinary-ASS fallback.
+
+Returns a new Document with versioned private Comment records. Ordinary
+players display fallback unchanged; render_enhanced replaces its visual
+presentation with this complete Scene. Resolution must match. Existing
+Python callbacks run at export only; portable data stores reusable glyph
+masks and numeric draws at integer fps (1..240), not executable code.
+This initial backend supports text/static paths, affine animation, normal
+local/screen rectangle clips and continuous LinearGradient. Unsupported
+materials, native events, coverage groups, inherited/vector/inverse clips
+and deformed paths raise. Export has bounded frame/mask/payload budgets.
+
+```python
+LyricScene.enhance(
+    fallback: Document,
+    *,
+    fps: int = 60,
+) -> Document
 ```
 
 ### LyricScene.evaluator
@@ -608,8 +777,11 @@ Stable semantic identity referring to an existing visual node.
 Several repeated singing segments may refer to the same body node. Selecting
 them never creates copies or changes visual parentage. singing retains the
 original absolute seconds and decoded text offsets.
+center is the undecorated measured center in the node's local coordinates.
+Line/syllable centers use body text, so ruby/glow do not shift the pivot.
+A factory changing a target's local coordinate origin must update center too.
 
-[Source](../../kara_templater/lyric_line.py#L28)
+[Source](../../kara_templater/lyric_line.py#L37)
 
 ```python
 LyricTarget(
@@ -620,6 +792,7 @@ LyricTarget(
     tags: frozenset[str] = frozenset({}),
     delay: float = 0,
     aliases: tuple[str, ...] = (),
+    center: Vec2 = Vec2(x=0, y=0),
 )
 ```
 
@@ -634,6 +807,7 @@ LyricTarget(
 | `tags` | `frozenset[str]` | `frozenset({})` |
 | `delay` | `float` | `0` |
 | `aliases` | `tuple[str, ...]` | `()` |
+| `center` | `Vec2` | `Vec2(x=0, y=0)` |
 
 ## Placement
 
@@ -664,17 +838,61 @@ Placement(
 | `row` | `int \| None` | `None` |
 | `adjustments` | `tuple[str, ...]` | `()` |
 
+## ScatterOut
+
+A seeded lyric animation factory for rotating, drifting glyph exits.
+
+Pass to LyricRule.animation with an exit/after_singing anchor. spread is the
+horizontal displacement range, rise the upward displacement, rotation the
+maximum added angle; units are script pixels/degrees. No timing is hidden in
+this factory: duration, pause and stagger belong to the rule.
+
+[Source](../../kara_templater/lyric_effects.py#L42)
+
+```python
+ScatterOut(
+    *,
+    spread: float = 24,
+    rise: float = 36,
+    rotation: float = 30,
+    scale: float = 0.85,
+    seed: int = 0,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `spread` | `float` | `24` |
+| `rise` | `float` | `36` |
+| `rotation` | `float` | `30` |
+| `scale` | `float` | `0.85` |
+| `seed` | `int` | `0` |
+
+### ScatterOut.__call__
+
+Resolve deterministic per-target variation into a common animation.
+
+```python
+ScatterOut.__call__(
+    timing: LyricAnimationContext,
+) -> Transform
+```
+
 ## Track
 
-An independent lyric stream with selection, placement and binding rules.
+An independent lyric stream with selection, placement and composable effects.
 
 All times use seconds. preview/tail are desired, reducible display padding;
 rule durations and inline cue visibility are mandatory occupancy. The visual
-factory receives the measured, unpositioned line once before allocation.
+effects receive the measured, unpositioned line once before allocation.
+LyricRule entries declare timing; callable entries decorate the line in order.
+Rule factories resolve once before decoration and bind to final target aliases.
 Authored visual intervals join occupancy; rule binding follows allocation.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L93)
+[Source](../../kara_templater/orchestration.py#L96)
 
 ```python
 Track(
@@ -685,11 +903,10 @@ Track(
     region: Box | None = None,
     preview: float = 0.6,
     tail: float = 0.3,
-    animations: tuple[LyricRule, ...] = (),
+    effects: tuple[LyricEffect, ...] = (),
     cues: Mapping[str, CuePreset] = _HAS_DEFAULT_FACTORY_CLASS(),
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset({}),
     styles: tuple[Style, ...] = (),
-    factory: Callable[[LyricLine], LyricLine] | None = None,
     references: tuple[LayoutLine, ...] = (),
 )
 ```
@@ -704,12 +921,26 @@ Track(
 | `region` | `Box \| None` | `None` |
 | `preview` | `float` | `0.6` |
 | `tail` | `float` | `0.3` |
-| `animations` | `tuple[LyricRule, ...]` | `()` |
+| `effects` | `tuple[LyricEffect, ...]` | `()` |
 | `cues` | `Mapping[str, CuePreset]` | `dict()` |
 | `tags` | `frozenset[str] \| Callable[[LyricSource], frozenset[str]]` | `frozenset({})` |
 | `styles` | `tuple[Style, ...]` | `()` |
-| `factory` | `Callable[[LyricLine], LyricLine] \| None` | `None` |
 | `references` | `tuple[LayoutLine, ...]` | `()` |
+
+## lyric_effects
+
+Compose built-in or custom lyric factories in the supplied order.
+
+Pass the result as an entry in Track.effects. Each factory runs once on the prepared
+line; it must retain its identity. Timing/animation evaluation stays in Scene.
+
+[Source](../../kara_templater/lyric_effects.py#L23)
+
+```python
+lyric_effects(
+    *effects: Callable[[LyricLine], LyricLine],
+) -> Callable[[LyricLine], LyricLine]
+```
 
 ## prepare_tracks
 
@@ -722,7 +953,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L325)
+[Source](../../kara_templater/orchestration.py#L329)
 
 ```python
 prepare_tracks(

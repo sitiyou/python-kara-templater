@@ -15,7 +15,7 @@ from .lyric_highlights import (
     LyricHighlights,
 )
 from .lyric_layout import Layout, LayoutContext, LayoutLine, Placement
-from .lyric_line import LyricLine, LyricRule, LyricTarget
+from .lyric_line import LyricLine, LyricRule
 from .orchestration import LyricScene, Track, _sources, prepare_tracks
 from .raster_settings import RasterSettings
 from .scene import ObjectGroup, SceneObject
@@ -84,24 +84,6 @@ def _passes(line: LyricLine) -> tuple[Highlight, ...]:
     )
 
 
-def _pulse(line: LyricLine, target: LyricTarget) -> ScalePulse:
-    character = next(
-        c
-        for t, c in zip(
-            line.query("character"), line.layout.body.characters, strict=True
-        )
-        if t.id == target.id
-    )
-    scale = character.layout_scale
-    assert scale is not None
-    return ScalePulse(
-        Vec2(
-            character.bounds.width / (2 * scale.x),
-            character.bounds.height / (2 * scale.y),
-        )
-    )
-
-
 @dataclass(frozen=True)
 class _Paint:
     before: Paint
@@ -131,7 +113,8 @@ class _Paint:
             ),
             strategy="clip" if self.raster is None else "coverage",
             settings=self.raster or RasterSettings(),
-        ).apply(base)
+        )(base)
+
 
 
 def _measurement_style(style: Style) -> Style:
@@ -171,10 +154,10 @@ def preset_scene(
         rules.append(LyricRule("line", "exit", FadeOut(), duration=fade_out))
     if pulse == "char":
         rules.append(
-            LyricRule("character", HighlightArrival(highlights=_passes), _pulse)
+            LyricRule("character", HighlightArrival(highlights=_passes), ScalePulse())
         )
     elif pulse == "chars":
-        rules.append(LyricRule("character", "singing", _pulse))
+        rules.append(LyricRule("character", "singing", ScalePulse()))
     elif pulse == "syllable":
         rules.append(LyricRule("syllable", "singing", ScalePulse()))
     tracks = []
@@ -200,9 +183,11 @@ def preset_scene(
                 ),
                 preview=preview,
                 tail=tail,
-                animations=tuple(rules),
+                effects=(
+                    *(tuple(rules)),
+                    _Paint(unsung, sung, raster),
+                ),
                 styles=tuple(_measurement_style(s) for s in document.styles.values()),
-                factory=_Paint(unsung, sung, raster),
             )
         )
     return prepare_tracks(document, tracks=tuple(tracks), owner=owner)

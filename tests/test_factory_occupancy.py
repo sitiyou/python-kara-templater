@@ -65,13 +65,13 @@ def test_authored_visual_time_reaches_allocator_before_factory_output_is_clipped
                 ),
             ),
             strategy=effect,
-        ).apply(line)
+        )(line)
 
     scene = prepare_tracks(
         source,
         tracks=(
             Track(
-                id="main", preview=preview, tail=0, layout=Inspect(), factory=factory
+                id="main", preview=preview, tail=0, layout=Inspect(), effects=(factory,)
             ),
         ),
     )
@@ -112,7 +112,7 @@ def test_factory_tail_participates_in_capacity_and_preview_trim_keeps_clock():
         )
         return replace(line, coverage=Coverage(glows={target.node_id: glow}))
 
-    config = Track(id="main", preview=1, tail=0, layout=Layout(rows=1), factory=factory)
+    config = Track(id="main", preview=1, tail=0, layout=Layout(rows=1), effects=(factory,))
     scene = prepare_tracks(source, tracks=(config,))
     assert len(calls) == 2 and len(set(calls)) == 2
     second = scene.lines[1]
@@ -188,7 +188,7 @@ def test_attached_decoration_reserves_visible_tail_but_external_visual_does_not(
     scene = prepare_tracks(
         source,
         tracks=(
-            Track(id="main", preview=0, tail=0, layout=Inspect(), factory=factory),
+            Track(id="main", preview=0, tail=0, layout=Inspect(), effects=(factory,)),
         ),
     )
     assert len(calls) == len(allocations) == 1
@@ -232,7 +232,7 @@ def test_factory_declared_bounds_reach_allocator_without_remeasuring_text():
             return super().allocate(lines, context)
 
     scene = prepare_tracks(
-        source, tracks=(Track(id="main", factory=factory, layout=Inspect()),)
+        source, tracks=(Track(id="main", effects=(factory,), layout=Inspect()),)
     )
     assert len(measurements) == len(allocations) == 1
     assert allocations[0].bounds == declared
@@ -269,7 +269,7 @@ def test_factory_early_decoration_extends_visibility_without_restarting_animatio
     scene = prepare_tracks(
         source,
         tracks=(
-            Track(id="main", preview=0, tail=0, layout=Inspect(), factory=factory),
+            Track(id="main", preview=0, tail=0, layout=Inspect(), effects=(factory,)),
         ),
     )
     line = scene.lines[0]
@@ -314,7 +314,7 @@ def test_early_highlight_matches_explicit_preview_without_moving_existing_animat
                 ),
             ),
             strategy=strategy,
-        ).apply(line)
+        )(line)
 
     scenes = tuple(
         prepare_tracks(
@@ -324,7 +324,7 @@ def test_early_highlight_matches_explicit_preview_without_moving_existing_animat
                     id="main",
                     preview=preview,
                     tail=0,
-                    factory=factory,
+                    effects=(factory,),
                 ),
             ),
         )
@@ -393,7 +393,7 @@ def test_signed_glow_requirement_reserves_early_window_before_sampling():
                 preview=0,
                 tail=0,
                 layout=Inspect(),
-                factory=factory,
+                effects=(factory,),
             ),
         ),
     )

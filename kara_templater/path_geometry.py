@@ -75,6 +75,24 @@ class Polyline:
             tuple(p for i, p in enumerate(values) if i == 0 or p != values[i - 1])
         )
 
+    def slice(self, start: float, end: float) -> Polyline:
+        """Return a normalized arc-length interval, clamped to the path ends.
+
+        Reversed intervals raise ValueError; an empty interval contains one point.
+        Interpolated endpoints retain interior vertices without resampling.
+        """
+        finite(start, end)
+        if start > end:
+            raise ValueError("polyline interval is reversed")
+        start, end = max(0, min(1, start)), max(0, min(1, end))
+        values = (
+            self.point(start),
+            *(point for point, distance in zip(self.points, self.distances, strict=True)
+              if start * self.length < distance < end * self.length),
+            self.point(end),
+        )
+        return Polyline(tuple(p for i, p in enumerate(values) if i == 0 or p != values[i - 1]))
+
     def resample(self, count: int) -> Polyline:
         """Return evenly spaced samples along the flattened path distance."""
         _point_budget(count)

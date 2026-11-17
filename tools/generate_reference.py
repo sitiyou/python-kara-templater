@@ -41,7 +41,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "scenes": (
         "Scenes and compilation",
-        ("scene", "scene_output", "scene_evaluation"),
+        ("scene", "scene_output", "scene_evaluation", "gpu_render"),
         "Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile returns a new Document under explicit resource limits. See [objects](../guides/objects.md) and [compilation](../guides/compilation.md).",
     ),
     "animation": (
@@ -51,7 +51,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "tracks": (
         "Track authoring",
-        ("karaoke", "orchestration", "lyric_layout", "lyric_line"),
+        ("karaoke", "orchestration", "lyric_layout", "lyric_line", "lyric_effects"),
         "Independent lyric streams, allocation and semantic bindings into one Scene. Singing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).",
     ),
     "text": (
@@ -92,7 +92,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "particles": (
         "Particles and references",
-        ("particles", "object_references"),
+        ("particles", "object_references", "lyric_particles"),
         "Deterministic emissions, delayed copies, and pure world-space dependencies. Time values use seconds. See [particles](../guides/particles.md).",
     ),
     "coverage": (
@@ -228,7 +228,10 @@ def signature(
         raise TypeError(f"{label} is not callable")
     raw = inspect.signature(value)
     resolved = hints(value.__init__ if constructor else value)
-    parameters = list(raw.parameters.values())
+    parameters = [
+        parameter for parameter in raw.parameters.values()
+        if not (constructor and parameter.name.startswith("_"))
+    ]
     if skip_first and parameters and parameters[0].name in {"self", "cls"}:
         parameters = parameters[1:]
     parts: list[str] = []
@@ -356,6 +359,7 @@ def describe_class(value: type, name: str, *, level: int = 2) -> list[str]:
                 else getattr(field.default_factory, "__name__", "factory") + "()",
             )
             for field in fields(value)
+            if not field.name.startswith("_")
         ]
     else:
         values = [

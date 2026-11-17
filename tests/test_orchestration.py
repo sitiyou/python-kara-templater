@@ -14,6 +14,7 @@ from kara_templater import (
     Jump,
     Layout,
     Line,
+    LyricAnimationContext,
     LyricRule,
     Scene,
     Style,
@@ -56,7 +57,7 @@ def main(**changes):
             id="main",
             source=lambda source: source.style == "Main",
             layout=Layout(rows=2, position=Vec2(50, 200), gap=70),
-            animations=(
+            effects=(
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
                 LyricRule("line", "exit", FadeOut(), duration=0.2),
                 LyricRule("syllable", "singing", Jump()),
@@ -98,7 +99,7 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
 
 def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerates():
     doc = document()
-    track = main(source=lambda source: source.style == "Harmony", animations=())
+    track = main(source=lambda source: source.style == "Harmony", effects=(*(()),))
     scene = prepare_tracks(
         doc,
         tracks=(track, replace(track, id="copy", layout=Layout(position=Vec2(80, 20)))),
@@ -150,7 +151,7 @@ def test_inline_cue_is_reserved_independent_cue_keeps_own_lifetime_and_position(
 
 
 def test_semantic_copy_retargets_nodes_and_preserves_source_singing():
-    scene = prepare_tracks(document(), tracks=(main(animations=()),))
+    scene = prepare_tracks(document(), tracks=(main(effects=(*(()),)),))
     original = scene.lines[0]
     clone = original.copy(id="copy", delay=5, offset=Vec2(10, 0))
     assert clone.targets[0].singing == original.targets[0].singing
@@ -248,9 +249,9 @@ def test_singing_rule_extent_participates_in_layout_before_binding():
     with pytest.raises(
         ValueError, match="required singing/animation intervals overlap"
     ):
-        prepare_tracks(document(), tracks=(main(animations=rules),))
+        prepare_tracks(document(), tracks=(main(effects=(*(rules),)),))
     scene = prepare_tracks(
-        document(), tracks=(main(animations=rules, layout=Layout(rows=3)),)
+        document(), tracks=(main(effects=(*(rules),), layout=Layout(rows=3)),)
     )
     assert scene.lines[0].animations[0].duration == 2
     assert scene.plans[0].placement.display.end >= 3
@@ -308,7 +309,7 @@ def test_zero_duration_singing_is_not_replaced_with_the_display_interval():
     doc = document()
     record = next(line for line in doc.lines if line.style == "Main")
     record.text = r"{\k0}Zero"
-    scene = prepare_tracks(doc, tracks=(main(animations=()),))
+    scene = prepare_tracks(doc, tracks=(main(effects=(*(()),)),))
     first = scene.plans[0]
     assert first.input.singing.start == first.input.singing.end == 1
     assert first.line.query("syllable")[0].singing[0].start == 1
@@ -330,7 +331,7 @@ def test_cross_track_singing_anchor_is_explicit_and_participates_in_occupancy():
     anchor = harmony.lines[0].query("line")[0]
     rule = LyricRule("line", anchor, Jump(), hold=False)
     scene = prepare_tracks(
-        doc, tracks=(main(layout=Layout(rows=3), animations=(rule,)),)
+        doc, tracks=(main(layout=Layout(rows=3), effects=(*((rule,)),)),)
     )
     for plan in scene.plans:
         assert plan.placement.display.start <= 1
@@ -380,14 +381,14 @@ def test_prepared_lyrics_remain_editable_and_share_native_tween_compilation():
 
     config = main(
         source=lambda source: source.style == "Harmony",
-        animations=(
+        effects=(*((
             LyricRule(
                 "character",
                 "singing",
                 Tween(StatePatch(scale=Vec2(1.5, 1.5), border=3)),
             ),
-        ),
-        factory=factory,
+        )), factory,),
+        
     )
     scene = prepare_tracks(source, tracks=(config,))
     line = scene.lines[0]
@@ -469,8 +470,8 @@ def test_display_keyframe_factory_keeps_original_window_when_other_rule_extends_
     original = source.dumps()
     durations = []
 
-    def keyframes(line, target):
-        duration = line.lifetime.end - line.lifetime.start
+    def keyframes(timing: LyricAnimationContext):
+        duration = timing.line.lifetime.end - timing.line.lifetime.start
         durations.append(duration)
         return (
             Timeline()
@@ -484,14 +485,14 @@ def test_display_keyframe_factory_keeps_original_window_when_other_rule_extends_
     # An animation spanning the source display window uses that explicit clock.
     # "enter" instead reserves a pre-singing entrance, which is a different rule.
     rule = LyricRule("line", original_display, keyframes)
-    config = Track(id="lyrics", preview=0, tail=0, animations=(rule,))
+    config = Track(id="lyrics", preview=0, tail=0, effects=(rule,))
     baseline = prepare_tracks(source, tracks=(config,))
     extended = prepare_tracks(
         source,
         tracks=(
             replace(
                 config,
-                animations=(
+                effects=(
                     rule,
                     LyricRule("character", "singing", Jump(), duration=1.2),
                 ),

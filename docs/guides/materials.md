@@ -4,6 +4,38 @@ Color stores RGB channels. Use Color.hex("#RRGGBB") or named colors such as WHIT
 CYAN, and PINK. Public authoring colors use RGB; ASS BGR and inverse alpha are
 encoded at the output boundary. Opacity is 0 through 1.
 
+## Gradient singing colors
+
+Use a measured gradient as the singing highlight material, without searching for
+generated nodes or calculating glyph heights:
+
+```python
+from kara_templater import Color, LyricGradient, LyricHighlights, StatePatch
+
+highlight = LyricHighlights.from_singing(
+    StatePatch(),
+    material=LyricGradient((
+        Color.hex("#FFE7A0"), Color.hex("#F660A2"), Color.hex("#826AFF"),
+    )),
+)
+# Pass effects=(highlight,) to Track.
+```
+
+Colors run vertically through each measured glyph and follow its scale/translation.
+Body and ruby resolve their own heights. Separate glow retains its configured
+color; only the sung drawing receives this material. `step=1` uses one-local-pixel
+color bands; increasing it trades gradient resolution for fewer ASS events.
+
+For custom appearance, `material` also accepts a `PaintField` or a factory taking
+`(line, target)` and returning a field (or None). The factory runs once per target
+and highlight during preparation, not per frame. Explicit `Highlight` declarations
+accept the same material parameter.
+
+This uses the local `LinearGradient` backend: currently it requires clip strategy,
+a single positive singing interval, and axis-aligned scale/translation. Repeated
+singing and coverage-mode material composition are not supported by this backend.
+Unsupported combinations raise; inspect compilation reports for band/event cost.
+
 ## Paint separate visual roles
 
 VisualState controls an object's fill, outline, border, blur, and opacity. Use
@@ -16,6 +48,16 @@ should grow with the text.
 
 SoftSweep is a spatial color field with (unsung, sung) fill/outline pairs,
 independent front widths, a script-space range, start, duration, and rate.
+With `native_tweens=True`, a static `LinearGradient` can share native rectangle
+clip animation when the clip edges along the gradient axis stay fixed. For
+example, vertical color bands support a horizontal karaoke sweep. Geometry and
+colors must remain static; eligible opacity fades are supported. Continuous clip
+sections share one event per band, while instantaneous resets remain separate.
+This keeps event counts independent of sampling FPS for eligible objects without
+changing `step`. Inverse clips, animated geometry/colors, custom paint fields,
+and clips crossing the color bands retain the general sampled path. Native clips
+retain the compiler's existing integer-coordinate error budget.
+
 Material time, including SoftSweep.start, is local seconds from the owning
 object's `time_origin`. Delayed copies retain that local clock. Custom fields
 can use signed local times when visibility precedes the origin; see
@@ -24,7 +66,21 @@ LinearGradient uses ColorRamp/ColorStop values along x or y. Fields compile into
 bounded ASS color bands; step and max_bands affect precision and cost. PaintField
 is the extension protocol for your own spatial paint function.
 
-Scene materials use script-space color coordinates. Group motion changes which
+`LinearGradient(space="local")` attaches the gradient to a drawing, so colors
+follow positive axis-aligned scaling and translation. Color-stop positions and
+`step` then use untransformed drawing coordinates. The initial implementation
+requires a non-inverse local `RectangleKeyframes` clip whose edges along the color
+axis stay fixed, with no parent masks. It is available in ordinary ASS output;
+coverage/raster material composition and rotated/skewed local gradients raise
+explicit errors. Existing screen-space gradients remain unchanged.
+
+Eligible local gradients retain native clip and scale/opacity transforms; a
+single position-only linear Tween can share the same event. Multiple moves or
+unsupported curves may require more events or sampling. Native clip coordinates
+still have the compiler's integer rounding/error contract: attached one-pixel
+bands are not a continuous shader texture.
+
+Other scene materials use script-space color coordinates. Group motion changes which
 parts of the object encounter a field; for a different attachment rule, author
 the field or object transformation explicitly. Fill and outline bands are
 independent of a separately drawn constant glow.
@@ -66,6 +122,33 @@ arrival times, pass `ProgressCurve.at` as the rate and its `arrival` method as
 Priority selects one contribution in an overlap. Layer mode composites each
 contribution in order: two half-opacity layers produce about 0.75 alpha, rather
 than an implicitly opaque base. Add a separate base drawing if that is desired.
+
+For a normal karaoke sweep, use `LyricHighlights.from_singing(...)` instead
+of building clip rectangles or timing decorative margins in the template:
+
+```python
+from kara_templater import YELLOW, WHITE, Glow, LyricHighlights, StatePatch
+
+# In a Track factory receiving a LyricLine:
+def paint_line(line):
+    return LyricHighlights.from_singing(
+        StatePatch(fill=YELLOW, outline=WHITE, border=5),
+        base_glow=Glow(WHITE, blur=8, border=10),
+        glow=Glow(YELLOW, blur=12, border=14),
+    )(line)
+```
+
+Source singing maps onto undecorated measured text bounds, independently of
+outline and glow width. For a single source interval in clip mode, the engine
+reserves 20 ms before and after singing to traverse the decorative margins.
+At the original singing start the front reaches the body's left edge; at the
+original end it reaches the right edge. These shoulders do not consume singing
+time or move its clocks. Body, outline, glow and ruby share this rule. Enable
+`native_tweens=True` when compiling to lower eligible linear passes into
+continuous ASS clip animations, independent of the scene sampling FPS.
+Repeated source intervals retain the general ownership path; coverage retains
+its color-before-blur behavior without adding clip shoulders. Existing custom
+`HighlightPass` regions and clocks remain explicit and unchanged.
 
 The clip strategy creates ordinary before/after layers and optional static glow
 layers. Coverage assigns fractional material ownership before blur. Dynamic glow

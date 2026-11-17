@@ -54,8 +54,10 @@ def build() -> Scene:
         layout=Layout(position=Vec2(0, 70), alignment="center"),
         preview=0,
         tail=0,
-        animations=(LyricRule("syllable", "singing", ScalePulse(peak=1.08)),),
-        factory=paint,
+        effects=(
+            LyricRule("syllable", "singing", ScalePulse(peak=1.08)),
+            paint,
+        ),
     )
     scene = prepare_tracks(document, tracks=(lyric,))
     orbit = PathObject(

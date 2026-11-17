@@ -11,6 +11,7 @@ from kara_templater import (
     Jump,
     Lifetime,
     Line,
+    LyricAnimationContext,
     LyricLine,
     LyricRule,
     Scene,
@@ -111,7 +112,7 @@ def test_rule_errors_use_common_time_and_conflict_validation():
             LyricRule("line", "enter", FadeIn(), duration=0.2),
             LyricRule("line", "enter", FadeOut(), duration=0.2),
         )
-    with pytest.raises(ValueError, match="nonnegative start"):
+    with pytest.raises(ValueError, match="absolute time zero"):
         line.bind(LyricRule("line", "enter", FadeIn(), duration=0.2, offset=-0.1))
     assert not line.animations
 
@@ -154,8 +155,8 @@ def test_explicit_foreign_targets_fail_before_any_animation_factory():
     foreign = original.copy(id="other").query("ruby")[0]
     calls = []
 
-    def factory(line, target):
-        calls.append(target.id)
+    def factory(timing: LyricAnimationContext):
+        calls.append(timing.target.id)
         return Jump()
 
     with pytest.raises(ValueError, match="does not belong to line"):
@@ -172,8 +173,8 @@ def test_empty_and_filtered_selections_skip_factories_but_explicit_ruby_binds():
     _, original = subject(r"{\k50}AB")
     calls = []
 
-    def factory(line, target):
-        calls.append(target.id)
+    def factory(timing: LyricAnimationContext):
+        calls.append(timing.target.id)
         return Jump()
 
     original.bind(

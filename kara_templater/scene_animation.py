@@ -57,6 +57,15 @@ def smooth_rate(progress: float) -> float:
     return progress * progress * (3 - 2 * progress)
 
 
+def smoother_rate(progress: float) -> float:
+    """Quintic easing with zero velocity and acceleration at both endpoints.
+
+    Input is normalized progress in [0, 1]; outside that interval the polynomial
+    extrapolates. Use as a rate for shared animations or inside custom curves.
+    """
+    return progress ** 3 * (progress * (progress * 6 - 15) + 10)
+
+
 @dataclass(frozen=True)
 class TimeSpan:
     """A finite seconds interval, including zero-length singing spans.
@@ -216,6 +225,86 @@ class StateAnimation(Protocol):
         ...
 
 
+@dataclass(frozen=True, kw_only=True)
+class Transform:
+    """Custom relative motion from normalized progress, with inferred channels.
+
+    Each supplied value is constant or a pure function of progress in 0..1.
+    offset adds parent-space script pixels; scale multiplies captured scale
+    (a scalar applies to both axes); rotation adds degrees; opacity multiplies
+    captured opacity. Omitted fields do not write their channels. Constant values
+    apply throughout the clip, rather than interpolating toward that value.
+
+    Scaling/rotation preserve the local pivot's transformed position before
+    applying offset. Both therefore also write position. StateFunction remains
+    available for custom behavior needing the complete incoming VisualState.
+    An omitted pivot uses the local origin on direct objects; LyricRule resolves
+    it to the measured target center. Pass Vec2() to explicitly keep the origin.
+    """
+
+    offset: Vec2 | Callable[[float], Vec2] | None = None
+    scale: float | Vec2 | Callable[[float], float | Vec2] | None = None
+    rotation: float | Callable[[float], float] | None = None
+    opacity: float | Callable[[float], float] | None = None
+    pivot: Vec2 | None = None
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Infer writes from supplied fields, including pivot compensation."""
+        result: set[Channel] = set()
+        if self.offset is not None or self.scale is not None or self.rotation is not None:
+            result.add("position")
+        if self.scale is not None:
+            result.add("scale")
+        if self.rotation is not None:
+            result.add("rotation")
+        if self.opacity is not None:
+            result.add("opacity")
+        return frozenset(result)
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Apply relative values to the captured state, independently of seek order."""
+        finite(progress)
+        offset = (
+            self.offset
+            if self.offset is None or isinstance(self.offset, Vec2)
+            else self.offset(progress)
+        )
+        scale = (
+            self.scale
+            if self.scale is None or isinstance(self.scale, (int, float, Vec2))
+            else self.scale(progress)
+        )
+        rotation = (
+            self.rotation
+            if self.rotation is None or isinstance(self.rotation, (int, float))
+            else self.rotation(progress)
+        )
+        opacity = (
+            self.opacity
+            if self.opacity is None or isinstance(self.opacity, (int, float))
+            else self.opacity(progress)
+        )
+        factor = scale if isinstance(scale, Vec2) else Vec2(1, 1) * (
+            1 if scale is None else scale
+        )
+        transformed = replace(
+            base,
+            scale=Vec2(base.scale.x * factor.x, base.scale.y * factor.y),
+            rotation=base.rotation + (0 if rotation is None else rotation),
+            opacity=base.opacity * (1 if opacity is None else opacity),
+        )
+        shift = (
+            base.transform.apply(self.pivot or Vec2())
+            - transformed.transform.apply(self.pivot or Vec2())
+            if self.scale is not None or self.rotation is not None
+            else Vec2()
+        )
+        return replace(
+            transformed, position=base.position + shift + (offset or Vec2())
+        )
+
+
 @dataclass(frozen=True)
 class Tween:
     """Interpolate a StatePatch from the incoming VisualState using normalized progress and an easing rate.
@@ -303,18 +392,26 @@ class ScalePulse:
     """Scale up and back around a fixed local pivot over normalized progress.
 
     peak multiplies the captured scale; values between zero and one shrink.
-    The peak occurs halfway through the clip. Position is adjusted to preserve
+    peak_at locates the peak within normalized progress (strictly between 0 and 1).
+    rate eases each attack/release phase; the default has zero endpoint velocity.
+    Position is adjusted to preserve
     the pivot under existing scale, rotation and skew. Binding chooses duration
     and lyric anchors; this animation works on ordinary objects and groups too.
+    An omitted pivot uses the local origin on direct objects and the measured
+    target center when bound with LyricRule. Vec2() explicitly selects the origin.
     """
 
-    pivot: Vec2 = Vec2()
+    pivot: Vec2 | None = None
     peak: float = 1.1
+    peak_at: float = 0.5
+    rate: Callable[[float], float] = smooth_rate
 
     def __post_init__(self) -> None:
-        finite(self.peak)
+        finite(self.peak, self.peak_at)
         if self.peak <= 0:
             raise ValueError("pulse peak must be positive")
+        if not 0 < self.peak_at < 1:
+            raise ValueError("pulse peak_at must be strictly between 0 and 1")
 
     @property
     def channels(self) -> frozenset[Channel]:
@@ -324,10 +421,99 @@ class ScalePulse:
     def sample(self, base: VisualState, progress: float) -> VisualState:
         """Return the captured state at endpoints and preserve all other channels."""
         finite(progress)
-        factor = 1 + (self.peak - 1) * (1 - abs(2 * progress - 1))
+        phase = (
+            progress / self.peak_at
+            if progress <= self.peak_at
+            else (1 - progress) / (1 - self.peak_at)
+        )
+        weight = 0.0 if progress in (0, 1) else self.rate(phase)
+        finite(weight)
+        factor = 1 + (self.peak - 1) * weight
+        if factor <= 0:
+            raise ValueError("pulse curve must retain positive scale")
         scaled = replace(base, scale=base.scale * factor)
-        shift = base.transform.apply(self.pivot) - scaled.transform.apply(self.pivot)
+        pivot = self.pivot or Vec2()
+        shift = base.transform.apply(pivot) - scaled.transform.apply(pivot)
         return replace(scaled, position=base.position + shift)
+
+
+@dataclass(frozen=True)
+class DriftOut:
+    """Drift away while shrinking and fading, using the common relative transform.
+
+    offset is the total displacement in parent-space script pixels. scale is the
+    final factor on captured scale; pivot is local. rate controls travel, shrink
+    and fade over normalized progress. travel_rate overrides only displacement
+    easing (None follows rate); linear_rate gives constant-speed travel. Duration and any pause belong to binding.
+    An omitted pivot uses the local origin on direct objects and the measured
+    target center when bound with LyricRule. Vec2() explicitly selects the origin.
+    """
+
+    offset: Vec2 = Vec2(0, -36)
+    scale: float = 0.96
+    pivot: Vec2 | None = None
+    rate: Callable[[float], float] = smooth_rate
+    travel_rate: Callable[[float], float] | None = None
+
+    def __post_init__(self) -> None:
+        finite(self.scale)
+        if self.scale <= 0:
+            raise ValueError("drift scale must be positive")
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Travel/pivot, relative scale and captured opacity."""
+        return frozenset(("position", "scale", "opacity"))
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Apply the same transform an author can express with custom callbacks."""
+        phase = self.rate(progress)
+        travel = phase if self.travel_rate is None else self.travel_rate(progress)
+        finite(phase, travel)
+        return Transform(
+            offset=self.offset * travel,
+            scale=1 + (self.scale - 1) * phase,
+            opacity=1 - phase,
+            pivot=self.pivot,
+        ).sample(base, progress)
+
+
+@dataclass(frozen=True)
+class CurveIn:
+    """Reveal text along a quadratic local-offset trajectory to its base pose.
+
+    offset is the initial parent-space displacement and bend is the quadratic
+    control offset; the final offset is zero. scale and rotation are the initial
+    relative scale factor and added degrees. rate eases trajectory, pose and
+    opacity together. Omitted pivot follows LyricRule's measured-center policy.
+    """
+
+    offset: Vec2 = Vec2(-40, 24)
+    bend: Vec2 = Vec2(20, -36)
+    scale: float = 0.85
+    rotation: float = -12
+    pivot: Vec2 | None = None
+    rate: Callable[[float], float] = smooth_rate
+
+    def __post_init__(self) -> None:
+        finite(self.scale, self.rotation)
+        if self.scale <= 0:
+            raise ValueError("curve entrance scale must be positive")
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Relative position, scale, rotation and opacity."""
+        return frozenset(("position", "scale", "rotation", "opacity"))
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Use the common relative transform to follow the authored curve."""
+        p = self.rate(progress)
+        finite(p)
+        return Transform(
+            offset=self.offset * ((1 - p) ** 2) + self.bend * (2 * p * (1 - p)),
+            scale=self.scale + (1 - self.scale) * p,
+            rotation=self.rotation * (1 - p), opacity=p, pivot=self.pivot,
+        ).sample(base, progress)
 
 
 @dataclass(frozen=True)
@@ -370,10 +556,12 @@ class StateFunction:
 
 @dataclass(frozen=True)
 class AnimationClip:
-    """A positive-duration state animation starting at local seconds from object birth.
+    """A positive-duration state animation starting at local clock seconds.
 
     hold retains final written channels; breakpoints are offsets from the clip
-    start.
+    start. Negative starts support visibility extended before a preserved clock
+    origin. The owning node validates that the absolute start is nonnegative;
+    nested sequences and Timeline still start at zero or later.
     """
 
     start: float
@@ -402,10 +590,8 @@ class AnimationClip:
         finite(self.start, self.duration, *self.breakpoints)
         if any(t < 0 or t > self.duration for t in self.breakpoints):
             raise ValueError("animation breakpoint outside its local duration")
-        if self.start < 0 or self.duration <= 0:
-            raise ValueError(
-                "animation needs a nonnegative start and positive duration"
-            )
+        if self.duration <= 0:
+            raise ValueError("animation needs a positive duration")
         if not self.animation.channels <= CHANNELS:
             raise ValueError("animation declares unknown channels")
 
@@ -499,6 +685,8 @@ class Timeline:
         timeline preserves them relative to each copied clip.
         """
         start = self._cursor if at is None else at
+        if start < 0:
+            raise ValueError("timeline start must be nonnegative")
         additions = tuple(
             AnimationClip(start, duration, animation, hold, breakpoints)
             for animation in animations
@@ -529,6 +717,8 @@ class Timeline:
         if not frames:
             raise ValueError("keyframes requires at least one frame")
         start = self._cursor if at is None else at
+        if start < 0:
+            raise ValueError("timeline start must be nonnegative")
         additions: list[AnimationClip] = []
         previous = 0.0
         for frame in frames:
@@ -592,6 +782,8 @@ class AnimationSequence:
         if self.duration <= 0 or not self.clips:
             raise ValueError("animation sequence needs clips and positive duration")
         validate_clips(self.clips)
+        if any(clip.start < 0 for clip in self.clips):
+            raise ValueError("sequence clip start must be nonnegative")
         if any(clip.end > self.duration for clip in self.clips):
             raise ValueError("sequence clip extends beyond its duration")
 
@@ -622,6 +814,18 @@ class AnimationSequence:
     def sample(self, base: VisualState, progress: float) -> VisualState:
         """Evaluate the immutable schedule at normalized outer progress."""
         return evaluate_clips(base, self.clips, round(progress * self.duration, 10))
+
+
+def _resolve_pivot(animation: StateAnimation, center: Vec2) -> StateAnimation:
+    """Resolve lyric geometry without adding an animation evaluator or wrapper."""
+    if isinstance(animation, (Transform, ScalePulse, DriftOut, CurveIn)):
+        return replace(animation, pivot=center) if animation.pivot is None else animation
+    if isinstance(animation, AnimationSequence):
+        return replace(animation, clips=tuple(
+            replace(clip, animation=_resolve_pivot(clip.animation, center))
+            for clip in animation.clips
+        ))
+    return animation
 
 
 @dataclass(frozen=True)

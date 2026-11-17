@@ -90,13 +90,18 @@ def _all_sources(source: LyricSource) -> bool:
     return True
 
 
+type LyricEffect = LyricRule | Callable[[LyricLine], LyricLine]
+
+
 @dataclass(frozen=True, kw_only=True)
 class Track:
-    """An independent lyric stream with selection, placement and binding rules.
+    """An independent lyric stream with selection, placement and composable effects.
 
     All times use seconds. preview/tail are desired, reducible display padding;
     rule durations and inline cue visibility are mandatory occupancy. The visual
-    factory receives the measured, unpositioned line once before allocation.
+    effects receive the measured, unpositioned line once before allocation.
+    LyricRule entries declare timing; callable entries decorate the line in order.
+    Rule factories resolve once before decoration and bind to final target aliases.
     Authored visual intervals join occupancy; rule binding follows allocation.
     All animation evaluation and output belong to Scene.
     """
@@ -107,11 +112,10 @@ class Track:
     region: Box | None = None
     preview: float = 0.6
     tail: float = 0.3
-    animations: tuple[LyricRule, ...] = ()
+    effects: tuple[LyricEffect, ...] = ()
     cues: Mapping[str, CuePreset] = field(default_factory=dict)
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset()
     styles: tuple[Style, ...] = ()
-    factory: Callable[[LyricLine], LyricLine] | None = None
     references: tuple[LayoutLine, ...] = ()
 
     def __post_init__(self) -> None:
@@ -403,7 +407,7 @@ def prepare_tracks(
             cued = bind_lyric_cues(bare, local_presets)
             bindings = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent
-            )._resolve(track.animations)
+            )._resolve(tuple(effect for effect in track.effects if isinstance(effect, LyricRule)))
             resolved[identity] = bindings
             entrance, exit = _padding(bindings)
             display = Lifetime(
@@ -430,12 +434,37 @@ def prepare_tracks(
             line = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent
             )
-            if track.factory is not None:
-                line = track.factory(line)
+            for effect in track.effects:
+                if isinstance(effect, LyricRule):
+                    continue
+                line = effect(line)
                 if not isinstance(line, LyricLine) or line.id != identity:
                     raise ValueError(
                         f"{identity}: visual factory must preserve lyric identity"
                     )
+            if line._scheduled:
+                bindings = (*bindings, *line._scheduled)
+                resolved[identity] = bindings
+                entrance, exit = _padding(bindings)
+                display = Lifetime(
+                    max(0, min(display.start, singing.start - entrance)),
+                    max(display.end, singing.end + exit),
+                )
+                scheduled = _reserved_animations(line._scheduled)
+                if scheduled is not None:
+                    reserved = (
+                        scheduled
+                        if reserved is None
+                        else Lifetime(
+                            min(reserved.start, scheduled.start),
+                            max(reserved.end, scheduled.end),
+                        )
+                    )
+                    display = Lifetime(
+                        min(display.start, reserved.start),
+                        max(display.end, reserved.end),
+                    )
+                line = replace(line, _scheduled=())
             visual = _visual_spans(line)
             if line.lifetime.end > display.end:
                 visual = (*visual, TimeSpan(display.end, line.lifetime.end))

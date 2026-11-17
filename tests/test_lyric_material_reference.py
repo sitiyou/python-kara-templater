@@ -10,10 +10,10 @@ from kara_templater import (
     Document,
     Lifetime,
     Line,
+    LyricAnimationContext,
     LyricLine,
     LyricRole,
     LyricRule,
-    LyricTarget,
     Scene,
     StateFunction,
     Style,
@@ -84,8 +84,8 @@ def compare(actual: bytes, expected: Image.Image) -> None:
 def test_selected_opacity_matches_independent_native_letters(role: LyricRole):
     canvas, line = subject(r"{\k100}A{\k100}B")
 
-    def opacity_factory(line: LyricLine, target: LyricTarget) -> StateFunction:
-        value = 0.25 if target.singing[0].start == 1 else 0.75
+    def opacity_factory(timing: LyricAnimationContext) -> StateFunction:
+        value = 0.25 if timing.target.singing[0].start == 1 else 0.75
         return StateFunction(
             lambda base, p: replace(base, opacity=value), frozenset(("opacity",))
         )
@@ -293,7 +293,7 @@ def test_native_glow_bounds_preserve_independent_whole_glyph(
             ),
         ),
         glow=Glow(RED, border=border, blur=radius),
-    ).apply(line)
+    )(line)
     script = Scene(canvas).add(painted).compile().document.dumps()
     assert painted.layout.lyrics == line.layout.lyrics
     assert painted.query("character")[0].singing == line.query("character")[0].singing
@@ -332,8 +332,8 @@ def test_range_opacity_within_one_syllable_preserves_glyph_coverage():
     assert len(line.query("syllable")) == 1
     offsets = {item.object.id: item.start for item in line.layout.body.characters}
 
-    def factory(line: LyricLine, target: LyricTarget) -> StateFunction:
-        opacity = 0.25 if offsets[target.node_id] < 1 else 0.75
+    def factory(timing: LyricAnimationContext) -> StateFunction:
+        opacity = 0.25 if offsets[timing.target.node_id] < 1 else 0.75
         return StateFunction(
             lambda base, p: replace(base, opacity=opacity), frozenset(("opacity",))
         )

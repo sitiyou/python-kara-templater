@@ -121,7 +121,7 @@ class LyricSweep:
         if self.fill is None and self.outline is None:
             raise ValueError("sweep needs a sung fill or outline")
 
-    def apply(self, line: LyricLine) -> LyricLine:
+    def __call__(self, line: LyricLine) -> LyricLine:
         """Bind paint to measured clusters without splitting text or singing spans."""
         fields: dict[str, _SingingSweep] = {}
         nodes: dict[str, SceneObject] = {}

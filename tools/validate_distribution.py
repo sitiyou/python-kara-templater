@@ -290,7 +290,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         )
     (check / "tracks_recipe.py").write_text(
         "from kara_templater import Track, LyricRule, FadeIn\n"
-        "tracks = (Track(id='lyrics', animations=(LyricRule('line', 'enter', FadeIn(), duration=0.1),)),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricRule('line', 'enter', FadeIn(), duration=0.1),)),)\n"
     )
     run(
         [

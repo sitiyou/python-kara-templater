@@ -93,7 +93,7 @@ def paint(line: LyricLine) -> LyricLine:
         strategy="coverage",
         glow=BODY_GLOW,
         settings=RASTER_SETTINGS,
-    ).apply(line)
+    )(line)
     config = line.coverage
     assert config is not None
     glows = dict(config.glows)
@@ -129,7 +129,7 @@ def build_scene() -> Scene:
                 layout=Layout(position=Vec2(50, 35)),
                 preview=0,
                 tail=0,
-                factory=paint,
+                effects=(paint,),
             ),
         ),
     )

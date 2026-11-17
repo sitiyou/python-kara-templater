@@ -13,21 +13,21 @@ Use `--check` to verify that committed pages match the current public API.
 | Topic | Symbols |
 | --- | --- |
 | [Documents and lyric input](documents.md) | 27 |
-| [Scenes and compilation](scenes.md) | 21 |
-| [Animation and timing](animation.md) | 22 |
-| [Track authoring](tracks.md) | 15 |
+| [Scenes and compilation](scenes.md) | 22 |
+| [Animation and timing](animation.md) | 26 |
+| [Track authoring](tracks.md) | 20 |
 | [Text measurement and layout](text.md) | 26 |
-| [Geometry and paths](geometry.md) | 28 |
-| [Colors and appearance](paint.md) | 29 |
+| [Geometry and paths](geometry.md) | 29 |
+| [Colors and appearance](paint.md) | 30 |
 | [Lyric cues](cues.md) | 11 |
-| [Particles and references](particles.md) | 10 |
+| [Particles and references](particles.md) | 14 |
 | [Coverage and raster output](coverage.md) | 9 |
 | [Regions and progress curves](native.md) | 4 |
 | [Python templates](templates.md) | 7 |
 
 ## Symbol index
 
-209 public exports.
+225 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [AnimationClip](animation.md#animationclip)
@@ -57,12 +57,14 @@ Use `--check` to verify that committed pages match the current public API.
 - [CuePreset](cues.md#cuepreset)
 - [CuedLayout](cues.md#cuedlayout)
 - [CuedLyrics](cues.md#cuedlyrics)
+- [CurveIn](animation.md#curvein)
 - [DisplayWindow](native.md#displaywindow)
 - [Document](documents.md#document)
 - [DocumentLayout](text.md#documentlayout)
 - [DocumentLyrics](documents.md#documentlyrics)
 - [DocumentText](documents.md#documenttext)
 - [DrawableCharacter](text.md#drawablecharacter)
+- [DriftOut](animation.md#driftout)
 - [Emission](particles.md#emission)
 - [Engine](templates.md#engine)
 - [EventOrigin](documents.md#eventorigin)
@@ -100,11 +102,16 @@ Use `--check` to verify that committed pages match the current public API.
 - [LinearGradient](paint.md#lineargradient)
 - [LoadedFont](text.md#loadedfont)
 - [LyricAnchor](tracks.md#lyricanchor)
+- [LyricAnimationContext](tracks.md#lyricanimationcontext)
+- [LyricEcho](tracks.md#lyricecho)
+- [LyricEffect](tracks.md#lyriceffect)
 - [LyricGlow](paint.md#lyricglow)
+- [LyricGradient](paint.md#lyricgradient)
 - [LyricHighlights](paint.md#lyrichighlights)
 - [LyricLayout](text.md#lyriclayout)
 - [LyricLine](tracks.md#lyricline)
 - [LyricMapping](documents.md#lyricmapping)
+- [LyricParticles](particles.md#lyricparticles)
 - [LyricRole](tracks.md#lyricrole)
 - [LyricRule](tracks.md#lyricrule)
 - [LyricScene](tracks.md#lyricscene)
@@ -134,6 +141,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [PathFunction](geometry.md#pathfunction)
 - [PathItem](geometry.md#pathitem)
 - [PathObject](scenes.md#pathobject)
+- [Petal](particles.md#petal)
 - [Placement](tracks.md#placement)
 - [Polyline](geometry.md#polyline)
 - [PositionedRuby](text.md#positionedruby)
@@ -149,8 +157,10 @@ Use `--check` to verify that committed pages match the current public API.
 - [RectangleKeyframes](scenes.md#rectanglekeyframes)
 - [ReferenceFunction](particles.md#referencefunction)
 - [Region](native.md#region)
+- [Ribbon](particles.md#ribbon)
 - [RubyText](documents.md#rubytext)
 - [ScalePulse](animation.md#scalepulse)
+- [ScatterOut](tracks.md#scatterout)
 - [Scene](scenes.md#scene)
 - [SceneBudget](scenes.md#scenebudget)
 - [SceneCompileError](scenes.md#scenecompileerror)
@@ -165,6 +175,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [SingingTag](documents.md#singingtag)
 - [SoftSweep](paint.md#softsweep)
 - [SourceRef](documents.md#sourceref)
+- [Sparkle](particles.md#sparkle)
 - [StateAnimation](animation.md#stateanimation)
 - [StateFunction](animation.md#statefunction)
 - [StateKeyframe](animation.md#statekeyframe)
@@ -185,6 +196,8 @@ Use `--check` to verify that committed pages match the current public API.
 - [TimeSpan](animation.md#timespan)
 - [Timeline](animation.md#timeline)
 - [Track](tracks.md#track)
+- [TrailPath](geometry.md#trailpath)
+- [Transform](animation.md#transform)
 - [Tween](animation.md#tween)
 - [Vec2](geometry.md#vec2)
 - [VectorClip](scenes.md#vectorclip)
@@ -215,6 +228,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [layout_path](geometry.md#layout_path)
 - [linear_rate](animation.md#linear_rate)
 - [load_font](text.md#load_font)
+- [lyric_effects](tracks.md#lyric_effects)
 - [merge_geometry](geometry.md#merge_geometry)
 - [morph](geometry.md#morph)
 - [outline_text](geometry.md#outline_text)
@@ -227,9 +241,11 @@ Use `--check` to verify that committed pages match the current public API.
 - [preprocess](templates.md#preprocess)
 - [rasterize_group](coverage.md#rasterize_group)
 - [read_document_text](documents.md#read_document_text)
+- [render_enhanced](scenes.md#render_enhanced)
 - [resample_path](geometry.md#resample_path)
 - [select_characters](text.md#select_characters)
 - [smooth_rate](animation.md#smooth_rate)
+- [smoother_rate](animation.md#smoother_rate)
 - [split_karaoke](templates.md#split_karaoke)
 - [split_path](particles.md#split_path)
 - [stroke](geometry.md#stroke)

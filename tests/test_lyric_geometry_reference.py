@@ -44,7 +44,7 @@ def test_unsupported_source_geometry_fails_before_visual_factory(field, value):
     with pytest.raises(
         LayoutCapabilityError, match="border style 1 and zero style angle"
     ):
-        prepare_tracks(source, tracks=(Track(id="invalid", factory=factory),))
+        prepare_tracks(source, tracks=(Track(id="invalid", effects=(factory,)),))
     assert not calls
     assert source.dumps() == original
 
@@ -65,7 +65,7 @@ def test_shaped_coverage_matches_independent_whole_text(text, italic):
                 preview=0,
                 tail=0,
                 layout=Layout(position=Vec2(30, 40)),
-                factory=coverage,
+                effects=(coverage,),
             ),
         ),
     )
@@ -120,7 +120,7 @@ def test_compiled_edge_glow_matches_large_canvas_crop(position):
                     preview=0,
                     tail=0,
                     layout=Layout(position=point),
-                    factory=glowing,
+                    effects=(glowing,),
                 ),
             ),
         )

@@ -10,15 +10,13 @@ from pathlib import Path
 
 from PIL import Image
 
-from examples.output_layers import highlights, pulse
+from examples.output_layers import highlights
 from kara_templater import (
     Document,
     HighlightArrival,
     Layout,
     Line,
-    LyricLine,
     LyricRule,
-    LyricTarget,
     ScalePulse,
     SceneBudget,
     Style,
@@ -28,12 +26,6 @@ from kara_templater import (
     prepare_tracks,
 )
 from kara_templater._raster import rasterize
-
-
-def scaling(line: LyricLine, target: LyricTarget) -> ScalePulse:
-    animation = pulse(line, target)
-    assert isinstance(animation, ScalePulse)
-    return replace(animation, peak=1.4)
 
 
 def main() -> None:
@@ -67,10 +59,10 @@ def main() -> None:
         rule = LyricRule(
             "syllable" if mode == "whole" else "character",
             HighlightArrival(highlights=highlights) if mode == "each" else "singing",
-            scaling,
+            ScalePulse(peak=1.4),
             duration=0.4 if mode == "each" else 1,
         )
-        scene = prepare_tracks(source, tracks=(replace(track, animations=(rule,)),))
+        scene = prepare_tracks(source, tracks=(replace(track, effects=(rule,)),))
         result = scene.compile(budget=SceneBudget(fps=100, max_events=100_000))
         result.document.save(output / f"{mode}.ass")
         counts[mode] = result.event_count
@@ -86,7 +78,8 @@ def main() -> None:
                 )
                 duration = 0.4 if mode == "each" else 1
                 progress = (sample - start) / duration
-                factor = 1 + 0.4 * max(0, 1 - abs(2 * progress - 1))
+                phase = max(0, 1 - abs(2 * progress - 1))
+                factor = 1 + 0.4 * phase * phase * (3 - 2 * phase)
                 pivot = (
                     line.state.position + Vec2(box.center, box.middle)
                     if mode == "whole"

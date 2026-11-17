@@ -133,7 +133,7 @@ def test_arrival_duration_is_reserved_before_layout_and_factory_runs_once():
                 id="main",
                 preview=0,
                 tail=0,
-                animations=(LyricRule("character", clock, Jump(), hold=False),),
+                effects=(LyricRule("character", clock, Jump(), hold=False),),
             ),
         ),
     )

@@ -87,7 +87,7 @@ def test_native_move_avoids_sampling_and_has_relative_time():
     assert result.event_count == 1
     assert result.objects[0].strategy == "native-move"
     assert (
-        r"\move(0.000000,0.000000,100.000000,50.000000,500,1500)"
+        r"\move(0,0,100,50,500,1500)"
         in result.document.lines[-1].text
     )
 
@@ -110,9 +110,9 @@ def test_group_transforms_once_and_intersects_lifetimes():
     )
     event = Scene(document()).add(outer).compile().document.lines[-1]
     assert (event.start_time, event.end_time) == (1000, 2000)
-    assert r"\pos(100.000000,80.000000)" in event.text
-    assert r"\frz-90.000000" in event.text
-    assert r"\fscx200.000000" in event.text
+    assert r"\pos(100,80)" in event.text
+    assert r"\frz-90" in event.text
+    assert r"\fscx200" in event.text
     assert r"\alpha&H80&" in event.text
 
 
@@ -361,7 +361,7 @@ def test_identity_group_that_crops_birth_does_not_restart_native_move_clock():
     assert result.objects[0].strategy == "sampled"
     first = next(line for line in result.document.lines if not line.comment)
     assert first.start_time == 1000
-    assert r"\pos(20.200000,0.000000)" in first.text
+    assert r"\pos(20.2,0)" in first.text
 
 
 def test_song_offset_copy_keeps_half_grid_boundaries_and_alpha_identical():

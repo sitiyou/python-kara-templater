@@ -61,3 +61,11 @@ Run verification with:
 ```sh
 python -m pytest tests -v
 ```
+
+The optional `gpu` extra installs [ModernGL](https://github.com/moderngl/moderngl)
+and its [glcontext](https://github.com/moderngl/glcontext) dependency, both under
+the MIT license. Their separate Python distributions carry their licenses;
+this project does not vendor their implementation or bundle GPU driver libraries.
+The adapter and GLSL programs here are project code. FFmpeg is an external command
+provided by the user, not a bundled executable. Fixed native dependency notices
+remain manually maintained; enabling the extra does not scan host licenses.

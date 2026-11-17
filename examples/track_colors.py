@@ -41,8 +41,10 @@ TRACKS = (
         layout=Layout(position=Vec2(0, 180), alignment="center"),
         preview=0,
         tail=0,
-        factory=LyricSweep(fill=color, width=0).apply,
-        animations=(LyricRule("syllable", "singing", ScalePulse(peak=1.08)),),
+        effects=(
+            LyricRule("syllable", "singing", ScalePulse(peak=1.08)),
+            LyricSweep(fill=color, width=0),
+        ),
     ),
 )
 

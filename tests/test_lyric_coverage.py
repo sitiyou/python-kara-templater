@@ -72,7 +72,7 @@ def paint(line: LyricLine) -> LyricLine:
             for box in (line.layout.body.range_bounds(unit.start, unit.end),)
         ),
         strategy="coverage",
-    ).apply(line)
+    )(line)
 
 
 def track(**changes):
@@ -82,7 +82,7 @@ def track(**changes):
             layout=Layout(position=Vec2(30, 40)),
             preview=0,
             tail=0,
-            factory=paint,
+            effects=(paint,),
         ),
         **changes,
     )
@@ -91,7 +91,7 @@ def track(**changes):
 def test_preparation_defers_animation_callbacks_and_preserves_source():
     calls = []
     config = track(
-        animations=(
+        effects=(*((
             LyricRule(
                 "syllable",
                 "singing",
@@ -100,7 +100,7 @@ def test_preparation_defers_animation_callbacks_and_preserves_source():
                     rate=lambda t: calls.append(t) or t,
                 ),
             ),
-        )
+        )), paint,), 
     )
     doc = source()
     before = doc.dumps()
@@ -194,7 +194,7 @@ def test_glow_only_animation_boundaries_and_runtime_bounds():
         }
         return replace(line, coverage=replace(line.coverage, glows=glows))
 
-    scene = prepare_tracks(source(), tracks=(track(factory=factory),))
+    scene = prepare_tracks(source(), tracks=(track(effects=(factory,)),))
     result = scene.compile(budget=BUDGET)
     assert result.objects[0].sample_times[:2] == pytest.approx((0.015, 0.065))
     line = scene.lines[0]
@@ -243,8 +243,7 @@ def test_frame_preflight_rejects_before_animation_callbacks_without_mutating_inp
         )
 
     configured = track(
-        factory=limited,
-        animations=(
+        effects=(*((
             LyricRule(
                 "character",
                 "singing",
@@ -253,7 +252,8 @@ def test_frame_preflight_rejects_before_animation_callbacks_without_mutating_inp
                     rate=lambda p: calls.append(p) or p,
                 ),
             ),
-        ),
+        )), limited,),
+        
     )
     document = source()
     original = document.dumps()
@@ -409,7 +409,7 @@ def test_sweep_hold_and_exit_extend_display_without_retiming_source():
         tracks=(
             track(
                 preview=0.2,
-                animations=(LyricRule("line", "exit", FadeOut(), duration=0.2),),
+                effects=(*((LyricRule("line", "exit", FadeOut(), duration=0.2),)), paint,), 
             ),
         ),
     )
@@ -474,7 +474,7 @@ def test_partial_glow_overrides_keep_role_geometry_and_reusable_defaults():
         styles=(Style(fontname="DejaVu Sans", fontsize=20, shadow=0, outline=0),),
     )
     doc.records.append(Line(text=r"{\k20}AB|ab", start_time=0, end_time=400))
-    line = prepare_tracks(doc, tracks=(track(factory=None),)).lines[0]
+    line = prepare_tracks(doc, tracks=(track(effects=()),)).lines[0]
     body = Glow(WHITE, blur=10, border=10, opacity=0.5)
     ruby = Glow(WHITE, blur=6, border=6, opacity=0.5)
     bases = {"character": body, "ruby": ruby}
@@ -495,7 +495,7 @@ def test_partial_glow_overrides_keep_role_geometry_and_reusable_defaults():
     # Material recoloring is independent of the coverage glow configuration.
     from kara_templater import LyricSweep
 
-    painted = LyricSweep(fill=BLUE, width=0).apply(line)
+    painted = LyricSweep(fill=BLUE, width=0)(line)
     actual = Scene(doc).add(replace(painted, coverage=Coverage(glows=overridden)))
     reference = Scene(doc).add(replace(painted, coverage=Coverage(glows=explicit)))
     output = actual.compile(budget=BUDGET).document.dumps()

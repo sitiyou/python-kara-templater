@@ -16,6 +16,7 @@ then use the task guides and API reference as you work.
 1. Read [Documents and lyrics](guides/documents.md) for input selection and timing.
 2. Configure [Tracks](guides/tracks.md) or execute [Python templates](guides/templates.md).
    The [lyric highlight tutorial](tutorials/lyric-highlights.md) provides a complete fixed input.
+   Compare complete styles in [Design karaoke that stays readable](tutorials/karaoke-design.md).
 3. Add [custom text, ruby, and cues](guides/text-and-cues.md) or other Scene objects.
 4. Export using the [CLI](guides/cli.md) or compile in Python.
 
@@ -46,3 +47,5 @@ then use the task guides and API reference as you work.
 All user examples produce ASS. Gallery GIFs are previews rendered from those ASS
 files. The repository's `examples` and `tools` modules require a source checkout;
 standalone tutorial scripts use only the installed `kara_templater` package.
+
+- [GPU-enhanced ASS and video rendering](guides/gpu-rendering.md): continuous gradients, portable effect comments, fallback playback and streamed rendering.

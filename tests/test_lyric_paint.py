@@ -19,7 +19,7 @@ from kara_templater import (
 
 def test_sweep_is_one_material_protocol_with_screen_position_and_seek():
     scene = prepare_tracks(
-        document(), tracks=(main(factory=LyricSweep(fill=PINK, width=12).apply),)
+        document(), tracks=(main(effects=(*(main().effects), LyricSweep(fill=PINK, width=12),), ),)
     )
     line = scene.lines[0]
     group = line.children[0]
@@ -53,8 +53,8 @@ def test_sweep_is_one_material_protocol_with_screen_position_and_seek():
 
 
 def test_sweep_works_after_semantic_copy_and_rejects_unrepresentable_front():
-    original = prepare_tracks(document(), tracks=(main(animations=()),)).lines[0]
-    clone = LyricSweep(fill=PINK).apply(original.copy(id="copy", delay=3))
+    original = prepare_tracks(document(), tracks=(main(effects=(*(()),)),)).lines[0]
+    clone = LyricSweep(fill=PINK)(original.copy(id="copy", delay=3))
     group = clone.children[0]
     assert isinstance(group, ObjectGroup)
     child = group.children[0]
@@ -74,8 +74,8 @@ def test_color_factories_resolve_once_per_cluster_including_ruby():
         calls.append((line.id, target.id))
         return RED if target.role == "character" else BLUE
 
-    line = prepare_tracks(document(), tracks=(main(animations=()),)).lines[0]
-    decorated = LyricSweep(fill=color, outline=color, width=0).apply(line)
+    line = prepare_tracks(document(), tracks=(main(effects=(*(()),)),)).lines[0]
+    decorated = LyricSweep(fill=color, outline=color, width=0)(line)
     assert decorated.layout == line.layout
     assert decorated.targets == line.targets
     count = len(decorated.query("character", "ruby"))
@@ -104,11 +104,11 @@ def test_color_factories_resolve_once_per_cluster_including_ruby():
 def test_sweep_receives_animated_base_paint_independent_of_binding_order():
     from kara_templater import BLUE, RED, Color, LyricRule, StatePatch, Tween
 
-    plain = prepare_tracks(document(), tracks=(main(animations=()),)).lines[0]
+    plain = prepare_tracks(document(), tracks=(main(effects=(*(()),)),)).lines[0]
     rule = LyricRule("character", "singing", Tween(StatePatch(fill=RED, outline=BLUE)))
     sweep = LyricSweep(fill=PINK, width=0)
-    before = sweep.apply(plain.bind(rule))
-    after = sweep.apply(plain).bind(rule)
+    before = sweep(plain.bind(rule))
+    after = sweep(plain).bind(rule)
     scenes = [Scene(document()).add(line) for line in (before, after)]
     for scene, line in zip(scenes, (before, after), strict=True):
         group = line.children[0]
@@ -131,10 +131,10 @@ def test_sweep_receives_animated_base_paint_independent_of_binding_order():
 def test_bad_sweep_factory_is_rejected_during_construction_without_mutating_line():
     with pytest.raises(TypeError, match="Color values or factories"):
         LyricSweep(fill=3)  # ty: ignore[invalid-argument-type]
-    line = prepare_tracks(document(), tracks=(main(animations=()),)).lines[0]
+    line = prepare_tracks(document(), tracks=(main(effects=(*(()),)),)).lines[0]
     invalid = LyricSweep(fill=lambda line, target: 3)  # ty: ignore[invalid-argument-type]
     with pytest.raises(TypeError, match="factory must return Color"):
-        invalid.apply(line)
+        invalid(line)
     group = line.children[0]
     assert isinstance(group, ObjectGroup)
     assert all(node.material is None for node in group.children)
@@ -165,7 +165,7 @@ def test_cluster_color_factory_reaches_ass_for_constructed_and_parsed_sources(
         return colors[line.query(target.role).index(target) % 3]
 
     configured = Track(
-        id="colors", preview=0, tail=0, factory=LyricSweep(fill=color, width=0).apply
+        id="colors", preview=0, tail=0, effects=(LyricSweep(fill=color, width=0),)
     )
     scene = prepare_tracks(source, tracks=(configured,))
     assert len(calls) == 9
@@ -206,7 +206,7 @@ def test_repeated_readings_keep_independent_sweep_clocks():
                 id="repeat",
                 preview=0,
                 tail=0,
-                factory=LyricSweep(fill=PINK, width=0).apply,
+                effects=(LyricSweep(fill=PINK, width=0),),
             ),
         ),
     )
@@ -242,13 +242,13 @@ def test_repeated_readings_keep_independent_sweep_clocks():
 def test_factory_can_preserve_ruby_material_while_coloring_body():
     from kara_templater import BLUE, RED, LyricRule, StateFunction
 
-    original = prepare_tracks(document(), tracks=(main(animations=()),)).lines[0]
+    original = prepare_tracks(document(), tracks=(main(effects=(*(()),)),)).lines[0]
     ruby_only = LyricSweep(
         fill=lambda line, target: BLUE if target.role == "ruby" else None
-    ).apply(original)
+    )(original)
     changed = LyricSweep(
         fill=lambda line, target: RED if target.role == "character" else None
-    ).apply(ruby_only)
+    )(ruby_only)
     assert changed.layout == original.layout
     nodes = {}
 
@@ -273,7 +273,7 @@ def test_factory_can_preserve_ruby_material_while_coloring_body():
     )
     # Both omitted channels leave a preexisting material attached, and the
     # untouched fill/outline still receives ordinary animation before painting.
-    untouched = LyricSweep(fill=lambda line, target: None).apply(original)
+    untouched = LyricSweep(fill=lambda line, target: None)(original)
     animated = untouched.bind(
         LyricRule(
             "ruby",
@@ -325,7 +325,7 @@ def test_local_singing_colors_preserve_role_geometry_and_base_paint():
             GREEN if target.node_id == first or target.role == "ruby" else RED
         ),
         width=0,
-    ).apply(base)
+    )(base)
     assert painted.layout == base.layout
     assert painted.targets == base.targets
     before = Scene(source).add(base).evaluator()
@@ -379,7 +379,7 @@ def test_instant_singing_changes_body_and_ruby_at_exact_source_clock(delay):
     )
     plain = replace(plain, state=replace(plain.state, position=Vec2(60, 60)))
     plain = plain.copy(id="instant", delay=delay)
-    painted = LyricSweep(fill=RED, width=0).apply(plain)
+    painted = LyricSweep(fill=RED, width=0)(plain)
     assert painted.targets == plain.targets
     nodes = {
         child.id: child
