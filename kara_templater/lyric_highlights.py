@@ -249,27 +249,23 @@ class _SingingHighlights:
         return TimeSpan(start if self.wipe else end, end)
 
     def _passes(self, unit: LyricUnit, region: Region) -> tuple[HighlightPass, ...]:
-        curve = unit._body_curve() if self.wipe else None
-        passes = []
-        for index, span in enumerate(unit._body_singing()):
-            time = self.interval(span.start, span.end)
-            item = HighlightPass(time, region, round=index)
-            if curve is not None:
-                item = replace(
-                    item,
-                    rate=curve.at,
-                    inverse_rate=curve.arrival,
-                    breakpoints=tuple(t * time.duration for t, _ in curve.knots[1:-1]),
-                )
-            passes.append(item)
-        return tuple(passes)
+        if self.wipe:
+            return tuple(
+                HighlightPass(self.interval(span.start, span.end),
+                              Region(region.left + region.width * a,
+                                     region.right if b == 1 else region.left + region.width * b),
+                              round=i if a == 0 else 0)
+                for i, (span, a, b) in enumerate(unit._body_parts())
+            )
+        return tuple(HighlightPass(self.interval(span.start, span.end), region, round=i)
+                     for i, span in enumerate(unit._body_singing()))
 
     def for_target(self, highlight: Highlight, target: LyricTarget) -> Highlight:
-        if target.role != "ruby":
+        if target.role != "ruby" or (not self.wipe and len(highlight.passes) == 1):
             return highlight
         clock = target._reading_span if self.wipe and target._reading_span else target.singing[0]
         interval = self.interval(clock.start, clock.end)
-        return replace(highlight, passes=(HighlightPass(interval, highlight.passes[0].region),))
+        return replace(highlight, passes=(HighlightPass(interval, Region(highlight.passes[0].region.left, highlight.passes[-1].region.right)),))
 
     def __call__(self, line: LyricLine) -> tuple[Highlight, ...]:
         return tuple(
@@ -432,9 +428,10 @@ class _Ownership:
 
     def singing_keyframes(self, padding: float, feather: float = 0) -> RectangleKeyframes:
         """Piecewise-linear singing motion with separate decoration shoulders."""
-        span = self.highlights[0].passes[0]
+        passes = self.highlights[0].passes
+        span = passes[0]
         start = span.time.start + self.shift - self.birth
-        end = span.time.end + self.shift - self.birth
+        end = passes[-1].time.end + self.shift - self.birth
         left = (self.drawing.left - self.glyph_left) / self.scale
         right = (self.drawing.right - self.glyph_left) / self.scale
 
@@ -449,16 +446,20 @@ class _Ownership:
             return RectangleKeyframes(
                 ((start, bounds(left - padding)), (end, bounds(right + padding)))
             )
-        return RectangleKeyframes(
-            (
-                (max(-self.birth, start - _EDGE_SECONDS), bounds(left - padding)),
-                (start, bounds(left + feather / 2)),
-                *((start + dt, bounds(left + (right - left) * span.rate(dt / span.time.duration) + feather / 2))
-                  for dt in span.breakpoints),
-                (end, bounds(right + feather / 2)),
-                (end + _EDGE_SECONDS, bounds(right + padding)),
-            )
-        )
+        keys = [(start, bounds(left + feather / 2))]
+        for part in passes:
+            edge = left + (right - left) * (part.region.right - self.body.left) / self.body.width
+            t = part.time.end + self.shift - self.birth
+            key = (t, bounds(edge + feather / 2))
+            # Consecutive zero-length checkpoints collapse into one visible jump.
+            if len(keys) >= 2 and keys[-2][0] == t:
+                keys[-1] = key
+            else:
+                keys.append(key)
+        approach = max(-self.birth, start - _EDGE_SECONDS)
+        approach_keys = ((approach, bounds(left - padding)),) if approach < start else ()
+        return RectangleKeyframes((*approach_keys, *keys,
+                                   (end + _EDGE_SECONDS, bounds(right + padding))))
 
     def world_regions(self, state: VisualState, time: float) -> tuple[Region, ...]:
         if state.rotation % 360 or state.skew.x or state.scale.x <= 0:
@@ -727,8 +728,8 @@ class LyricHighlights:
             native_singing = (
                 automatic
                 and len(chosen) == 1
-                and len(chosen[0].passes) == 1
-                and chosen[0].passes[0].time.duration > 0
+                and chosen[0].passes[-1].round == 0
+                and chosen[0].passes[-1].time.end > chosen[0].passes[0].time.start
             )
             # One shared spatial margin keeps body/glow ownership disjoint.
             states = (self.base_paint.interpolate(node.state, 1), *(h.paint.interpolate(node.state, 1) for h in chosen))
@@ -798,7 +799,7 @@ class LyricHighlights:
                                 ),
                             ),
                         )
-                        for index in range(ownership.clip_regions)
+                        for index in range(1 if native_singing else ownership.clip_regions)
                     )
                 else:
                     partitions[identity] = CoveragePartition(

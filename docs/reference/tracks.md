@@ -68,7 +68,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L653)
+[Source](../../kara_templater/karaoke_effects.py#L731)
 
 ```python
 KaraokeEffects(
@@ -477,7 +477,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L74)
+[Source](../../kara_templater/lyric_line.py#L77)
 
 ```python
 LyricAnimationContext(
@@ -592,7 +592,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L257)
+[Source](../../kara_templater/lyric_line.py#L260)
 
 ```python
 LyricLine(
@@ -813,7 +813,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L106)
+[Source](../../kara_templater/lyric_line.py#L109)
 
 ```python
 LyricRule(

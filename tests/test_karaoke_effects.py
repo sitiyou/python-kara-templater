@@ -97,6 +97,130 @@ def test_zero_preview_and_ruby_have_no_overlapping_animations():
     assert not any(":flash:" in n.id for n in nodes if "/ruby" in n.id)
 
 
+@pytest.mark.parametrize("kind", ["char_fade", "char_drip", "spin_flip"])
+def test_single_character_exit_finishes_at_display_end(kind):
+    scene = subject(text=r"{\k50}H", start=1000, end=1500,
+                    entry="none", exit=kind, singing="none", exit_duration=0.6)
+    line, = scene.lines
+    glyph, = line.query("character")
+    state = scene.evaluator().at(glyph.node_id, line.lifetime.end - 0.20)
+    assert state.opacity > 0
+
+
+@pytest.mark.parametrize("kind", ["char_fade", "char_drip", "spin_flip"])
+def test_ruby_uses_its_hosts_transition_slot(kind):
+    scene = subject(text=r"{\k20}A{\k20}B|bc{\k20}C{\k20}D", start=1500, end=2300,
+                    entry=kind, exit=kind, entry_duration=0.6, exit_duration=0.6, singing="none")
+    line, = scene.lines
+    host = line.query("character")[1]
+    ruby = line.query("ruby")
+    evaluator = scene.evaluator()
+    times = (line.lifetime.start + 0.05, line.lifetime.start + 0.2,
+             line.lifetime.end - 0.30, line.lifetime.end - 0.15)
+    for time in times:
+        opacity = evaluator.at(host.node_id, time).opacity
+        assert [evaluator.at(r.node_id, time).opacity for r in ruby] == pytest.approx([opacity] * 2)
+
+
+@pytest.mark.parametrize("kind", ["tracking_in", "wave_in"])
+def test_readings_enter_with_the_hosts_translation_and_reveal(kind):
+    scene = subject(text=r"{\k20}i{\k20}W|bc{\k20}！{\k20}D", start=1500, end=2300,
+                    entry=kind, exit="none", entry_duration=0.6, singing="none")
+    line, = scene.lines
+    host = line.query("character")[1]
+    evaluator = scene.evaluator()
+    rest = line.lifetime.start + 0.8
+    def displacement(node_id, dt):
+        state = evaluator.at(node_id, line.lifetime.start + dt)
+        delta = state.position - evaluator.at(node_id, rest).position
+        return delta.x, delta.y, state.opacity
+
+    for dt in (0.08, 0.15, 0.25):
+        expected = displacement(host.node_id, dt)
+        for target in line.query("ruby"):
+            assert displacement(target.node_id, dt) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(("entry", "exit"), [("petal", "snow"), ("assemble_in", "dissolve_out")])
+def test_particle_transitions_reveal_the_reading_with_its_host(entry, exit):
+    scene = subject(text=r"{\k20}i{\k20}W|bc{\k20}！", start=1500, end=2100,
+                    entry=entry, exit=exit, entry_duration=0.6, exit_duration=0.6, singing="none")
+    line, = scene.lines
+    host = line.query("character")[1]
+    evaluator = scene.evaluator()
+    for time in (line.lifetime.start + 0.1, line.lifetime.start + 0.35, line.lifetime.end - 0.32):
+        expected = evaluator.at(host.node_id, time).opacity
+        for target in line.query("ruby"):
+            assert evaluator.at(target.node_id, time).opacity == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(("entry", "exit", "during_entry"), [
+    ("stretch_in", "none", True), ("none", "stretch_out", False),
+    ("glow_in", "none", True), ("none", "converge_out", False),
+])
+def test_reading_resizes_as_one_annotation(entry, exit, during_entry):
+    scene = subject(text=r"{\k20}i{\k20}W|bc{\k20}！", start=1500, end=2100,
+                    entry=entry, exit=exit, entry_duration=0.6, exit_duration=0.6, singing="none")
+    line, = scene.lines
+    left, right = line.query("ruby")
+    host = line.query("character")[1]
+    evaluator = scene.evaluator()
+    rest = 1.8
+    time = line.lifetime.start + (0.12 if entry == "glow_in" else 0.25) if during_entry else line.lifetime.end - 0.25
+
+    def centers_distance(at):
+        a, b = (evaluator.at(t.node_id, at).transform.apply(t.center) for t in (left, right))
+        return b.x - a.x
+
+    ratio = evaluator.at(host.node_id, time).scale.x / evaluator.at(host.node_id, rest).scale.x
+    assert abs(ratio - 1) > 0.02
+    assert centers_distance(time) == pytest.approx(centers_distance(rest) * ratio)
+    assert not any(":halo:" in name or ":echo:" in name
+                   for t in (left, right) for name in t.aliases)
+
+
+def test_utopia_shared_reading_leaves_after_following_main_glyph_and_skips_spaces():
+    scene = subject(text=r"{\k50}AB|ab{\k20} {\k50}C{\k50}D", start=1500, end=3200,
+                    entry="none", exit="utopia", singing="none")
+    line, = scene.lines
+    evaluator = scene.evaluator()
+    for target in (*line.query("character")[:2], *line.query("ruby")):
+        assert evaluator.at(target.node_id, 2.65).opacity == pytest.approx(1)
+        assert evaluator.at(target.node_id, 3.0).opacity == pytest.approx(0.6)
+
+
+def test_character_fade_composites_the_waiting_and_sung_colors():
+    from kara_templater._raster import rasterize
+
+    scene = subject(text=r"{\k50}H", start=1000, end=1500, entry="none",
+                    exit="char_fade", exit_duration=0.6, singing="none",
+                    unsung=Color(0, 0, 255), sung=Color(255, 0, 0),
+                    unsung_outline=Color(0, 0, 0), sung_outline=Color(0, 0, 0))
+    script = scene.compile(native_tweens=True).document.dumps()
+    end = round(1000 * scene.lines[0].lifetime.end)
+
+    def two_inks(ms):
+        rgba = rasterize(script, ms, (640, 360)).rgba
+        return any(rgba[i] > 80 and rgba[i + 2] > 20 and rgba[i + 3] > 80
+                   for i in range(0, len(rgba), 4))
+
+    assert not two_inks(end - 300)
+    assert two_inks(end - 125)
+
+
+def test_stroke_flash_uses_the_body_onset_and_stationary_outline():
+    scene = subject(text=r"{\k0}A{\k25}空|そ{\k25}#|ら", start=1500, end=2000,
+                    entry="none", exit="none", singing="utopia", stroke_flash=True)
+    line, = scene.lines
+    flashes = [n for n in _walk(line) if ":flash:" in n.id]
+    assert len(flashes) == 2
+    assert all((n.lifetime.start, n.lifetime.end) == pytest.approx((1.5, 1.74)) for n in flashes)
+    evaluator = scene.evaluator()
+    for n in flashes:
+        assert evaluator.at(n.id, 1.60).scale == evaluator.at(n.id, 1.51).scale
+    assert scene.compile(native_tweens=True).event_count
+
+
 def test_entry_is_visible_before_motion_has_settled():
     scene = build(entry="tracking_in", singing="none", exit="none")
     line = scene.lines[0]
@@ -641,6 +765,19 @@ def test_dense_scanline_palettes_remain_exportable_to_gpu():
     assert any(draw.gradient is not None for draw in SceneFrames(scene).at(1.5))
 
 
+@pytest.mark.parametrize("mode", ["utopia", "zoom_pulse"])
+def test_shared_reading_pulses_follow_each_kana_and_host_character(mode):
+    scene = subject(text=r"{\k50}空空|まま", start=1000, end=1500,
+                    entry="none", exit="none", singing=mode)
+    evaluator = scene.evaluator()
+    for role in ("character", "ruby"):
+        first, second = scene.lines[0].query(role)
+        scale = evaluator.at(second.node_id, 0.99).scale.x
+        assert evaluator.at(first.node_id, 1.06).scale.x > scale
+        assert evaluator.at(second.node_id, 1.06).scale.x == pytest.approx(scale)
+        assert evaluator.at(second.node_id, 1.31).scale.x > scale
+
+
 def test_multicharacter_reading_divides_its_wipe_by_shaped_cluster():
     from kara_templater import RectangleKeyframes
 
@@ -712,6 +849,88 @@ def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass(tmp_path,
 
         assert center(short) == pytest.approx(center(equal), abs=1)
     assert short != frame(r"{\k10}空|そ{\k40}#|ら", 1250)
+
+
+@pytest.mark.parametrize(("text", "jump_ms"), [
+    (r"{\k0}W|a{\k50}#|a", 1000),
+    (r"{\k25}W|a{\k0}#|a{\k0}#|a{\k25}#|a", 1250),
+    (r"{\k50}W|a{\k0}#|a", 1500),
+])
+def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, jump_ms):
+    from kara_templater._raster import rasterize
+
+    doc = Document.create(width=640, height=360, styles=(Style(fontname="DejaVu Sans", fontsize=50),))
+    doc.records.append(Line(start_time=1000, end_time=1500, text=text))
+    recipe = KaraokeEffects(entry="none", exit="none", singing="none", sung=Color(255, 0, 0),
+                            unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
+    scene = prepare_tracks(doc, tracks=(Track(id="main", preview=0, tail=1, effects=(recipe,)),))
+    compact = tmp_path / "lyric.ass"
+    scene.export_compact_ass(compact)
+    scripts = scene.compile(native_tweens=True).document.dumps(), compact.read_text(encoding="utf-8-sig")
+
+    def red_pixels(script, ms):
+        rgba = rasterize(script, ms, (640, 360)).rgba
+        return sum(rgba[i:i + 4] == b"\xff\x00\x00\xff" for i in range(0, len(rgba), 4))
+
+    for ms in (jump_ms - 10, jump_ms, jump_ms + 10):
+        assert red_pixels(scripts[0], ms) == red_pixels(scripts[1], ms)
+    assert red_pixels(scripts[0], jump_ms) - red_pixels(scripts[0], jump_ms - 10) > 100
+
+
+def test_scanline_handoff_uses_endpoint_after_instant_final_reading():
+    from kara_templater._raster import rasterize
+
+    def handoff(first, last):
+        scene = subject(text=rf"{{\k{first}}}空|そ{{\k{last}}}#|ら{{\k50}}を",
+                        start=1500, end=2500, entry="none", exit="none", singing="scanline",
+                        scanline_width=16, scanline_softness=3, scanline_color=Color(0, 255, 255))
+        rgba = rasterize(scene.compile(native_tweens=True).document.dumps(), 2000, (640, 360)).rgba
+        return [i for i in range(0, len(rgba), 4) if rgba[i:i + 4] == b"\x00\xff\xff\xff"]
+
+    ordinary = handoff(25, 25)
+    assert ordinary and handoff(50, 0) == ordinary
+
+
+@pytest.mark.parametrize(("mode", "ticks", "expected"), [
+    ("none", 0, (False, True, True)),
+    ("no_wipe", 10, (False, False, True)),
+])
+def test_ruby_color_switch_at_the_annotation_boundary(tmp_path, mode, ticks, expected):
+    from kara_templater._raster import rasterize
+
+    scene = subject(text=rf"{{\k{ticks}}}空|そ{{\k{50-ticks}}}#|ら",
+                    start=1000, end=1500, entry="none", exit="none", singing=mode,
+                    sung=Color(255, 0, 0), unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
+    path = tmp_path / "ruby.ass"
+    scene.export_compact_ass(path)
+    def ruby_has_red(script, ms):
+        rgba = rasterize(script, ms, (640, 360)).rgba
+        top = next(i // 640 for i, a in enumerate(rgba[3::4]) if a > 128)
+        ruby = rgba[4 * 640 * top:4 * 640 * (top + 10)]
+        return any(ruby[i] > 180 and ruby[i + 1] < 60 and ruby[i + 3] > 128
+                   for i in range(0, len(ruby), 4))
+
+    times = (1000, 1200 if ticks else 1010, 1500)
+    for script in (scene.compile(native_tweens=True).document.dumps(), path.read_text(encoding="utf-8-sig")):
+        assert tuple(ruby_has_red(script, ms) for ms in times) == expected
+
+
+def test_empty_timed_reading_hides_scanline_during_rest():
+    from kara_templater._raster import rasterize
+
+    scene = subject(
+        text=r"{\k10}空|そ{\k20}#|{\k20}#|ら{\k10}#|", start=1500, end=2100,
+        entry="none", exit="none", singing="scanline", scanline_width=24,
+        scanline_color=Color(0, 255, 255),
+    )
+    script = scene.compile(native_tweens=True).document.dumps()
+
+    def visible(ms):
+        rgba = rasterize(script, ms, (640, 360)).rgba
+        return any(rgba[i:i + 4] == bytes((0, 255, 255, 255)) for i in range(0, len(rgba), 4))
+
+    assert all(visible(ms) for ms in (1510, 1600, 1800, 1990, 2000))
+    assert all(not visible(ms) for ms in (1500, 1610, 1790, 2010, 2090))
 
 
 def test_body_scanline_holds_release_frame_and_resumes_after_a_pause():

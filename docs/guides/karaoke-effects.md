@@ -121,7 +121,7 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `fade` | `fade` | Whole-line opacity |
 | `slide_in` | `slide_out` | Whole-line horizontal movement and opacity |
 | `rise` | `rise` | Whole-line upward movement |
-| `char_fade` | `char_fade` | Staggered character opacity |
+| `char_fade` | `char_fade` | Staggered character opacity. On exit the waiting and sung colors fade together. |
 | `char_drip` | `char_drip` | Corner-pivot shear, like a hanging letter |
 | `spin_flip` | `spin_flip` | Centered scale and shear |
 | `utopia` | `utopia` | Overshooting entrance; rotating, flipping, shrinking exit |
@@ -136,6 +136,8 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `petal` | `petal` | Petals sway and turn while entering/leaving |
 | `snow` | `snow` | Six-branched snowflakes with an open center |
 | `snow_solid` | `snow_solid` | Six-branched snowflakes with a filled center |
+
+For `char_fade`, `char_drip` and `spin_flip`, all kana in one annotation enter and leave with its first main character. A single-character line finishes its exit at the display end. For `tracking_in` and `wave_in`, kana share that main character’s translation and reveal time throughout entry. Stretch, glow, spin-flip, scatter and converge transform the reading around a shared center. The stretch halos and glow echoes belong to the main text. With particle transitions the reading follows its host’s reveal or fade. A Utopia exit waits for the next visible main character to finish. A reading and the main characters it covers share this departure time.
 
 `entry_duration` and `exit_duration` are seconds for the complete transition.
 `stagger` is the fraction of that duration assigned to delay between the first
@@ -192,7 +194,7 @@ move independently after birth. They are emitted from body text, not ruby.
   the resting text uses each singer’s full ink span. The static scanline samples
   the current contiguous run; a zoom-pulse scanline uses the moving glyph’s advance.
 - In the default `color` mode, `scanline_color` sets the band color for both fill and outline (default white). `scanline_softness` sets the inward falloff on each side, default 8 px at 1080p. Zero gives a hard band. For an ordinary single-pass wipe using solid colors or linear gradients on a shared axis and coordinate space, the soft band interpolates both the fill and outline RGB inside the original glyph silhouette. Each channel can combine up to 16 distinct stop positions across the brushes. More stops, mixed-axis or custom materials, the baseline-pivot Utopia pulse, repeated passes and a separate hook feather use clipped color overlays.
-- When a unit gets its timing from its reading, the main text keeps its ordinary color wipe and the bright band follows the kana. Set `ruby_scanline="both"` to also light the main text. Consecutive positive-duration readings divide the main text’s wipe into equal distances. If the first of two readings lasts 100 ms and the second lasts 400 ms, the main text reaches its midpoint at 100 ms. Within each timed reading, the wipe gives each shaped character an equal share of that interval. A combining dakuten stays with its kana. Custom rules bound to the reading’s singing interval still receive the authored interval.
+- When a unit gets its timing from its reading, the main text keeps its ordinary color wipe and the bright band follows the kana. Set `ruby_scanline="both"` to also light the main text. Consecutive reading checkpoints divide the main text’s wipe into equal distances. A zero-duration checkpoint colors its share of the main text immediately. A zero-duration kana at the very start of the reading stays in its waiting color on the onset frame and switches on the next ASS tick. With `no_wipe`, the whole annotated reading switches together at its end. If the first of two readings lasts 100 ms and the second lasts 400 ms, the main text reaches its midpoint at 100 ms. Within each timed reading, the wipe gives each shaped character an equal share of that interval. Utopia and zoom pulse each kana on its own interval. When a reading spans several main characters, each main character pulses as the wipe crosses it. A combining dakuten stays with its kana. An empty timed reading (`#|`) introduces a rest. The band reaches the previous kana’s edge, disappears during the rest, and returns at the next kana when singing resumes. Custom rules bound to the reading’s singing interval still receive the authored interval.
 - For a second outline that changes color under the sweep, supply both `base_glow` and `glow` with zero blur and a border wider than the main outline. A single-pass scanline uses the outer stroke’s own waiting and sung colors in the brightness and follow modes.
 - `scanline_width`: script pixels, omit for a band of 16 px at 1080p, scaled to script height. An explicit width uses script pixels. At a syllable handoff the band can light ink on both neighboring glyphs. On horizontal lyrics, the band appears when the first pixel has been sung. At a pause it reaches the previous note’s endpoint, disappears during the rest, and resumes from that endpoint when the next note begins. ASS represents these boundary frames on its centisecond clock.
 - For a soft color change in the standalone GPU hook, use
@@ -204,7 +206,7 @@ move independently after birth. They are emitted from body text, not ruby.
   additional bright stripe. With a feathered hook, set `front_color` to give
   the moving edge a distinct color inside the fill and hard outline. The halo
   retains its softer color transition.
-- `stroke_flash=True`: a 0.24-second white contour pulse at each body-glyph onset.
+- `stroke_flash=True`: a 0.24-second white pulse along the measured body outline, beginning at the body note’s onset. The flash stays in place while the glyph pulses. Reading checkpoints do not retrigger it.
 
 `sung` and `unsung` set the basic fill colors. `material`, `glow` and `base_glow`
 accept the same fields/factories as `LyricHighlights.from_singing`, including

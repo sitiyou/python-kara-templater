@@ -145,7 +145,7 @@ def test_coverage_uses_body_ownership_without_clip_shoulders():
     assert result.coverage is not None
 
 
-def test_ruby_and_delayed_copy_use_body_progress_with_their_own_geometry():
+def test_delayed_copy_offsets_each_ruby_glyphs_own_wipe():
     _, line = make_line(r"{\k8}A|reading{\k15}B|b")
     copied = line.copy(id="delayed", delay=2)
     result = LyricHighlights.from_singing(
@@ -153,15 +153,17 @@ def test_ruby_and_delayed_copy_use_body_progress_with_their_own_geometry():
         glow=Glow(RED, blur=20),
     )(copied)
     nodes = {n.id: n for n in leaves(result)}
-    for target in result.query("ruby"):
+    # "reading" shares its 80 ms across seven glyphs; "b" gets the next 150 ms.
+    cuts = (1000, 1011, 1022, 1034, 1045, 1057, 1068, 1080, 1230)
+    for target, start, end in zip(result.query("ruby"), cuts[:-1], cuts[1:], strict=True):
         piece = nodes[next(a for a in target.aliases if "/highlight:" in a)]
         keys = piece.clip.deform
         assert isinstance(keys, RectangleKeyframes)
         assert keys.keyframes[1][0] + piece.time_origin == pytest.approx(
-            target.singing[0].start + target.delay
+            start / 1000 + 2
         )
         assert keys.keyframes[2][0] + piece.time_origin == pytest.approx(
-            target.singing[0].end + target.delay
+            end / 1000 + 2
         )
 
 

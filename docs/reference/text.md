@@ -616,7 +616,7 @@ Body text is shaped together before ruby spacing is applied. Unit boundaries
 crossing a shaping cluster are rejected when independent placement is needed.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L256)
+[Source](../../kara_templater/scene_lyrics.py#L260)
 
 ```python
 layout_document_lyrics(
@@ -677,7 +677,7 @@ reading group and its body before animation. Negative values allow overlap.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L290)
+[Source](../../kara_templater/scene_lyrics.py#L294)
 
 ```python
 layout_lyrics(

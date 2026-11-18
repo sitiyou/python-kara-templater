@@ -182,12 +182,15 @@ def _center_reading(text: str) -> bool:
 
 
 def _reading_intervals(
-    layout: DocumentLayout,
+    reading: PositionedRuby, unit: LyricUnit, *, wipe: bool = True,
 ) -> tuple[SingingSpan, ...]:
     """Divide one reading checkpoint among shaped clusters on the source millisecond clock."""
-    if not layout.singing:
-        return ()
-    source = layout.singing[0]
+    layout = reading.layout
+    source = unit.segments[reading.segment_index].singing
+    if not wipe:
+        spans = unit._body_singing()
+        end = spans[0].end if len(spans) == 1 else source.end
+        return (replace(source, start=end, end=end, start_offset=0, end_offset=len(layout.source.text)),)
     clusters = layout.characters
     count = len(clusters)
     start_ms, end_ms = round(1000 * source.start), round(1000 * source.end)
@@ -202,16 +205,17 @@ def _reading_intervals(
         ),
         source.end,
     ]
-    return tuple(
-        replace(
-            source,
-            start_offset=c.start,
-            end_offset=c.end,
-            start=cuts[i],
-            end=cuts[i + 1],
-        )
-        for i, c in enumerate(clusters)
-    )
+    # The first visual segment is still waiting at its exact onset in Studio.
+    # Interior zero-duration checkpoints take effect immediately.
+    onset = next((s.singing.start for s in unit.segments if s.ruby and s.ruby.source.text.strip()), None)
+    intervals = []
+    for i, glyph in enumerate(clusters):
+        start, end = cuts[i:i + 2]
+        if start == end == onset:
+            start = end = min(layout.lifetime.end, (round(start * 1000) // 10 + 1) / 100)
+        intervals.append(replace(source, start_offset=glyph.start, end_offset=glyph.end,
+                                 start=start, end=end))
+    return tuple(intervals)
 
 
 def _ruby_style(styles: Mapping[str, Style], parent_name: str) -> Style:

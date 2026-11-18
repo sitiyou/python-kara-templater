@@ -1,6 +1,6 @@
 """A complete, configurable karaoke animation recipe using ordinary Scene objects."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, replace
 from functools import partial
 from itertools import groupby, pairwise
@@ -13,6 +13,7 @@ from .composition import Color
 from .document_text import SingingSpan
 from .geometry import Vec2, VectorPath, finite
 from .lyric_highlights import (
+    HighlightArrival,
     LyricGlow,
     LyricGradient,
     LyricHighlights,
@@ -54,7 +55,6 @@ from .scene_animation import (
     smooth_rate,
 )
 from .text_geometry import outline_text
-from .timeline import ProgressCurve
 
 _DUOTONE_UNSUNG = Color(40, 28, 38)
 _DUOTONE_UNSUNG_OUTLINE = Color(255, 247, 232)
@@ -313,12 +313,86 @@ def _transition_burst(
     return start + spread * index / max(1, count - 1), travel
 
 
+_CHAR_TRANSITIONS = {"char_fade", "char_drip", "spin_flip"}
+
+
+def _character_hosts(line: LyricLine) -> dict[str, LyricTarget]:
+    """Map each displayed glyph to the main character that leads its transition."""
+    targets = line.query("character")
+    by_offset = {g.start: t for g, t in zip(line.layout.body.characters, targets, strict=True)}
+    hosts = {t.node_id: t for t in targets}
+    readings = (r for r in line.layout.ruby for _ in r.layout.characters)
+    hosts.update((t.node_id, by_offset[r.body_start])
+                 for t, r in zip(line.query("ruby"), readings, strict=True))
+    return hosts
+
+
+def _reading_edges(line: LyricLine) -> dict[str, tuple[float, float]]:
+    """Express the whole annotation's horizontal bounds in each kana's local coordinates."""
+    bounds: dict[int, tuple[float, float]] = {}
+    for r in line.layout.ruby:
+        if r.unit_index not in bounds:
+            body = line.layout.body.range_bounds(r.body_start, r.body_end)
+            bounds[r.unit_index] = body.left, body.right
+        left, right = bounds[r.unit_index]
+        bounds[r.unit_index] = min(left, r.layout.bounds.left), max(right, r.layout.bounds.right)
+
+    result = {}
+    readings = ((r, g) for r in line.layout.ruby for g in r.layout.characters)
+    for target, (reading, glyph) in zip(line.query("ruby"), readings, strict=True):
+        left, right = bounds[reading.unit_index]
+        x = glyph.object.state.position.x
+        assert glyph.layout_scale is not None
+        result[target.node_id] = ((left - x) / glyph.layout_scale.x, (right - x) / glyph.layout_scale.x)
+    return result
+
+
+def _character_offsets(line: LyricLine, hosts: dict[str, LyricTarget], spread: float,
+                       *, entering: bool) -> dict[str, float]:
+    targets = line.query("character")
+    step = round(spread * 1000) // max(1, len(targets) - 1) / 1000
+    offsets = {t.node_id: (i if entering else i + 1 - len(targets)) * step
+               for i, t in enumerate(targets)}
+    return {key: offsets[host.node_id] for key, host in hosts.items()}
+
+
+def _utopia_exit_anchor(line: LyricLine, duration: float, release: float) -> Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]]:
+    """Leave after the next visible main character finishes, including for its preceding reading."""
+    glyphs = tuple(line._glyph_regions(automatic=False))
+    last = max((s.end + target.delay for target in line.query("character") for s in target.singing),
+               default=line.lifetime.end)
+    tail = max(0, line.lifetime.end - last - duration)
+    annotated = {reading.unit_index for reading in line.layout.ruby}
+    departures: dict[str, float] = {}
+    group_ends: dict[int, float] = {}
+    following = None
+    for target, glyph, unit, _ in reversed(glyphs):
+        if target.role != "character" or not target.singing:
+            continue
+        done = max(s.end for s in target.singing) + target.delay
+        at = following if following is not None and following >= done else done + tail
+        at = max(done + release, at)
+        if unit in annotated:
+            at = group_ends.setdefault(unit, at)
+        departures[target.node_id] = at
+        if glyph.object.text.strip():
+            following = done
+    for target, _, unit, _ in glyphs:
+        if target.role == "ruby" and unit in group_ends:
+            departures[target.node_id] = group_ends[unit]
+    def anchor(_line: LyricLine, target: LyricTarget) -> tuple[TimeSpan, ...]:
+        at = departures.get(target.node_id)
+        return () if at is None else (TimeSpan(at, at),)
+
+    return anchor
+
+
 def _transition_window(kind: str, configured: float, *, entering: bool) -> float:
     if kind == "none" or configured == 0:
         return 0
     if kind == "utopia":
         return 0.70 if entering else 0.75
-    if kind in {"char_fade", "char_drip", "spin_flip"}:
+    if kind in _CHAR_TRANSITIONS:
         return 0.60
     if kind in {"fade", "slide_in", "slide_out", "rise"}:
         return configured
@@ -488,16 +562,11 @@ class _Sweep:
         )
 
 
-def _body_front_clock(line: LyricLine) -> tuple[float | None, dict[float, float]]:
-    """Studio paints the release instant of a pause while later notes remain."""
-    notes = sorted(
-        {
-            (s.start + t.delay, s.end + t.delay)
-            for t in line.query("character")
-            for s in t.singing
-            if s.end > s.start
-        }
-    )
+def _front_clock(
+    intervals: set[tuple[float, float]], complete: float | None = None,
+) -> tuple[float | None, dict[float, float]]:
+    """Keep a moving front visible on its release frame before a rest."""
+    notes = sorted(intervals)
     if not notes:
         return None, {}
     first, end = notes[0]
@@ -506,65 +575,59 @@ def _body_front_clock(line: LyricLine) -> tuple[float | None, dict[float, float]
         if start > end + 1e-9:
             releases[end] = min(start, end + 0.01)
         end = max(end, stop)
+    if complete is not None and end < complete:
+        releases[end] = min(complete, end + 0.01)
     return first, releases
 
 
 def _sweeps(
-    singing: tuple[SingingSpan, ...],
+    parts: tuple[tuple[SingingSpan, float, float], ...],
     delay: float,
     bounds: Box,
     previous: tuple[_Sweep, ...],
     first_note: float | None,
     releases: dict[float, float],
-    curve: ProgressCurve | None = None,
+    first_pixel: float = 0.5,
 ) -> tuple[_Sweep, ...]:
     if not bounds.width:
         return ()
 
-    def position(progress: float) -> float:
-        return bounds.left + bounds.width * (curve.at(progress) if curve else progress)
-
     sweeps = []
-    for span in singing:
+    for span, a, b in parts:
+        left, right = bounds.left + bounds.width * a, bounds.left + bounds.width * b
         start, end = span.start + delay, span.end + delay
         if end <= start:
+            # A checkpoint jump has a release position for the next note.
+            # Its zero-width time interval paints no moving band.
+            if a > 0 or b < 1:
+                sweeps.append(_Sweep(end, end, right, right))
+                if end in releases and b == 1:
+                    sweeps.append(_Sweep(end, releases[end], right, right))
             continue
         onset, duration = start, end - start
 
-        left = bounds.left
+        width = right - left
         arrival = next(
-            (s.right for s in reversed(previous) if s.end <= start + 1e-9), left
+            (s.right for s in reversed(previous) if a == 0 and s.end <= start + 1e-9), left
         )
-        if first_note is not None and first_note == start:
+        if first_note == start and a == 0:
             # fill_clip_band is empty until the first rounded pixel of ink.
-            threshold = min(1.0, 0.5 / bounds.width)
-            ticks = (
-                floor(
-                    100 * duration * (curve.arrival(threshold) if curve else threshold)
-                )
-                + 1
-            )
+            threshold = min(1.0, first_pixel / width)
+            ticks = floor(100 * duration * threshold) + 1
             start = min(end, start + ticks / 100)
-            left = position((start - onset) / duration)
+            left += width * (start - onset) / duration
             arrival = left
         if arrival != left:
             # At a shared boundary or a restart, Studio first displays the
             # preceding endpoint, then advances along the new trajectory.
             join = min(start + 0.01, end)
-            x = position((join - onset) / duration)
+            x = right - width * (end - join) / duration
             sweeps.append(_Sweep(start, join, arrival, x))
             start, left = join, x
-        if curve:
-            for t, p in curve.knots[1:-1]:
-                knot = onset + t * duration
-                if knot > start:
-                    x = bounds.left + bounds.width * p
-                    sweeps.append(_Sweep(start, knot, left, x))
-                    start, left = knot, x
         if start < end:
-            sweeps.append(_Sweep(start, end, left, bounds.right))
-        if end in releases:
-            sweeps.append(_Sweep(end, releases[end], bounds.right, bounds.right))
+            sweeps.append(_Sweep(start, end, left, right))
+        if end in releases and b == 1:
+            sweeps.append(_Sweep(end, releases[end], right, right))
     return tuple(sweeps)
 
 
@@ -572,6 +635,8 @@ def _front_paths(movements: list[_Sweep]) -> Iterator[list[tuple[float, float]]]
     """Join touching movements so one moving strip spans the handoff."""
     path: list[tuple[float, float]] = []
     for sweep in sorted(movements, key=lambda s: s.start):
+        if sweep.start == sweep.end:
+            continue
         if path:
             end, right = path[-1]
             if abs(end - sweep.start) > 1e-9 or abs(right - sweep.left) > 1e-8:
@@ -627,6 +692,19 @@ def _outside_front(
         keys.append((end, original.bounds_at(end)))
     keys.sort(key=lambda key: key[0])
     return replace(piece, clip=replace(clip, deform=RectangleKeyframes(tuple(keys))))
+
+
+def _fade_underpaint(node: TextObject, start: float) -> TextObject:
+    """Studio fades waiting and sung ink independently during a character exit."""
+    clip = node.clip
+    if not isinstance(clip, RectangleClip) or not isinstance(clip.deform, RectangleKeyframes):
+        return node
+    t = local_seconds(start, node.time_origin)
+    keys = tuple(k for k in clip.deform.keyframes if k[0] < t)
+    bounds = clip.deform.bounds_at(t, before=True)
+    return replace(node, clip=replace(clip, deform=RectangleKeyframes((
+        *keys, (t, bounds), (t, (-65536, -65536, 65536, 65536)),
+    ))))
 
 
 def _scanline_slices(
@@ -853,6 +931,7 @@ class KaraokeEffects:
         line = replace(
             self, entry_duration=entry_total, exit_duration=exit_total
         )._ornaments(line, original)
+        reading_edges = _reading_edges(line)
         for entering, kind, total in (
             (True, self.entry, entry_total),
             (False, self.exit, exit_total),
@@ -860,139 +939,65 @@ class KaraokeEffects:
             if kind == "none" or total == 0:
                 continue
             anchor = "enter" if entering else "exit"
-            roles = (
-                ("line",)
-                if kind in {"fade", "slide_in", "slide_out", "rise"}
-                else ("character", "ruby")
-            )
-            for role in roles:
-                targets = line.query(role)
-                if not entering and kind == "utopia":
-                    for index, target in enumerate(targets):
-                        if not target.singing:
-                            continue
-                        done = max(span.end for span in target.singing) + target.delay
-                        following = (
-                            targets[index + 1] if index + 1 < len(targets) else None
-                        )
-                        following_done = (
-                            max(
-                                (
-                                    span.end + following.delay
-                                    for span in following.singing
-                                ),
-                                default=done,
-                            )
-                            if following is not None
-                            else line.lifetime.end - total
-                        )
-                        departure = max(done + release, following_done)
-
-                        def following_anchor(
-                            _line: LyricLine,
-                            _target: LyricTarget,
-                            at: float = departure,
-                        ) -> tuple[TimeSpan, ...]:
-                            return (TimeSpan(at, at),)
-
-                        line = line.schedule(
-                            LyricRule(
-                                target,
-                                following_anchor,
-                                partial(
-                                    transition,
-                                    kind=kind,
-                                    entering=False,
-                                    seed=self.seed,
-                                    zoom_pivot=self.singing.startswith("zoom_pulse"),
-                                ),
-                                duration=total,
-                            )
-                        )
-                    continue
-                if role == "line":
-                    duration, stagger = total, 0.0
-                else:
-                    spread = total * (2 / 7 if kind == "utopia" else self.stagger)
-                    duration = total - spread
-                    stagger = (
-                        spread / max(1, len(targets) - 1)
-                        if kind not in {"glow_in", "glow_out"}
-                        else 0.0
-                    )
-                # Studio's synchronized glow finishes its travel early, then holds.
-                offset = (
-                    duration - total
-                    if not entering and (kind == "glow_out" or len(targets) == 1)
-                    else 0.0
-                )
-                if entering and stagger:
-                    # A delayed entry must hide its glyph while earlier glyphs arrive.
-                    # Releasing this clip restores the unmodified baseline at entry onset.
-                    line = line.schedule(
-                        *(
-                            LyricRule(
-                                target,
-                                "enter",
-                                Transform(opacity=0),
-                                duration=index * stagger,
-                                hold=False,
-                            )
-                            for index, target in enumerate(targets)
-                            if index
-                        )
-                    )
-                line = line.schedule(
-                    LyricRule(
-                        targets,
-                        anchor,
-                        partial(
-                            transition,
-                            kind=kind,
-                            entering=entering,
-                            seed=self.seed,
-                            zoom_pivot=self.singing.startswith("zoom_pulse"),
-                        ),
-                        duration=duration,
-                        stagger=stagger,
-                        offset=offset,
-                    )
-                )
-        if self.singing.startswith("utopia"):
-            line = line.schedule(
-                *(LyricRule(role, "singing", _utopia) for role in ("character", "ruby"))
-            )
-        if self.singing.startswith("zoom_pulse"):
+            if not entering and kind == "utopia":
+                line = line.schedule(LyricRule(
+                    line.query("character", "ruby"), _utopia_exit_anchor(line, total, release),
+                    partial(transition, kind=kind, entering=False, seed=self.seed,
+                            zoom_pivot=self.singing.startswith("zoom_pulse")),
+                    duration=total,
+                ))
+                continue
+            animate = partial(transition, kind=kind, entering=entering, seed=self.seed,
+                              zoom_pivot=self.singing.startswith("zoom_pulse"))
+            if kind in {"fade", "slide_in", "slide_out", "rise"}:
+                line = line.schedule(LyricRule("line", anchor, animate, duration=total))
+                continue
+            spread = total * (2 / 7 if kind == "utopia" else self.stagger)
+            hosts = _character_hosts(line)
+            # Legacy exits finish at the display end. Geometric exits and their
+            # particles start at the beginning of the exit window.
+            count_back = not entering and kind in _CHAR_TRANSITIONS
+            offsets = (_character_offsets(line, hosts, spread, entering=not count_back)
+                       if kind not in {"glow_in", "glow_out"} else {})
+            host_motion = kind in {"tracking_in", "wave_in", "scatter_out", "converge_out"}
+            rules = []
             for target in line.query("character", "ruby"):
-                for span_index, span in enumerate(target.singing):
-                    if span.end <= span.start:
-                        continue
-
+                delay = offsets.get(target.node_id, 0.0)
+                if not entering and not count_back:
+                    delay -= spread
+                if entering and delay > 0:
+                    rules.append(LyricRule(target, "enter", Transform(opacity=0),
+                                           duration=delay, hold=False))
+                motion = partial(animate, host=hosts[target.node_id] if host_motion else None,
+                                 reading_edges=reading_edges.get(target.node_id))
+                rules.append(LyricRule(target, anchor, motion, duration=total - spread, offset=delay))
+            line = line.schedule(*rules)
+        if self.singing.startswith(("utopia", "zoom_pulse")):
+            rules = []
+            arrival = HighlightArrival(highlights=highlighter.highlights)
+            for target, _, index, _ in line._glyph_regions(automatic=True):
+                unit = line.layout.lyrics.units[index]
+                if target.role == "character" and any(s.ruby for s in unit.segments):
+                    intervals = arrival(line, target)
+                else:
+                    intervals = tuple(TimeSpan(s.start + target.delay, s.end + target.delay)
+                                      for s in target._visual_singing() if s.end > s.start)
+                for i, interval in enumerate(intervals):
                     def anchor(
-                        _line: LyricLine,
-                        _target: LyricTarget,
-                        start: float = span.start + target.delay,
-                        end: float = span.end + target.delay,
+                        _line: LyricLine, _target: LyricTarget, span: TimeSpan = interval,
                     ) -> tuple[TimeSpan, ...]:
-                        return (TimeSpan(start, end),)
+                        return (span,)
 
-                    release = (
-                        min(
-                            0.30,
-                            max(0, target.singing[span_index + 1].start - span.end),
-                        )
-                        if span_index + 1 < len(target.singing)
-                        else 0.30
-                    )
-                    line = line.schedule(
-                        LyricRule(
-                            target,
-                            anchor,
-                            partial(_zoom, level=self.zoom_pulse_curve_level),
-                            duration=span.end - span.start + release,
-                            hold=False,
-                        )
-                    )
+                    if self.singing.startswith("utopia"):
+                        rules.append(LyricRule(target, anchor, _utopia))
+                    else:
+                        release = min(0.30, intervals[i + 1].start - interval.end
+                                      ) if i + 1 < len(intervals) else 0.30
+                        rules.append(LyricRule(
+                            target, anchor, partial(_zoom, level=self.zoom_pulse_curve_level),
+                            duration=interval.duration + max(0, release), hold=False,
+                        ))
+            line = line.schedule(*rules)
         return replace(
             line,
             _karaoke_paint=None
@@ -1267,6 +1272,8 @@ class KaraokeEffects:
         additions: dict[str, list[SceneObject]] = {}
         line = self._particles(line, nodes, additions, transitions=True)
         replacements: dict[str, TextObject] = {}
+        fade_offsets = (_character_offsets(line, _character_hosts(line), self.exit_duration * self.stagger, entering=False)
+                        if self.exit in {"char_fade", "spin_flip"} else {})
         # Horizontal glow echoes have their own envelope, beneath the sharp glyph.
         for target in line.query("character", "ruby"):
             node = nodes[target.node_id]
@@ -1278,11 +1285,19 @@ class KaraokeEffects:
             ):
                 if total <= 0:
                     continue
+                if not entering and kind in {"char_fade", "spin_flip"}:
+                    start = line.lifetime.end - total * (1 - self.stagger) + fade_offsets[target.node_id]
+                    for ink in (node, nodes.get(node.id + "/glow")):
+                        if isinstance(ink, TextObject):
+                            replacements[ink.id] = _fade_underpaint(replacements.get(ink.id, ink), start)
+                    continue
                 if kind in {"stretch_in", "stretch_out"}:
                     for alias in (target.node_id, *target.aliases):
                         ink = nodes[alias]
                         if isinstance(ink, TextObject):
                             replacements[alias] = replace(ink, scale_border=True)
+                    if target.role == "ruby":
+                        continue
                     peers = line.query(target.role)
                     index = peers.index(target)
                     start = (
@@ -1303,7 +1318,7 @@ class KaraokeEffects:
                         )
                     )
                     continue
-                if kind not in {"glow_in", "glow_out"}:
+                if target.role == "ruby" or kind not in {"glow_in", "glow_out"}:
                     continue
                 birth = line.lifetime.start if entering else line.lifetime.end - total
                 travel_duration = total * (1 - self.stagger)
@@ -1360,7 +1375,7 @@ class KaraokeEffects:
             "stretch_out",
             *_TRANSITION_COUNTS,
         }
-        if self.entry in transition_kinds or self.exit in transition_kinds:
+        if self.entry in transition_kinds or self.exit in transition_kinds | {"char_fade", "spin_flip"}:
             if line._at_placement is None:
                 line = self._display_ornaments(line)
             else:
@@ -1369,7 +1384,7 @@ class KaraokeEffects:
                 )
         if "scanline" not in self.singing and not self.stroke_flash:
             return _insert(line, additions)
-        # Front and flash copies remain glyph-local and share semantic motion aliases.
+        # The front follows glyph motion. Studio flashes the original measured outline.
         aliases: dict[str, list[str]] = {}
         painted_nodes = {n.id: n for n in _walk(line)} if "scanline" in self.singing else {}
         replacements: dict[str, TextObject] = {}
@@ -1378,30 +1393,41 @@ class KaraokeEffects:
         # Use the nearest edge glyph's measured sweep when tracking across added spacing.
         # Body notes share one front. Each annotated unit has its own reading front.
         reading_slots = {
-            glyph.object.id: (reading.unit_index, slot)
-            for slot, (reading, glyph) in enumerate(
-                (r, g) for r in line.layout.ruby for g in r.layout.characters
-            )
+            target.node_id: (unit, slot)
+            for slot, (target, _, unit, _) in enumerate(glyphs)
+            if target.role == "ruby"
         }
         reading_only = {
             i for i, u in enumerate(line.layout.lyrics.units)
             if self.ruby_scanline == "reading" and u.segments
-            and all(s.ruby is not None and s.ruby.source.text.strip() for s in u.segments)
+            and all(s.ruby is not None for s in u.segments)
+            and any(s.ruby and s.ruby.source.text.strip() for s in u.segments)
         }
         edges: dict[int | None, dict[int, tuple[tuple[_Sweep, ...], tuple[_Sweep, ...]]]] = {}
         sweeps: dict[str, tuple[_Sweep, ...]] = {}
         if "scanline" in self.singing:
-            first_note, releases = _body_front_clock(line)
+            intervals: dict[int | None, set[tuple[float, float]]] = {}
+            reading_ends: dict[int, float] = {}
+            for target, _, unit, _ in glyphs:
+                group, _slot = reading_slots.get(target.node_id, (None, unit))
+                spans = target._visual_singing()
+                intervals.setdefault(group, set()).update(
+                    (s.start + target.delay, s.end + target.delay) for s in spans if s.end > s.start
+                )
+                if group is not None:
+                    reading_ends[group] = line.layout.lyrics.units[unit].segments[-1].singing.end + target.delay
+            clocks = {g: _front_clock(notes, reading_ends.get(g) if g is not None else None)
+                      for g, notes in intervals.items()}
             for target, _, unit, box in glyphs:
                 group, slot = reading_slots.get(target.node_id, (None, unit))
                 track = edges.setdefault(group, {})
                 body = group is None
                 previous = track.get(slot - 1) if body else None
-                clock = line.layout.lyrics.units[unit]._body_singing() if body else (target._reading_span or target.singing[0],)
+                clock = line.layout.lyrics.units[unit]._body_parts() if body else ((target._reading_span or target.singing[0], 0, 1),)
                 passes = _sweeps(clock, target.delay, box,
                                  previous[1] if previous else (),
-                                 first_note if body else None, releases if body else {},
-                                 line.layout.lyrics.units[unit]._body_curve() if body else None)
+                                 *clocks[group],
+                                 first_pixel=0.5 if body else 0.0)
                 sweeps[target.node_id] = () if body and unit in reading_only else passes
                 first, _ = track.get(slot, (passes, passes))
                 track[slot] = first, passes
@@ -1516,60 +1542,42 @@ class KaraokeEffects:
                         for front in self._scanline(layer, index, path, width, softness, top, bottom):
                             additions.setdefault(node.id, []).append(front)
                             aliases.setdefault(target.id, []).append(front.id)
-            for index, span in enumerate(target.singing):
-                if span.end <= span.start:
+            if not self.stroke_flash or target.role != "character":
+                continue
+            outline = outline_text(node)
+            if outline.path is None:
+                continue
+            pen = max(2 * node.state.border, (target.em_size or node.font_size) * 0.03)
+            path = VectorPath(tuple(
+                part for contour in outline.path.contours
+                if (ribbon := stroke(flatten(contour), pen)) is not None
+                for part in ribbon.contours
+            ))
+
+            for index, span in enumerate(line.layout.lyrics.units[unit]._body_singing()):
+                onset = span.start + target.delay
+                end = min(node.lifetime.end, onset + 0.24)
+                if end <= onset:
                     continue
-                start = span.start + target.delay
-                if self.stroke_flash and target.role == "character":
-                    outline = outline_text(node)
-                    if outline.path is None:
-                        continue
-                    pen = max(
-                        2 * node.state.border, (target.em_size or node.font_size) * 0.03
-                    )
-                    strokes = [
-                        stroke(flatten(contour), pen)
-                        for contour in outline.path.contours
-                    ]
-                    copy = PathObject(
-                        id=f"{node.id}/{self.id}:flash:{index}",
-                        lifetime=node.lifetime,
-                        clock_start=node.time_origin,
-                        origin=node.origin,
-                        layer=node.layer + 1,
-                        state=replace(
-                            node.state,
-                            opacity=0,
-                            fill=Color(255, 255, 255),
-                            border=0,
-                            blur=0,
-                            shadow=Vec2(),
-                            outline=Color(255, 255, 255),
-                        ),
-                        path=VectorPath(
-                            tuple(
-                                c
-                                for path in strokes
-                                if path is not None
-                                for c in path.contours
-                            )
-                        ),
-                    )
+                duration = end - onset
 
-                    def flash(
-                        base: VisualState, p: float, width: float = pen
-                    ) -> VisualState:
-                        return replace(
-                            base, opacity=0.85 * (1 - p), border=0.3 * width * (1 - p)
-                        )
+                def flash(base: VisualState, p: float, width: float = pen, window: float = duration) -> VisualState:
+                    level = max(0, 1 - p * window / 0.24)
+                    return replace(base, opacity=0.85 * level, border=0.3 * width * level)
 
-                    copy = copy.animate(
-                        StateFunction(flash, frozenset({"opacity", "border"})),
-                        at=start - node.time_origin,
-                        duration=0.24,
-                    )
-                    additions.setdefault(node.id, []).append(copy)
-                    aliases.setdefault(target.id, []).append(copy.id)
+                copy = PathObject(
+                    id=f"{node.id}/{self.id}:flash:{index}",
+                    lifetime=Lifetime(onset, end),
+                    origin=node.origin,
+                    layer=node.layer + 1,
+                    state=replace(node.state, opacity=0, fill=Color(255, 255, 255),
+                                  outline=Color(255, 255, 255), border=0, blur=0, shadow=Vec2()),
+                    path=path,
+                ).animate(
+                    StateFunction(flash, frozenset({"opacity", "border"})),
+                    duration=duration,
+                )
+                additions.setdefault(node.id, []).append(copy)
         result = _insert(line, additions, replacements=replacements)
         return replace(
             result,

@@ -70,6 +70,9 @@ class LyricTarget:
     _line_x: tuple[float, float] | None = field(default=None, repr=False)
     _reading_span: SingingSpan | None = field(default=None, repr=False)
 
+    def _visual_singing(self) -> tuple[SingingSpan, ...]:
+        return (self._reading_span,) if self._reading_span else self.singing
+
 
 @dataclass(frozen=True)
 class LyricAnimationContext:
@@ -391,7 +394,7 @@ class LyricLine(ObjectGroup):
                 if ruby.unit_index == index:
                     style = next((c.source_style for c in body.characters
                                   if c.start <= ruby.body_start < c.end), None)
-                    for character, span in zip(ruby.layout.characters, _reading_intervals(ruby.layout), strict=True):
+                    for character, span in zip(ruby.layout.characters, _reading_intervals(ruby, unit), strict=True):
                         targets.append(
                             LyricTarget(
                                 character.object.id,

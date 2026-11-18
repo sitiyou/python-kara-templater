@@ -13,7 +13,8 @@ from .scene_animation import VisualState
 from .scene_lyrics import _reading_intervals
 from .scene_output import SceneBudget, _color, _number
 from .scene_text import DocumentLayout
-from .timeline import ProgressCurve
+
+type _Knots = tuple[tuple[float, float], ...]
 
 
 def _karaoke_clock(on: int, off: int, distance: float, width: float) -> int:
@@ -37,7 +38,7 @@ def _wipe_clip(
     ink_left: float,
     ink_right: float,
     wipe: bool,
-    curve: ProgressCurve | None,
+    knots: _Knots,
 ) -> str:
     """Complementary native rectangular clips, including ink outside the advance."""
 
@@ -50,34 +51,34 @@ def _wipe_clip(
     first, last = floor(min(left, ink_left)), ceil(max(right, ink_right))
     if not wipe or off == on:
         return rect(last) if on == 0 else rect(first) + rf"\t({on},{on},{rect(last)})"
-    knots = curve.knots if curve else ((0, 0), (1, 1))
-    travel = ""
+    travel = (rect(first) + rf"\t({max(0, on - 20)},{on},{rect(round(left))})"
+              if on else rect(round(left)))
     previous = on
-    for t, progress in knots[1:]:
+    for t, progress in knots:
         ms = on + round((off - on) * t)
         boundary = rect(round(left + (right - left) * progress))
-        travel += rf"\t({previous},{ms},{boundary})"
+        if ms == 0:
+            # ASS interprets a transform ending at zero relative to the event end.
+            travel = boundary
+        else:
+            travel += rf"\t({previous},{ms},{boundary})"
         previous = ms
-    return (
-        (
-            rect(first) + rf"\t({max(0, on - 20)},{on},{rect(round(left))})"
-            if on
-            else rect(round(left))
-        )
-        + travel
-        + rf"\t({off},{off + 20},{rect(last)})"
-    )
+    return travel + rf"\t({off},{off + 20},{rect(last)})"
 
 
 def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
     line = plan.line
     paint = line._karaoke_paint
     body = line.layout.body
-    curves = {}
+    curves: dict[int, _Knots] = {}
     if line.layout.ruby:
         if paint is None or paint.sung_outline is None:
             return None
-        curves = {u.start: u._body_curve() for u in line.layout.lyrics.units}
+        for unit in line.layout.lyrics.units:
+            spans = unit._body_singing()
+            if len(spans) == 1 and (duration := spans[0].end - spans[0].start) > 0:
+                curves[unit.start] = tuple(((s.end - spans[0].start) / duration, b)
+                                           for s, _, b in unit._body_parts())
         body = replace(
             body,
             singing=tuple(
@@ -87,9 +88,12 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
             ),
         )
     rows: list[Line] = []
-    for layout in (body, *(r.layout for r in line.layout.ruby)):
-        if layout is not body and paint and paint.wipe:
-            layout = replace(layout, singing=_reading_intervals(layout))
+    layouts = [body]
+    if paint:
+        for reading in line.layout.ruby:
+            unit = line.layout.lyrics.units[reading.unit_index]
+            layouts.append(replace(reading.layout, singing=_reading_intervals(reading, unit, wipe=paint.wipe)))
+    for layout in layouts:
         result = _layout_events(plan, original, layout, curves if layout is body else {})
         if result is None:
             return None
@@ -98,7 +102,7 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
 
 
 def _layout_events(
-    plan: LinePlan, original: Line, body: DocumentLayout, curves: dict[int, ProgressCurve | None]
+    plan: LinePlan, original: Line, body: DocumentLayout, curves: dict[int, _Knots]
 ) -> tuple[Line, ...] | None:
     line = plan.line
     paint = line._karaoke_paint
@@ -173,7 +177,7 @@ def _layout_events(
                             min(ink.left + dx - pad, extent.left + dx) - width / 2,
                             max(ink.right + dx + pad, extent.right + dx) + width / 2,
                             paint.wipe,
-                            curves.get(offset),
+                            curves.get(offset, ((1, 1),)),
                         )
                         fraction = (
                             1.0

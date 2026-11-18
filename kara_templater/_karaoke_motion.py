@@ -6,7 +6,7 @@ from math import cos, pi, pow, radians, sin, tan
 
 from .easing import ease_out
 from .geometry import Vec2
-from .lyric_line import LyricAnimationContext
+from .lyric_line import LyricAnimationContext, LyricTarget
 from .scene_animation import (
     Channel,
     StateAnimation,
@@ -101,9 +101,13 @@ def transition(
     entering: bool,
     seed: int,
     zoom_pivot: bool = False,
+    host: LyricTarget | None = None,
+    reading_edges: tuple[float, float] | None = None,
 ) -> StateAnimation:
-    target = context.target
-    center = target.center
+    target = host or context.target
+    center = context.target.center
+    if reading_edges is not None and kind != "utopia":
+        center = Vec2(sum(reading_edges) / 2, center.y)
     em = target.em_size or max(1, center.y * 2)
     targets = context.line.query(target.role)
     index = targets.index(target)
@@ -132,6 +136,14 @@ def transition(
         return Slide(Vec2(spread * em * 1.6, 0), entering)
     travel, spin = _scatter(index, seed, em) if kind == "scatter_out" else (Vec2(), 0.0)
 
+    converge_distance = 0.0
+    if kind == "converge_out":
+        body = context.line.layout.body
+        converge_distance = (
+            -spread * em * len(targets) / 2 if context.target.role == "ruby"
+            else body.bounds.center - body.characters[index].bounds.center
+        )
+
     def sample(base: VisualState, p: float) -> VisualState:
         q = smooth_rate(p)
         opacity = min(1, p * 4) if entering else 1 - q
@@ -143,20 +155,7 @@ def transition(
                 rotation, scale = spin * p, Vec2(1, 1) * (1 - 0.4 * p)
                 opacity = (1 - p) ** 2
             case "converge_out":
-                # Resolve body-node centers through layout, rather than character index widths.
-                character = next(
-                    (
-                        c
-                        for c in context.line.layout.body.characters
-                        if c.object.id == target.node_id
-                    ),
-                    None,
-                )
-                x = character.bounds.center if character is not None else None
-                distance = -spread * context.line.layout.body.bounds.width / 2
-                if x is not None:
-                    distance = context.line.layout.body.bounds.center - x
-                offset = Vec2(distance * q, 0)
+                offset = Vec2(converge_distance * q, 0)
                 scale = Vec2(1, 1) * (1 - 0.2 * q)
             case "char_drip" | "spin_flip":
                 visible = p if entering else 1 - p
@@ -174,7 +173,8 @@ def transition(
                         target.baseline if target.baseline is not None else center.y * 2
                     )
                     pivot = Vec2(
-                        center.x * 2, baseline if entering else baseline - center.y * 2
+                        reading_edges[1] if reading_edges else center.x * 2,
+                        baseline if entering else baseline - center.y * 2
                     )
             case "utopia":
                 pivot = (

@@ -200,7 +200,7 @@ A decoded body/ruby projection with source mappings and ordered lyric units.
 
 Original DocumentText remains available for diagnostics and round trips.
 
-[Source](../../kara_templater/document_lyrics.py#L88)
+[Source](../../kara_templater/document_lyrics.py#L86)
 
 ```python
 DocumentLyrics(
@@ -411,7 +411,7 @@ Line.serialize() -> str
 
 One unchanged text slice from the original decoded text into a component.
 
-[Source](../../kara_templater/document_lyrics.py#L10)
+[Source](../../kara_templater/document_lyrics.py#L9)
 
 ```python
 LyricMapping(
@@ -437,7 +437,7 @@ One absolute-seconds singing interval and its optional RubyText, retaining sourc
 
 Repeated singing adds segments without duplicating the body.
 
-[Source](../../kara_templater/document_lyrics.py#L32)
+[Source](../../kara_templater/document_lyrics.py#L31)
 
 ```python
 LyricSegment(
@@ -464,7 +464,7 @@ A decoded body range and its ordered singing segments.
 Ranges count Unicode code points and must later respect shaped cluster
 boundaries.
 
-[Source](../../kara_templater/document_lyrics.py#L45)
+[Source](../../kara_templater/document_lyrics.py#L44)
 
 ```python
 LyricUnit(
@@ -509,7 +509,7 @@ A reading text view with mappings back to source text and join/break/spill mode.
 
 Its source indices are local to the reading view.
 
-[Source](../../kara_templater/document_lyrics.py#L20)
+[Source](../../kara_templater/document_lyrics.py#L19)
 
 ```python
 RubyText(
@@ -801,7 +801,7 @@ Syntax is recognized within each explicit karaoke interval. Untimed text is
 preserved, but ruby/continuation syntax requires a karaoke time tag. Body
 and ruby views retain the original tokens for provenance, not serialization.
 
-[Source](../../kara_templater/document_lyrics.py#L116)
+[Source](../../kara_templater/document_lyrics.py#L114)
 
 ```python
 parse_document_lyrics(

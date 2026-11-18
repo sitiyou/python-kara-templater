@@ -243,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L926)
+[Source](../../kara_templater/lyric_highlights.py#L927)
 
 ```python
 HighlightArrival(
@@ -466,7 +466,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L498)
+[Source](../../kara_templater/lyric_highlights.py#L499)
 
 ```python
 LyricHighlights(
