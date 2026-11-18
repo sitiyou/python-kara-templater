@@ -107,7 +107,7 @@ its Qt/Direct2D renderer.
 | Singing paint, stroke, shadow, glow, ramps and particles | `KaraokeEffects`, `LyricHighlights`, materials | The catalog implements the animation families. Appearance depends on font metrics, rendering backend and selected material. |
 | Inline volume signal | `VolumeCue` | Whole-group flashes, then successive sung-color fills. In this library the cue ends at its own boundary, even when the host lyric stays visible. |
 | Floating shape lamps, count-in text and vector guide marks | `SignalCue`, `TextCue`, `CuePreset` | Seven built-in lamp shapes and custom paths. Cues can be inline or independently positioned. Cue colors and size are explicit. |
-| Studio page timing and alternate writing modes | Partial | The horizontal allocator handles lane occupancy. Studio page grouping, its displacement policy, native vertical writing and mirrored right-to-left lyric layout have no equivalent preset. |
+| Studio page timing and alternate writing modes | Partial | The horizontal allocator handles lane occupancy. Horizontal presets support Studio’s smart horizontal displacement within each row rotation. Imported page breaks, native vertical writing and mirrored right-to-left lyric layout have no equivalent preset. |
 | Role-linked signal styling and timed character replacement | Partial | A template can choose paints and insert a vector mark at a cluster boundary. Automatic role-style inheritance and replacing source glyphs with timed guide glyphs are separate Studio features. |
 
 See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
@@ -127,10 +127,10 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `utopia` | `utopia` | Overshooting entrance; rotating, flipping, shrinking exit |
 | `tracking_in` | `converge_out` | Spread letters settle; letters converge toward the measured line center |
 | `wave_in` | `scatter_out` | Staggered upward arrival; seeded radial scatter |
-| `stretch_in` | `stretch_out` | Horizontal light streak resolves into text, or expands and blurs away |
+| `stretch_in` | `stretch_out` | Each glyph stretches horizontally with five fading white outline layers around its sharp core |
 | `glow_in` | `glow_out` | Synchronous glow with horizontal echoes and a sharp text layer |
-| `assemble_in` | `dissolve_out` | Small particles gather at glyph contours or leave them |
-| `sparkle` | `sparkle` | Drifting four-point stars with character reveal/fade |
+| `assemble_in` | `dissolve_out` | Square particles converge on points within each glyph box or scatter outward |
+| `sparkle` | `sparkle` | A 14-star burst sweeps across the line, left to right on entry and right to left on exit |
 | `ripple` | `ripple` | Thin hollow rings expand and fade |
 | `note` | `note` | Musical notes float upward |
 | `petal` | `petal` | Petals sway and turn while entering/leaving |
@@ -150,10 +150,10 @@ clocks. Explicit effect occupancy can require an additional row or cause a layou
 capacity error; reduce the effect duration or adjust the allocator in that case.
 
 Differences from the reference include seeded trajectories, independently drawn
-ornament shapes, glyph-contour particle placement and eased motion. Utopia exit begins after the following character finishes; the final character
+ornament shapes, seeded particle placement and eased motion. Utopia exit begins after the following character finishes; the final character
 uses the remaining display tail. Its departure lasts 750 ms. Snow's open-center version is an original
 six-branch drawing, not a copy of the reference sprite. Assembly is an illusion
-made from separate contour particles and text opacity, not glyph mesh fracture.
+built from moving squares and a separate glyph opacity curve.
 
 ## Singing and decoration
 
@@ -177,17 +177,18 @@ padding never increase the singing distance.
 breathes in size/opacity. Ornaments attach to the original glyph's parent and
 move independently after birth. They are emitted from body text, not ruby.
 
-- `particle_size`: fraction of measured glyph height, default 0.40.
+- `particle_size`: fraction of the shaped font’s em size, default 0.40.
+- Snow enters across the full line and is already falling when the line appears. Petals arrive glyph by glyph. The line’s exit clips the remaining transition particles.
 - Singing emits one burst per glyph onset. The defaults are three ripple rings, four petals or snowflakes, seven moving stars, or three classic stars or notes. Set `particle_rate` to choose a density per second of singing. Ripple keeps its three-ring timing.
 - `particle_color` overrides the built-in palette. Singing particles default to white. Entry and exit particles alternate two cherry pinks, or two icy whites for snow.
 - `max_particles`: total entry/exit/singing particle budget per line, default 512;
   exceeding it raises before particle factories execute.
 - `seed`: deterministic variation, independent of rendering or seeking order.
 - `zoom_pulse_curve_level` controls the zoom attack and release. Levels 0 and 1 are linear (Studio default 1). Levels 2–5 ease toward the peak and accelerate away from it.
-- `scanline_mode="brighten"` lifts the brightness of each side’s solid fill and outline independently. `follow_before` and `follow_after` use one side’s palette across the whole band. `scanline_brightness` sets the fraction of remaining HSV value to add (default 0.60).
+- `scanline_mode="brighten"` lifts the brightness of each side’s fill and outline independently, including the stops of an authored sung linear gradient. `follow_before` and `follow_after` use one side’s palette across the whole band. `scanline_brightness` sets the fraction of remaining HSV value to add (default 0.60).
 - `scanline_mode="role"` takes a reusable paint or a per-target factory in `scanline_material`. For example, pass a singer’s `LyricGradient` to color both the glyph and its outline inside the band. A missing paint falls back to `scanline_color`.
 - In the default `color` mode, `scanline_color` sets the band color for both fill and outline (default white). `scanline_softness` sets the inward falloff on each side, default 8 px at 1080p. Zero gives a hard band.
-- `scanline_width`: script pixels, omit for a band of 16 px at 1080p, scaled to script height. An explicit width uses script pixels.
+- `scanline_width`: script pixels, omit for a band of 16 px at 1080p, scaled to script height. An explicit width uses script pixels. At a syllable handoff the band can light ink on both neighboring glyphs. During a timing gap the band disappears.
 - For a soft color change in the standalone GPU hook, use
   `KaraokeEffects(singing="utopia", hook_feather=17, sung_outline=Color.hex("#522432"))`.
   The final 17 script pixels behind a single-interval sweep edge mix the unsung

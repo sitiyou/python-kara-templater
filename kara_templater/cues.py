@@ -39,6 +39,7 @@ class CueContext:
     steps: tuple[float, ...]
     origin: EventOrigin
     host: TextObject | None = None
+    host_em: float | None = None
 
 
 @dataclass(frozen=True)
@@ -295,6 +296,7 @@ def bind_cues(
             tuple(start + step * preset.duration for step in preset.steps),
             origin,
             host.object if host is not None else None,
+            host.em_size if host is not None else None,
         )
         content = preset.factory(context)
         for node in content.objects:

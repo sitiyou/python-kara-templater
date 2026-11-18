@@ -217,4 +217,4 @@ def test_auto_sized_signals_use_font_at_marker_and_explicit_sizes_win():
          "fixed": CuePreset(factory=SignalCue(size=24))},
         markers=(CueMarker("a", "lead", 0), CueMarker("b", "lamp", 1), CueMarker("c", "fixed", 2)),
     )
-    assert [cue.content.height for cue in cues.cues] == [40, 20, 24]
+    assert [cue.content.height for cue in cues.cues] == [34, 17, 24]

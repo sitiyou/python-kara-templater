@@ -1,15 +1,18 @@
 """Original vector ornaments and deterministic trajectories for built-in karaoke."""
 
+from collections.abc import Iterator
+from dataclasses import replace
 from functools import lru_cache
 from math import cos, pi, sin, sqrt
 
+from ._karaoke_motion import unit_hash
 from .composition import Color
 from .easing import ease_out
 from .geometry import Contour, CubicSegment, Vec2, VectorPath
 from .karaoke_cues import _note
 from .particles import ParticleContext
 from .scene import Lifetime, PathObject
-from .scene_animation import Transform, VisualState, smooth_rate
+from .scene_animation import StateFunction, Transform, VisualState, smooth_rate
 
 
 @lru_cache(maxsize=16)
@@ -56,42 +59,61 @@ def sprite(kind: str) -> VectorPath:
                 ),
             )
         )
-    if kind in {"snow", "snow_solid"}:
-        # Six symmetric branches, with a small central hexagonal opening in lace mode.
-        contours = []
-        for branch in range(6):
-            angle = branch * pi / 3
-            pts = (
-                Vec2(0.18, -0.055),
-                Vec2(0.59, -0.055),
-                Vec2(0.4, -0.24),
-                Vec2(0.47, -0.30),
-                Vec2(0.70, -0.07),
-                Vec2(1, -0.055),
-                Vec2(1, 0.055),
-                Vec2(0.70, 0.07),
-                Vec2(0.47, 0.30),
-                Vec2(0.4, 0.24),
-                Vec2(0.59, 0.055),
-                Vec2(0.18, 0.055),
+    if kind == "snow_solid":
+        return VectorPath.polygon(
+            *(
+                Vec2(0, -radius).rotated(arm + angle)
+                for arm in range(0, 360, 60)
+                for angle, radius in ((0, 0.47), (20, 0.25), (30, 0.085), (40, 0.25))
             )
-            contours.extend(
-                VectorPath.polygon(
-                    *(
-                        Vec2(
-                            p.x * cos(angle) - p.y * sin(angle),
-                            p.x * sin(angle) + p.y * cos(angle),
-                        )
-                        for p in pts
-                    )
-                ).contours
-            )
-        if kind == "snow_solid":
-            contours.extend(VectorPath.circle(0.24).contours)
-        return VectorPath(tuple(contours)).map(lambda p: p * 0.5)
+        )
+    if kind == "snow":
+        return _lace_snowflake()
     return VectorPath.polygon(
-        Vec2(-0.6, -0.6), Vec2(0.6, -0.6), Vec2(0.6, 0.6), Vec2(-0.6, 0.6)
+        Vec2(-0.18, -0.18), Vec2(0.18, -0.18), Vec2(0.18, 0.18), Vec2(-0.18, 0.18)
     )
+
+
+def _lace_snowflake() -> VectorPath:
+    """Build a six-arm dendrite from the perimeter and window of one 60° sector."""
+
+    def reflect(point: Vec2) -> Vec2:
+        return Vec2(point.x, -point.y).rotated(60)
+
+    # One side of the arm, walking from the main tip past the two side branches.
+    half_arm = (
+        Vec2(0.470, 0),
+        Vec2(0.418, 0.030),
+        Vec2(0.345, 0.030),
+        Vec2(0.395, 0.143),
+        Vec2(0.315, 0.030),
+        Vec2(0.197, 0.030),
+    )
+    sector = (
+        *half_arm,
+        Vec2(0.312, 0).rotated(30),
+        *(reflect(p) for p in reversed(half_arm[1:])),
+    )
+    perimeter = VectorPath.polygon(
+        *(p.rotated(a) for a in range(0, 360, 60) for p in sector)
+    )
+    # Reverse winding for the six windows and the central hexagonal opening.
+    base, inner_branch = Vec2(0.102, 0.030), Vec2(0.167, 0.030)
+    window = (
+        base,
+        reflect(base),
+        reflect(inner_branch),
+        Vec2(0.260, 0).rotated(30),
+        inner_branch,
+    )
+    holes = tuple(
+        VectorPath.polygon(*(p.rotated(a) for p in window)).contours[0]
+        for a in range(0, 360, 60)
+    )
+    center = VectorPath.polygon(
+        *(Vec2(0.0935, 0).rotated(-a) for a in range(0, 360, 60))
+    )
+    return VectorPath((*perimeter.contours, *holes, *center.contours))
 
 
 def _falling_motion(
@@ -104,9 +126,7 @@ def _falling_motion(
     exiting: bool,
 ) -> Transform:
     """Studio's three falling paths share endpoints, sideways sway and spin."""
-    x, phase, angle, depth, drift = (
-        context.uniform(key) for key in ("x", "phase", "angle", "depth", "drift")
-    )
+    x, phase, angle, depth, drift = (unit_hash(context.seed, c) for c in range(1, 6))
     start_x = end_x = (x - 0.5) * (0.85 if entering or exiting else 0.7)
     if snow:
         start_y = -0.68 - 0.22 * phase
@@ -169,91 +189,180 @@ def ornament(
     kind: str,
     *,
     size: float,
+    em: float,
+    index: int,
     box: Vec2,
     duration: float,
     color: Color,
     entering: bool = False,
     exiting: bool = False,
-) -> PathObject:
-    random = context.uniform
-    wind = random("wind", -0.7, 0.7)
-    turn = random("turn", -90, 90)
-    amplitude = size * random("amplitude", 0.65, 1.35)
-    phase = random("phase")
-    rise = random("rise")
-    shrink = random("shrink", 0.55, 0.85)
-
-    def offset(p: float) -> Vec2:
-        if kind == "twinkle_classic" or kind == "ripple":
-            return Vec2()
-        if kind == "note":
-            return Vec2(
-                size * 0.4 * sin(2 * pi * (phase + 1.5 * p)), -size * 1.8 * ease_out(p)
+    display: Lifetime | None = None,
+) -> PathObject | None:
+    x, phase, angle, depth = (unit_hash(context.seed, c) for c in range(1, 5))
+    rotation = 0.0
+    position = context.position
+    if kind == "ripple":
+        delay = index * 0.15
+        motion = Transform(
+            scale=lambda p: size * 3.6 * (0.25 + 0.85 * ease_out(p)),
+            opacity=lambda p: (1 - p) ** 2,
+        )
+    elif kind == "note":
+        delay = angle * duration * 0.35
+        position += Vec2((x - 0.5) * box.x * 0.8, -0.35 * box.y)
+        rotation = (phase - 0.5) * 28
+        motion = Transform(
+            offset=lambda p: (
+                Vec2(0.4 * sin(2 * pi * (phase + 1.5 * p)), -1.8 * ease_out(p)) * size
+            ),
+            scale=lambda p: size * (0.70 + 0.60 * x) * (0.85 + 0.15 * sin(pi * p)),
+            opacity=lambda p: 1 - p * sqrt(p),
+        )
+    elif kind in {"assemble_in", "dissolve_out"}:
+        delay = angle * (0.09 if entering else 0.07)
+        position += Vec2((x - 0.5) * box.x * 0.9, (depth - 0.5) * box.y * 0.8)
+        direction = Vec2(cos(phase * 2 * pi), sin(phase * 2 * pi) * 0.7)
+        travel = direction * (2.2 * em * (0.6 + 0.5 * depth))
+        spin = (angle - 0.5) * 240
+        if entering:
+            motion = Transform(
+                offset=lambda p: travel * (1 - smooth_rate(p)),
+                rotation=lambda p: spin * (1 - smooth_rate(p)),
+                scale=lambda p: 0.75 * size * (0.9 - 0.35 * smooth_rate(p)),
+                opacity=lambda p: min(1, 6 * p) * (1 - p * p),
             )
-        if kind in {"twinkle", "sparkle"}:
-            travel = size * (3.2 if entering or exiting else 1.8)
-            return Vec2(wind * 0.25, -0.45 * (0.3 + 0.7 * rise)) * (travel * p)
-        if kind == "assemble":
-            return Vec2(wind * size * 24, -size * 18) * (1 - smooth_rate(p))
-        if kind == "dissolve":
-            return Vec2(wind * size * 24, -size * (8 + 14 * rise)) * smooth_rate(
-                p
+        else:
+            motion = Transform(
+                offset=lambda p: travel * smooth_rate(p),
+                rotation=lambda p: spin * smooth_rate(p),
+                scale=lambda p: 0.75 * size * (1 - 0.25 * smooth_rate(p)),
+                opacity=lambda p: (1 - p) * (1 - 0.5 * p),
             )
-        return Vec2(
-            wind * size * p * 3,
-            -size * (3 if kind == "note" else 2) * (1 - (1 - p) ** 2),
+    else:
+        snow = kind != "petal"
+        delay = angle * (0.16 if snow else 0.11)
+        motion = _falling_motion(
+            context, box, size, snow=snow, entering=entering, exiting=exiting
         )
-
-    def scale(p: float) -> Vec2:
-        if kind == "ripple":
-            return Vec2(1, 1) * size * 3.6 * (0.25 + 0.85 * (1 - (1 - p) ** 2))
-        if kind == "note":
-            return Vec2(1, 1) * amplitude * (0.85 + 0.15 * sin(pi * p))
-        if kind in {"sparkle", "twinkle"}:
-            return Vec2(1, 1) * amplitude * (1 - p * shrink)
-        value = (
-            amplitude * (0.35 + 0.65 * sin(pi * p))
-            if kind == "twinkle_classic"
-            else amplitude * (1 - 0.4 * p)
-        )
-        return Vec2(value, value)
-
-    def opacity(p: float) -> float:
-        if kind == "note":
-            return 1 - p * sqrt(p)
-        if kind in {"sparkle", "twinkle"}:
-            return 1 - p
-        if kind == "ripple":
-            return (1 - p) ** 2
-        if kind == "twinkle_classic":
-            return max(0, sin(pi * p))
-        return min(1, p * 8) * (1 - smooth_rate(p))
-
-    falling = kind in {"petal", "snow", "snow_solid"}
-    if kind in {"twinkle_classic", "note", "ripple"}:
-        turn = 0
-    elif kind in {"twinkle", "sparkle"}:
-        turn = 60
-    motion = (
-        _falling_motion(
-            context, box, size, snow=kind != "petal", entering=entering, exiting=exiting
-        )
-        if falling
-        else Transform(
-            offset=offset, scale=scale, opacity=opacity, rotation=lambda p: turn * p
-        )
+    if delay >= duration:
+        return None
+    return _draw(
+        replace(context, birth=context.birth + delay, position=position),
+        kind,
+        duration - delay,
+        color,
+        motion,
+        display,
+        angle=rotation,
     )
+
+
+def _draw(
+    context: ParticleContext,
+    kind: str,
+    duration: float,
+    color: Color,
+    motion: Transform,
+    display: Lifetime | None,
+    *,
+    angle: float = 0,
+) -> PathObject | None:
+    start, end = context.birth, context.birth + duration
+    animation: Transform | StateFunction = motion
+    if display is not None:
+        start, end = max(start, display.start), min(end, display.end)
+        if end <= start:
+            return None
+        # The line can open mid-flight. Preserve the original phase at both boundaries.
+        phase = (start - context.birth) / duration
+        span = (end - start) / duration
+        animation = StateFunction(
+            lambda base, p: motion.sample(base, min(1, phase + p * span)),
+            motion.channels,
+        )
     return PathObject(
         id=context.id,
         origin=context.origin,
-        lifetime=Lifetime(context.birth, context.birth + duration),
+        lifetime=Lifetime(start, end),
         path=sprite(kind),
-        layer=2,
+        layer=-1 if kind == "ripple" else 2,
         state=VisualState(
             position=context.position,
             fill=color,
             outline=color,
             blur=0,
-            rotation=0 if falling else random("angle", -30, 30),
+            rotation=angle,
         ),
-    ).animate(motion, duration=duration)
+    ).animate(animation, duration=end - start)
+
+
+def star_burst(
+    context: ParticleContext,
+    kind: str,
+    *,
+    box: Vec2,
+    size: float,
+    duration: float,
+    count: int,
+    colors: tuple[Color, ...],
+    exiting: bool,
+    display: Lifetime | None,
+) -> Iterator[PathObject]:
+    """Emit one deterministic star pattern per palette colour around the box centre."""
+    for variant, color in enumerate(colors):
+        previous = None
+        for index in range(variant, count, len(colors)):
+            seed = context.seed + index // len(colors) + variant * 0x9E37
+            x, y, angle, shrink, jitter = (unit_hash(seed, c) for c in range(1, 6))
+            if kind == "twinkle_classic":
+                lifetime = 0.30 + 0.15 * shrink
+                delay = angle * max(0, duration - lifetime) * 0.8
+                offset = Vec2((x - 0.5) * box.x * 0.95, (y - 0.5) * box.y * 0.85)
+                peak = size * (0.65 + 0.70 * shrink)
+                motion = Transform(
+                    scale=lambda p, peak=peak: peak * (0.30 + 0.70 * sin(pi * p)),
+                    opacity=lambda p: sin(pi * p),
+                )
+                rotation = angle * 120 - 30
+            else:
+                # Adjacent stars in the same colour stream must occupy different quadrants.
+                left = x < 0.5
+                split = 0.62 / 0.92
+                if previous == (left, y < split):
+                    a, b = unit_hash(seed, 6), unit_hash(seed, 7)
+                    y = next(
+                        (v for v in (a, b) if (left, v < split) != previous),
+                        split + (1 - split) * a if y < split else split * b,
+                    )
+                previous = (left, y < split)
+                offset = Vec2((x - 0.5) * box.x, (0.92 * y - 0.62) * box.y)
+                delay = (1 - x if exiting else x) * 0.35 + jitter * 0.09
+                lifetime = duration - delay
+                travel = size * (3.2 if kind == "sparkle" else 1.8)
+                drift = Vec2((shrink - 0.5) * 0.35, -(0.30 + 0.70 * y) * 0.45) * travel
+                peak = size * (0.65 + 0.70 * angle)
+                motion = Transform(
+                    offset=lambda p, d=drift: d * p,
+                    scale=lambda p, a=peak, b=shrink: a * (1 - p * (0.85 - 0.30 * b)),
+                    rotation=lambda p: 60 * p,
+                    opacity=lambda p: 1 - p,
+                )
+                rotation = angle * 90
+            if lifetime <= 0:
+                continue
+            star = _draw(
+                replace(
+                    context,
+                    id=f"{context.id}:{index}",
+                    birth=context.birth + delay,
+                    position=context.position + offset,
+                ),
+                kind,
+                lifetime,
+                color,
+                motion,
+                display,
+                angle=rotation,
+            )
+            if star is not None:
+                yield star

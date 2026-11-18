@@ -10,6 +10,7 @@ from hashlib import sha256
 from pathlib import Path
 from urllib.parse import quote, unquote
 
+from ._karaoke_motion import RowSlide
 from .ass import Document, Line, Style
 from .coverage_animation import GlowFunction
 from .cues import CueContent, CueContext, CueFactory, CuePreset, bind_lyric_cues
@@ -412,7 +413,7 @@ def prepare_tracks(
                 if isinstance(effect, LyricHighlights)
             ]
         )
-        for source in selected:
+        for track_index, source in enumerate(selected):
             identity = f"track:{quote(track.id, safe='')}/{source.id}"
             spans = tuple(
                 segment.singing
@@ -450,7 +451,8 @@ def prepare_tracks(
             local_presets = _cue_presets(track.cues)
             cued = bind_lyric_cues(bare, local_presets)
             bindings = LyricLine.from_layout(
-                cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent
+                cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
+                track_index=track_index,
             )._resolve(
                 tuple(
                     effect for effect in track.effects if isinstance(effect, LyricRule)
@@ -480,8 +482,10 @@ def prepare_tracks(
                 )
             cued = bind_lyric_cues(_retime(bare, display), local_presets)
             line = LyricLine.from_layout(
-                cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent
+                cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
+                track_index=track_index,
             )
+            line = replace(line, _at_placement=())
             for effect in track.effects:
                 if isinstance(effect, LyricRule):
                     continue
@@ -553,6 +557,7 @@ def prepare_tracks(
                     singing=singing,
                     display=display,
                     bounds=_union((line.layout.bounds, *cue_bounds)),
+                    em_size=line.query("line")[0].em_size,
                     entrance=entrance,
                     exit=exit,
                     sources=(SourceRef(source.id),),
@@ -575,6 +580,9 @@ def prepare_tracks(
         for source, item in zip(selected, batch, strict=True):
             placement = by_id[item.id]
             line = prepared[item.id].with_display(placement.display)
+            for decorate in line._at_placement or ():
+                line = decorate(line)
+            line = replace(line, _at_placement=None)
             line = replace(
                 line,
                 state=replace(
@@ -595,7 +603,12 @@ def prepare_tracks(
             current = {target.id: target for target in line.targets}
             line = line._bind(
                 tuple(
-                    replace(binding, target=current[binding.target.id])
+                    replace(
+                        binding,
+                        target=current[binding.target.id],
+                        animation=binding.animation.for_row(placement.row)
+                        if isinstance(binding.animation, RowSlide) else binding.animation,
+                    )
                     for binding in resolved[item.id]
                 )
             )

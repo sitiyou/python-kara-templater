@@ -46,7 +46,7 @@ type KaraokeDecoration = Literal['none', 'twinkle', 'twinkle_classic', 'note', '
 Compose entry, singing, exit and ornaments as one Track.effects callable.
 
 All durations are seconds, widths are script pixels; particle_size is a
-fraction of each glyph's measured height. Entry/exit duration includes the
+fraction of the shaped font’s em size. Entry/exit duration includes the
 full stagger span. Zero disables that transition. `none` singing retains
 ordinary wipe; `no_wipe` recolors the whole timed unit at completion. Utopia pulses
 within each note; zoom_pulse grows throughout the note and releases over .30 s.
@@ -68,7 +68,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L243)
+[Source](../../kara_templater/karaoke_effects.py#L427)
 
 ```python
 KaraokeEffects(
@@ -221,14 +221,29 @@ Studio horizontal row presets, scaled from 1080p to the script height.
 One row is centered, three use left/center/right, other counts alternate.
 Use anchor to place a stream at the top or bottom of its region. Row height
 includes the largest measured lyric, ruby and reserved inline cue in this track.
+smart_horizontal defaults to equal_margins, moving the left and right rows
+inward by half the page's spare width. center_position treats each row
+independently. none keeps the preset alignments against the region margins.
+section_gap starts a new rotation after a longer singing silence (0 disables
+splitting). lane_gap reserves seconds between occupants when available.
+sync_entry and sync_ending align the first and last pages respectively;
+sync_each_page applies enabled synchronization to every page. fill_section
+holds each row toward the next same-row preview and aligns final page tails.
 
-[Source](../../kara_templater/lyric_layout.py#L292)
+[Source](../../kara_templater/lyric_layout.py#L297)
 
 ```python
 KaraokeRows(
     *,
     rows: int = 2,
     anchor: Literal['top', 'bottom'] = 'bottom',
+    smart_horizontal: Literal['equal_margins', 'center_position', 'none'] = 'equal_margins',
+    section_gap: float = 4.0,
+    lane_gap: float = 0.3,
+    sync_entry: bool = True,
+    sync_ending: bool = False,
+    sync_each_page: bool = False,
+    fill_section: bool = True,
 )
 ```
 
@@ -238,6 +253,13 @@ KaraokeRows(
 | --- | --- | --- |
 | `rows` | `int` | `2` |
 | `anchor` | `Literal['top', 'bottom']` | `'bottom'` |
+| `smart_horizontal` | `Literal['equal_margins', 'center_position', 'none']` | `'equal_margins'` |
+| `section_gap` | `float` | `4.0` |
+| `lane_gap` | `float` | `0.3` |
+| `sync_entry` | `bool` | `True` |
+| `sync_ending` | `bool` | `False` |
+| `sync_each_page` | `bool` | `False` |
+| `fill_section` | `bool` | `True` |
 
 ### KaraokeRows.allocate
 
@@ -272,7 +294,7 @@ Alignment and offsets can be supplied per row.
 Alternating alignment places even rows on the left and odd rows on the right. Bounds already
 include ruby and inline cue reservations. gap is row-origin spacing in pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L157)
+[Source](../../kara_templater/lyric_layout.py#L162)
 
 ```python
 Layout(
@@ -321,7 +343,7 @@ Read-only placement region and explicitly supplied cross-track references.
 Other tracks are information for overrides, never implicitly allocated by the
 built-in algorithm. Coordinates and measurements use script pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L80)
+[Source](../../kara_templater/lyric_layout.py#L85)
 
 ```python
 LayoutContext(
@@ -364,6 +386,7 @@ LayoutLine(
     cues: tuple[CueMarker, ...] = (),
     lead: bool = False,
     reserved: Lifetime | None = None,
+    em_size: float | None = None,
 )
 ```
 
@@ -382,6 +405,7 @@ LayoutLine(
 | `cues` | `tuple[CueMarker, ...]` | `()` |
 | `lead` | `bool` | `False` |
 | `reserved` | `Lifetime \| None` | `None` |
+| `em_size` | `float \| None` | `None` |
 
 ### LayoutLine.required
 
@@ -393,7 +417,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L145)
+[Source](../../kara_templater/orchestration.py#L146)
 
 ```python
 LinePlan(
@@ -434,7 +458,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L63)
+[Source](../../kara_templater/lyric_line.py#L64)
 
 ```python
 LyricAnimationContext(
@@ -543,12 +567,13 @@ type LyricEffect = LyricRule | Callable[[LyricLine], LyricLine]
 An editable lyric line, with the same animate method as any visual node.
 
 Body and ruby belong to syllable groups, so whole-line and syllable animation
-compose through the ordinary Scene hierarchy. query is a logical selection;
+compose through the ordinary Scene hierarchy. track_index counts lines in
+singing order within the selected track, starting at zero. query is a logical selection;
 it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L246)
+[Source](../../kara_templater/lyric_line.py#L247)
 
 ```python
 LyricLine(
@@ -568,6 +593,7 @@ LyricLine(
     layout: LyricLayout,
     targets: tuple[LyricTarget, ...],
     independent: tuple[ObjectGroup, ...] = (),
+    track_index: int = 0,
     required_display: tuple[TimeSpan, ...] = (),
 )
 ```
@@ -591,6 +617,7 @@ LyricLine(
 | `layout` | `LyricLayout` | `required` |
 | `targets` | `tuple[LyricTarget, ...]` | `required` |
 | `independent` | `tuple[ObjectGroup, ...]` | `()` |
+| `track_index` | `int` | `0` |
 | `required_display` | `tuple[TimeSpan, ...]` | `()` |
 
 ### LyricLine.animate
@@ -669,6 +696,7 @@ LyricLine.from_layout(
     tags: frozenset[str] = frozenset({}),
     inline: tuple[ObjectGroup, ...] = (),
     independent: tuple[ObjectGroup, ...] = (),
+    track_index: int = 0,
 ) -> LyricLine
 ```
 
@@ -766,7 +794,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L95)
+[Source](../../kara_templater/lyric_line.py#L96)
 
 ```python
 LyricRule(
@@ -812,7 +840,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L156)
+[Source](../../kara_templater/orchestration.py#L157)
 
 ```python
 LyricScene(
@@ -951,7 +979,7 @@ An immutable source view used by Track predicates and metadata functions.
 id identifies source content independently of its track/view. Original
 singing intervals remain in lyrics; display is the original ASS visibility.
 
-[Source](../../kara_templater/orchestration.py#L39)
+[Source](../../kara_templater/orchestration.py#L40)
 
 ```python
 LyricSource(
@@ -1035,6 +1063,7 @@ LyricTarget(
     aliases: tuple[str, ...] = (),
     center: Vec2 = Vec2(x=0, y=0),
     baseline: float | None = None,
+    em_size: float | None = None,
 )
 ```
 
@@ -1051,6 +1080,7 @@ LyricTarget(
 | `aliases` | `tuple[str, ...]` | `()` |
 | `center` | `Vec2` | `Vec2(x=0, y=0)` |
 | `baseline` | `float \| None` | `None` |
+| `em_size` | `float \| None` | `None` |
 
 ## Placement
 
@@ -1059,7 +1089,7 @@ A visual origin and absolute display interval for one stable line id.
 row is optional metadata; free-form layouts do not need numbered slots.
 adjustments explains deliberate changes to desired visibility.
 
-[Source](../../kara_templater/lyric_layout.py#L102)
+[Source](../../kara_templater/lyric_layout.py#L107)
 
 ```python
 Placement(
@@ -1141,7 +1171,7 @@ ruby_gap sets the visual gap in script pixels between hard outlines of
 the reading group and its body at rest. Negative values allow overlap.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L99)
+[Source](../../kara_templater/orchestration.py#L100)
 
 ```python
 Track(
@@ -1208,7 +1238,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L357)
+[Source](../../kara_templater/orchestration.py#L358)
 
 ```python
 prepare_tracks(

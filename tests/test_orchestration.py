@@ -104,13 +104,15 @@ def test_default_track_alternates_bottom_rows_and_scales_margins():
     upper, lower, again = scene.plans
     assert [p.placement.row for p in scene.plans] == [0, 1, 0]
     a, b = upper.input.bounds, lower.input.bounds
-    assert upper.placement.position.x + a.left == pytest.approx(50 / 3)
-    assert lower.placement.position.x + b.right == pytest.approx(640 - 50 / 3)
+    left = upper.placement.position.x + a.left
+    right = 640 - (lower.placement.position.x + b.right)
+    assert left == pytest.approx(right)
+    assert left > 50 / 3
     assert lower.placement.position.y + b.top + b.height == pytest.approx(340)
     assert lower.placement.position.y + b.top - (
         upper.placement.position.y + a.top + a.height
     ) == pytest.approx(15)
-    assert again.placement.position == upper.placement.position
+    assert again.placement.position.x + again.input.bounds.center == pytest.approx(320)
 
 
 def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerates():

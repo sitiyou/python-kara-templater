@@ -27,7 +27,7 @@ A CueFactory producing a stepwise bar countdown from vector objects.
 Width, height, border, and colors are explicit and the returned content reserves
 its own layout dimensions.
 
-[Source](../../kara_templater/cues.py#L101)
+[Source](../../kara_templater/cues.py#L102)
 
 ```python
 BarsCue(
@@ -63,7 +63,7 @@ BarsCue.__call__(
 
 Local objects plus the explicit layout space the author wants to reserve.
 
-[Source](../../kara_templater/cues.py#L44)
+[Source](../../kara_templater/cues.py#L45)
 
 ```python
 CueContent(
@@ -97,6 +97,7 @@ CueContext(
     steps: tuple[float, ...],
     origin: EventOrigin,
     host: TextObject | None = None,
+    host_em: float | None = None,
 )
 ```
 
@@ -109,6 +110,7 @@ CueContext(
 | `steps` | `tuple[float, ...]` | `required` |
 | `origin` | `EventOrigin` | `required` |
 | `host` | `TextObject \| None` | `None` |
+| `host_em` | `float \| None` | `None` |
 
 ## CueFactory
 
@@ -117,7 +119,7 @@ A typed callable that maps CueContext to local CueContent.
 Implement it with an ordinary function or callable object to customize cue text,
 geometry, and animation.
 
-[Source](../../kara_templater/cues.py#L58)
+[Source](../../kara_templater/cues.py#L59)
 
 ### CueFactory.__call__
 
@@ -136,7 +138,7 @@ A bound marker, preset, content, and trigger placement in the lyric layout.
 
 It retains the data needed to reserve or release inline space.
 
-[Source](../../kara_templater/cues.py#L181)
+[Source](../../kara_templater/cues.py#L182)
 
 ```python
 CuePlacement(
@@ -164,7 +166,7 @@ A cue factory with lead/duration in seconds, normalized step fractions, gap, pos
 
 An explicit trigger overrides the relevant singing interval default.
 
-[Source](../../kara_templater/cues.py#L70)
+[Source](../../kara_templater/cues.py#L71)
 
 ```python
 CuePreset(
@@ -199,7 +201,7 @@ A plain-text layout after cue binding, with inline and independent cue groups.
 
 Its group combines the adjusted text and reserved-space behavior.
 
-[Source](../../kara_templater/cues.py#L195)
+[Source](../../kara_templater/cues.py#L196)
 
 ```python
 CuedLayout(
@@ -234,7 +236,7 @@ CuedLayout.group(
 
 Body/ruby with shared cue reservations; independent cues remain separate.
 
-[Source](../../kara_templater/cues.py#L406)
+[Source](../../kara_templater/cues.py#L408)
 
 ```python
 CuedLyrics(
@@ -269,11 +271,11 @@ CuedLyrics.group(
 
 A row of vector lamps extinguishing on cue steps, right to left by default.
 
-size is the side of a lamp in script pixels, defaulting to half the host font size. Each lamp fades over the last
+size is the side of a lamp in script pixels, defaulting to half the host font’s measured em size. Each lamp fades over the last
 transition fraction of its step. Pass a custom path in the unit square to
 use a drawn symbol with the same layout and clock.
 
-[Source](../../kara_templater/karaoke_cues.py#L212)
+[Source](../../kara_templater/karaoke_cues.py#L216)
 
 ```python
 SignalCue(
@@ -321,7 +323,7 @@ A CueFactory displaying configurable countdown text for each step.
 It measures the requested font and returns objects plus explicit reserved width
 and height.
 
-[Source](../../kara_templater/cues.py#L139)
+[Source](../../kara_templater/cues.py#L140)
 
 ```python
 TextCue(
@@ -360,10 +362,10 @@ sets the number of group pulses before the final fill. Each pulse and the
 fill get equal time by default; flash_ratio scales the length of each pulse
 relative to the fill. ratio is first-to-last column height and spacing is
 additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
-and idle before the active portion. height and border use script pixels. Omit height for half the host font size.
+and idle before the active portion. height and border use script pixels. Omit height for half the host font’s measured em size.
 An omitted border scales the host outline, capped at a quarter of the column width.
 
-[Source](../../kara_templater/karaoke_cues.py#L47)
+[Source](../../kara_templater/karaoke_cues.py#L51)
 
 ```python
 VolumeCue(
@@ -416,7 +418,7 @@ Defaults trigger at the first singing interval; there is no inferred beat.
 A preset can supply an absolute trigger. Inline reservations are included in
 range/background measurements and optionally released after the cue ends.
 
-[Source](../../kara_templater/cues.py#L235)
+[Source](../../kara_templater/cues.py#L236)
 
 ```python
 bind_cues(
@@ -435,7 +437,7 @@ Markers use projected body offsets. A reservation inside a body unit moves
 its ruby by half the reserved width, keeping its original center offset from
 the expanded body box; before a unit it moves ruby by the full width.
 
-[Source](../../kara_templater/cues.py#L432)
+[Source](../../kara_templater/cues.py#L434)
 
 ```python
 bind_lyric_cues(

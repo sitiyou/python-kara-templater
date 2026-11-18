@@ -36,6 +36,7 @@ class LayoutLine:
     cues: tuple[CueMarker, ...] = ()
     lead: bool = False
     reserved: Lifetime | None = None
+    em_size: float | None = None
 
     def __post_init__(self) -> None:
         finite(
@@ -46,6 +47,10 @@ class LayoutLine:
             self.bounds.width,
             self.bounds.height,
         )
+        if self.em_size is not None:
+            finite(self.em_size)
+            if self.em_size <= 0:
+                raise ValueError("em_size must be positive")
         if not self.id:
             raise ValueError("layout line needs a stable id")
         if self.entrance < 0 or self.exit < 0:
@@ -296,14 +301,37 @@ class KaraokeRows:
     One row is centered, three use left/center/right, other counts alternate.
     Use anchor to place a stream at the top or bottom of its region. Row height
     includes the largest measured lyric, ruby and reserved inline cue in this track.
+    smart_horizontal defaults to equal_margins, moving the left and right rows
+    inward by half the page's spare width. center_position treats each row
+    independently. none keeps the preset alignments against the region margins.
+    section_gap starts a new rotation after a longer singing silence (0 disables
+    splitting). lane_gap reserves seconds between occupants when available.
+    sync_entry and sync_ending align the first and last pages respectively;
+    sync_each_page applies enabled synchronization to every page. fill_section
+    holds each row toward the next same-row preview and aligns final page tails.
     """
 
     rows: int = 2
     anchor: Literal["top", "bottom"] = "bottom"
+    smart_horizontal: Literal["equal_margins", "center_position", "none"] = (
+        "equal_margins"
+    )
+
+    section_gap: float = 4.0
+    lane_gap: float = 0.30
+    sync_entry: bool = True
+    sync_ending: bool = False
+    sync_each_page: bool = False
+    fill_section: bool = True
 
     def __post_init__(self) -> None:
+        finite(self.section_gap, self.lane_gap)
+        if min(self.section_gap, self.lane_gap) < 0:
+            raise ValueError("section and lane gaps must be nonnegative seconds")
         if type(self.rows) is not int or not 1 <= self.rows <= 8:
             raise ValueError("Studio presets support one to eight rows")
+        if self.smart_horizontal not in ("equal_margins", "center_position", "none"):
+            raise ValueError("unknown smart horizontal placement")
         if self.anchor not in ("top", "bottom"):
             raise ValueError("unknown karaoke row anchor")
 
@@ -326,14 +354,158 @@ class KaraokeRows:
         area = Box(
             region.left + inset, region.top, region.width - 2 * inset, region.height
         )
-        layout = Layout(
-            rows=self.rows,
-            gap=pitch,
-            position=Vec2(area.left, y),
-            alignment="center"
+        alignments = (
+            ("center",)
             if self.rows == 1
             else ("left", "center", "right")
             if self.rows == 3
-            else "alternating",
+            else tuple("left" if i % 2 == 0 else "right" for i in range(self.rows))
         )
-        return layout.allocate(lines, replace(context, region=area))
+        layout = Layout(rows=self.rows, gap=pitch, position=Vec2(area.left, y))
+        sections = [0]
+        for i in range(1, len(lines)):
+            if (
+                self.section_gap
+                and lines[i].singing.start - lines[i - 1].singing.end > self.section_gap
+            ):
+                sections.append(i)
+        sections.append(len(lines))
+        adjusted: list[Placement] = []
+        for start, end in zip(sections, sections[1:], strict=False):
+            section = lines[start:end]
+            placements = layout.allocate(section, replace(context, region=area))
+            adjusted.extend(self._place_section(section, placements, area, alignments))
+        # Long authored leads/tails can still meet across an instrumental break.
+        last_in_row: dict[int | None, int] = {}
+        for i, placement in enumerate(adjusted):
+            j = last_in_row.get(placement.row)
+            if (
+                j is not None
+                and adjusted[j].display.end + self.lane_gap > placement.display.start
+            ):
+                earlier, later = self._handoff(
+                    lines[j], adjusted[j].display, lines[i], placement.display
+                )
+                adjusted[j] = replace(adjusted[j], display=earlier)
+                adjusted[i] = replace(placement, display=later)
+            last_in_row[placement.row] = i
+        validate_placements(lines, tuple(adjusted))
+        return tuple(adjusted)
+
+    def _place_section(
+        self,
+        lines: tuple[LayoutLine, ...],
+        placements: tuple[Placement, ...],
+        area: Box,
+        alignments: tuple[str, ...],
+    ) -> list[Placement]:
+        windows = self._page_windows(lines, placements)
+        adjusted: list[Placement] = []
+        for i in range(0, len(lines), self.rows):
+            page = lines[i : i + self.rows]
+            slots = (
+                alignments[-len(page) :]
+                if self.anchor == "bottom"
+                else alignments[: len(page)]
+            )
+            widths = {"left": 0.0, "center": 0.0, "right": 0.0}
+            for line, slot in zip(page, slots, strict=True):
+                widths[slot] = max(widths[slot], line.bounds.width)
+            head_em = page[0].em_size or page[0].bounds.height
+            slack = (
+                max(0, area.width - sum(widths.values()) + head_em)
+                if widths["left"] and widths["right"]
+                else 0.0
+            )
+            for line, slot, placement in zip(
+                page, slots, placements[i : i + self.rows], strict=True
+            ):
+                width = line.bounds.width
+                room = area.width - width
+                if slot == "center" or (
+                    len(page) == 1 and self.smart_horizontal != "none"
+                ):
+                    x = room / 2
+                else:
+                    inset_x = 0.0
+                    if self.smart_horizontal == "equal_margins":
+                        inset_x = slack / 2
+                    elif self.smart_horizontal == "center_position":
+                        inset_x = max(
+                            0,
+                            (area.width + (line.em_size or line.bounds.height)) / 2
+                            - width,
+                        )
+                    x = inset_x if slot == "left" else room - inset_x
+                adjusted.append(
+                    replace(
+                        placement,
+                        position=placement.position + Vec2(x, 0),
+                        display=windows[len(adjusted)],
+                    )
+                )
+        return adjusted
+
+    def _page_windows(
+        self, lines: tuple[LayoutLine, ...], placements: tuple[Placement, ...]
+    ) -> list[Lifetime]:
+        """Spend optional preview and tail around protected same-row handoffs."""
+        windows = [p.display for p in placements]
+        for i, line in enumerate(lines):
+            if i < self.rows:
+                continue
+            j = i - self.rows
+            windows[j], windows[i] = self._handoff(
+                lines[j], windows[j], line, windows[i]
+            )
+        for i in range(0, len(lines), self.rows):
+            stop = min(i + self.rows, len(lines))
+            first = min(w.start for w in windows[i:stop])
+            last = max(w.end for w in windows[i:stop])
+            for j in range(i, stop):
+                start, end = windows[j].start, windows[j].end
+                if self.sync_entry and (i == 0 or self.sync_each_page):
+                    floor = (
+                        windows[j - self.rows].end + self.lane_gap
+                        if j >= self.rows
+                        else 0
+                    )
+                    start = min(start, max(floor, first))
+                if self.sync_ending and (stop == len(lines) or self.sync_each_page):
+                    ceiling = (
+                        windows[j + self.rows].start - self.lane_gap
+                        if j + self.rows < len(lines)
+                        else last
+                    )
+                    end = max(end, min(ceiling, last))
+                windows[j] = Lifetime(start, end)
+        if self.fill_section and windows:
+            last_page = (len(windows) - 1) // self.rows * self.rows
+            section_end = max(w.end for w in windows[last_page:])
+            for j, window in enumerate(windows):
+                if j + self.rows < len(lines):
+                    end = windows[j + self.rows].start - self.lane_gap
+                elif j >= last_page:
+                    end = section_end
+                else:
+                    continue
+                windows[j] = Lifetime(window.start, max(window.end, end))
+        return windows
+
+    def _handoff(
+        self,
+        previous: LayoutLine,
+        before: Lifetime,
+        following: LayoutLine,
+        after: Lifetime,
+    ) -> tuple[Lifetime, Lifetime]:
+        room = following.required.start - previous.required.end
+        if room < 0:
+            raise ValueError(
+                f"{following.id}: required window overlaps {previous.id} on the same row"
+            )
+        gap = min(self.lane_gap, room)
+        end = max(previous.required.end, min(before.end, after.start - gap))
+        return Lifetime(before.start, end), Lifetime(
+            max(after.start, min(following.required.start, end + gap)), after.end
+        )

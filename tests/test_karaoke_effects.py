@@ -468,3 +468,164 @@ def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
     document = scene.compile(native_tweens=True).document
     assert any(r"\clip(" in row.text for row in document.lines if not row.comment)
     assert any(d.gradient is not None for d in SceneFrames(scene).at(1.3))
+
+
+def test_stretch_has_sharp_core_and_five_fading_white_halos():
+    scene = subject(
+        text=r"{\k100}A",
+        entry="stretch_in",
+        entry_duration=0.6,
+        singing="none",
+        exit="none",
+    )
+    line = scene.lines[0]
+    (target,) = line.query("character")
+    halos = [n for n in _walk(line) if ":halo:" in n.id]
+    assert len(halos) == 5
+    t = line.lifetime.start + 0.1
+    evaluator = scene.evaluator()
+    core = evaluator.at(target.node_id, t)
+    assert core.blur == 0
+    assert core.scale.x > core.scale.y
+    states = [evaluator.at(node.id, t) for node in halos]
+    assert all(
+        state.scale.x == pytest.approx(core.scale.x)
+        and state.outline == Color(255, 255, 255)
+        for state in states
+    )
+    assert all(
+        a.border < b.border and a.opacity > b.opacity
+        for a, b in zip(states, states[1:], strict=False)
+    )
+
+
+def test_line_sparkle_burst_and_petal_exit_respect_the_text_window():
+    options = {"entry_duration": 0.6, "exit_duration": 0.6, "singing": "none"}
+    reference = subject(entry="fade", exit="fade", **options).lines[0]
+    line = subject(entry="sparkle", exit="petal", **options).lines[0]
+    assert line.lifetime == reference.lifetime
+    stars = [n for n in line.children if isinstance(n, PathObject)]
+    assert len(stars) == 14
+    assert (
+        max(n.lifetime.end for n in _walk(line) if ":particle:" in n.id)
+        <= line.lifetime.end
+    )
+
+
+def test_slide_follows_allocated_lane_and_stars_start_at_their_sweep_position():
+    doc = Document.create(
+        width=640, height=360, styles=(Style(fontname="DejaVu Sans"),)
+    )
+    for start in (2000, 3200):
+        doc.records.append(
+            Line(start_time=start, end_time=start + 800, text=r"{\k80}AB")
+        )
+    effect = KaraokeEffects(
+        entry="slide_in", exit="none", singing="none", decoration="twinkle"
+    )
+    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(effect,)),))
+    for index, line in enumerate(scene.lines):
+        assert line.track_index == index
+        start_x = scene.evaluator().at(line.id, line.lifetime.start).position.x
+        assert (
+            (start_x < line.state.position.x)
+            if index == 0
+            else (start_x > line.state.position.x)
+        )
+        target = line.query("character")[0]
+        assert target.em_size == pytest.approx(
+            line.layout.body.characters[0].object.font_size * 2048 / 2384
+        )
+        stars = [
+            node
+            for node in _walk(line)
+            if node.id.startswith(target.node_id + "/") and ":particle:" in node.id
+        ]
+        assert len(stars) == 7
+        assert min(node.lifetime.start for node in stars) >= target.singing[0].start
+        assert (
+            max(node.lifetime.start for node in stars) > target.singing[0].start + 0.13
+        )
+
+
+@pytest.mark.parametrize(
+    "mode,gradient_strips", [("brighten", 2), ("follow_after", 4), ("follow_before", 0)]
+)
+def test_scanline_lifts_gradient_stops_on_the_selected_side(mode, gradient_strips):
+    from kara_templater import LinearGradient, LyricGradient
+
+    calls = []
+
+    def paint(line, target):
+        calls.append(target.id)
+        return LyricGradient((Color(100, 0, 0), Color(0, 40, 0)), step=4)(line, target)
+
+    scene = subject(
+        text=r"{\k100}H",
+        entry="none",
+        exit="none",
+        singing="scanline",
+        material=paint,
+        scanline_mode=mode,
+        scanline_width=4,
+        scanline_softness=2,
+        scanline_brightness=0.5,
+    )
+    assert len(calls) == 1
+    ramps = [
+        node.material.fill
+        for node in _walk(scene.lines[0])
+        if ":front:" in node.id and isinstance(node.material, LinearGradient)
+    ]
+    assert len(ramps) == gradient_strips
+    assert all(
+        ramp and [s.color for s in ramp.stops] == [Color(178, 0, 0), Color(0, 148, 0)]
+        for ramp in ramps
+    )
+    assert scene.compile(native_tweens=True).event_count > 0
+
+
+def test_scanline_crosses_syllable_boundary_on_both_glyphs():
+    scene = subject(
+        text=r"{\k50}H{\k50}H",
+        start=1000,
+        end=2000,
+        min_outline_gap=None,
+        entry="none",
+        exit="none",
+        singing="scanline",
+        scanline_width=24,
+        scanline_softness=0,
+    )
+    line = scene.lines[0]
+    nodes = {node.id: node for node in _walk(line)}
+    for target, glyph in zip(
+        line.query("character"), line.layout.body.characters, strict=True
+    ):
+        fronts = [nodes[name] for name in target.aliases if ":front:" in name]
+        assert glyph.ink_bounds
+        for t in (1.49, 1.51):
+            masks = [
+                node.clip.deform.sample(t - node.time_origin)
+                for node in fronts
+                if isinstance(node.clip, RectangleClip) and node.clip.deform
+            ]
+            active = [bounds for bounds in masks if bounds]
+            assert len(active) == 1
+            left, _, right, _ = active[0]
+            assert glyph.bounds.left + left < glyph.ink_bounds.right
+            assert glyph.bounds.left + right > glyph.ink_bounds.left
+
+
+def test_second_row_particles_follow_synchronized_entry_and_extended_exit():
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
+    for t in (2000, 4200, 6500, 8800):
+        doc.records.append(Line(text=r"{\k100}A", start_time=t, end_time=t+1000))
+    effect = KaraokeEffects(entry="sparkle", exit="glow_out", singing="scanline")
+    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(effect,)),))
+    line = scene.lines[1]
+    assert line.lifetime.start == pytest.approx(0.2)
+    stars = [n for n in line.children if ":particle:" in n.id]
+    assert stars and max(n.lifetime.start for n in stars) < 0.6
+    echoes = [n for n in _walk(line) if ":echo:glow_out:" in n.id]
+    assert echoes and all(n.lifetime.start == pytest.approx(line.lifetime.end-0.3) for n in echoes)

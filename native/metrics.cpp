@@ -162,12 +162,12 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
                 }
                 PyObject *segments = PyBytes_FromStringAndSize(outline->segments, outline->n_segments);
                 if (!segments) { Py_DECREF(points); Py_DECREF(outlines); return nullptr; }
-                PyObject *item = Py_BuildValue("(NN(dd)(ssi))", points, segments,
+                PyObject *item = Py_BuildValue("(NN(dd)(ssid))", points, segments,
                     outline->glyph_origin.x - origin_x,
                     outline->glyph_origin.y - baseline,
                     outline->font_family ? outline->font_family : "",
                     outline->font_style ? outline->font_style : "",
-                    outline->glyph_index);
+                    outline->glyph_index, outline->em_ratio > 0 ? outline->em_ratio : 1.0);
                 if (!item || PyList_Append(outlines, item) < 0) {
                     Py_XDECREF(item); Py_DECREF(outlines); return nullptr;
                 }

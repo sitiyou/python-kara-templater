@@ -49,7 +49,7 @@ def outline_text(node: TextObject, *, max_points: int = 4096) -> TextOutline:
     vertical = (node.alignment - 1) // 3
     offset = Vec2(-width * horizontal / 2, -height * (2 - vertical) / 2)
     for points, orders, _, face in outlines:
-        faces.append(FontFace(face[0], face[1]))
+        faces.append(FontFace(face[0], face[1], face[3]))
         if not points:
             continue
         values = tuple(Vec2(x, y + baseline) + offset for x, y in points)

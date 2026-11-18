@@ -144,7 +144,7 @@ def test_studio_three_rows_and_per_row_offsets():
 
     lines = tuple(line(str(i), i + 1, i + 2) for i in range(3))
     context = LayoutContext(Box(0, 0, 1920, 1080), script_height=1080)
-    auto = KaraokeRows(rows=3, anchor="top").allocate(lines, context)
+    auto = KaraokeRows(rows=3, anchor="top", smart_horizontal="none").allocate(lines, context)
     assert [p.position for p in auto] == [Vec2(50, 90), Vec2(910, 200), Vec2(1770, 310)]
     custom = Layout(
         rows=3,
@@ -156,3 +156,31 @@ def test_studio_three_rows_and_per_row_offsets():
         Vec2(3, 130),
         Vec2(911, 251),
     ]
+
+
+def test_smart_margins_use_the_page_width_and_center_a_singleton():
+    from kara_templater import KaraokeRows
+
+    lines = tuple(replace(line(str(i), i + 1, i + 2), em_size=40) for i in range(3))
+    lines = (lines[0], replace(lines[1], bounds=Box(0, -10, 140, 50)), lines[2])
+    context = LayoutContext(Box(0, 0, 640, 360), script_height=360)
+    for policy, expected in (
+        ("equal_margins", (220, 280, 270)),
+        ("center_position", (240, 300, 270)),
+        ("none", (50 / 3, 640 - 50 / 3 - 140, 640 - 50 / 3 - 100)),
+    ):
+        places = KaraokeRows(smart_horizontal=policy).allocate(lines, context)
+        assert [p.position.x for p in places] == pytest.approx(expected)
+
+
+def test_studio_section_sync_fill_and_lane_reuse_match_playback_windows():
+    from kara_templater import KaraokeRows
+
+    times = ((2, 3), (4.2, 5.2), (6.5, 7.5), (8.8, 9.8), (11, 12.2),
+             (17, 18), (18.2, 19))
+    lines = tuple(replace(line(str(i), a, b, fade=0), display=Lifetime(a-1.8,b+1))
+                  for i,(a,b) in enumerate(times))
+    places = KaraokeRows().allocate(lines, CONTEXT)
+    assert [p.row for p in places] == [0,1,0,1,0,0,1]
+    assert [p.display.start for p in places] == pytest.approx([0.2,0.2,4.7,7,9.2,15.2,15.2])
+    assert [p.display.end for p in places] == pytest.approx([4.4,6.7,8.9,10.8,13.2,20,20])

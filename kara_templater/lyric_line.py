@@ -58,6 +58,7 @@ class LyricTarget:
     aliases: tuple[str, ...] = ()
     center: Vec2 = Vec2()
     baseline: float | None = None
+    em_size: float | None = None
 
 
 @dataclass(frozen=True)
@@ -248,7 +249,8 @@ class LyricLine(ObjectGroup):
     """An editable lyric line, with the same animate method as any visual node.
 
     Body and ruby belong to syllable groups, so whole-line and syllable animation
-    compose through the ordinary Scene hierarchy. query is a logical selection;
+    compose through the ordinary Scene hierarchy. track_index counts lines in
+    singing order within the selected track, starting at zero. query is a logical selection;
     it never reparents objects. The original measured layout remains available.
     required_display declares absolute-seconds visual intervals for allocation;
     it does not move the original singing clocks or create animation events.
@@ -257,9 +259,11 @@ class LyricLine(ObjectGroup):
     layout: LyricLayout
     targets: tuple[LyricTarget, ...]
     independent: tuple[ObjectGroup, ...] = ()
+    track_index: int = 0
     required_display: tuple[TimeSpan, ...] = ()
     _karaoke_paint: _KaraokePaint | None = field(default=None, repr=False)
     _scheduled: tuple[_LyricBinding, ...] = field(default=(), repr=False)
+    _at_placement: tuple[Callable[[LyricLine], LyricLine], ...] | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -276,6 +280,7 @@ class LyricLine(ObjectGroup):
         tags: frozenset[str] = frozenset(),
         inline: tuple[ObjectGroup, ...] = (),
         independent: tuple[ObjectGroup, ...] = (),
+        track_index: int = 0,
     ) -> LyricLine:
         """Build a line from shaped text, retaining repeat and ruby associations.
 
@@ -297,6 +302,7 @@ class LyricLine(ObjectGroup):
         targets = [LyricTarget(
             body.id, body.id, "line", line_interval, tags,
             center=Vec2(body.bounds.center, body.bounds.middle),
+            em_size=body.characters[0].em_size if body.characters else None,
         )]
         children: list[SceneObject] = []
         assigned: set[str] = set()
@@ -353,7 +359,7 @@ class LyricLine(ObjectGroup):
                             spans,
                             tags,
                             center=_character_center(character),
-                            baseline=character.baseline,
+                            baseline=character.baseline, em_size=character.em_size,
                         )
                     )
             for ruby in layout.ruby:
@@ -367,7 +373,7 @@ class LyricLine(ObjectGroup):
                                 (unit.segments[ruby.segment_index].singing,),
                                 tags,
                                 center=_character_center(character),
-                                baseline=character.baseline,
+                                baseline=character.baseline, em_size=character.em_size,
                             )
                         )
         # Untimed/unassigned drawable text is retained as ordinary children.
@@ -386,6 +392,7 @@ class LyricLine(ObjectGroup):
             layout=layout,
             targets=tuple(targets),
             independent=independent,
+            track_index=track_index,
         )
 
     def with_display(self, display: Lifetime) -> LyricLine:

@@ -114,7 +114,7 @@ Measured editable text objects with decoded source ranges, singing spans, bounds
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/scene_text.py#L47)
+[Source](../../kara_templater/scene_text.py#L52)
 
 ```python
 DocumentLayout(
@@ -187,7 +187,7 @@ An independently drawable shaped cluster with unit-local source range, advance/i
 
 A cluster can contain several Unicode code points.
 
-[Source](../../kara_templater/characters.py#L75)
+[Source](../../kara_templater/characters.py#L76)
 
 ```python
 DrawableCharacter(
@@ -225,7 +225,7 @@ Type: `CharacterTarget`.
 
 ## FontFace
 
-Actual face names reported by FreeType, not a font file identity.
+Face names and em-to-ASS-size ratio from FreeType. Names determine equality.
 
 [Source](../../kara_templater/characters.py#L67)
 
@@ -233,6 +233,7 @@ Actual face names reported by FreeType, not a font file identity.
 FontFace(
     family: str,
     style: str,
+    em_ratio: float = 1.0,
 )
 ```
 
@@ -242,6 +243,7 @@ FontFace(
 | --- | --- | --- |
 | `family` | `str` | `required` |
 | `style` | `str` | `required` |
+| `em_ratio` | `float` | `1.0` |
 
 ## KaraokeLine
 
@@ -478,6 +480,12 @@ PositionedText(
 | `layout_scale` | `Vec2 \| None` | `None` |
 | `baseline` | `float \| None` | `None` |
 
+### PositionedText.em_size
+
+Local size of one em of the cluster's primary shaped face, in script pixels.
+
+Type: `float`.
+
 ## Segment
 
 A source singing interval in milliseconds with optional ruby text.
@@ -587,7 +595,7 @@ Ink bounds are conservative outline control-point bounds (no blur/stroke),
 not exact raster extents. TextRange identities are independent of timing and
 appearance. Empty-outline spaces retain advance but are not pulse targets.
 
-[Source](../../kara_templater/characters.py#L219)
+[Source](../../kara_templater/characters.py#L220)
 
 ```python
 layout_characters(
@@ -624,7 +632,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L360)
+[Source](../../kara_templater/scene_text.py#L365)
 
 ```python
 layout_document_text(
@@ -702,7 +710,7 @@ Select complete drawable clusters covered by a TextRange.
 Reject boundaries that cut a cluster instead of silently expanding or reshaping
 the selection.
 
-[Source](../../kara_templater/characters.py#L325)
+[Source](../../kara_templater/characters.py#L326)
 
 ```python
 select_characters(

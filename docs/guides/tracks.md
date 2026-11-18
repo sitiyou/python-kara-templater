@@ -7,7 +7,7 @@ returns a LyricScene containing ordinary objects. Add decorations with
 All authoring times below are seconds.
 
 With layout omitted, Track alternates two bottom rows, upper left then lower
-right. It requests 1.8 s preview and 1.0 s tail. To place lyrics at a fixed
+right. Studio’s default `equal_margins` draws short rows toward the center as a page. A lone line is centered. Use `KaraokeRows(smart_horizontal="none")` to keep rows at their margins, or `"center_position"` to shift each row independently. It requests 1.8 s preview and 1.0 s tail. To place lyrics at a fixed
 origin or use another row count, pass an explicit `Layout`. See the
 [karaoke layout tutorial](../tutorials/karaoke-design.md) for margins and spacing.
 
@@ -16,6 +16,15 @@ Use `KaraokeRows(rows=3)` for a measured left/center/right rotation or
 presets scale margins and inter-row space to script height. For explicit lanes,
 `Layout(rows=2, alignment=("center", "right"), offsets=(Vec2(), Vec2(-20, 8)))`
 adjusts each row inside the track region. Source singing clocks remain the same.
+
+The Studio row preset starts a new section after a singing gap longer than four
+seconds. Both lines of the first page appear together. Each row stays visible
+until 0.30 s before its next occupant when space allows, and the last page
+holds until its last line finishes its tail. The original singing clocks and
+authored cue intervals take priority in a tight handoff. To synchronize every
+page, use `KaraokeRows(sync_each_page=True)`. To schedule each line's preview
+and tail independently, set `sync_entry=False, fill_section=False`. All time
+settings are in seconds. Each track has its own row rotation and section clock.
 
 ## One effect entry point
 

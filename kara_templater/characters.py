@@ -1,6 +1,6 @@
 """Source-mapped, independently drawable clusters verified against libass shapes."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from unicodedata import category, name
 
 from . import _metrics
@@ -66,10 +66,11 @@ class TextRange:
 
 @dataclass(frozen=True)
 class FontFace:
-    """Actual face names reported by FreeType, not a font file identity."""
+    """Face names and em-to-ASS-size ratio from FreeType. Names determine equality."""
 
     family: str
     style: str
+    em_ratio: float = field(default=1.0, compare=False)
 
 
 @dataclass(frozen=True)
@@ -295,7 +296,7 @@ def layout_characters(
                         Region(box.left, box.right),
                         tuple(
                             dict.fromkeys(
-                                FontFace(face[0], face[1]) for _, _, _, face in actual
+                                FontFace(face[0], face[1], face[3]) for _, _, _, face in actual
                             )
                         ),
                     )

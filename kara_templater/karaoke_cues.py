@@ -26,11 +26,15 @@ def _rounded(width: float, height: float, radius: float) -> VectorPath:
     return VectorPath.polygon(*points)
 
 
+def _host_em(context: CueContext) -> float:
+    return context.host_em or (context.host.font_size if context.host else 100)
+
+
 def _cue_size(explicit: float | None, context: CueContext) -> float:
     if explicit is not None:
         return explicit
     host = context.host
-    font_size = host.font_size * host.state.scale.y if host else 100
+    font_size = _host_em(context) * (host.state.scale.y if host else 1)
     return max(4, floor(font_size / 2 + 0.5))
 
 
@@ -40,7 +44,7 @@ def _cue_border(
     if explicit is not None:
         return explicit
     host = context.host
-    pen = floor(2 * host.state.border * size / host.font_size + 0.5) if host else 8
+    pen = floor(2 * host.state.border * size / _host_em(context) + 0.5) if host else 8
     return min(pen, width // 2) / 2
 
 
@@ -53,7 +57,7 @@ class VolumeCue:
     fill get equal time by default; flash_ratio scales the length of each pulse
     relative to the fill. ratio is first-to-last column height and spacing is
     additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
-    and idle before the active portion. height and border use script pixels. Omit height for half the host font size.
+    and idle before the active portion. height and border use script pixels. Omit height for half the host font’s measured em size.
     An omitted border scales the host outline, capped at a quarter of the column width.
     """
 
@@ -141,7 +145,7 @@ class VolumeCue:
                             outline=self.outline,
                             border=border,
                             shadow=(
-                                host.state.shadow * (size / host.font_size)
+                                host.state.shadow * (size / _host_em(context))
                                 if host
                                 else Vec2(3, 3)
                             ),
@@ -213,7 +217,7 @@ def _note(shape: str, size: float) -> VectorPath:
 class SignalCue:
     """A row of vector lamps extinguishing on cue steps, right to left by default.
 
-    size is the side of a lamp in script pixels, defaulting to half the host font size. Each lamp fades over the last
+    size is the side of a lamp in script pixels, defaulting to half the host font’s measured em size. Each lamp fades over the last
     transition fraction of its step. Pass a custom path in the unit square to
     use a drawn symbol with the same layout and clock.
     """
@@ -294,7 +298,7 @@ class SignalCue:
                 lambda p: p + Vec2(x, y) * size
             )
         host = context.host
-        shadow = host.state.shadow * (size / host.font_size) if host else Vec2()
+        shadow = host.state.shadow * (size / _host_em(context)) if host else Vec2()
         nodes = []
         count = len(context.steps) - 1
         for i, (start, end) in enumerate(

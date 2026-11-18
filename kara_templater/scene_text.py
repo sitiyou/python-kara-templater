@@ -35,6 +35,11 @@ class PositionedText:
     _gap_shift: float = 0
     baseline: float | None = None
 
+    @property
+    def em_size(self) -> float:
+        """Local size of one em of the cluster's primary shaped face, in script pixels."""
+        return self.object.font_size * (self.fonts[0].em_ratio if self.fonts else 1.0)
+
     def __post_init__(self) -> None:
         scale = (
             self.object.state.scale if self.layout_scale is None else self.layout_scale
