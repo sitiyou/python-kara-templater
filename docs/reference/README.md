@@ -15,11 +15,11 @@ Use `--check` to verify that committed pages match the current public API.
 | [Documents and lyric input](documents.md) | 27 |
 | [Scenes and compilation](scenes.md) | 22 |
 | [Animation and timing](animation.md) | 26 |
-| [Track authoring](tracks.md) | 20 |
+| [Track authoring](tracks.md) | 26 |
 | [Text measurement and layout](text.md) | 26 |
 | [Geometry and paths](geometry.md) | 29 |
 | [Colors and appearance](paint.md) | 30 |
-| [Lyric cues](cues.md) | 11 |
+| [Lyric cues](cues.md) | 13 |
 | [Particles and references](particles.md) | 14 |
 | [Coverage and raster output](coverage.md) | 9 |
 | [Regions and progress curves](native.md) | 4 |
@@ -27,7 +27,7 @@ Use `--check` to verify that committed pages match the current public API.
 
 ## Symbol index
 
-225 public exports.
+233 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [AnimationClip](animation.md#animationclip)
@@ -84,8 +84,14 @@ Use `--check` to verify that committed pages match the current public API.
 - [ImportSettings](documents.md#importsettings)
 - [ImportedKaraoke](documents.md#importedkaraoke)
 - [Jump](animation.md#jump)
+- [KaraokeDecoration](tracks.md#karaokedecoration)
+- [KaraokeEffects](tracks.md#karaokeeffects)
+- [KaraokeEntry](tracks.md#karaokeentry)
+- [KaraokeExit](tracks.md#karaokeexit)
 - [KaraokeItem](tracks.md#karaokeitem)
 - [KaraokeLine](text.md#karaokeline)
+- [KaraokeRows](tracks.md#karaokerows)
+- [KaraokeSinging](tracks.md#karaokesinging)
 - [LaidOutLine](text.md#laidoutline)
 - [LaidOutSegment](text.md#laidoutsegment)
 - [LaidOutUnit](text.md#laidoutunit)
@@ -171,6 +177,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [SceneResult](scenes.md#sceneresult)
 - [ScopeOpacity](coverage.md#scopeopacity)
 - [Segment](text.md#segment)
+- [SignalCue](cues.md#signalcue)
 - [SingingSpan](text.md#singingspan)
 - [SingingTag](documents.md#singingtag)
 - [SoftSweep](paint.md#softsweep)
@@ -204,6 +211,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [VectorPath](geometry.md#vectorpath)
 - [VisualNode](scenes.md#visualnode)
 - [VisualState](animation.md#visualstate)
+- [VolumeCue](cues.md#volumecue)
 - [WHITE](paint.md#white)
 - [WritePath](geometry.md#writepath)
 - [WritingStroke](geometry.md#writingstroke)

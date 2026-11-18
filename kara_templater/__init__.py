@@ -78,6 +78,14 @@ from .import_ass import (
     parse_karaoke,
 )
 from .karaoke import KaraokeItem
+from .karaoke_cues import SignalCue, VolumeCue
+from .karaoke_effects import (
+    KaraokeDecoration,
+    KaraokeEffects,
+    KaraokeEntry,
+    KaraokeExit,
+    KaraokeSinging,
+)
 from .layout import layout_line, text_extents
 from .lyric_effects import LyricEcho, ScatterOut, lyric_effects
 from .lyric_highlights import (
@@ -88,7 +96,7 @@ from .lyric_highlights import (
     LyricGradient,
     LyricHighlights,
 )
-from .lyric_layout import Layout, LayoutContext, LayoutLine, Placement
+from .lyric_layout import KaraokeRows, Layout, LayoutContext, LayoutLine, Placement
 from .lyric_line import (
     LyricAnchor,
     LyricAnimationContext,
@@ -231,6 +239,7 @@ from .timeline import (
 )
 
 __all__ = [
+    "KaraokeEffects", "KaraokeEntry", "KaraokeExit", "KaraokeSinging", "KaraokeDecoration",
     "render_enhanced",
     "BackRate",
     "ease_in",
@@ -264,6 +273,7 @@ __all__ = [
     "LyricLine",
     "Placement",
     "LayoutLine",
+    "KaraokeRows",
     "LayoutContext",
     "Affine2D",
     "AnimationClip",
@@ -272,6 +282,8 @@ __all__ = [
     "BLACK",
     "BLUE",
     "BarsCue",
+    "SignalCue",
+    "VolumeCue",
     "Box",
     "CYAN",
     "Channel",

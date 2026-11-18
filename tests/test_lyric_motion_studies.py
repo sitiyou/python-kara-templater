@@ -59,6 +59,7 @@ def test_stagger_reserves_whole_exit_and_does_not_change_source_clocks():
         tracks=(
             Track(
                 id="main",
+                tail=0,
                 effects=(
                     LyricRule(
                         "character", "exit", FadeOut(), duration=0.3, stagger=0.1

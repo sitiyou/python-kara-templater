@@ -243,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L794)
+[Source](../../kara_templater/lyric_highlights.py#L880)
 
 ```python
 HighlightArrival(
@@ -463,7 +463,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L416)
+[Source](../../kara_templater/lyric_highlights.py#L425)
 
 ```python
 LyricHighlights(
@@ -474,6 +474,8 @@ LyricHighlights(
     glow: LyricGlow = None,
     settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
     base_paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
+    hook_feather: float = 0,
+    front_color: Color | None = None,
 )
 ```
 
@@ -487,6 +489,8 @@ LyricHighlights(
 | `glow` | `LyricGlow` | `None` |
 | `settings` | `RasterSettings` | `RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128)` |
 | `base_paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
+| `hook_feather` | `float` | `0` |
+| `front_color` | `Color \| None` | `None` |
 
 ### LyricHighlights.__call__
 
@@ -529,6 +533,8 @@ LyricHighlights.from_singing(
     base_paint: StatePatch | None = None,
     material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
     strategy: Literal['clip', 'coverage'] = 'clip',
+    hook_feather: float = 0,
+    front_color: Color | None = None,
     settings: RasterSettings | None = None,
 ) -> LyricHighlights
 ```

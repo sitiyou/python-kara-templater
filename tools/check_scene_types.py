@@ -8,6 +8,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 CASES = (
+    'from kara_templater import KaraokeEffects\nKaraokeEffects(entry="scatter_out")\n',
+    'from kara_templater import KaraokeEffects\nKaraokeEffects(singing="fade")\n',
+    'from kara_templater import KaraokeEffects\nKaraokeEffects(decoration="glitter")\n',
     'from kara_templater import Document, Scene\nScene(Document.create()).enhance("invalid")\n',
     'from kara_templater import Document, render_enhanced\nrender_enhanced(Document.create(), "in.mp4", "out.mp4", duration="bad")\n',
     'from kara_templater import Track\nTrack(id="main", effects=(lambda line: "bad",))\n',

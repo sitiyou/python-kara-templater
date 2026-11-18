@@ -60,7 +60,6 @@ different things; contributor instructions explain the relevant verification.
 See [fonts and preview](guides/fonts-and-preview.md),
 [compilation](guides/compilation.md), and [troubleshooting](guides/troubleshooting.md).
 
-GPU-enhanced output is a separate opt-in workflow: ordinary players use its ASS
-fallback and ignore the private effect comments. The dedicated renderer reads
-those comments and produces video with continuous shader gradients. See
-[GPU-enhanced ASS](guides/gpu-rendering.md) for supported features and file costs.
+For continuous shader gradients, distribute a standalone libplacebo hook alongside
+the standard ASS. FFmpeg can render the hook directly. See
+[GPU rendering](guides/gpu-rendering.md).

@@ -31,6 +31,7 @@ class PositionedText:
     ink_bounds: Box | None
     fonts: tuple[FontFace, ...]
     layout_scale: Vec2 | None = None
+    _gap_shift: float = 0
 
     def __post_init__(self) -> None:
         scale = (
@@ -64,6 +65,14 @@ class DocumentLayout:
             state=VisualState(position=Vec2() if position is None else position),
             children=tuple(item.object for item in self.characters),
         )
+
+    def _sweep_bounds(self, start: int, end: int, glyph: PositionedText) -> Box:
+        """Place the original advance interval at this glyph's corrected position."""
+        selected = tuple(c for c in self.characters if start <= c.start and c.end <= end)
+        return _union(tuple(
+            replace(c.bounds, left=c.bounds.left - c._gap_shift + glyph._gap_shift)
+            for c in selected
+        ))
 
     def range_bounds(self, start: int, end: int, *, time: float | None = None) -> Box:
         """Bounds for an explicit word/range; reject splits within shaping clusters."""

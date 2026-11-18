@@ -34,10 +34,54 @@ Joining scripts, bidi controls, emoji sequences, and archaic jamo are outside
 this independent-character backend. Whole TextObject rendering and independently
 editable glyph layout have different requirements.
 
+## Vertical ruby spacing
+
+Set `Track(id="main", ruby_gap=6)` to leave 6 script pixels between the
+bottom of the reading's hard outline and the top of the associated body text's
+hard outline. This is also the default. Smaller values bring the reading closer;
+zero aligns the outer ink bounds, and negative values allow overlap.
+
+The engine measures shaped ink before animation, including the static stroke
+and any reserved hard rim. Joined readings share a row: the lowest outlined
+reading and highest outlined body glyph determine the gap for the group.
+Shadows, glow and pulse animations may extend into this space. The measurement
+uses the document's PlayRes; resizing the video scales the visible gap.
+
 ## Define and place cues
 
 CuePreset chooses a factory, lead, duration, steps, gap, position, and whether to
-keep reserved space. BarsCue and TextCue are built-in factories. A custom
+keep reserved space. Choose a factory by its clock and appearance.
+
+| Factory | Before singing | At the cue end |
+| --- | --- | --- |
+| `VolumeCue` | All columns pulse together, then change to the sung color left to right. Set `count` for the number of columns. | The entire signal clears. |
+| `SignalCue` | Circles, squares, rounded squares, stars, eighth notes, sixteenth notes, paired notes or a custom vector path extinguish in the configured order. Optional slide during the fade. | The last lamp clears. |
+| `BarsCue` | A descending bar countdown drops individual bars at the supplied steps. | The last bar clears. |
+| `TextCue` | Each step displays its configured label. | The last label clears. |
+
+### Choose the countdown order
+
+The marker's `placement` sets where the cue appears. Its preset's factory
+sets what moves. For three inline lamps before a left-to-right lyric, choose
+which lamp should still be visible on the final beat:
+
+| Factory | All lit | After step 1 | After step 2 | Singing begins |
+| --- | --- | --- | --- | --- |
+| `SignalCue(direction="left_to_right")` | ● ● ● lyric | · ● ● lyric | · · ● lyric | · · · lyric |
+| `SignalCue()` (default `right_to_left`) | ● ● ● lyric | ● ● · lyric | ● · · lyric | · · · lyric |
+
+Here · denotes the space left by an extinguished lamp. Set `lead=duration`
+to finish at the first sung syllable. For example, register
+`CuePreset(factory=SignalCue(direction="left_to_right"), lead=5, duration=5)`
+under the input marker's preset key. `steps` always increases in time.
+`slide` moves each fading lamp by a pixel offset independently of the order.
+
+A leading empty `\k` advances the singing cursor; the default cue trigger uses
+the first timed text. You can also supply an absolute trigger in seconds.
+Keep `keep_space=True` for an inline cue whose host text must stay still.
+See the [two-track example](../../examples/karaoke_signals.py).
+
+A custom
 CueFactory receives CueContext and returns CueContent: local Scene objects plus
 explicit layout width and height. Content and display behavior can therefore be
 replaced independently of the input marker syntax.

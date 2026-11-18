@@ -6,6 +6,17 @@ returns a LyricScene containing ordinary objects. Add decorations with
 `scene.add(...)` and compile with the same Scene compiler used for direct authoring.
 All authoring times below are seconds.
 
+With layout omitted, Track alternates two bottom rows, upper left then lower
+right. It requests 1.8 s preview and 1.0 s tail. To place lyrics at a fixed
+origin or use another row count, pass an explicit `Layout`. See the
+[karaoke layout tutorial](../tutorials/karaoke-design.md) for margins and spacing.
+
+Use `KaraokeRows(rows=3)` for a measured left/center/right rotation or
+`KaraokeRows(rows=2, anchor="top")` for upper harmony. The one-to-eight-row
+presets scale margins and inter-row space to script height. For explicit lanes,
+`Layout(rows=2, alignment=("center", "right"), offsets=(Vec2(), Vec2(-20, 8)))`
+adjusts each row inside the track region. Source singing clocks remain the same.
+
 ## One effect entry point
 
 `Track.effects` combines built-ins and custom authoring in one tuple:
@@ -117,6 +128,27 @@ generated events; changing selection restores its unselected sources. Inspect
 provides the lyric objects. `LyricSource.from_lyrics(...)` supplies structured
 DocumentLyrics through `prepare_tracks(..., inputs=...)` without creating fake
 ASS records. Supply those Python inputs again when regenerating.
+
+### Attach a drawing after layout
+
+For a drawing that follows a sung word, iterate over `scene.plans` after
+`prepare_tracks`. Each nonempty span in `plan.line.layout.body.singing` gives
+absolute song times and decoded text offsets. Pass those offsets to
+`body.range_bounds` to get a rectangle in line-local coordinates, including
+reserved inline cue space. For a separately added Scene object, add the placed
+line's position to that local point. For example, with a stationary lyric line:
+
+```python
+body = plan.line.layout.body
+box = body.range_bounds(span.start_offset, span.end_offset)
+start = plan.line.state.position + Vec2(box.left, box.top + box.height)
+life = Lifetime(span.start, span.end)
+```
+
+A path born at `life.start` can use `animate(..., at=0, duration=span.end - span.start)`
+on its local clock. Skip empty text ranges and zero-length time intervals before
+constructing the path. For an animated parent, add the drawing as a child or
+use a world-space reference to inherit its motion.
 
 ## Allocation is the layout extension point
 
@@ -255,3 +287,18 @@ An early highlighter or attached decoration can also extend the display start.
 Existing animation clocks remain fixed, so custom callbacks may receive negative
 local seconds before their original origin. Highlight masks and partitions use
 their absolute pass times even in that early window.
+
+## Spacing outlined lyrics
+
+Track layout leaves at least 2 script pixels between neighboring horizontal ink
+bounds after allowing for the hard outlines. Only pairs that need clearance
+move apart. Font spacing, shaping clusters, and existing word spaces are
+preserved. The positions stay fixed during pulses. Ruby and inline cues use the
+adjusted positions. The singing front skips the added distance.
+
+Set `Track(min_outline_gap=4, ...)` for more separation, or use `None` to keep
+the font's original spacing, including overlapping outlines. Zero lets hard
+outlines touch. Style outlines and static highlight paint borders contribute to
+clearance. Glow, shadow and temporary animation strokes can overlap. For a
+custom effect or multiple views drawing the same letters, set
+`reserved_border` to the outer hard stroke radius on every view.

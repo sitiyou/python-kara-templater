@@ -141,7 +141,7 @@ class SceneFrames:
                     f"GPU Scene adapter does not yet support {reason}",
                     object_id=node.id,
                 )
-        self._leaves = tuple(
+        self.leaves = tuple(
             sorted(
                 leaves,
                 key=lambda leaf: leaf.node.layer + sum(p.layer for p in leaf.parents),
@@ -162,68 +162,70 @@ class SceneFrames:
     def at(self, time: float) -> tuple[DrawCommand, ...]:
         finite(time)
         result = []
-        for leaf in self._leaves:
+        for leaf in self.leaves:
             if not leaf.start <= time < leaf.end:
                 continue
-            state = leaf.at(time)
-            if state.opacity == 0 or state.singular:
-                continue
-            node = leaf.node
-            clip = None
-            if isinstance(node.clip, RectangleClip):
-                rectangle = node.clip
-                bounds = (
-                    rectangle.left,
-                    rectangle.top,
-                    rectangle.right,
-                    rectangle.bottom,
-                )
-                if rectangle.deform is not None:
-                    sampled = rectangle.deform.sample(
-                        local_seconds(time, node.time_origin)
-                    )
-                    if sampled is None:
-                        continue
-                    bounds = sampled
-                if bounds[0] == bounds[2] or bounds[1] == bounds[3]:
-                    continue
-                clip = GpuClip(bounds, local=rectangle.space == "local")
-            key = _shape_key(node, state)
-            images = self._cache.get(key)
-            if images is None:
-                images = _coverage(leaf, state, self._limit)
-                size = sum(len(image[6]) for image in images)
-                if size > self._limit:
-                    raise SceneCompileError(
-                        "GPU glyph coverage exceeds cache budget", object_id=node.id
-                    )
-                while self._bytes + size > self._limit:
-                    _, old = self._cache.popitem(last=False)
-                    self._bytes -= sum(len(image[6]) for image in old)
-                self._cache[key] = images
-                self._bytes += size
-            self._cache.move_to_end(key)
-            tinted = []
-            for x, y, w, h, kind, color, data in images:
-                rgb = (
-                    state.fill
-                    if kind == 0
-                    else state.outline
-                    if kind == 1
-                    else Color(0, 0, 0)
-                )
-                color = rgb.red << 24 | rgb.green << 16 | rgb.blue << 8 | (color & 255)
-                tinted.append((x, y, w, h, kind, color, data))
-            material = node.material
-            assert material is None or isinstance(material, LinearGradient)
-            result.append(
-                DrawCommand(
-                    node.id,
-                    tuple(tinted),
-                    state.transform,
-                    state.opacity,
-                    material,
-                    clip,
-                )
-            )
+            draw = self.draw_at(leaf, time)
+            if draw is not None:
+                result.append(draw)
         return tuple(result)
+
+    def draw_at(self, leaf: _Leaf, time: float) -> DrawCommand | None:
+        state = leaf.at(time)
+        if state.opacity == 0 or state.singular:
+            return None
+        node = leaf.node
+        clip = None
+        if isinstance(node.clip, RectangleClip):
+            rectangle = node.clip
+            bounds = (
+                rectangle.left,
+                rectangle.top,
+                rectangle.right,
+                rectangle.bottom,
+            )
+            if rectangle.deform is not None:
+                sampled = rectangle.deform.sample(local_seconds(time, node.time_origin))
+                if sampled is None:
+                    return None
+                bounds = sampled
+            if bounds[0] == bounds[2] or bounds[1] == bounds[3]:
+                return None
+            clip = GpuClip(bounds, local=rectangle.space == "local")
+        return self.draw_state(leaf, state, clip)
+
+    def draw_state(
+        self, leaf: _Leaf, state: VisualState, clip: GpuClip | None
+    ) -> DrawCommand:
+        node = leaf.node
+        key = _shape_key(node, state)
+        images = self._cache.get(key)
+        if images is None:
+            images = _coverage(leaf, state, self._limit)
+            size = sum(len(image[6]) for image in images)
+            if size > self._limit:
+                raise SceneCompileError(
+                    "GPU glyph coverage exceeds cache budget", object_id=node.id
+                )
+            while self._bytes + size > self._limit:
+                _, old = self._cache.popitem(last=False)
+                self._bytes -= sum(len(image[6]) for image in old)
+            self._cache[key] = images
+            self._bytes += size
+        self._cache.move_to_end(key)
+        tinted = []
+        for x, y, w, h, kind, color, data in images:
+            rgb = (
+                state.fill
+                if kind == 0
+                else state.outline
+                if kind == 1
+                else Color(0, 0, 0)
+            )
+            color = rgb.red << 24 | rgb.green << 16 | rgb.blue << 8 | (color & 255)
+            tinted.append((x, y, w, h, kind, color, data))
+        material = node.material
+        assert material is None or isinstance(material, LinearGradient)
+        return DrawCommand(
+            node.id, tuple(tinted), state.transform, state.opacity, material, clip
+        )

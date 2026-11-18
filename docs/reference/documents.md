@@ -200,7 +200,7 @@ A decoded body/ruby projection with source mappings and ordered lyric units.
 
 Original DocumentText remains available for diagnostics and round trips.
 
-[Source](../../kara_templater/document_lyrics.py#L57)
+[Source](../../kara_templater/document_lyrics.py#L71)
 
 ```python
 DocumentLyrics(
@@ -801,7 +801,7 @@ Syntax is recognized within each explicit karaoke interval. Untimed text is
 preserved, but ruby/continuation syntax requires a karaoke time tag. Body
 and ruby views retain the original tokens for provenance, not serialization.
 
-[Source](../../kara_templater/document_lyrics.py#L85)
+[Source](../../kara_templater/document_lyrics.py#L99)
 
 ```python
 parse_document_lyrics(

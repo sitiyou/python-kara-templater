@@ -5,6 +5,7 @@ from __future__ import annotations
 from bisect import bisect_left, bisect_right
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
 from .ass import Document, Line
@@ -553,6 +554,22 @@ class Scene:
         from .scene_evaluation import SceneEvaluator
 
         return SceneEvaluator(self)
+
+    def export_hook(
+        self, path: str | Path, *, fps: int = 60, start: float = 0,
+        duration: float | None = None,
+    ) -> None:
+        """Write a standalone libplacebo .hook for a constant-frame-rate video.
+
+        Export animation parameters and sample unsupported intervals on the fps grid.
+        Start is frame-aligned in seconds. mpv uses media PTS;
+        the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
+        subsequent frames pass through. Render at the exported fps on an opaque
+        SDR video with matching aspect ratio. Includes glyph masks and effects.
+        """
+        from ._gpu_hook import export_hook
+
+        export_hook(self, Path(path), fps, start, duration)
 
     def enhance(self, fallback: Document, *, fps: int = 60) -> Document:
         """Attach sampled GPU effects to an explicit ordinary-ASS fallback.

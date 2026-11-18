@@ -79,7 +79,7 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
     assert isinstance(scene, Scene)
     assert [p.placement.row for p in scene.plans] == [0, 1, 0, 0]
     assert [p.placement.display.start for p in scene.plans] == pytest.approx(
-        [0.4, 1.4, 2.2, 0.4]
+        [0, 0.2, 2.2, 0]
     )
     assert scene.plans[2].source.lyrics.units[0].segments[0].singing.start == 2.5
     assert scene.plans[3].line.state.position.y < scene.plans[0].line.state.position.y
@@ -95,6 +95,22 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
         .placement.row
         == 2
     )
+
+
+def test_default_track_alternates_bottom_rows_and_scales_margins():
+    scene = prepare_tracks(
+        document(), tracks=(Track(id="main", source=lambda s: s.style == "Main"),)
+    )
+    upper, lower, again = scene.plans
+    assert [p.placement.row for p in scene.plans] == [0, 1, 0]
+    a, b = upper.input.bounds, lower.input.bounds
+    assert upper.placement.position.x + a.left == pytest.approx(50 / 3)
+    assert lower.placement.position.x + b.right == pytest.approx(640 - 50 / 3)
+    assert lower.placement.position.y + b.top + b.height == pytest.approx(340)
+    assert lower.placement.position.y + b.top - (
+        upper.placement.position.y + a.top + a.height
+    ) == pytest.approx(15)
+    assert again.placement.position == upper.placement.position
 
 
 def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerates():
@@ -135,7 +151,7 @@ def test_inline_cue_is_reserved_independent_cue_keeps_own_lifetime_and_position(
             position=Vec2(500, 30),
         ),
     }
-    scene = prepare_tracks(doc, tracks=(main(cues=presets),))
+    scene = prepare_tracks(doc, tracks=(main(cues=presets, preview=0),))
     first = scene.plans[0]
     assert first.input.reserved is not None
     assert first.input.reserved.start == pytest.approx(0.2)

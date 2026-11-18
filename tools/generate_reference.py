@@ -51,7 +51,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "tracks": (
         "Track authoring",
-        ("karaoke", "orchestration", "lyric_layout", "lyric_line", "lyric_effects"),
+        ("karaoke", "orchestration", "lyric_layout", "lyric_line", "lyric_effects", "karaoke_effects"),
         "Independent lyric streams, allocation and semantic bindings into one Scene. Singing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).",
     ),
     "text": (
@@ -87,7 +87,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "cues": (
         "Lyric cues",
-        ("cues",),
+        ("cues", "karaoke_cues"),
         "Typed content factories, reservations, independent placement, and body/ruby binding. Cue lifetimes and trigger values use seconds. See [text and cues](../guides/text-and-cues.md).",
     ),
     "particles": (

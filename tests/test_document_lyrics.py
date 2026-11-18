@@ -141,12 +141,21 @@ def test_whole_body_shaping_and_unit_pivot_keep_ruby_relative():
     assert layout.bounds.top < layout.body.bounds.top
 
 
-def test_wide_ruby_breaks_reserve_space_without_changing_times():
+@pytest.mark.parametrize("gap", [0, 3, 6])
+def test_wide_ruby_breaks_reserve_space_without_changing_times(gap):
     doc, index = document(r"{\k20}A|!long{\k20}B|!word")
-    layout = layout_document_lyrics(doc, index, ruby_gap=3)
+    layout = layout_document_lyrics(doc, index, ruby_gap=gap)
     first, second = layout.ruby
     assert second.layout.bounds.left >= first.layout.bounds.right
-    assert second.layout.bounds.top + second.layout.bounds.height == -3
+    body = layout.body.characters[1]
+    assert body.ink_bounds is not None
+    base_top = body.ink_bounds.top - body.object.state.border
+    reading_bottom = max(
+        c.ink_bounds.top + c.ink_bounds.height + c.object.state.border
+        for c in second.layout.characters
+        if c.ink_bounds is not None
+    )
+    assert base_top - reading_bottom == pytest.approx(gap)
     assert (
         layout.body.characters[1].bounds.left > layout.body.characters[0].bounds.right
     )

@@ -73,7 +73,7 @@ def test_custom_schedule_reserves_exit_and_binds_final_materials(decorate_first)
 
     paint = LyricHighlights.from_singing(StatePatch(fill=CYAN))
     effects = (paint, custom) if decorate_first else (custom, paint)
-    scene = prepare_tracks(document, tracks=(Track(id="main", effects=effects),))
+    scene = prepare_tracks(document, tracks=(Track(id="main", effects=effects, tail=0),))
     target = scene.lines[0].query("character")[0]
     assert calls == [target.id]
     assert scene.plans[0].input.required.end == pytest.approx(2.7)

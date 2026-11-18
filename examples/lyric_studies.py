@@ -1,7 +1,6 @@
-"""Eight source-inspired motion studies sharing the same lyric clocks.
+"""Eight motion studies sharing the same lyric clocks.
 
 uv run python -m examples.lyric_studies build/study.ass --effect petals
-These are mechanism studies, not frame-exact reproductions of reference videos.
 """
 
 import argparse
@@ -195,6 +194,8 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
                 id="main",
                 source=lambda source: source.style == "Main",
                 styles=styles,
+                preview=0.6,
+                tail=0.3,
                 region=Box(32, 160, 576, 160),
                 layout=Layout(alignment="center"),
                 effects=tuple(effects),
@@ -203,6 +204,8 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
                 id="harmony",
                 source=lambda source: source.style == "Harmony",
                 styles=styles,
+                preview=0.6,
+                tail=0.3,
                 region=Box(32, 20, 576, 70),
                 layout=Layout(alignment="center"),
                 effects=(

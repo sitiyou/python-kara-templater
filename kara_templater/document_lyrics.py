@@ -53,6 +53,20 @@ class LyricUnit:
     end: int
     segments: tuple[LyricSegment, ...] = ()
 
+    def _body_singing(self) -> tuple[SingingSpan, ...]:
+        """Adjacent timed readings share a single body sweep."""
+        spans = tuple(segment.singing for segment in self.segments)
+        if (
+            len(spans) > 1
+            and all(s.ruby is not None for s in self.segments)
+            and all(
+                abs(a.end - b.start) < 1e-8
+                for a, b in zip(spans, spans[1:], strict=False)
+            )
+        ):
+            return (replace(spans[0], end=spans[-1].end),)
+        return spans
+
 
 @dataclass(frozen=True)
 class DocumentLyrics:

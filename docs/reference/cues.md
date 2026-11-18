@@ -14,7 +14,9 @@ Typed content factories, reservations, independent placement, and body/ruby bind
 - [CuePreset](#cuepreset)
 - [CuedLayout](#cuedlayout)
 - [CuedLyrics](#cuedlyrics)
+- [SignalCue](#signalcue)
 - [TextCue](#textcue)
+- [VolumeCue](#volumecue)
 - [bind_cues](#bind_cues)
 - [bind_lyric_cues](#bind_lyric_cues)
 
@@ -229,7 +231,7 @@ CuedLayout.group(
 
 Body/ruby with shared cue reservations; independent cues remain separate.
 
-[Source](../../kara_templater/cues.py#L392)
+[Source](../../kara_templater/cues.py#L399)
 
 ```python
 CuedLyrics(
@@ -258,6 +260,53 @@ CuedLyrics.group(
     *,
     position: Vec2 | None = None,
 ) -> ObjectGroup
+```
+
+## SignalCue
+
+A row of vector lamps extinguishing on cue steps, right to left by default.
+
+size is the side of a lamp in script pixels. Each lamp fades over the last
+transition fraction of its step. Pass a custom path in the unit square to
+use a drawn symbol with the same layout and clock.
+
+[Source](../../kara_templater/karaoke_cues.py#L170)
+
+```python
+SignalCue(
+    *,
+    shape: Literal['circle', 'square', 'rounded', 'star', 'note8', 'note16', 'notepair'] | VectorPath = 'circle',
+    direction: Literal['left_to_right', 'right_to_left'] = 'right_to_left',
+    size: float = 50,
+    transition: float = 0.67,
+    slide: Vec2 = Vec2(x=0, y=0),
+    color: Color = Color(red=255, green=90, blue=111),
+    outline: Color = Color(red=34, green=34, blue=34),
+    border: float = 2,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `shape` | `Literal['circle', 'square', 'rounded', 'star', 'note8', 'note16', 'notepair'] \| VectorPath` | `'circle'` |
+| `direction` | `Literal['left_to_right', 'right_to_left']` | `'right_to_left'` |
+| `size` | `float` | `50` |
+| `transition` | `float` | `0.67` |
+| `slide` | `Vec2` | `Vec2(x=0, y=0)` |
+| `color` | `Color` | `Color(red=255, green=90, blue=111)` |
+| `outline` | `Color` | `Color(red=34, green=34, blue=34)` |
+| `border` | `float` | `2` |
+
+### SignalCue.__call__
+
+Place lamp shapes on their own intervals within the cue lifetime.
+
+```python
+SignalCue.__call__(
+    context: CueContext,
+) -> CueContent
 ```
 
 ## TextCue
@@ -297,6 +346,62 @@ TextCue.__call__(
 ) -> CueContent
 ```
 
+## VolumeCue
+
+Descending inline columns. Flash together, then fill from left to right.
+
+The cue ends at its declared lifetime. count sets the column count; flashes
+sets the number of group pulses before the final fill. Each pulse and the
+fill get equal time by default; flash_ratio scales the length of each pulse
+relative to the fill. ratio is first-to-last column height and spacing is
+additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
+and idle before the active portion. height and border use script pixels.
+
+[Source](../../kara_templater/karaoke_cues.py#L29)
+
+```python
+VolumeCue(
+    *,
+    count: int = 4,
+    height: float = 50,
+    border: float = 4,
+    flashes: int = 3,
+    flash_ratio: float = 1,
+    ratio: float = 3,
+    spacing: float = 0,
+    countdown: float | None = None,
+    sung: Color = Color(red=255, green=90, blue=111),
+    unsung: Color = Color(red=255, green=255, blue=255),
+    outline: Color = Color(red=34, green=34, blue=34),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `count` | `int` | `4` |
+| `height` | `float` | `50` |
+| `border` | `float` | `4` |
+| `flashes` | `int` | `3` |
+| `flash_ratio` | `float` | `1` |
+| `ratio` | `float` | `3` |
+| `spacing` | `float` | `0` |
+| `countdown` | `float \| None` | `None` |
+| `sung` | `Color` | `Color(red=255, green=90, blue=111)` |
+| `unsung` | `Color` | `Color(red=255, green=255, blue=255)` |
+| `outline` | `Color` | `Color(red=34, green=34, blue=34)` |
+
+### VolumeCue.__call__
+
+Build seekable pulses and column fills ending at the cue boundary.
+
+```python
+VolumeCue.__call__(
+    context: CueContext,
+) -> CueContent
+```
+
 ## bind_cues
 
 Bind input markers or equivalent Python values to the same object model.
@@ -324,7 +429,7 @@ Markers use projected body offsets. A reservation inside a body unit moves
 its ruby by half the reserved width, keeping its original center offset from
 the expanded body box; before a unit it moves ruby by the full width.
 
-[Source](../../kara_templater/cues.py#L418)
+[Source](../../kara_templater/cues.py#L425)
 
 ```python
 bind_lyric_cues(

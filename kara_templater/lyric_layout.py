@@ -87,8 +87,13 @@ class LayoutContext:
 
     region: Box
     other_lines: tuple[LayoutLine, ...] = ()
+    script_height: float | None = None
 
     def __post_init__(self) -> None:
+        if self.script_height is not None:
+            finite(self.script_height)
+            if self.script_height <= 0:
+                raise ValueError("script height must be positive")
         finite(self.region.left, self.region.top, self.region.width, self.region.height)
         if self.region.width <= 0 or self.region.height <= 0:
             raise ValueError("layout region must have positive dimensions")
@@ -146,6 +151,9 @@ def validate_placements(
         raise ValueError(f"missing placements: {', '.join(sorted(missing))}")
 
 
+type _Alignment = Literal["left", "center", "right"]
+
+
 @dataclass(frozen=True, kw_only=True)
 class Layout:
     """Allocate any positive number of rows, or override allocate entirely.
@@ -156,14 +164,16 @@ class Layout:
     None preserves rotation across pauses. Lead and tags have no built-in meaning.
 
     position is the first row's top-left, defaulting to the context region.
-    alignment controls horizontal alignment within that region. Bounds already
+    Alignment and offsets can be supplied per row.
+    Alternating alignment places even rows on the left and odd rows on the right. Bounds already
     include ruby and inline cue reservations. gap is row-origin spacing in pixels.
     """
 
     rows: int = 1
     position: Vec2 | None = None
     gap: float = 120
-    alignment: Literal["left", "center", "right"] = "left"
+    alignment: _Alignment | Literal["alternating"] | tuple[_Alignment, ...] = "left"
+    offsets: tuple[Vec2, ...] = ()
     policy: Literal["strict", "available"] = "strict"
     reset_after: float | None = None
 
@@ -171,8 +181,15 @@ class Layout:
         finite(self.gap)
         if type(self.rows) is not int or self.rows < 1 or self.gap <= 0:
             raise ValueError("layout needs positive rows and gap")
-        if self.alignment not in ("left", "center", "right"):
+        if isinstance(self.alignment, tuple):
+            if len(self.alignment) != self.rows or any(
+                a not in ("left", "center", "right") for a in self.alignment
+            ):
+                raise ValueError("provide one horizontal alignment per row")
+        elif self.alignment not in ("left", "center", "right", "alternating"):
             raise ValueError("unknown layout alignment")
+        if self.offsets and len(self.offsets) != self.rows:
+            raise ValueError("provide one offset per row")
         if self.policy not in ("strict", "available"):
             raise ValueError("unknown row allocation policy")
         if self.reset_after is not None:
@@ -247,13 +264,22 @@ class Layout:
                     if display.start < boundary:
                         display = Lifetime(boundary, display.end)
                         reasons = (f"preview shortened after {prior.id}",)
-            fraction = {"left": 0, "center": 0.5, "right": 1}[self.alignment]
+            align = (
+                self.alignment[row]
+                if isinstance(self.alignment, tuple)
+                else self.alignment
+            )
+            fraction = {"left": 0, "center": 0.5, "right": 1, "alternating": row % 2}[
+                align
+            ]
             position = Vec2(
                 origin.x
                 + (context.region.width - line.bounds.width) * fraction
                 - line.bounds.left,
                 origin.y + row * self.gap - line.bounds.top,
             )
+            if self.offsets:
+                position += self.offsets[row]
             result.append(Placement(line.id, position, display, row, reasons))
             occupied[row] = len(result) - 1
             next_row = (row + 1) % self.rows
@@ -261,3 +287,53 @@ class Layout:
         placements = tuple(result)
         validate_placements(lines, placements)
         return placements
+
+
+@dataclass(frozen=True, kw_only=True)
+class KaraokeRows:
+    """Studio horizontal row presets, scaled from 1080p to the script height.
+
+    One row is centered, three use left/center/right, other counts alternate.
+    Use anchor to place a stream at the top or bottom of its region. Row height
+    includes the largest measured lyric, ruby and reserved inline cue in this track.
+    """
+
+    rows: int = 2
+    anchor: Literal["top", "bottom"] = "bottom"
+
+    def __post_init__(self) -> None:
+        if type(self.rows) is not int or not 1 <= self.rows <= 8:
+            raise ValueError("Studio presets support one to eight rows")
+        if self.anchor not in ("top", "bottom"):
+            raise ValueError("unknown karaoke row anchor")
+
+    def allocate(
+        self, lines: tuple[LayoutLine, ...], context: LayoutContext
+    ) -> tuple[Placement, ...]:
+        """Reserve singing intervals through Layout and align each measured row."""
+        region = context.region
+        scale = (context.script_height or region.height) / 1080
+        inset = min(50 * scale, region.width / 4)
+        height = max((line.bounds.height for line in lines), default=0)
+        spacing = (90, 45, 60, 40, 25, 15, 8, 0)[self.rows - 1] * scale
+        pitch = max(height + spacing, 0.001)
+        margin = (60 if self.rows == 2 else 80) * scale
+        y = (
+            region.top + margin
+            if self.anchor == "top"
+            else region.top + region.height - margin - height - (self.rows - 1) * pitch
+        )
+        area = Box(
+            region.left + inset, region.top, region.width - 2 * inset, region.height
+        )
+        layout = Layout(
+            rows=self.rows,
+            gap=pitch,
+            position=Vec2(area.left, y),
+            alignment="center"
+            if self.rows == 1
+            else ("left", "center", "right")
+            if self.rows == 3
+            else "alternating",
+        )
+        return layout.allocate(lines, replace(context, region=area))

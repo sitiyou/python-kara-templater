@@ -4,6 +4,25 @@ Scene animation writes named VisualState channels. A Tween interpolates a
 StatePatch; a StateFunction evaluates custom behavior. Geometry, masks, materials,
 and references have separate typed extension protocols.
 
+## Keep a cursor moving through a phrase
+
+A flying mark that follows a word has two clocks to satisfy: when it must
+reach each syllable boundary, and how its position changes between boundaries.
+Obtain the timed positions from the [measured lyric line](tracks.md#attach-a-drawing-after-layout).
+For two adjacent spans of equal width lasting 100 ms and 600 ms, straight
+segments meet at the correct position but the speed drops sixfold in one frame.
+Applying ease-in/ease-out to every segment instead makes the mark stop at every syllable.
+
+For continuous flight, use the times and positions as knots of one phrase.
+Choose a shared horizontal speed at each interior knot. For adjacent forward
+speeds `a` and `b`, the harmonic mean `2*a*b/(a+b)` follows the slower note
+through the join. At a stationary rest use zero. A cubic Bézier segment of
+duration `dt` between positions `x0` and `x1` then has horizontal control
+points `x0 + v0*dt/3` and `x1 - v1*dt/3`. Use the same units for speed and
+duration. Choose height along the full phrase and let the plane bank with the
+path tangent. Check consecutive frames around a short-to-long join, plus
+the onset and release of a held note.
+
 ## A karaoke effect without per-character scheduling
 
 The complete runnable [pulse and drift example](../../examples/lyric_pulse_drift.py)

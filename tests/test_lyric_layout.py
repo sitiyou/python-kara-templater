@@ -137,3 +137,22 @@ def test_result_validation_enforces_identity_and_time_but_not_collision():
         Layout().allocate((lines[0], lines[0]), CONTEXT)
     with pytest.raises(ValueError, match="singing order"):
         Layout().allocate((line("late", 3, 4), lines[0]), CONTEXT)
+
+
+def test_studio_three_rows_and_per_row_offsets():
+    from kara_templater import KaraokeRows
+
+    lines = tuple(line(str(i), i + 1, i + 2) for i in range(3))
+    context = LayoutContext(Box(0, 0, 1920, 1080), script_height=1080)
+    auto = KaraokeRows(rows=3, anchor="top").allocate(lines, context)
+    assert [p.position for p in auto] == [Vec2(50, 90), Vec2(910, 200), Vec2(1770, 310)]
+    custom = Layout(
+        rows=3,
+        alignment=("right", "left", "center"),
+        offsets=(Vec2(0, 2), Vec2(3, 0), Vec2(1, 1)),
+    ).allocate(lines, context)
+    assert [p.position for p in custom] == [
+        Vec2(1820, 12),
+        Vec2(3, 130),
+        Vec2(911, 251),
+    ]

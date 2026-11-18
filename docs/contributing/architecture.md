@@ -13,8 +13,8 @@ flowchart LR
     C[Custom objects and animations] --> S
     S --> O[Standard ASS Document]
     S --> G[Shared evaluation and cached glyph coverage]
-    G --> EGPU[ASS fallback with GPU Comment payload]
-    EGPU --> R[Explicit GPU renderer and FFmpeg]
+    G --> EGPU[Standalone libplacebo hook]
+    EGPU --> R[FFmpeg libplacebo filter]
 ```
 
 ## Shared model
@@ -51,6 +51,10 @@ ObjectGroup.coverage declares explicit component and material bindings. Coverage
 RGBA rasterization have different composition semantics and explicit budgets.
 They are not interchangeable names for one rendering operation.
 
+Lyric binding applies Track outline clearance to shaped cluster ink bounds before
+ruby, cues and row allocation. Each cluster retains the cumulative extra distance
+so automatic sweeps and compact ASS timing can traverse the original advances.
+
 Karaoke sweep timing belongs to the lyric engine. Singing progress is measured
 over undecorated text geometry; outline and glow margins must never expand
 the distance traversed during the source singing interval. The built-in singing
@@ -62,6 +66,12 @@ engine.py preserves the Python ASS-template frontend and its context helpers.
 Template execution prepares NativeEvents for Scene compilation. Its historical
 preprocessing semantics are intentionally separate from new visual object
 lifetimes. No template code runs from ordinary parsing.
+
+`karaoke_effects.py` exposes the built-in animation catalog as a Track callable.
+It composes existing highlights, semantic rules and ordinary particle/path nodes.
+`_karaoke_motion.py` and `_karaoke_sprites.py` contain private motion/shape recipes;
+neither evaluates a second timeline or encodes ASS. Front/flash aliases share the
+source glyph clock, while emitted ornaments keep independent lifetimes.
 
 ## Compiler and native measurement
 
@@ -81,15 +91,11 @@ The generated [API reference](../reference/README.md) documents the retained set
 
 ## Optional GPU output
 
-Scene.enhance accepts an explicit complete ASS fallback and uses the existing
-SceneEvaluator to sample portable draw commands. `_gpu_scene.py` caches neutral
-local glyph/path coverage, preserving object/material ownership. `_gpu.py`
-composites coverage textures with affine state, clipping and shader gradients;
-`_gpu_driver.py` bounds the untyped optional ModernGL dependency.
-
-`_gpu_bundle.py` carries versioned, bounded data in private Comment records.
-It serializes no Python callbacks or arbitrary shader source. `gpu_render.py`
-explicitly decodes that data and streams premultiplied frames to FFmpeg. Ordinary
-Document parsing remains data-only. Standard ASS compilation and its existing
-strategies remain independent. See [GPU output](../guides/gpu-rendering.md) for
-supported semantics and current limits.
+Scene.export_hook partitions each leaf at lifetime, clip and animation boundaries.
+Known motion spans store endpoint transforms and easing; rectangle keyframes
+interpolate independently. Opaque spans sample the shared evaluator locally.
+A sparse timeline indexes tiled draws in painter order. Curve knots, scalar
+tracks, tile lists, materials and raster masks share storage across instances. The fragment shader composites those
+draws in painter order onto the input video. FFmpeg/libplacebo owns the frame
+clock and GPU resources. Ordinary ASS can be saved independently.
+See [GPU output](../guides/gpu-rendering.md) for the clock and format limits.

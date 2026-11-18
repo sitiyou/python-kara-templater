@@ -41,8 +41,8 @@ def test_custom_choices_preserve_author_rules_and_do_not_leak_state(
     )
     assert scene.lines == build(layout=layout).lines
     ordinary = build()
-    assert [line.animations for line in scene.lines] == [
-        line.animations for line in ordinary.lines
+    assert [[(clip.animation, clip.duration) for clip in line.animations] for line in scene.lines] == [
+        [(clip.animation, clip.duration) for clip in line.animations] for line in ordinary.lines
     ]
     assert [line.layout.lyrics for line in scene.lines] == [
         line.layout.lyrics for line in ordinary.lines

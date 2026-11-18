@@ -13,7 +13,8 @@ from tools.check_docs import check
     ("page", "filename", "start", "duration"),
     (
         ("README.md", "hello.ass", 0, 3000),
-        ("docs/guides/gpu-rendering.md", "song.enhanced.ass", 0, 3000),
+        ("docs/guides/karaoke-effects.md", "karaoke.ass", 0, 5600),
+        ("docs/guides/gpu-rendering.md", "song.ass", 0, 3000),
         ("docs/getting-started.md", "first-effect.ass", 0, 3000),
         ("docs/tutorials/custom-animation.md", "sparks.ass", 0, 2300),
         ("docs/tutorials/lyric-highlights.md", "lyric-arc.ass", 500, 4500),

@@ -7,6 +7,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import cached_property
 from hashlib import sha256
+from pathlib import Path
 from urllib.parse import quote, unquote
 
 from .ass import Document, Line, Style
@@ -16,7 +17,9 @@ from .document_lyrics import DocumentLyrics, parse_document_lyrics
 from .document_text import DocumentText
 from .geometry import finite
 from .import_ass import SOURCE_PREFIX, SourceBinding, source_marker, source_prefix
+from .lyric_highlights import LyricHighlights
 from .lyric_layout import (
+    KaraokeRows,
     Layout,
     LayoutContext,
     LayoutLine,
@@ -28,7 +31,7 @@ from .model import Box
 from .scene import Lifetime, ObjectGroup, Scene, SceneObject
 from .scene_animation import TimeSpan
 from .scene_lyrics import LyricLayout, layout_lyrics
-from .scene_output import _scene_source_records
+from .scene_output import SceneBudget, _scene_source_records
 from .scene_text import DocumentLayout, _union
 from .sources import EventOrigin, SourceRef
 
@@ -97,29 +100,42 @@ type LyricEffect = LyricRule | Callable[[LyricLine], LyricLine]
 class Track:
     """An independent lyric stream with selection, placement and composable effects.
 
+    With layout omitted, two bottom rows alternate left and right in the region.
     All times use seconds. preview/tail are desired, reducible display padding;
     rule durations and inline cue visibility are mandatory occupancy. The visual
     effects receive the measured, unpositioned line once before allocation.
     LyricRule entries declare timing; callable entries decorate the line in order.
     Rule factories resolve once before decoration and bind to final target aliases.
     Authored visual intervals join occupancy; rule binding follows allocation.
+    min_outline_gap is the minimum script-pixel clearance between hard strokes;
+    None preserves shaped spacing. reserved_border declares the outer hard radius
+    of custom or shared visual layers. Glow and motion do not reserve space.
+    ruby_gap sets the visual gap in script pixels between hard outlines of
+    the reading group and its body at rest. Negative values allow overlap.
     All animation evaluation and output belong to Scene.
     """
 
     id: str
     source: Callable[[LyricSource], bool] = _all_sources
-    layout: Layout = Layout()
+    layout: Layout | KaraokeRows | None = None
     region: Box | None = None
-    preview: float = 0.6
-    tail: float = 0.3
+    preview: float = 1.8
+    tail: float = 1.0
     effects: tuple[LyricEffect, ...] = ()
     cues: Mapping[str, CuePreset] = field(default_factory=dict)
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset()
     styles: tuple[Style, ...] = ()
     references: tuple[LayoutLine, ...] = ()
+    min_outline_gap: float | None = 2
+    reserved_border: float = 0
+    ruby_gap: float = 6
 
     def __post_init__(self) -> None:
-        finite(self.preview, self.tail)
+        finite(self.preview, self.tail, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
+        if self.reserved_border < 0 or (
+            self.min_outline_gap is not None and self.min_outline_gap < 0
+        ):
+            raise ValueError("outline clearance must be nonnegative")
         if not self.id:
             raise ValueError("Track needs a stable id")
         if self.preview < 0 or self.tail < 0:
@@ -142,6 +158,18 @@ class LyricScene(Scene):
     """A normal Scene with immutable lyric arrangement snapshots for inspection."""
 
     plans: tuple[LinePlan, ...] = ()
+
+    def export_compact_ass(self, path: str | Path, *, budget: SceneBudget | None = None) -> None:
+        """Save a playback ASS with native karaoke timing, line fades and cues.
+
+        For simple KaraokeEffects lines this approximates motion and materials with
+        native sweep and fade tags. Duotone readings use measured ruby layouts and
+        their own clocks. Complex timings and internal inline cue reservations
+        use ordinary ASS compilation. budget controls compiler resource limits.
+        """
+        from ._compact_ass import compact_document
+
+        compact_document(self, budget or SceneBudget()).save(path)
 
     @property
     def lines(self) -> tuple[LyricLine, ...]:
@@ -376,6 +404,14 @@ def prepare_tracks(
         allocation_inputs: list[LayoutLine] = []
         prepared: dict[str, LyricLine] = {}
         resolved: dict[str, tuple[_LyricBinding, ...]] = {}
+        border = max(
+            [track.reserved_border]
+            + [
+                effect._hard_border
+                for effect in track.effects
+                if isinstance(effect, LyricHighlights)
+            ]
+        )
         for source in selected:
             identity = f"track:{quote(track.id, safe='')}/{source.id}"
             spans = tuple(
@@ -402,12 +438,24 @@ def prepare_tracks(
                 ),
                 max(source.display.end, singing.end) + max(track.tail, exit),
             )
-            bare = layout_lyrics(view, source.lyrics, id=identity, display=display)
+            bare = layout_lyrics(
+                view,
+                source.lyrics,
+                id=identity,
+                display=display,
+                min_outline_gap=track.min_outline_gap,
+                reserved_border=border,
+                ruby_gap=track.ruby_gap,
+            )
             local_presets = _cue_presets(track.cues)
             cued = bind_lyric_cues(bare, local_presets)
             bindings = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent
-            )._resolve(tuple(effect for effect in track.effects if isinstance(effect, LyricRule)))
+            )._resolve(
+                tuple(
+                    effect for effect in track.effects if isinstance(effect, LyricRule)
+                )
+            )
             resolved[identity] = bindings
             entrance, exit = _padding(bindings)
             display = Lifetime(
@@ -518,8 +566,9 @@ def prepare_tracks(
         region = track.region or Box(
             0, 0, source_document.meta.res_x, source_document.meta.res_y
         )
-        placements = track.layout.allocate(
-            batch, LayoutContext(region, track.references)
+        layout = KaraokeRows() if track.layout is None else track.layout
+        placements = layout.allocate(
+            batch, LayoutContext(region, track.references, source_document.meta.res_y)
         )
         validate_placements(batch, placements)
         by_id = {placement.id: placement for placement in placements}

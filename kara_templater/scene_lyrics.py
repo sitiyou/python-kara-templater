@@ -39,6 +39,7 @@ class LyricLayout:
     body: DocumentLayout
     ruby: tuple[PositionedRuby, ...]
     bounds: Box
+    script_height: int = 1080
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
         """Combine measured body and positioned ruby objects into an editable group."""
@@ -94,6 +95,35 @@ def _shift(item: PositionedText, dx: float, dy: float = 0) -> PositionedText:
             left=item.ink_bounds.left + dx,
             top=item.ink_bounds.top + dy,
         ),
+    )
+
+
+def _clear_outlines(
+    layout: DocumentLayout,
+    gap: float | None,
+    reserved_border: float,
+) -> DocumentLayout:
+    if gap is None:
+        return layout
+    shift = 0.0
+    previous_edge: float | None = None
+    previous_border = 0.0
+    characters = []
+    for item in layout.characters:
+        ink = item.ink_bounds
+        if ink is not None:
+            border = max(reserved_border, item.object.state.border)
+            if previous_edge is not None and (border or previous_border):
+                shift = max(shift, previous_edge + gap - (ink.left - border))
+            previous_border = border
+            previous_edge = ink.right + border + shift
+        characters.append(
+            replace(_shift(item, shift), _gap_shift=shift) if shift else item
+        )
+    return replace(
+        layout,
+        characters=tuple(characters),
+        bounds=_union(tuple(item.bounds for item in characters)),
     )
 
 
@@ -154,7 +184,9 @@ def layout_document_lyrics(
     *,
     id: str | None = None,
     display: Lifetime | None = None,
-    ruby_gap: float = 0,
+    ruby_gap: float = 6,
+    min_outline_gap: float | None = None,
+    reserved_border: float = 0,
 ) -> LyricLayout:
     """Bind body/ruby without changing original singing or decoded source ranges.
 
@@ -173,6 +205,8 @@ def layout_document_lyrics(
         if display is None
         else display,
         ruby_gap=ruby_gap,
+        min_outline_gap=min_outline_gap,
+        reserved_border=reserved_border,
     )
 
 
@@ -182,18 +216,22 @@ def layout_lyrics(
     *,
     id: str,
     display: Lifetime,
-    ruby_gap: float = 0,
+    ruby_gap: float = 6,
+    min_outline_gap: float | None = None,
+    reserved_border: float = 0,
 ) -> LyricLayout:
     """Measure structured or parsed lyrics using Document styles and resolution.
 
+    ruby_gap sets the vertical clearance between the hard ink bounds of a
+    reading group and its body before animation. Negative values allow overlap.
     No ASS event is required or synthesized. Singing intervals retain their full
     seconds precision; record indices, if present, are provenance only.
     """
     from .geometry import finite
 
-    finite(ruby_gap)
-    if ruby_gap < 0:
-        raise ValueError("ruby gap cannot be negative")
+    finite(ruby_gap, reserved_border, min_outline_gap or 0)
+    if reserved_border < 0 or (min_outline_gap is not None and min_outline_gap < 0):
+        raise ValueError("outline clearance must be nonnegative")
 
     def validate_text(source: DocumentText) -> None:
         source.require_supported()
@@ -240,6 +278,7 @@ def layout_lyrics(
     body = _layout_document_view(
         document, lyrics.body, record_index, id=id, display=display, singing=singing
     )
+    body = _clear_outlines(body, min_outline_gap, reserved_border)
     rubies: list[PositionedRuby] = []
     for ui, unit in enumerate(lyrics.units):
         for si, segment in enumerate(unit.segments):
@@ -260,6 +299,7 @@ def layout_lyrics(
                     ),
                 ),
             )
+            layout = _clear_outlines(layout, min_outline_gap, reserved_border)
             origin = EventOrigin((SourceRef(body.id, ui, si),), "document ruby")
             layout = replace(
                 layout,
@@ -344,23 +384,49 @@ def layout_lyrics(
         if indices and ruby_right is not None:
             left = max(left, ruby_right - min(0, offset))
         shift = left - box.left
+        body_top = float("inf")
         for i, item in enumerate(characters):
             if start <= item.start and item.end <= end:
                 characters[i] = _shift(item, shift)
+                if indices and item.ink_bounds is not None:
+                    border = max(reserved_border, item.object.state.border)
+                    body_top = min(body_top, item.ink_bounds.top - border)
             elif item.start < end and item.end > start:
                 raise LayoutCapabilityError(
                     "ruby placement boundary splits a shaped cluster"
                 )
+        if not indices:
+            continue
+        if body_top == float("inf"):
+            body_top = box.top
+        # Align joined fragments as one row. Measure their lowest hard ink
+        # relative to a common layout-box bottom, including mixed font sizes.
+        reading_bottom = max(
+            (
+                item.ink_bounds.top
+                + item.ink_bounds.height
+                + max(reserved_border, item.object.state.border)
+                - reading.bounds.top
+                - reading.bounds.height
+                for index in indices
+                for reading in (rubies[index].layout,)
+                for item in reading.characters
+                if item.ink_bounds is not None
+            ),
+            default=0.0,
+        )
+        row_bottom = body_top - ruby_gap - reading_bottom
         cursor = left + offset
         for index in indices:
             ruby = rubies[index]
             moved = _move(
-                ruby.layout, cursor, box.top - ruby.layout.bounds.height - ruby_gap
+                ruby.layout,
+                cursor,
+                row_bottom - ruby.layout.bounds.top - ruby.layout.bounds.height,
             )
             rubies[index] = replace(ruby, layout=moved)
             cursor += ruby.layout.bounds.width
-        if indices:
-            ruby_right = cursor
+        ruby_right = cursor
     body = replace(
         body,
         characters=tuple(characters),
@@ -371,4 +437,5 @@ def layout_lyrics(
         body,
         tuple(rubies),
         _union((body.bounds, *(r.layout.bounds for r in rubies))),
+        document.meta.res_y,
     )

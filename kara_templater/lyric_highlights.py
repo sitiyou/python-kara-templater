@@ -201,11 +201,11 @@ class _SingingHighlights:
                 index,
                 tuple(
                     HighlightPass(
-                        TimeSpan(segment.singing.start, segment.singing.end),
+                        TimeSpan(span.start, span.end),
                         Region(box.left, box.right),
                         round=round_id,
                     )
-                    for round_id, segment in enumerate(unit.segments)
+                    for round_id, span in enumerate(unit._body_singing())
                 ),
                 self.paint,
                 glow=self.glow,
@@ -268,6 +268,15 @@ def _owners(
             chosen = tuple(h.id for h in sorted(active, key=lambda h: h.priority))
         result.append((Region(left, right), chosen))
     return tuple(result)
+
+
+@dataclass(frozen=True, kw_only=True)
+class _FeatheredSingingClip(RectangleClip):
+    """Mix incoming ink into the sung layer behind its moving right edge."""
+    width: float
+    unsung_fill: Color
+    unsung_outline: Color
+    front_color: Color | None = None
 
 
 @dataclass(frozen=True)
@@ -350,7 +359,7 @@ class _Ownership:
             )
         return union_regions(result)
 
-    def singing_keyframes(self, padding: float) -> RectangleKeyframes:
+    def singing_keyframes(self, padding: float, feather: float = 0) -> RectangleKeyframes:
         """A full-unit linear pass; decoration never consumes singing time."""
         span = self.highlights[0].passes[0]
         start = span.time.start + self.shift - self.birth
@@ -372,8 +381,8 @@ class _Ownership:
         return RectangleKeyframes(
             (
                 (max(-self.birth, start - _EDGE_SECONDS), bounds(left - padding)),
-                (start, bounds(left)),
-                (end, bounds(right)),
+                (start, bounds(left + feather / 2)),
+                (end, bounds(right + feather / 2)),
                 (end + _EDGE_SECONDS, bounds(right + padding)),
             )
         )
@@ -439,6 +448,17 @@ class LyricHighlights:
     glow: LyricGlow = None
     settings: RasterSettings = RasterSettings()
     base_paint: StatePatch = StatePatch()
+    hook_feather: float = 0
+    front_color: Color | None = None
+
+    @property
+    def _hard_border(self) -> float:
+        paints: list[StatePatch] = [self.base_paint]
+        if isinstance(self.highlights, _SingingHighlights):
+            paints.append(self.highlights.paint)
+        elif isinstance(self.highlights, tuple):
+            paints.extend(h.paint for h in self.highlights)
+        return max((p.border or 0 for p in paints if not p.blur), default=0)
 
     @classmethod
     def from_singing(
@@ -450,6 +470,8 @@ class LyricHighlights:
         base_paint: StatePatch | None = None,
         material: LyricMaterial = None,
         strategy: Literal["clip", "coverage"] = "clip",
+        hook_feather: float = 0,
+        front_color: Color | None = None,
         settings: RasterSettings | None = None,
     ) -> LyricHighlights:
         """Sweep source singing across body/ruby without authoring clip geometry.
@@ -472,12 +494,17 @@ class LyricHighlights:
         return cls(
             highlights=_SingingHighlights(paint, glow, material),
             glow=base_glow,
+            hook_feather=hook_feather,
+            front_color=front_color,
             strategy=strategy,
             settings=RasterSettings() if settings is None else settings,
             base_paint=StatePatch() if base_paint is None else base_paint,
         )
 
     def __post_init__(self) -> None:
+        finite(self.hook_feather)
+        if self.hook_feather < 0:
+            raise ValueError("hook feather must be nonnegative")
         if self.base_paint.channels - {"fill", "outline", "opacity", "border", "blur", "shadow"}:
             raise ValueError("highlight base paint cannot change geometry")
         if self.mode not in ("union", "priority", "layer") or self.strategy not in (
@@ -505,6 +532,7 @@ class LyricHighlights:
             raise ValueError("duplicate highlight identities")
         if any(h.unit >= len(line.layout.lyrics.units) for h in highlights):
             raise ValueError("highlight unit is outside lyrics")
+        automatic = isinstance(self.highlights, _SingingHighlights)
         drawings: list[tuple[LyricTarget, PositionedText, int, Box]] = []
         for target, character in zip(
             line.query("character"), line.layout.body.characters, strict=True
@@ -520,7 +548,9 @@ class LyricHighlights:
                     target,
                     character,
                     unit,
-                    line.layout.body.range_bounds(source.start, source.end),
+                    line.layout.body._sweep_bounds(source.start, source.end, character)
+                    if automatic
+                    else line.layout.body.range_bounds(source.start, source.end),
                 )
             )
         readings = tuple(
@@ -529,9 +559,12 @@ class LyricHighlights:
             for character in ruby.layout.characters
         )
         for target, (character, ruby) in zip(line.query("ruby"), readings, strict=True):
-            drawings.append((target, character, ruby.unit_index, ruby.layout.bounds))
-
-        automatic = isinstance(self.highlights, _SingingHighlights)
+            box = (
+                ruby.layout._sweep_bounds(0, len(ruby.layout.source.text), character)
+                if automatic
+                else ruby.layout.bounds
+            )
+            drawings.append((target, character, ruby.unit_index, box))
 
         def shoulder(highlight: Highlight) -> float:
             return (
@@ -591,12 +624,24 @@ class LyricHighlights:
             chosen = tuple(h for h in highlights if h.unit == unit)
             if not chosen:
                 return
+            if automatic and target.role == "ruby":
+                clock = target.singing[0]
+                chosen = tuple(
+                    replace(
+                        h,
+                        passes=(
+                            replace(h.passes[0], time=TimeSpan(clock.start, clock.end)),
+                        ),
+                    )
+                    for h in chosen
+                )
             chosen = tuple(
                 replace(
                     highlight,
                     glow=_resolve_glow(highlight.glow, line, target),
                     material=highlight.material(line, target)
-                    if callable(highlight.material) else highlight.material,
+                    if callable(highlight.material)
+                    else highlight.material,
                 )
                 for highlight in chosen
             )
@@ -669,15 +714,23 @@ class LyricHighlights:
                 )
                 piece = node.copy(id=identity)
                 if highlight is None:
-                    piece = replace(piece, state=self.base_paint.interpolate(piece.state, 1))
+                    piece = replace(
+                        piece, state=self.base_paint.interpolate(piece.state, 1)
+                    )
                 else:
                     material = highlight.material
                     assert not callable(material)
                     piece = replace(
-                        piece, state=highlight.paint.interpolate(piece.state, 1),
+                        piece,
+                        state=highlight.paint.interpolate(piece.state, 1),
                         material=material,
                     )
                 if self.strategy == "clip":
+                    feather = (
+                        self.hook_feather / scale.x
+                        if native_singing
+                        else 0
+                    )
                     drawings = tuple(
                         replace(
                             piece.copy(
@@ -692,7 +745,7 @@ class LyricHighlights:
                                 1,
                                 space="local",
                                 deform=(
-                                    ownership.singing_keyframes(padding)
+                                    ownership.singing_keyframes(padding + feather, feather)
                                     if native_singing
                                     else RectangleFunction(
                                         partial(ownership.rectangle, index),
@@ -716,6 +769,30 @@ class LyricHighlights:
                         glows[identity] = glow
                     drawings = (piece,)
                 for piece in drawings:
+                    plain_clip = piece.clip
+                    if (
+                        self.strategy == "clip"
+                        and native_singing
+                        and highlight is not None
+                        and self.hook_feather
+                        and isinstance(plain_clip, RectangleClip)
+                    ):
+                        unsung = self.base_paint.interpolate(node.state, 1)
+                        piece = replace(
+                            piece,
+                            clip=_FeatheredSingingClip(
+                                plain_clip.left,
+                                plain_clip.top,
+                                plain_clip.right,
+                                plain_clip.bottom,
+                                space=plain_clip.space,
+                                deform=plain_clip.deform,
+                                width=self.hook_feather / scale.x,
+                                unsung_fill=unsung.fill,
+                                unsung_outline=unsung.outline,
+                                front_color=self.front_color,
+                            ),
+                        )
                     pieces.append(piece)
                     glow = base_glow if highlight is None else highlight.glow
                     if self.strategy == "clip" and isinstance(glow, Glow):
@@ -731,6 +808,15 @@ class LyricHighlights:
                         pieces.append(
                             replace(
                                 halo,
+                                clip=replace(
+                                    piece.clip,
+                                    unsung_fill=base_glow.color,
+                                    unsung_outline=base_glow.color,
+                                    front_color=None,
+                                )
+                                if isinstance(piece.clip, _FeatheredSingingClip)
+                                and isinstance(base_glow, Glow)
+                                else plain_clip,
                                 material=None,
                                 layer=piece.layer - 1,
                                 state=replace(
@@ -842,6 +928,7 @@ class HighlightArrival:
                 for c in line.layout.body.characters
                 if unit.start <= c.start and c.end <= unit.end
             )
+            parent = line.layout.body
             drawing = box
         else:
             readings = tuple(
@@ -856,6 +943,7 @@ class HighlightArrival:
             unit = line.layout.lyrics.units[unit_index]
             box = line.layout.body.range_bounds(unit.start, unit.end)
             siblings = ruby.layout.characters
+            parent = ruby.layout
             drawing = ruby.layout.bounds
         if not drawing.width or not box.width:
             return ()
@@ -866,6 +954,17 @@ class HighlightArrival:
             if index + 1 < len(siblings)
             else drawing.right
         )
+        if isinstance(self.highlights, _SingingHighlights):
+            drawing = parent._sweep_bounds(
+                siblings[0].start, siblings[-1].end, character
+            )
+            right = (
+                siblings[index + 1].bounds.left
+                - siblings[index + 1]._gap_shift
+                + character._gap_shift
+                if index + 1 < len(siblings)
+                else drawing.right
+            )
         if right < left:
             raise ValueError("non-monotone character positions cannot define arrival")
         region = Region(

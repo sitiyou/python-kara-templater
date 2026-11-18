@@ -4,6 +4,51 @@ Text metrics and glyph geometry depend on the actual selected font, fallback,
 and shaping environment. Keep font selection consistent between compilation and
 playback when comparing layout or pixels.
 
+## Choose a typeface for sung lyrics
+
+Audition the face on the song itself. For Japanese lyrics, take one dense
+kanji, a run of kana, and the longest line. If the song mixes scripts, include
+an English phrase and punctuation from the same line. Compare candidates at
+the intended playback size, with the actual outline and background.
+
+| Lyric role | A starting point | What to look for in playback |
+| --- | --- | --- |
+| Main vocal | Try a medium or bold Japanese Gothic face for even strokes, or a Mincho face for a more delicate, print-like voice. | Pause halfway through a long sung character. Both colors should remain legible; inspect the fine horizontal strokes and the gaps inside dense characters. |
+| Harmony | Start with a smaller size in the main family. For a different voice, try a contrasting face on the same phrase. | Play both voices together. Check lowercase letters at the smaller size and see whether the longest harmony line still fits its lane. |
+| Ruby | Start with a plain face with clear kana at the final reading size. | Check small kana and voicing marks on a busy frame with the outline enabled. |
+
+For example, compare Noto Serif CJK JP and Noto Sans CJK JP on the same
+Japanese phrase. Keep size, outline, color and timing fixed for the first
+pass. Then adjust weight and size for the chosen face: two families at the
+same nominal size can occupy different widths and look different in height.
+Apply the choice through [Track.styles](tracks.md#semantic-targets-and-appearance)
+before layout so text, ruby and inline cue positions use its measurements.
+
+## Pair Japanese lyrics with a Chinese translation
+
+Start with the Japanese face and weight used for the song. Choose a Chinese
+candidate for the translation's script, then preview the two lines together.
+The table below gives selected starting pairs from the *中日字体匹配推荐表*
+workbooks. The workbook names and Sheet1 row numbers identify the entries.
+
+| Japanese lyric face | Simplified Chinese candidate | Traditional Chinese candidate | Workbook and row |
+| --- | --- | --- | --- |
+| Morisawa A-OTF A1 Mincho Std Bold | 方正标雅宋简体 | 華康中明體(P) for Taiwan | Morisawa v1.01, row 3 |
+| DynaFont DFHSMincho Std/StdN W5 | 方正准雅宋简体 | 華康中明體(P) for Taiwan | DynaFont OpenType v1.00, row 7 |
+| Fontworks FOT-Rodin Pro L | 思源黑体 family | 思源黑體 family | Fontworks v1.05, row 207 |
+
+Compare a shared character such as 光 to judge stroke weight and how much of
+the character cell each face fills. Then compare the actual Japanese kana with
+a dense character and punctuation from the translation. This second check
+matters for kana variants: the Fontworks entry for RodinBokutoh (row 219)
+offers matches for its kanji and leaves its distinctive kana to visual judgment.
+
+Use separate styles for the two lyric tracks and set each style's font family
+to the name reported by the installed face. Preview at the translation's final
+size with the intended outline. Check the actual simplified or traditional
+lyrics for missing glyphs, especially when using a face marked 简繁扩充 in
+the workbooks.
+
 ## Register and select a font
 
 `load_font(path)` makes that font's bytes available to the current interpreter's

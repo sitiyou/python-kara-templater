@@ -1,17 +1,17 @@
-# GPU-enhanced ASS
+# Render a standalone GPU shader with FFmpeg
 
 ![Shader gradient and eased motion](../examples/assets/gpu-gradient.gif)
 
-Complex continuous color fields and sampled motion can produce very large
-standard ASS files. The GPU path keeps an ordinary ASS fallback and stores an
-additional, versioned effect payload in private `Comment` records. Normal
-players show the fallback. `kara-render` uses the enhanced presentation instead.
-It does not install shaders into mpv or change libass.
+Export the ordinary subtitle for players and the shader for video production.
+The hook includes glyph coverage, timing, gradients, clips and motion. The
+rendering machine needs FFmpeg with libplacebo and a working Vulkan device.
+The fonts and the Python authoring environment are needed at export time.
 
-## Author once, choose output
-
-Use the same Scene, Tracks, lyric timing and animation callbacks. For ordinary
-ASS, continue using `scene.compile()`. For enhanced output:
+For a prepared lyric scene, write the playback ASS with
+`scene.export_compact_ass("song.ass")` and the full shader with
+`scene.export_hook("song.hook", fps=60)`. Both use the same prepared scene.
+See [Export a song](karaoke-effects.md#export-a-song) for a Track-based entry point.
+The lower-level example below supplies its own fallback for a raw Scene.
 
 ```python
 from kara_templater import (
@@ -31,80 +31,78 @@ scene = Scene(fallback).add(TextObject(
         ColorStop(65, Color.hex("#F075CB")),
     ))),
 ))
-scene.enhance(fallback, fps=60).save("song.enhanced.ass")
+fallback.save("song.ass")
+scene.export_hook("song.hook", fps=60)
 ```
 
-[The runnable example](../../examples/gpu_gradient.py) also adds eased scaling
-and departure through the ordinary animation API.
-
-`fallback` is an explicit, complete ordinary-ASS presentation at the same script
-resolution. A useful fallback has the source lyrics, karaoke timing, layout and
-simple colors. It need not reproduce every GPU effect. The enhanced renderer
-replaces this presentation as a whole; it does not draw both versions or merge
-unrelated fallback events automatically. The caller's fallback stays unchanged.
-
-`LinearGradient` becomes a continuous fragment-shader color field, including
-multiple color stops inside a single glyph. The standard ASS `step` setting has
-no effect on shader smoothness. Local gradients follow the glyph's transform;
-screen gradients remain in screen coordinates. Sweeping a clip does not resize
-or restart the gradient. The existing Scene evaluator still determines lyric
-pulse duration, easing, pivots, and each character's departure time.
-
-## Render video
-
-Install the optional Python adapter, FFmpeg, and an OpenGL-capable driver:
+The [gradient example](../../examples/gpu_gradient.py) writes both files.
+For a matching-aspect, opaque SDR video starting at song time zero:
 
 ```sh
-python -m pip install 'kara-templater[gpu]'
-kara-render song.enhanced.ass video.mp4 song.rendered.mp4
+ffmpeg -init_hw_device vulkan=vk -i video.mp4 \
+  -vf 'fps=60,libplacebo=custom_shader_path=song.hook' \
+  -c:v libx264 -pix_fmt yuv420p -c:a copy output.mp4
 ```
 
-From a checkout with uv:
+Use the hook as the only subtitle layer. Loading the ordinary ASS on top draws
+the lyrics twice. Audio stream copy requires a compatible output container.
+
+## Extract a scene interval
+
+```python
+scene.export_hook("chorus.hook", fps=60, start=36, duration=8)
+```
 
 ```sh
-uv run --extra gpu kara-render song.enhanced.ass video.mp4 preview.mp4 \
-  --start 36 --duration 12
+ffmpeg -init_hw_device vulkan=vk -ss 36 -i video.mp4 -t 8 \
+  -vf 'fps=60,libplacebo=custom_shader_path=chorus.hook' \
+  -c:v libx264 -pix_fmt yuv420p -c:a aac chorus.mp4
 ```
 
-The default headless context backend is `egl`. `--backend` selects another
-ModernGL context backend when supported by the host. Current hardware validation
-uses Linux EGL with an AMD Radeon 780M; Windows/macOS GPU execution is not yet
-validated. Context creation fails explicitly when unavailable. Merely loading
-or exporting ASS does not require ModernGL or a GPU.
+With the FFmpeg frame-counter clock, the first filter frame corresponds to
+the exported start. Use the export frame rate and seek the input to that point.
 
-Frames stream through a pipe to FFmpeg; no image sequence is saved. The output
-uses the payload's resolution and frame rate, H.264 video and AAC audio from the
-selected source-video interval. Video after the last enhanced subtitle is retained. `--start` must align with the stored frame grid;
-`--duration` rounds up to a frame. Existing outputs require `--overwrite`.
-A failed render leaves the prior output intact. CPU encoding and GPU readback
-still contribute to render time; this is not a zero-copy video pipeline.
+## Seek with mpv
 
-## Current scope and limits
+```sh
+mpv --vo=gpu-next --gpu-api=vulkan --sub-auto=no --glsl-shader=song.hook video.mp4
+```
 
-The first backend supports text and static vector paths, affine animation,
-opacity, ordinary local/screen rectangle clips, and fill/outline linear gradients
-with 2–16 color stops. Gradients use encoded RGB interpolation. Glyph fill,
-outline and shadow retain separate coverage. Native stroke/blur/shadow coverage
-is cached; this version does not implement shader blur, distortion, or a particle
-simulation shader. Existing effects made from supported moving objects can use
-the adapter without another animation API.
+mpv supplies the current video frame's presentation timestamp (PTS) in seconds.
+The hook uses that timestamp to evaluate the animation on the export grid, including after
+forward and backward seeks. Open the original video on the same timeline as the
+lyrics. An interval hook exported for 36–44 seconds draws only during that
+interval on the original video. A host that leaves PTS unset uses a sequential
+frame counter, as in the FFmpeg command above.
 
-Native ASS events, explicit coverage groups, inherited/vector/inverse clips,
-deformed paths and other paint fields currently raise an error. There is no
-silent conversion to a different composition model. Cached glyph textures also
-mean large magnification differs from rerasterizing font outlines at every scale.
+## Data and limits
 
-Version 1 evaluates author callbacks at export and stores frame-indexed numeric
-draw commands with shared coverage masks. It contains neither Python code nor
-arbitrary shader source. Playback does not require the author's effect script or
-font for the enhanced glyphs; ordinary fallback playback still needs its fonts.
-This payload is not a full-color frame sequence. It is also not frame-rate
-independent: export again to change fps or animation. Edit the source recipe and
-export again after changing fallback events; the reader verifies its digest.
+Static draws persist until an event changes them. Linear rectangle keyframes,
+including lyric wipes, interpolate on the GPU. Isolated fades, position/scale/
+opacity tweens, pulses, drift-outs with one easing, and Studio slides carry
+timing and endpoint parameters. Each instance can have its own duration and
+pivot. All instances use the same shader.
 
-Export limits are 250,000 frames, 64 MiB of shared mask bytes, 64 MiB compressed
-payload and 512 MiB decoded payload. Runtime caches are bounded separately. These
-limits make costs explicit; the enhanced file can still grow with scene length
-and complexity. The decoder validates version, parts, checksums, dimensions,
-resource references, and sequential frame indices. Ordinary ASS parsing only
-preserves the comments and never runs them.
+Use `linear_rate`, `smooth_rate`, or `smoother_rate` for built-in easing. A
+custom piecewise-linear easing such as
+`FadeIn(rate=ProgressCurve(((0, 0), (0.3, 0.8), (1, 1))).at)` stores its
+normalized knots once across instances and durations. An arbitrary Python
+easing on these motions can store a scalar sample track on the export grid;
+identical tracks share storage. Curves outside [0, 1], other animation types,
+references, and overlapping motions that need state capture use the Scene
+evaluator for the affected leaf and interval. Arbitrary rectangle callbacks
+also need evaluation while the object is visible.
+
+The shader draws text/static paths in layer order, with affine transforms,
+opacity, ordinary rectangle clips and continuous fill/outline linear gradients
+(up to 16 stops). Stroke, blur and shadow coverage is rasterized at export.
+Use standard ASS compilation for native events; inherited/vector/inverse clips,
+deformed paths and explicit coverage groups are unsupported by this backend.
+
+Textures in the mpv hook format use hexadecimal text. Complex or long scenes
+can produce large files; compress the hook for transport and extract it before
+rendering. The command texture uses exact float indices (up to 2²⁴ scalar
+entries). The coverage atlas is 2048 pixels wide and up to 8192 pixels high.
+Split into frame-aligned intervals if a scene reaches a limit. Linux/AMD Vulkan
+has been exercised on L4TS. The older Scene.enhance / kara-render workflow
+remains available for previously authored projects with embedded GPU comments.

@@ -68,6 +68,7 @@ def build(*, custom: bool = False) -> LyricScene:
         document,
         tracks=(
             Track(
+                tail=0,
                 id="main",
                 region=Box(40, 180, 560, 140),
                 layout=Layout(alignment="center"),

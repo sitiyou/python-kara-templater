@@ -63,7 +63,7 @@ An absolute half-open seconds interval with 0 <= start < end.
 Parent lifetimes further restrict child visibility without changing local
 animation clocks.
 
-[Source](../../kara_templater/scene.py#L33)
+[Source](../../kara_templater/scene.py#L34)
 
 ```python
 Lifetime(
@@ -96,7 +96,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L507)
+[Source](../../kara_templater/scene.py#L508)
 
 ```python
 NativeEvent(
@@ -121,7 +121,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
 
-[Source](../../kara_templater/scene.py#L415)
+[Source](../../kara_templater/scene.py#L416)
 
 ```python
 ObjectGroup(
@@ -252,7 +252,7 @@ A visual VectorPath drawing with state, lifetime, and optional geometry deformat
 
 Coordinates are local to its local origin and parent transforms.
 
-[Source](../../kara_templater/scene.py#L380)
+[Source](../../kara_templater/scene.py#L381)
 
 ```python
 PathObject(
@@ -355,7 +355,7 @@ A positive-area normal or inverse rectangle in screen or object-local space.
 
 Optional deformation evaluates local seconds and can produce an empty mask.
 
-[Source](../../kara_templater/scene.py#L144)
+[Source](../../kara_templater/scene.py#L145)
 
 ```python
 RectangleClip(
@@ -387,7 +387,7 @@ Pure signed-local-seconds rectangle bounds; None denotes an empty mask.
 
 The owning object validates breakpoint times against its absolute clock.
 
-[Source](../../kara_templater/scene.py#L54)
+[Source](../../kara_templater/scene.py#L55)
 
 ```python
 RectangleFunction(
@@ -423,7 +423,7 @@ the first is the left limit and the second takes effect at that time.
 Zero width or height is an empty mask, with its coordinates retained for
 interpolation. The owning object validates absolute breakpoint times.
 
-[Source](../../kara_templater/scene.py#L81)
+[Source](../../kara_templater/scene.py#L82)
 
 ```python
 RectangleKeyframes(
@@ -472,7 +472,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L525)
+[Source](../../kara_templater/scene.py#L526)
 
 ```python
 Scene(
@@ -547,6 +547,26 @@ Construct a seekable world-space evaluator for this scene hierarchy and its refe
 
 ```python
 Scene.evaluator() -> SceneEvaluator
+```
+
+### Scene.export_hook
+
+Write a standalone libplacebo .hook for a constant-frame-rate video.
+
+Export animation parameters and sample unsupported intervals on the fps grid.
+Start is frame-aligned in seconds. mpv uses media PTS;
+the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
+subsequent frames pass through. Render at the exported fps on an opaque
+SDR video with matching aspect ratio. Includes glyph masks and effects.
+
+```python
+Scene.export_hook(
+    path: str | pathlib.Path,
+    *,
+    fps: int = 60,
+    start: float = 0,
+    duration: float | None = None,
+) -> None
 ```
 
 ### Scene.replace_source
@@ -751,7 +771,7 @@ budgets. Text is literal Unicode: braces and backslashes are displayed,
 not interpreted as ASS tags; newlines become hard line breaks. CR and NUL
 are rejected.
 
-[Source](../../kara_templater/scene.py#L344)
+[Source](../../kara_templater/scene.py#L345)
 
 ```python
 TextObject(
@@ -857,7 +877,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L167)
+[Source](../../kara_templater/scene.py#L168)
 
 ```python
 VectorClip(
@@ -888,7 +908,7 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L189)
+[Source](../../kara_templater/scene.py#L190)
 
 ```python
 VisualNode(

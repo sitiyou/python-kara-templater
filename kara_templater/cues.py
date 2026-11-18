@@ -265,11 +265,18 @@ def bind_cues(
             )
         preset = presets[marker.preset]
         if preset.trigger is None:
-            if not layout.singing:
+            trigger = next(
+                (
+                    span.start
+                    for span in layout.singing
+                    if span.end_offset > span.start_offset
+                ),
+                None,
+            )
+            if trigger is None:
                 raise ValueError(
                     f"cue {marker.id}: supply an absolute trigger for untimed text"
                 )
-            trigger = layout.singing[0].start
         else:
             trigger = preset.trigger
         start = trigger - preset.lead

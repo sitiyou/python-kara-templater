@@ -10,6 +10,23 @@ and 12 frames/s. The generated ASS retains its full script resolution and timing
 Supply the same fonts to your player for comparable text geometry. See
 [fonts and preview](../guides/fonts-and-preview.md) for reproduction.
 
+## Built-in karaoke catalog
+
+![Four built-in combinations](assets/karaoke-builtins.gif)
+
+[KaraokeEffects](../guides/karaoke-effects.md) covers the Studio animation-menu
+families: entry/exit motion, singing pulses, luminous fronts, petals, stars,
+ripples, notes and snow. One callable supplies the whole recipe to a Track.
+The preview is a 15fps overview of actual 60fps ASS renders using Sarasa UI J;
+use the videos for timing judgments.
+
+```sh
+python -m examples.karaoke_catalog build/studio.ass --entry glow_in --exit dissolve_out
+python -m tools.render_karaoke_catalog build/karaoke-catalog
+```
+
+[Source](../../examples/karaoke_catalog.py) · [Recommended combinations](../tutorials/karaoke-design.md#built-in-animation-combinations)
+
 ## Arrange karaoke lyrics
 
 Start with [lyric_orchestration.py](../../examples/lyric_orchestration.py) for
@@ -26,35 +43,21 @@ python -m examples.lyric_orchestration build/custom-layout.ass --custom
 The effects below also include direct object and material examples for custom
 geometry and composition. See [Tracks](../guides/tracks.md) for the authoring API.
 
-## Reference-informed karaoke styles
+## Custom lyric animation
 
-[Eight karaoke motion studies](../tutorials/lyric-studies.md) separates sweep,
-emphasis, scatter, curved copies, particle reveal, petals, echoes and sparkles.
-The same short/held-note fixture has English/Japanese variants and an independent
-harmony track. Its runnable author recipes mix built-ins and simple custom curves.
-[Independent ornament clocks](../../examples/lyric_ornament.py) adds a stationary
-arch with the opposite exit order from its text, using the same effect interface.
+The [motion studies](../tutorials/lyric-studies.md) demonstrate timed copies,
+particle reveal, curved trails and independent ornament clocks. For a whole-song
+starting point, use [karaoke layout and animation defaults](../tutorials/karaoke-design.md).
+The [palette example](../../examples/karaoke_designs.py) shows how to give main
+and harmony Tracks different materials while sharing one time axis.
 
-[Design karaoke that stays readable](../tutorials/karaoke-design.md) compares three
-complete styles based on observed Bilibili karaoke: red/white broadcast contrast,
-warm serif lettering, and pink lettering with a staggered exit. They share one
-original lyric fixture, main/harmony Tracks, ruby and a lead cue.
+## Karaoke count-ins
 
-![Design comparison](assets/karaoke-design-comparison-ja.jpg)
+![A three-column inline signal and a separate row of lamps](assets/karaoke-signals.gif)
 
-[Source: karaoke_designs.py](../../examples/karaoke_designs.py)
-
-```sh
-python -m examples.karaoke_designs build/broadcast.ass --style broadcast
-python -m examples.karaoke_designs build/amber.ass --style amber
-python -m examples.karaoke_designs build/candy.ass --style candy
-```
-
-Add `--japanese` for Japanese phrases with kana ruby and Sarasa UI J / Noto Serif CJK JP fonts,
-as shown above. English mode uses DejaVu Sans/Serif. These previews use 15 fps;
-unlike the other
-fixtures below, they cover 14 seconds. The tutorial gives reference timestamps,
-reproduction differences, suggested parameters and measured ASS event costs.
+The inline columns flash together and then recolor. The stars extinguish from
+right to left. Both signals clear when singing begins; the lyric keeps its
+reserved position. [Runnable example](../../examples/karaoke_signals.py).
 
 ## Choose an effect
 

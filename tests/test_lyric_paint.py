@@ -62,7 +62,7 @@ def test_sweep_works_after_semantic_copy_and_rejects_unrepresentable_front():
     state = Scene(document()).add(clone).evaluator().at(child.id, 4.25)
     with pytest.raises(ValueError, match="axis-aligned"):
         child.material.bands(0, 640, 0.5, replace(state, rotation=45))
-    assert child.material.breakpoints == pytest.approx((0.6, 1.1))
+    assert child.material.breakpoints == pytest.approx((1 - original.time_origin, 1.5 - original.time_origin))
 
 
 def test_color_factories_resolve_once_per_cluster_including_ruby():

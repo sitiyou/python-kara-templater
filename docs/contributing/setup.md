@@ -94,11 +94,9 @@ Gallery and detailed playback tools additionally need FFmpeg built with libass.
 Provide the same fonts to the metrics renderer and FFmpeg/player. See
 [fonts and preview](../guides/fonts-and-preview.md).
 
-## Optional GPU renderer
+## GPU video rendering
 
-`uv sync --group checks --extra gpu` installs ModernGL and its glcontext dependency.
-Exporting enhanced ASS does not need them; rendering does. Install FFmpeg and a
-host OpenGL 3.3+ driver/context backend separately. Linux EGL hardware execution
-is currently validated; no Windows/macOS GPU claim is made. Run optional pixel and
-video tests with `uv run --extra gpu python -m pytest tests/test_gpu*`.
-See [GPU rendering](../guides/gpu-rendering.md) for the data-only playback workflow.
+Install FFmpeg with the libplacebo filter and a working Vulkan driver. The hook
+exporter uses the normal project environment. Verify the filter with
+`ffmpeg -hide_banner -h filter=libplacebo`. See [GPU rendering](../guides/gpu-rendering.md).
+The older embedded-ASS renderer uses the optional ModernGL extra.

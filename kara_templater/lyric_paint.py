@@ -190,10 +190,13 @@ class LyricSweep:
                 for unit in layout.lyrics.units
                 if unit.start <= character.start and character.end <= unit.end
             )
-            box = layout.body.range_bounds(unit.start, unit.end)
+            box = layout.body._sweep_bounds(unit.start, unit.end, character)
             bind(target, character, box.left, box.right)
         readings = tuple(
-            (character, ruby.layout.bounds)
+            (
+                character,
+                ruby.layout._sweep_bounds(0, len(ruby.layout.source.text), character),
+            )
             for ruby in layout.ruby
             for character in ruby.layout.characters
         )

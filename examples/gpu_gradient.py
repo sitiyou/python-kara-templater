@@ -1,7 +1,7 @@
 """One Scene, a continuous GPU gradient, and a small ordinary-ASS fallback.
 
 Run: python -m examples.gpu_gradient
-Then: kara-render build/gpu-gradient.ass background.mp4 build/gpu-gradient.mp4
+Render the .hook with the FFmpeg command in docs/guides/gpu-rendering.md.
 """
 
 from pathlib import Path
@@ -56,7 +56,8 @@ def main():
     )
     output = Path("build/gpu-gradient.ass")
     output.parent.mkdir(parents=True, exist_ok=True)
-    build(fallback).enhance(fallback, fps=60).save(output)
+    fallback.save(output)
+    build(fallback).export_hook(output.with_suffix(".hook"), fps=60)
     print(output)
 
 
