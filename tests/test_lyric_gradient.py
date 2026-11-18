@@ -250,8 +250,8 @@ def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
             left, right = ramps[style](line, target).bounds
             ink = [c.ink_bounds for c in body if c.source_style == style and c.ink_bounds]
             expected_left = 0 if style == "Lead" else min(b.left for b in ink)
-            assert (glyph.bounds.left + left * glyph.layout_scale.x,
-                    glyph.bounds.left + right * glyph.layout_scale.x) == pytest.approx(
+            assert (glyph.object.state.position.x + left * glyph.layout_scale.x,
+                    glyph.object.state.position.x + right * glyph.layout_scale.x) == pytest.approx(
                         (expected_left, max(b.right for b in ink)))
     prefix = next(n for n in line.children if "/cue:" in n.id)
     bars = [n for n in nodes(prefix) if isinstance(n.material, LinearGradient)]
@@ -262,5 +262,9 @@ def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
     first = line.query("character")[0]
     front = next(n for n in nodes(line) if n.id.startswith(first.node_id + "/")
                  and ":front:" in n.id and isinstance(n.material, LinearGradient))
-    assert front.material.bounds == pytest.approx((0, 2 * first.center.x))
+    glyph = body[0]
+    assert glyph.layout_scale is not None
+    assert tuple(glyph.object.state.position.x + x * glyph.layout_scale.x
+                 for x in front.material.bounds) == pytest.approx(
+                     (glyph.bounds.left, glyph.bounds.right))
     scene.compile(native_tweens=True)

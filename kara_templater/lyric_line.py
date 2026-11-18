@@ -30,14 +30,14 @@ type LyricAnchor = Literal["enter", "exit", "singing", "after_singing"]
 
 def _line_x(character: PositionedText, left: float, right: float) -> tuple[float, float]:
     assert character.layout_scale is not None
-    origin, scale = character.bounds.left, character.layout_scale.x
+    origin, scale = character.object.state.position.x, character.layout_scale.x
     return (left - origin) / scale, (right - origin) / scale
 
 
 def _character_center(character: PositionedText) -> Vec2:
     assert character.layout_scale is not None
     return Vec2(
-        character.bounds.width / character.layout_scale.x / 2,
+        (character.bounds.center - character.object.state.position.x) / character.layout_scale.x,
         character.bounds.height / character.layout_scale.y / 2,
     )
 

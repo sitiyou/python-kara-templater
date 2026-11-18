@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from math import ceil, floor
 
 from .ass import Document, Line, Style
 from .characters import FontFace, LayoutCapabilityError, layout_characters
@@ -21,6 +22,7 @@ from .sources import EventOrigin, SourceRef
 class PositionedText:
     """A drawable text cluster, decoded source range, measured advance/ink bounds, and selected font faces.
 
+    bounds is the allocated cell. The pen origin is object.state.position.
     Layout scale is retained when used for range measurements. baseline is the
     local y coordinate of the font baseline measured during shaping.
     """
@@ -65,6 +67,7 @@ class DocumentLayout:
     singing: tuple[SingingSpan, ...]
     bounds: Box
     _gradient_left: float | None = None
+    _studio_spacing: bool = False
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
         """Collect measured text objects into an editable group with the layout lifetime."""
@@ -76,12 +79,34 @@ class DocumentLayout:
         )
 
     def _sweep_bounds(self, start: int, end: int, glyph: PositionedText) -> Box:
-        """Place the original advance interval at this glyph's corrected position."""
+        """Measure the moving front, excluding clearance, extra outlines and blur."""
         selected = tuple(c for c in self.characters if start <= c.start and c.end <= end)
-        return _union(tuple(
-            replace(c.bounds, left=c.bounds.left - c._gap_shift + glyph._gap_shift)
-            for c in selected
-        ))
+        boxes = []
+        for c in selected:
+            box = c.bounds
+            if self._studio_spacing:
+                if c.ink_bounds is None:
+                    continue
+                edge = round(2 * c.object.state.border) // 2
+                left = c.bounds.left + floor(c.ink_bounds.left - c.bounds.left) - edge
+                right = c.bounds.left + ceil(c.ink_bounds.right - c.bounds.left) + edge
+                box = replace(c.ink_bounds, left=left, width=right - left)
+            boxes.append(replace(box, left=box.left - c._gap_shift + glyph._gap_shift))
+        if not boxes:
+            return replace(glyph.bounds, width=0)
+        sweep = _union(tuple(boxes))
+        if self._studio_spacing and end < len(self.source.text):
+            following = next((c for c in self.characters if c.start == end), None)
+            if following is not None:
+                # N3 AdjustWipeEnd evaluates overlap in inclusive layout cells,
+                # then applies the fraction to the visible primary stroke.
+                left = selected[0].bounds.left - selected[0]._gap_shift
+                right = selected[-1].bounds.right - selected[-1]._gap_shift
+                next_left = following.bounds.left - following._gap_shift
+                if left <= next_left <= right:
+                    fraction = (next_left - left) / max(1, right - left + 1)
+                    sweep = replace(sweep, width=sweep.width * fraction)
+        return sweep
 
     def range_bounds(self, start: int, end: int, *, time: float | None = None) -> Box:
         """Bounds for an explicit word/range; reject splits within shaping clusters."""
@@ -100,13 +125,14 @@ class DocumentLayout:
             assert item.layout_scale is not None
             width = item.bounds.width / item.layout_scale.x
             height = item.bounds.height / item.layout_scale.y
+            left = (item.bounds.left - item.object.state.position.x) / item.layout_scale.x
             corners = tuple(
                 state.transform.apply(point)
                 for point in (
-                    Vec2(),
-                    Vec2(width, 0),
-                    Vec2(width, height),
-                    Vec2(0, height),
+                    Vec2(left, 0),
+                    Vec2(left + width, 0),
+                    Vec2(left + width, height),
+                    Vec2(left, height),
                 )
             )
             left, top = min(p.x for p in corners), min(p.y for p in corners)

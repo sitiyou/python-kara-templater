@@ -345,10 +345,25 @@ class KaraokeRows:
         if self.anchor not in ("top", "center", "bottom"):
             raise ValueError("unknown karaoke row anchor")
 
+    def break_before(
+        self, previous: LayoutLine, line: LayoutLine
+    ) -> Literal["none", "page", "section"]:
+        """Choose a boundary before line. Override to use tags, lead or source data.
+
+        A page restarts the row sequence. A section also restarts first/last-page
+        timing. Returning "none" retains automatic paging at row capacity.
+        """
+        if (
+            self.section_gap
+            and line.singing.start - previous.singing.end > self.section_gap
+        ):
+            return "section"
+        return "none"
+
     def allocate(
         self, lines: tuple[LayoutLine, ...], context: LayoutContext
     ) -> tuple[Placement, ...]:
-        """Reserve singing intervals through Layout and align each measured row."""
+        """Paginate the track, resolve handoffs, and align each measured row."""
         region = context.region
         scale = (context.script_height or region.height) / 1080
         inset = min(50 * scale, region.width / 4)
@@ -367,7 +382,11 @@ class KaraokeRows:
             y = region.top + margin + headroom
         elif self.anchor == "center":
             # Studio centers a single reading/body pair, or a multi-row body grid.
-            y = region.middle - grid_height / 2 + (headroom / 2 if self.rows == 1 else 0)
+            y = (
+                region.middle
+                - grid_height / 2
+                + (headroom / 2 if self.rows == 1 else 0)
+            )
         else:
             y = region.top + region.height - margin - grid_height
         area = Box(
@@ -380,141 +399,169 @@ class KaraokeRows:
             if self.rows == 3
             else tuple("left" if i % 2 == 0 else "right" for i in range(self.rows))
         )
-        layout = Layout(rows=self.rows, gap=pitch, position=Vec2(area.left, y))
-        sections = [0]
+        sections: list[list[range]] = []
+        page_start = 0
+        pages: list[range] = []
         for i in range(1, len(lines)):
-            if (
-                self.section_gap
-                and lines[i].singing.start - lines[i - 1].singing.end > self.section_gap
-            ):
-                sections.append(i)
-        sections.append(len(lines))
+            if lines[i].singing.start < lines[i - 1].singing.start:
+                raise ValueError("layout lines must be in singing order")
+            boundary = self.break_before(lines[i - 1], lines[i])
+            if boundary != "none" or i - page_start == self.rows:
+                pages.append(range(page_start, i))
+                page_start = i
+            if boundary == "section":
+                sections.append(pages)
+                pages = []
+        if lines:
+            pages.append(range(page_start, len(lines)))
+            sections.append(pages)
+
+        windows = [line.display for line in lines]
+        last_in_row: dict[int, int] = {}
+        for pages in sections:
+            self._page_windows(lines, pages, windows)
+            # Reserved cues and tails may reach across pages or sections.
+            for page in pages:
+                for row, i in enumerate(page, start=self._row_offset(len(page))):
+                    j = last_in_row.get(row)
+                    if (
+                        j is not None
+                        and windows[j].end + self.lane_gap > windows[i].start
+                    ):
+                        windows[j], windows[i] = self._handoff(
+                            lines[j], windows[j], lines[i], windows[i]
+                        )
+                    last_in_row[row] = i
+
         adjusted: list[Placement] = []
-        for start, end in zip(sections, sections[1:], strict=False):
-            section = lines[start:end]
-            placements = layout.allocate(section, replace(context, region=area))
-            adjusted.extend(self._place_section(
-                section, placements, area, alignments, metrics[start:end], ascent
-            ))
-        # Long authored leads/tails can still meet across an instrumental break.
-        last_in_row: dict[int | None, int] = {}
-        for i, placement in enumerate(adjusted):
-            j = last_in_row.get(placement.row)
-            if (
-                j is not None
-                and adjusted[j].display.end + self.lane_gap > placement.display.start
-            ):
-                earlier, later = self._handoff(
-                    lines[j], adjusted[j].display, lines[i], placement.display
+        for pages in sections:
+            for page in pages:
+                # Exit in reading order, preserving any authored singing, cue and transition.
+                for i in reversed(page[:-1]):
+                    end = max(lines[i].required.end, windows[i + 1].end)
+                    if windows[i].end > end:
+                        windows[i] = Lifetime(windows[i].start, end)
+                adjusted.extend(
+                    self._place_page(
+                        lines,
+                        page,
+                        windows,
+                        area,
+                        alignments,
+                        metrics,
+                        ascent,
+                        y,
+                        pitch,
+                    )
                 )
-                adjusted[j] = replace(adjusted[j], display=earlier)
-                adjusted[i] = replace(placement, display=later)
-            last_in_row[placement.row] = i
         validate_placements(lines, tuple(adjusted))
         return tuple(adjusted)
 
-    def _place_section(
+    def _row_offset(self, count: int) -> int:
+        if self.anchor == "bottom" and count > 1:
+            return self.rows - count
+        if self.anchor == "center":
+            return (self.rows - count + 1) // 2
+        return 0
+
+    def _place_page(
         self,
         lines: tuple[LayoutLine, ...],
-        placements: tuple[Placement, ...],
+        indices: range,
+        windows: list[Lifetime],
         area: Box,
         alignments: tuple[str, ...],
         metrics: tuple[_RowMetrics, ...],
         ascent: float,
+        y: float,
+        pitch: float,
     ) -> list[Placement]:
-        windows = self._page_windows(lines, placements)
         adjusted: list[Placement] = []
-        for i in range(0, len(lines), self.rows):
-            page = lines[i : i + self.rows]
-            slots = (
-                alignments[-len(page) :]
-                if self.anchor == "bottom"
-                else alignments[: len(page)]
-            )
-            widths = {"left": 0.0, "center": 0.0, "right": 0.0}
-            for line, slot in zip(page, slots, strict=True):
-                widths[slot] = max(widths[slot], line.bounds.width)
-            head_em = page[0].em_size or page[0].bounds.height
-            slack = (
-                max(0, area.width - sum(widths.values()) + head_em)
-                if widths["left"] and widths["right"]
-                else 0.0
-            )
-            for line, slot, placement in zip(
-                page, slots, placements[i : i + self.rows], strict=True
-            ):
-                width = line.bounds.width
-                room = area.width - width
-                if slot == "center" or (
-                    len(page) == 1 and self.smart_horizontal != "none"
-                ):
-                    x = room / 2
-                else:
-                    inset_x = 0.0
-                    if self.smart_horizontal == "equal_margins":
-                        inset_x = slack / 2
-                    elif self.smart_horizontal == "center_position":
-                        inset_x = max(
-                            0,
-                            (area.width + (line.em_size or line.bounds.height)) / 2
-                            - width,
-                        )
-                    x = inset_x if slot == "left" else room - inset_x
-                dy = ascent - metrics[len(adjusted)].baseline + line.bounds.top
-                adjusted.append(
-                    replace(
-                        placement,
-                        position=placement.position + Vec2(x, dy),
-                        display=windows[len(adjusted)],
+        page = lines[indices.start : indices.stop]
+        offset = self._row_offset(len(page))
+        # Studio measures page widths using page-local lanes. At draw time the
+        # same alignment lookup receives the physical lane of the placed line.
+        slot_offset = self.rows - len(page) if self.anchor == "bottom" else 0
+        widths = {"left": 0.0, "center": 0.0, "right": 0.0}
+        for lane, line in enumerate(page):
+            slot = alignments[slot_offset + lane]
+            widths[slot] = max(widths[slot], line.bounds.width)
+        head_em = page[0].em_size or page[0].bounds.height
+        slack = (
+            max(0, area.width - sum(widths.values()) + head_em)
+            if widths["left"] and widths["right"]
+            else 0.0
+        )
+        for i, line in zip(indices, page, strict=True):
+            row = offset + i - indices.start
+            slot = alignments[min(slot_offset + row, self.rows - 1)]
+            width = line.bounds.width
+            room = area.width - width
+            if slot == "center" or (len(page) == 1 and self.smart_horizontal != "none"):
+                x = room / 2
+            else:
+                inset_x = 0.0
+                if self.smart_horizontal == "equal_margins":
+                    inset_x = slack / 2
+                elif self.smart_horizontal == "center_position":
+                    inset_x = max(
+                        0,
+                        (area.width + (line.em_size or line.bounds.height)) / 2 - width,
                     )
-                )
+                x = inset_x if slot == "left" else room - inset_x
+            position = Vec2(
+                area.left + x - line.bounds.left,
+                y + row * pitch + ascent - metrics[i].baseline,
+            )
+            adjusted.append(Placement(line.id, position, windows[i], row))
         return adjusted
 
     def _page_windows(
-        self, lines: tuple[LayoutLine, ...], placements: tuple[Placement, ...]
-    ) -> list[Lifetime]:
-        """Spend optional preview and tail around protected same-row handoffs."""
-        windows = [p.display for p in placements]
-        for i, line in enumerate(lines):
-            if i < self.rows:
-                continue
-            j = i - self.rows
-            windows[j], windows[i] = self._handoff(
-                lines[j], windows[j], line, windows[i]
-            )
-        for i in range(0, len(lines), self.rows):
-            stop = min(i + self.rows, len(lines))
-            first = min(w.start for w in windows[i:stop])
-            last = max(w.end for w in windows[i:stop])
-            for j in range(i, stop):
-                start, end = windows[j].start, windows[j].end
-                if self.sync_entry and (i == 0 or self.sync_each_page):
+        self, lines: tuple[LayoutLine, ...], pages: list[range], windows: list[Lifetime]
+    ) -> None:
+        """Resolve adjacent page occupants before synchronizing a section."""
+        predecessors: dict[int, int] = {}
+        successors: dict[int, int] = {}
+        for before, after in zip(pages, pages[1:], strict=False):
+            offset = self._row_offset(len(after)) - self._row_offset(len(before))
+            for i in after:
+                j = before.start + offset + i - after.start
+                if j in before:
+                    predecessors[i] = j
+                    successors[j] = i
+                    windows[j], windows[i] = self._handoff(
+                        lines[j], windows[j], lines[i], windows[i]
+                    )
+        for page in pages:
+            first = min(lines[i].display.start for i in page)
+            last = max(windows[i].end for i in page)
+            for i in page:
+                start, end = windows[i].start, windows[i].end
+                if self.sync_entry and (page == pages[0] or self.sync_each_page):
                     floor = (
-                        windows[j - self.rows].end + self.lane_gap
-                        if j >= self.rows
+                        windows[predecessors[i]].end + self.lane_gap
+                        if i in predecessors
                         else 0
                     )
                     start = min(start, max(floor, first))
-                if self.sync_ending and (stop == len(lines) or self.sync_each_page):
+                if self.sync_ending and (page == pages[-1] or self.sync_each_page):
                     ceiling = (
-                        windows[j + self.rows].start - self.lane_gap
-                        if j + self.rows < len(lines)
+                        windows[successors[i]].start - self.lane_gap
+                        if i in successors
                         else last
                     )
                     end = max(end, min(ceiling, last))
-                windows[j] = Lifetime(start, end)
-        if self.fill_section and windows:
-            last_page = (len(windows) - 1) // self.rows * self.rows
-            section_end = max(w.end for w in windows[last_page:])
-            for j, window in enumerate(windows):
-                if j + self.rows < len(lines):
-                    end = windows[j + self.rows].start - self.lane_gap
-                elif j >= last_page:
-                    end = section_end
-                else:
-                    continue
-                windows[j] = Lifetime(window.start, max(window.end, end))
-        return windows
+                windows[i] = Lifetime(start, end)
+        if self.fill_section:
+            section_end = max(windows[i].end for i in pages[-1])
+            for page in pages:
+                for i in page:
+                    end = windows[i].end
+                    if i in successors:
+                        end = max(end, windows[successors[i]].start - self.lane_gap)
+                    elif page == pages[-1]:
+                        end = section_end
+                    windows[i] = Lifetime(windows[i].start, end)
 
     def _handoff(
         self,

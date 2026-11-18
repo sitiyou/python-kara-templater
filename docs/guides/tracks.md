@@ -28,6 +28,31 @@ page, use `KaraokeRows(sync_each_page=True)`. To schedule each line's preview
 and tail independently, set `sync_entry=False, fill_section=False`. All time
 settings are in seconds. Each track has its own row rotation and section clock.
 
+To start a new verse at a marked line, override the boundary decision. A
+`"section"` starts a fresh first page with synchronized previews. A `"page"`
+restarts row placement within the current verse and keeps its section timing.
+A short page can leave a row free for the next page’s preview. In the bottom
+three-row preset, a two-line page occupies the lower two rows and both lines
+align to the right. A lone line uses smart centering.
+
+```python
+from typing import Literal
+
+from kara_templater import KaraokeRows, LayoutLine, Track
+
+
+class VerseRows(KaraokeRows):
+    def break_before(
+        self, previous: LayoutLine, line: LayoutLine
+    ) -> Literal["none", "page", "section"]:
+        if line.lead:
+            return "section"
+        return super().break_before(previous, line)
+
+
+main = Track(id="main", layout=VerseRows())
+```
+
 ## One effect entry point
 
 `Track.effects` combines built-ins and custom authoring in one tuple:
@@ -301,15 +326,20 @@ their absolute pass times even in that early window.
 
 ## Spacing outlined lyrics
 
-Track layout leaves at least 2 script pixels between neighboring horizontal ink
-bounds after allowing for the hard outlines. Only pairs that need clearance
-move apart. Font spacing, shaping clusters, and existing word spaces are
-preserved. The positions stay fixed during pulses. Ruby and inline cues use the
-adjusted positions. The singing front skips the added distance.
+The default `KaraokeRows` preset measures each shaped cluster using its visible
+ink, side bearings and primary outline. It uses the resulting cells for body
+text, readings and inline cue placement. A reading wider than its host extends
+on both sides and the allocator includes that overhang in the line width.
+Short kana readings share the spare width of a wider host. Latin readings stay
+centered with their natural spacing.
+The Studio sweep traverses the ink and the primary hard outline during the
+singing interval. Extra outline clearance, glow and shadow add no travel time. A plain `Layout` uses native font advances. Set
+`Track(studio_spacing=True, ...)` or `False` to choose independently of the rows.
 
-Set `Track(min_outline_gap=4, ...)` for more separation, or use `None` to keep
-the font's original spacing, including overlapping outlines. Zero lets hard
-outlines touch. Style outlines and static highlight paint borders contribute to
+After measurement, Track leaves at least 2 script pixels between neighboring
+horizontal ink bounds with hard outlines. Use `min_outline_gap=4` for more
+separation, zero to allow touching outlines, or `None` to skip this adjustment.
+Style outlines and static highlight paint borders contribute to
 clearance. Glow, shadow and temporary animation strokes can overlap. For a
 custom effect or multiple views drawing the same letters, set
 `reserved_border` to the outer hard stroke radius on every view.

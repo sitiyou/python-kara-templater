@@ -51,13 +51,16 @@ ObjectGroup.coverage declares explicit component and material bindings. Coverage
 RGBA rasterization have different composition semantics and explicit budgets.
 They are not interchangeable names for one rendering operation.
 
+The KaraokeRows preset fits cells to shaped ink and side bearings. Glyph-local paint
+and clipping use the pen origin, which may differ from the left edge of the cell.
 Lyric binding applies Track outline clearance to shaped cluster ink bounds before
 ruby, cues and row allocation. Each cluster retains the cumulative extra distance
-so automatic sweeps and compact ASS timing can traverse the original advances.
+so automatic sweeps and compact ASS timing share the Studio primary-stroke interval or the native font advances.
 
 Karaoke sweep timing belongs to the lyric engine. Singing progress is measured
-over undecorated text geometry; outline and glow margins must never expand
-the distance traversed during the source singing interval. The built-in singing
+over shaped text geometry. Studio measures the glyph and primary hard stroke,
+then shortens the endpoint where adjacent layout cells overlap. Clearance,
+secondary strokes and glow never expand the distance traversed during singing. The built-in singing
 highlighter reserves decorative edge transitions and lowers eligible linear
 clips internally. Templates declare appearance rather than compensating for
 blur in clip coordinates or source clocks.

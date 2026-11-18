@@ -113,7 +113,9 @@ class Track:
     Rule factories resolve once before decoration and bind to final target aliases.
     Authored visual intervals join occupancy; rule binding follows allocation.
     min_outline_gap is the minimum script-pixel clearance between hard strokes;
-    None preserves shaped spacing. reserved_border declares the outer hard radius
+    None disables extra clearance. studio_spacing selects Studio ink-based cells
+    for both body and readings. By default KaraokeRows uses Studio cells and
+    Layout uses native advances. reserved_border declares the outer hard radius
     of custom or shared visual layers. Glow and motion do not reserve space.
     ruby_gap sets the visual gap in script pixels between hard outlines of
     the reading group and its body at rest. Negative values allow overlap.
@@ -134,6 +136,7 @@ class Track:
     min_outline_gap: float | None = 2
     reserved_border: float = 0
     ruby_gap: float = 6
+    studio_spacing: bool | None = None
 
     def __post_init__(self) -> None:
         finite(self.preview, self.tail, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
@@ -432,6 +435,9 @@ def prepare_tracks(
     plans: list[LinePlan] = []
     for declaration in tracks:
         track = deepcopy(declaration)
+        layout = KaraokeRows() if track.layout is None else track.layout
+        studio_spacing = (isinstance(layout, KaraokeRows) if track.studio_spacing is None
+                          else track.studio_spacing)
         selected = sorted(
             (source for source in sources if track.source(source)),
             key=lambda source: min(
@@ -491,6 +497,7 @@ def prepare_tracks(
                 min_outline_gap=track.min_outline_gap,
                 reserved_border=border,
                 ruby_gap=track.ruby_gap,
+                studio_spacing=studio_spacing,
             )
             role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)
             local_presets = _cue_presets(track.cues, recipe, role_style)
@@ -617,7 +624,6 @@ def prepare_tracks(
         region = track.region or Box(
             0, 0, source_document.meta.res_x, source_document.meta.res_y
         )
-        layout = KaraokeRows() if track.layout is None else track.layout
         placements = layout.allocate(
             batch, LayoutContext(region, track.references, source_document.meta.res_y)
         )

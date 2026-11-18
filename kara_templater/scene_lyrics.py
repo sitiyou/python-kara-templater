@@ -99,6 +99,35 @@ def _shift(item: PositionedText, dx: float, dy: float = 0) -> PositionedText:
     )
 
 
+def _studio_cells(layout: DocumentLayout) -> DocumentLayout:
+    """Measure N3 character cells around the ink of each already-shaped cluster."""
+    x = layout.bounds.left
+    characters = []
+    for item in layout.characters:
+        ink = item.ink_bounds
+        scale = item.object.state.scale.x
+        spacing = item.object.spacing * scale
+        edge = round(2 * item.object.state.border)
+        if ink is None:
+            em = round(item.em_size * scale)
+            width = em // 5 if item.object.text == " " else em // 2 + edge
+            dx = x - item.bounds.left
+        else:
+            advance = max(1, round(item.bounds.width - spacing))
+            left = max(0, int(ink.left - item.bounds.left))
+            right = max(0, int(item.bounds.right - spacing - ink.right))
+            width = int(ink.width) * (advance + left + right) // advance + edge
+            dx = x + int(ink.width) * left // advance + edge / 2 - ink.left
+        placed = _shift(item, dx)
+        bounds = replace(item.bounds, left=x, width=width)
+        characters.append(replace(placed, bounds=bounds))
+        x += max(0, width + spacing)
+    return replace(
+        layout, characters=tuple(characters), _studio_spacing=True,
+        bounds=_union(tuple(c.bounds for c in characters)),
+    )
+
+
 def _clear_outlines(
     layout: DocumentLayout,
     gap: float | None,
@@ -136,6 +165,20 @@ def _move(layout: DocumentLayout, dx: float, dy: float) -> DocumentLayout:
             layout.bounds, left=layout.bounds.left + dx, top=layout.bounds.top + dy
         ),
     )
+
+
+def _center_reading(text: str) -> bool:
+    """Studio keeps mostly Latin text and symbol-only readings together."""
+    chars = [c for c in text if not c.isspace()]
+    latin = sum(
+        c.isascii() and c.isalnum() or "À" <= c <= "Ö" or "Ø" <= c <= "ö" or "ø" <= c <= "ÿ"
+        for c in chars
+    )
+    if latin:
+        return latin * 2 > len(chars)
+    scripts = ((0x0370, 0x04FF), (0x1100, 0x11FF), (0x3040, 0x30FF),
+               (0x3130, 0x318F), (0x3400, 0x9FFF), (0xAC00, 0xD7A3), (0xF900, 0xFAFF))
+    return bool(chars) and not any(lo <= ord(c) <= hi for c in chars for lo, hi in scripts)
 
 
 def _ruby_style(styles: Mapping[str, Style], parent_name: str) -> Style:
@@ -184,6 +227,7 @@ def layout_document_lyrics(
     id: str | None = None,
     display: Lifetime | None = None,
     ruby_gap: float = 6,
+    studio_spacing: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout:
@@ -204,6 +248,7 @@ def layout_document_lyrics(
         if display is None
         else display,
         ruby_gap=ruby_gap,
+        studio_spacing=studio_spacing,
         min_outline_gap=min_outline_gap,
         reserved_border=reserved_border,
     )
@@ -216,11 +261,14 @@ def layout_lyrics(
     id: str,
     display: Lifetime,
     ruby_gap: float = 6,
+    studio_spacing: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout:
     """Measure structured or parsed lyrics using Document styles and resolution.
 
+    studio_spacing measures character cells from ink width, bearings and the primary
+    outline before applying minimum outline clearance. The default uses shaped advances.
     ruby_gap sets the vertical clearance between the hard ink bounds of a
     reading group and its body before animation. Negative values allow overlap.
     No ASS event is required or synthesized. Singing intervals retain their full
@@ -277,6 +325,8 @@ def layout_lyrics(
     body = _layout_document_view(
         document, lyrics.body, record_index, id=id, display=display, singing=singing
     )
+    if studio_spacing:
+        body = _studio_cells(body)
     body = _clear_outlines(body, min_outline_gap, reserved_border)
     rubies: list[PositionedRuby] = []
     for ui, unit in enumerate(lyrics.units):
@@ -298,6 +348,8 @@ def layout_lyrics(
                     ),
                 ),
             )
+            if studio_spacing:
+                layout = _studio_cells(layout)
             layout = _clear_outlines(layout, min_outline_gap, reserved_border)
             origin = EventOrigin((SourceRef(body.id, ui, si),), "document ruby")
             layout = replace(
@@ -364,6 +416,14 @@ def layout_lyrics(
             continue
         box = body.range_bounds(start, end)
         width = sum(rubies[i].layout.bounds.width for i in indices)
+        reading_gap = 0.0
+        if studio_spacing and indices and width < box.width:
+            readings = [rubies[i].layout for i in indices]
+            count = sum(len(reading.characters) for reading in readings)
+            if (count > 1 and not _center_reading(body.source.text[start:end])
+                    and not _center_reading("".join(r.source.text for r in readings))):
+                reading_gap = (box.width - width) / (count + 1)
+                width += (count - 1) * reading_gap
         first_ruby = next(
             (
                 s.ruby
@@ -376,7 +436,7 @@ def layout_lyrics(
         offset = (
             (box.width - width) / 2
             if first_ruby is not None
-            and (first_ruby.mode == "spill" or width <= box.width)
+            and (studio_spacing or first_ruby.mode == "spill" or width <= box.width)
             else 0
         )
         left = box.left + shift
@@ -418,14 +478,14 @@ def layout_lyrics(
         cursor = left + offset
         for index in indices:
             ruby = rubies[index]
-            moved = _move(
-                ruby.layout,
-                cursor,
-                row_bottom - ruby.layout.bounds.top - ruby.layout.bounds.height,
-            )
+            reading = ruby.layout
+            if reading_gap:
+                spaced = tuple(_shift(c, j * reading_gap) for j, c in enumerate(reading.characters))
+                reading = replace(reading, characters=spaced, bounds=_union(tuple(c.bounds for c in spaced)))
+            moved = _move(reading, cursor, row_bottom - reading.bounds.top - reading.bounds.height)
             rubies[index] = replace(ruby, layout=moved)
-            cursor += ruby.layout.bounds.width
-        ruby_right = cursor
+            cursor += reading.bounds.width + reading_gap
+        ruby_right = cursor - reading_gap
     body = replace(
         body,
         characters=tuple(characters),

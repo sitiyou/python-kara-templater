@@ -7,7 +7,7 @@ from typing import Literal
 
 from .composition import Color
 from .geometry import finite
-from .lyric_line import LyricLine, LyricTarget
+from .lyric_line import LyricLine, LyricTarget, _line_x
 from .paint_fields import PaintBand, SoftSweep
 from .scene import ObjectGroup, SceneObject
 from .scene_animation import TimeSpan, VisualState
@@ -168,11 +168,10 @@ class LyricSweep:
                 raise ValueError(
                     f"{node.id}: compose existing material/highlight contributions explicitly"
                 )
-            scale = character.layout_scale
-            assert scale is not None
+            local_left, local_right = _line_x(character, left, right)
             fields[node.id] = _SingingSweep(
-                (left - character.bounds.left) / scale.x,
-                (right - character.bounds.left) / scale.x,
+                local_left,
+                local_right,
                 intervals,
                 fill,
                 outline,

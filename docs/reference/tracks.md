@@ -68,7 +68,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L444)
+[Source](../../kara_templater/karaoke_effects.py#L475)
 
 ```python
 KaraokeEffects(
@@ -266,13 +266,27 @@ KaraokeRows(
 
 ### KaraokeRows.allocate
 
-Reserve singing intervals through Layout and align each measured row.
+Paginate the track, resolve handoffs, and align each measured row.
 
 ```python
 KaraokeRows.allocate(
     lines: tuple[LayoutLine, ...],
     context: LayoutContext,
 ) -> tuple[Placement, ...]
+```
+
+### KaraokeRows.break_before
+
+Choose a boundary before line. Override to use tags, lead or source data.
+
+A page restarts the row sequence. A section also restarts first/last-page
+timing. Returning "none" retains automatic paging at row capacity.
+
+```python
+KaraokeRows.break_before(
+    previous: LayoutLine,
+    line: LayoutLine,
+) -> Literal['none', 'page', 'section']
 ```
 
 ## KaraokeSinging
@@ -420,7 +434,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L150)
+[Source](../../kara_templater/orchestration.py#L153)
 
 ```python
 LinePlan(
@@ -843,7 +857,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L161)
+[Source](../../kara_templater/orchestration.py#L164)
 
 ```python
 LyricScene(
@@ -1171,7 +1185,9 @@ LyricRule entries declare timing; callable entries decorate the line in order.
 Rule factories resolve once before decoration and bind to final target aliases.
 Authored visual intervals join occupancy; rule binding follows allocation.
 min_outline_gap is the minimum script-pixel clearance between hard strokes;
-None preserves shaped spacing. reserved_border declares the outer hard radius
+None disables extra clearance. studio_spacing selects Studio ink-based cells
+for both body and readings. By default KaraokeRows uses Studio cells and
+Layout uses native advances. reserved_border declares the outer hard radius
 of custom or shared visual layers. Glow and motion do not reserve space.
 ruby_gap sets the visual gap in script pixels between hard outlines of
 the reading group and its body at rest. Negative values allow overlap.
@@ -1196,6 +1212,7 @@ Track(
     min_outline_gap: float | None = 2,
     reserved_border: float = 0,
     ruby_gap: float = 6,
+    studio_spacing: bool | None = None,
 )
 ```
 
@@ -1217,6 +1234,7 @@ Track(
 | `min_outline_gap` | `float \| None` | `2` |
 | `reserved_border` | `float` | `0` |
 | `ruby_gap` | `float` | `6` |
+| `studio_spacing` | `bool \| None` | `None` |
 
 ## lyric_effects
 
@@ -1244,7 +1262,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L400)
+[Source](../../kara_templater/orchestration.py#L403)
 
 ```python
 prepare_tracks(

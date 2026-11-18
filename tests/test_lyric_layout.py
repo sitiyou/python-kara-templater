@@ -184,3 +184,47 @@ def test_studio_section_sync_fill_and_lane_reuse_match_playback_windows():
     assert [p.row for p in places] == [0,1,0,1,0,0,1]
     assert [p.display.start for p in places] == pytest.approx([0.2,0.2,4.7,7,9.2,15.2,15.2])
     assert [p.display.end for p in places] == pytest.approx([4.4,6.7,8.9,10.8,13.2,20,20])
+
+
+@pytest.mark.parametrize(("boundary", "sync_all", "lower_start"), [
+    ("page", False, 4.7), ("section", False, 2.4), ("page", True, 2.4),
+])
+def test_partial_page_handoff_preserves_free_lane_preview(boundary, sync_all, lower_start):
+    from kara_templater import KaraokeRows
+
+    class LeadReset(KaraokeRows):
+        def break_before(self, previous, line):
+            return boundary if line.lead else super().break_before(previous, line)
+
+    times = [(2, 3), (4.2, 5.2), (6.5, 7.5), (8.8, 9.8), (11, 12.2)]
+    lines = tuple(
+        replace(line(str(i), a, b, fade=0), display=Lifetime(a - 1.8, b + 1), lead=i == 1)
+        for i, (a, b) in enumerate(times)
+    )
+    places = LeadReset(sync_each_page=sync_all).allocate(lines, CONTEXT)
+    assert [p.row for p in places] == [0, 0, 1, 0, 1]
+    assert [p.display.start for p in places[:3]] == pytest.approx([0.2, 3.3, lower_start])
+    assert [p.display.end for p in places[:2]] == pytest.approx([3, 6.7])
+
+
+def test_three_to_two_rows_clamps_upper_exit_after_page_sync():
+    from kara_templater import KaraokeRows
+
+    times = [(2, 3), (4.2, 5.2), (6.5, 7.5), (8.8, 9.8), (11, 12.2)]
+    lines = tuple(
+        replace(line(str(i), a, b, fade=0), display=Lifetime(a - 1.8, b + 1))
+        for i, (a, b) in enumerate(times)
+    )
+    places = KaraokeRows(rows=3, sync_ending=True, sync_each_page=True).allocate(lines, CONTEXT)
+    assert [p.row for p in places] == [0, 1, 2, 1, 2]
+    assert [p.display.end for p in places] == pytest.approx([6.7, 6.7, 8.5, 13.2, 13.2])
+
+
+def test_bottom_three_row_short_page_uses_physical_lane_for_alignment():
+    from kara_templater import KaraokeRows
+
+    lines = tuple(line(str(i), i + 1, i + 2) for i in range(2))
+    context = LayoutContext(Box(0, 0, 1920, 1080), script_height=1080)
+    places = KaraokeRows(rows=3).allocate(lines, context)
+    assert [p.row for p in places] == [1, 2]
+    assert [p.position.x for p in places] == [1770, 1770]

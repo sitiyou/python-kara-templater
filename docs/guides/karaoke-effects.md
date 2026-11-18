@@ -87,8 +87,8 @@ renders; only the singing setting changes.
 To check a template, pause halfway through a long note. The wipe leaves
 both colors visible; the onset switch has already painted the whole unit.
 The full scene and hook carry the pulse. Compact ASS keeps the color timing
-and line fades and simplifies glyph motion. When outline clearance moves glyphs,
-compact ASS positions clusters separately to retain the corrected spacing. For count-in direction see
+and line fades and simplifies glyph motion. For Studio spacing or additional outline clearance,
+compact ASS positions clusters separately to retain the measured spacing. For count-in direction see
 [Choose the countdown order](text-and-cues.md#choose-the-countdown-order).
 
 The catalog covers the animation menus in
@@ -107,7 +107,7 @@ its Qt/Direct2D renderer.
 | Singing paint, stroke, shadow, glow, ramps and particles | `KaraokeEffects`, `LyricHighlights`, materials | The catalog implements the animation families. Appearance depends on font metrics, rendering backend and selected material. |
 | Inline volume signal | `VolumeCue` | Whole-group flashes, then successive sung-color fills. In this library the cue ends at its own boundary, even when the host lyric stays visible. |
 | Floating shape lamps, count-in text and vector guide marks | `SignalCue`, `TextCue`, `CuePreset` | Seven built-in lamp shapes and custom paths. Cues can be inline or independently positioned. Shape lamps inherit the sung palette. Their colors and size can be overridden. |
-| Studio page timing and alternate writing modes | Partial | Horizontal presets handle lane reuse, section gaps, synchronized page entry/exit, tail extension and smart margins. Imported page breaks, native vertical writing and mirrored right-to-left lyric layout have no equivalent preset. |
+| Studio page timing and alternate writing modes | Partial | Horizontal presets support short pages, authored section breaks, synchronized entry/exit and smart margins. Use the [Track layout override](tracks.md) to map source tags to boundaries. Studio project import, native vertical writing and mirrored right-to-left layout remain outside the preset. |
 | Role-linked signal styling and timed character replacement | Partial | Built-in signals inherit solid lyric colors or take an explicit role palette. Signals scale static hard outer strokes and glow to their own dimensions. Leading inline volume bars share a sung horizontal gradient with their lyric line. Independent lamps keep a fixed gradient over all countdown slots. Timed guide-glyph replacement needs a custom drawing. |
 
 See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
@@ -169,8 +169,10 @@ built from moving squares and a separate glyph opacity curve.
 
 A repeated interval restarts the pulse; its release is shortened if the next
 interval begins sooner. Multi-character units share one moving front. Ruby uses
-its own measured reading width but the same source interval. Outline and glow
-padding never increase the singing distance.
+its own measured reading width but the same source interval. In Studio spacing,
+the sweep includes the primary hard outline. Glow and secondary outlines add
+no travel time. At a shared note boundary the scanline reaches the previous
+letter’s edge, then joins the incoming trajectory within the first 10 ms.
 
 `decoration` accepts `none`, `twinkle`, `twinkle_classic`, `note`, `ripple`, `petal`,
 `snow` and `snow_solid`. Modern twinkle drifts; classic twinkle stays in place and

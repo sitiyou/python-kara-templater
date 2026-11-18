@@ -647,3 +647,24 @@ def test_glow_echoes_stretch_with_the_core_and_scale_their_spacing():
     assert a.scale.x == pytest.approx(1.6)
     assert glyph.em_size is not None
     assert b.position.x - a.position.x == pytest.approx(2 * 0.12 * glyph.em_size * 1.6)
+
+
+def test_scanline_front_reaches_outgoing_stroke_before_entering_next_letter():
+    scene = subject(text=r"{\k50}M{\k50}i", end=2000, singing="scanline",
+                    entry="none", exit="none", scanline_width=32, scanline_softness=0)
+    line, = scene.lines
+    body = line.layout.body
+    first, second = body.characters
+    prior = body._sweep_bounds(first.start, first.end, first)
+    upcoming = body._sweep_bounds(second.start, second.end, second)
+    nodes = {n.id: n for n in _walk(line)}
+    target = line.query("character")[1]
+    fronts = [nodes[a] for a in target.aliases if ":front:" in a]
+    for t, expected in ((1.5, prior.right), (1.52, upcoming.left + 0.04 * upcoming.width)):
+        centers = [
+            second.object.state.position.x + (mask[0] + mask[2]) / 2 * node.state.scale.x
+            for node in fronts
+            if isinstance(node.clip, RectangleClip) and node.clip.deform
+            and (mask := node.clip.deform.sample(t - node.time_origin))
+        ]
+        assert centers == pytest.approx([expected])

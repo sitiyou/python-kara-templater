@@ -398,26 +398,57 @@ class _Sweep:
 
     def intersect(self, left: float, right: float) -> "_Sweep | None":
         width = self.right - self.left
-        a, b = max(self.left, left), min(self.right, right)
-        if a >= b or width <= 0:
+        if width == 0:
+            return self if left <= self.left <= right else None
+        a, b = sorted(((left - self.left) / width, (right - self.left) / width))
+        a, b = max(0, a), min(1, b)
+        if a >= b:
             return None
-        dt = (self.end - self.start) / width
+        duration = self.end - self.start
         return _Sweep(
-            self.start + (a - self.left) * dt, self.start + (b - self.left) * dt, a, b
+            self.start + a * duration, self.start + b * duration,
+            self.left + a * width, self.left + b * width,
         )
 
 
-def _sweeps(target: LyricTarget, bounds: Box) -> tuple[_Sweep, ...]:
-    return tuple(
-        _Sweep(
-            span.start + target.delay,
-            span.end + target.delay,
-            bounds.left,
-            bounds.right,
-        )
-        for span in target.singing
-        if span.end > span.start
-    )
+def _sweeps(
+    target: LyricTarget, bounds: Box, previous: tuple[_Sweep, ...] = ()
+) -> tuple[_Sweep, ...]:
+    if not bounds.width:
+        return ()
+    sweeps = []
+    for span in target.singing:
+        start, end = span.start + target.delay, span.end + target.delay
+        if end <= start:
+            continue
+        left = bounds.left
+        arrival = next((s.right for s in previous if abs(s.end - start) < 1e-9), left)
+        if arrival != left:
+            # Studio displays the outgoing edge at a shared timestamp. Join it
+            # to the new trajectory over the first representable ASS tick.
+            join = min(start + 0.01, end)
+            x = left + bounds.width * (join - start) / (end - start)
+            sweeps.append(_Sweep(start, join, arrival, x))
+            start, left = join, x
+        if start < end:
+            sweeps.append(_Sweep(start, end, left, bounds.right))
+    return tuple(sweeps)
+
+
+def _front_paths(movements: list[_Sweep]) -> Iterator[list[tuple[float, float]]]:
+    """Join touching movements so one moving strip spans the handoff."""
+    path: list[tuple[float, float]] = []
+    for sweep in sorted(movements, key=lambda s: s.start):
+        if path:
+            end, right = path[-1]
+            if abs(end - sweep.start) > 1e-9 or abs(right - sweep.left) > 1e-8:
+                yield path
+                path = []
+        if not path:
+            path.append((sweep.start, sweep.left))
+        path.append((sweep.end, sweep.right))
+    if path:
+        yield path
 
 
 def _scanline_slices(
@@ -802,10 +833,7 @@ class KaraokeEffects:
         line: LyricLine,
         node: TextObject,
         index: int,
-        start: float,
-        end: float,
-        left: float,
-        width: float,
+        path: tuple[tuple[float, float], ...],
         top: float,
         bottom: float,
         material: PaintField | None,
@@ -819,8 +847,7 @@ class KaraokeEffects:
             else self.scanline_softness
         )
 
-        onset = local_seconds(start, node.time_origin)
-        finish = local_seconds(end, node.time_origin)
+        onset, finish = path[0][0], path[-1][0]
         empty = (0.0, top, 0.0, bottom)
         if self.scanline_mode == "brighten" and self.scanline_brightness == 0:
             return
@@ -858,16 +885,11 @@ class KaraokeEffects:
                     yield 0, hi, strength, before
 
         for strip, (lo, hi, strength, paint) in enumerate(painted_slices()):
-            front = (left + lo, top, left + hi, bottom)
-            back = (front[0] + width, front[1], front[2] + width, front[3])
-            mask = RectangleKeyframes(
-                (
-                    (onset, empty),
-                    (onset, front),
-                    (finish, back),
-                    (finish, empty),
-                )
-            )
+            mask = RectangleKeyframes((
+                (onset, empty),
+                *((time, (x + lo, top, x + hi, bottom)) for time, x in path),
+                (finish, empty),
+            ))
 
             copy = replace(
                 node,
@@ -1157,21 +1179,24 @@ class KaraokeEffects:
         # At unit boundaries the moving band can still intersect ink on either side.
         # Use the nearest edge glyph's measured sweep when tracking across added spacing.
         body_edges: dict[int, tuple[tuple[_Sweep, ...], tuple[_Sweep, ...]]] = {}
+        sweeps: dict[str, tuple[_Sweep, ...]] = {}
         if "scanline" in self.singing:
             for target, _, unit, box in glyphs:
+                previous = body_edges.get(unit - 1) if target.role == "character" else None
+                passes = _sweeps(target, box, previous[1] if previous else ())
+                sweeps[target.node_id] = passes
                 if target.role == "character":
-                    passes = _sweeps(target, box)
                     first, _ = body_edges.get(unit, (passes, passes))
                     body_edges[unit] = first, passes
         run_spans = _scanline_run_spans(line) if "scanline" in self.singing else {}
-        for target, glyph, unit, box in glyphs:
+        for target, glyph, unit, _ in glyphs:
             node = nodes[target.node_id]
             if not isinstance(node, TextObject) or not node.text.strip():
                 continue
             material: PaintField | None = None
             span = run_spans.get(glyph.object.id)
             if span is not None and self.singing == "zoom_pulse_scanline":
-                span = (0, 2 * target.center.x)
+                span = _line_x(glyph, glyph.bounds.left, glyph.bounds.right)
             before_material = None
             if self.scanline_mode == "role":
                 source = _style_material(self.scanline_material, target.source_style)
@@ -1198,7 +1223,7 @@ class KaraokeEffects:
                 pad = node.state.border + 2
                 top = (ink.top - glyph.bounds.top) / scale.y - pad
                 bottom = (ink.top + ink.height - glyph.bounds.top) / scale.y + pad
-                movements = list(_sweeps(target, box))
+                movements = list(sweeps[target.node_id])
                 if target.role == "character":
                     radius = self.scanline_width or max(
                         1, round(16 * line.layout.script_height / 1080)
@@ -1213,15 +1238,16 @@ class KaraokeEffects:
                             )
                             if overlap is not None:
                                 movements.append(overlap)
-                for index, sweep in enumerate(movements):
+                for index, path in enumerate(_front_paths(movements)):
+                    local_path = tuple(
+                        (local_seconds(t, node.time_origin), (x - glyph.object.state.position.x) / scale.x)
+                        for t, x in path
+                    )
                     for front in self._scanline(
                         line,
                         node,
                         index,
-                        sweep.start,
-                        sweep.end,
-                        (sweep.left - glyph.bounds.left) / scale.x,
-                        (sweep.right - sweep.left) / scale.x,
+                        local_path,
                         top,
                         bottom,
                         material,

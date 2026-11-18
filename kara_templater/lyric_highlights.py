@@ -10,7 +10,7 @@ from typing import Literal
 from .composition import Color, Glow
 from .coverage_animation import Coverage, CoveragePartition, GlowFunction
 from .geometry import Vec2, finite
-from .lyric_line import LyricLine, LyricTarget
+from .lyric_line import LyricLine, LyricTarget, _line_x
 from .model import Box
 from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField
 from .raster_settings import RasterSettings
@@ -57,8 +57,9 @@ def _resolve_material(
         # Include overhangs and an antialiasing pixel on either edge.
         assert value.fill is not None and character.layout_scale is not None
         ink = character.ink_bounds or character.bounds
-        left = (ink.left - character.bounds.left) / character.layout_scale.x - 1
-        right = (ink.right - character.bounds.left) / character.layout_scale.x + 1
+        left, right = _line_x(character, ink.left, ink.right)
+        left -= 1
+        right += 1
         value = replace(value, fill=ColorRamp((
             ColorStop(left, value.fill.at(left)),
             *(s for s in value.fill.stops if left < s.position < right),
@@ -704,7 +705,7 @@ class LyricHighlights:
                 target.delay,
                 Region(body.left, body.right),
                 Region(box.left, box.right),
-                character.bounds.left,
+                character.object.state.position.x,
                 scale.x,
             )
             if any(
@@ -999,6 +1000,10 @@ class HighlightArrival:
                 if index + 1 < len(siblings)
                 else drawing.right
             )
+            if not drawing.width:
+                return ()
+            left = min(drawing.right, max(drawing.left, left))
+            right = min(drawing.right, max(drawing.left, right))
         if right < left:
             raise ValueError("non-monotone character positions cannot define arrival")
         region = Region(

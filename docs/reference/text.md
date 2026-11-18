@@ -114,7 +114,7 @@ Measured editable text objects with decoded source ranges, singing spans, bounds
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/scene_text.py#L53)
+[Source](../../kara_templater/scene_text.py#L55)
 
 ```python
 DocumentLayout(
@@ -449,10 +449,11 @@ PositionedRuby(
 
 A drawable text cluster, decoded source range, measured advance/ink bounds, and selected font faces.
 
+bounds is the allocated cell. The pen origin is object.state.position.
 Layout scale is retained when used for range measurements. baseline is the
 local y coordinate of the font baseline measured during shaping.
 
-[Source](../../kara_templater/scene_text.py#L20)
+[Source](../../kara_templater/scene_text.py#L21)
 
 ```python
 PositionedText(
@@ -615,7 +616,7 @@ Body text is shaped together before ruby spacing is applied. Unit boundaries
 crossing a shaping cluster are rejected when independent placement is needed.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L180)
+[Source](../../kara_templater/scene_lyrics.py#L223)
 
 ```python
 layout_document_lyrics(
@@ -625,6 +626,7 @@ layout_document_lyrics(
     id: str | None = None,
     display: Lifetime | None = None,
     ruby_gap: float = 6,
+    studio_spacing: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout
@@ -634,7 +636,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L368)
+[Source](../../kara_templater/scene_text.py#L394)
 
 ```python
 layout_document_text(
@@ -668,12 +670,14 @@ layout_line(
 
 Measure structured or parsed lyrics using Document styles and resolution.
 
+studio_spacing measures character cells from ink width, bearings and the primary
+outline before applying minimum outline clearance. The default uses shaped advances.
 ruby_gap sets the vertical clearance between the hard ink bounds of a
 reading group and its body before animation. Negative values allow overlap.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L212)
+[Source](../../kara_templater/scene_lyrics.py#L257)
 
 ```python
 layout_lyrics(
@@ -683,6 +687,7 @@ layout_lyrics(
     id: str,
     display: Lifetime,
     ruby_gap: float = 6,
+    studio_spacing: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout

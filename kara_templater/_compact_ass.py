@@ -105,7 +105,7 @@ def _layout_events(
     pieces = []
     positioned: list[tuple[str, VisualState]] = []
     dual = paint.sung_outline is not None
-    split = dual or any(c._gap_shift for c in body.characters)
+    split = dual or body._studio_spacing or any(c._gap_shift for c in body.characters)
     for span in body.singing:
         if span.start_offset == span.end_offset:
             continue

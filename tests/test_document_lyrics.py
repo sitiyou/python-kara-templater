@@ -1,4 +1,5 @@
 from dataclasses import replace
+from math import ceil, floor
 
 import pytest
 
@@ -212,3 +213,46 @@ def test_shaping_error_after_style_reset_reports_document_range_and_cause():
         layout_document_lyrics(doc, index)
     assert isinstance(caught.value.__cause__, LayoutCapabilityError)
     assert "unit 0" in str(caught.value.__cause__)
+
+
+def test_studio_cells_keep_explicit_tracking_between_clusters_and_ink_timed():
+    def measured(spacing):
+        doc = Document.create(styles=(
+            Style(fontname="DejaVu Sans", fontsize=48, outline=3, spacing=spacing),
+        ))
+        doc.records.append(Line(text=r"{\k50}M{\k50} {\k50}i", start_time=0, end_time=1500))
+        return layout_document_lyrics(doc, len(doc.records) - 1, studio_spacing=True).body
+
+    plain, tracked = measured(0), measured(4)
+    assert tracked.bounds.width == pytest.approx(plain.bounds.width + 8)
+    for index, (original, moved) in enumerate(zip(plain.characters, tracked.characters, strict=True)):
+        assert moved.bounds.left == pytest.approx(original.bounds.left + index * 4)
+        assert moved.bounds.width == original.bounds.width
+        assert tracked.range_bounds(moved.start, moved.end, time=0) == moved.bounds
+        if moved.ink_bounds:
+            sweep = tracked._sweep_bounds(moved.start, moved.end, moved)
+            assert (sweep.left, sweep.right) == (floor(moved.ink_bounds.left) - 3,
+                                                 ceil(moved.ink_bounds.right) + 3)
+
+
+def test_studio_long_reading_centers_on_host_and_reserves_its_overhang():
+    doc, index = document(r"{\k50}M|reading{\k50}X")
+    layout = layout_document_lyrics(doc, index, studio_spacing=True)
+    reading, = layout.ruby
+    host = layout.body.range_bounds(0, 1)
+    assert reading.layout.bounds.left < host.left
+    assert reading.layout.bounds.center == pytest.approx(host.center)
+    assert layout.bounds.left == reading.layout.bounds.left
+
+
+@pytest.mark.parametrize(("reading", "spread"), [("да", True), ("da", False), ("??", False)])
+def test_studio_ruby_shares_spare_width_by_script(reading, spread):
+    doc, index = document(r"{\k50}ЖЖЖЖ|" + reading)
+    layout = layout_document_lyrics(doc, index, studio_spacing=True, min_outline_gap=None)
+    ruby, = layout.ruby
+    first, second = ruby.layout.characters
+    natural = first.bounds.width + second.bounds.width
+    spare = layout.body.bounds.width - natural
+    assert spare > 0
+    assert ruby.layout.bounds.center == pytest.approx(layout.body.bounds.center)
+    assert second.bounds.left - first.bounds.right == pytest.approx(spare / 3 if spread else 0)
