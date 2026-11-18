@@ -3,13 +3,14 @@
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from functools import partial
-from itertools import groupby
-from math import ceil, pi, sin, sqrt
+from itertools import groupby, pairwise
+from math import ceil, floor, pi, sin, sqrt
 from typing import Literal, get_args
 
 from ._karaoke_motion import glow_scale, stretch, transition, zoom_pulse
 from ._karaoke_sprites import ornament, star_burst
 from .composition import Color
+from .document_text import SingingSpan
 from .geometry import Vec2, VectorPath, finite
 from .lyric_highlights import (
     LyricGlow,
@@ -29,7 +30,7 @@ from .lyric_line import (
     _line_x,
 )
 from .model import Box
-from .paint_fields import ColorRamp, LinearGradient, PaintField
+from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField, _mix
 from .particles import ParticleContext
 from .path_geometry import flatten, stroke
 from .scene import (
@@ -53,6 +54,7 @@ from .scene_animation import (
     smooth_rate,
 )
 from .text_geometry import outline_text
+from .timeline import ProgressCurve
 
 _DUOTONE_UNSUNG = Color(40, 28, 38)
 _DUOTONE_UNSUNG_OUTLINE = Color(255, 247, 232)
@@ -389,6 +391,81 @@ def _brighten_gradient(material: LinearGradient, strength: float) -> LinearGradi
     return replace(material, fill=ramp(material.fill), outline=ramp(material.outline))
 
 
+def _compatible_brushes(*fields: PaintField | None) -> bool:
+    axes = set()
+    fill_stops: set[float] = set()
+    outline_stops: set[float] = set()
+    for field in fields:
+        if field is None:
+            continue
+        if not isinstance(field, LinearGradient):
+            return False
+        axes.add((field.axis, field.space))
+        if field.fill:
+            fill_stops.update(s.position for s in field.fill.stops)
+        if field.outline:
+            outline_stops.update(s.position for s in field.outline.stops)
+    # A composed brush must also fit the standalone GPU hook's ramp table.
+    return len(axes) <= 1 and max(len(fill_stops), len(outline_stops)) <= 16
+
+
+def _mix_brush(
+    base: TextObject,
+    fill: Color,
+    outline: Color,
+    field: PaintField | None,
+    strength: float,
+) -> PaintField | None:
+    """Interpolate aligned linear brushes at every slope change of either ramp."""
+    if strength == 1:
+        return field
+    original = base.material
+    settings = original or field
+    if settings is None:
+        return None
+    assert isinstance(settings, LinearGradient)
+    assert original is None or isinstance(original, LinearGradient)
+    assert field is None or isinstance(field, LinearGradient)
+
+    def ramp(
+        first: ColorRamp | None,
+        last: ColorRamp | None,
+        a: Color,
+        b: Color,
+    ) -> ColorRamp | None:
+        positions = sorted({s.position for r in (first, last) if r for s in r.stops})
+        if not positions:
+            return None
+        return ColorRamp(
+            tuple(
+                ColorStop(
+                    p,
+                    _mix(
+                        first.at(p) if first else a, last.at(p) if last else b, strength
+                    ),
+                )
+                for p in positions
+            )
+        )
+
+    return replace(
+        settings,
+        step=min(g.step for g in (original, field) if g is not None),
+        fill=ramp(
+            original.fill if original else None,
+            field.fill if field else None,
+            base.state.fill,
+            fill,
+        ),
+        outline=ramp(
+            original.outline if original else None,
+            field.outline if field else None,
+            base.state.outline,
+            outline,
+        ),
+    )
+
+
 @dataclass(frozen=True)
 class _Sweep:
     start: float
@@ -411,27 +488,83 @@ class _Sweep:
         )
 
 
+def _body_front_clock(line: LyricLine) -> tuple[float | None, dict[float, float]]:
+    """Studio paints the release instant of a pause while later notes remain."""
+    notes = sorted(
+        {
+            (s.start + t.delay, s.end + t.delay)
+            for t in line.query("character")
+            for s in t.singing
+            if s.end > s.start
+        }
+    )
+    if not notes:
+        return None, {}
+    first, end = notes[0]
+    releases = {}
+    for start, stop in notes[1:]:
+        if start > end + 1e-9:
+            releases[end] = min(start, end + 0.01)
+        end = max(end, stop)
+    return first, releases
+
+
 def _sweeps(
-    target: LyricTarget, bounds: Box, previous: tuple[_Sweep, ...] = ()
+    singing: tuple[SingingSpan, ...],
+    delay: float,
+    bounds: Box,
+    previous: tuple[_Sweep, ...],
+    first_note: float | None,
+    releases: dict[float, float],
+    curve: ProgressCurve | None = None,
 ) -> tuple[_Sweep, ...]:
     if not bounds.width:
         return ()
+
+    def position(progress: float) -> float:
+        return bounds.left + bounds.width * (curve.at(progress) if curve else progress)
+
     sweeps = []
-    for span in target.singing:
-        start, end = span.start + target.delay, span.end + target.delay
+    for span in singing:
+        start, end = span.start + delay, span.end + delay
         if end <= start:
             continue
+        onset, duration = start, end - start
+
         left = bounds.left
-        arrival = next((s.right for s in previous if abs(s.end - start) < 1e-9), left)
+        arrival = next(
+            (s.right for s in reversed(previous) if s.end <= start + 1e-9), left
+        )
+        if first_note is not None and first_note == start:
+            # fill_clip_band is empty until the first rounded pixel of ink.
+            threshold = min(1.0, 0.5 / bounds.width)
+            ticks = (
+                floor(
+                    100 * duration * (curve.arrival(threshold) if curve else threshold)
+                )
+                + 1
+            )
+            start = min(end, start + ticks / 100)
+            left = position((start - onset) / duration)
+            arrival = left
         if arrival != left:
-            # Studio displays the outgoing edge at a shared timestamp. Join it
-            # to the new trajectory over the first representable ASS tick.
+            # At a shared boundary or a restart, Studio first displays the
+            # preceding endpoint, then advances along the new trajectory.
             join = min(start + 0.01, end)
-            x = left + bounds.width * (join - start) / (end - start)
+            x = position((join - onset) / duration)
             sweeps.append(_Sweep(start, join, arrival, x))
             start, left = join, x
+        if curve:
+            for t, p in curve.knots[1:-1]:
+                knot = onset + t * duration
+                if knot > start:
+                    x = bounds.left + bounds.width * p
+                    sweeps.append(_Sweep(start, knot, left, x))
+                    start, left = knot, x
         if start < end:
             sweeps.append(_Sweep(start, end, left, bounds.right))
+        if end in releases:
+            sweeps.append(_Sweep(end, releases[end], bounds.right, bounds.right))
     return tuple(sweeps)
 
 
@@ -451,6 +584,51 @@ def _front_paths(movements: list[_Sweep]) -> Iterator[list[tuple[float, float]]]
         yield path
 
 
+type _FrontPath = tuple[tuple[float, float], ...]
+
+
+@dataclass(frozen=True)
+class _ScanlineLayer:
+    drawing: TextObject
+    sung_brush: PaintField | None
+    waiting_brush: PaintField | None
+    sides: tuple[TextObject, TextObject] | None
+
+
+def _hard_rim(node: SceneObject | None, primary_border: float) -> TextObject | None:
+    if (
+        isinstance(node, TextObject)
+        and node.state.blur == 0
+        and node.state.border > primary_border
+    ):
+        return node
+    return None
+
+
+def _outside_front(
+    piece: TextObject, paths: tuple[_FrontPath, ...], offset: float, *, left: bool
+) -> TextObject:
+    """Keep the ordinary wipe between passes and meet the feather while it moves."""
+    clip = piece.clip
+    assert isinstance(clip, RectangleClip) and isinstance(
+        clip.deform, RectangleKeyframes
+    )
+    original = clip.deform
+    keys = list(original.keyframes)
+    for path in paths:
+        start, end = path[0][0], path[-1][0]
+        keys = [key for key in keys if not start <= key[0] <= end]
+        keys.append((start, original.bounds_at(start, before=True)))
+        for time, x in path:
+            xmin, t, xmax, b = original.bounds_at(time)
+            keys.append(
+                (time, (xmin, t, x + offset, b) if left else (x + offset, t, xmax, b))
+            )
+        keys.append((end, original.bounds_at(end)))
+    keys.sort(key=lambda key: key[0])
+    return replace(piece, clip=replace(clip, deform=RectangleKeyframes(tuple(keys))))
+
+
 def _scanline_slices(
     width: float, softness: float
 ) -> Iterator[tuple[float, float, float]]:
@@ -462,14 +640,14 @@ def _scanline_slices(
         return
     count = min(64, max(1, int(width + 0.5)))
     step = width / count
-    for index in range(count):
-        left = index * step - half
-        distance = abs(left + step / 2)
-        yield (
-            left,
-            left + step,
-            smooth_rate(min(1, max(0, (half - distance) / softness))),
-        )
+    def strength(index: int) -> float:
+        distance = abs((index + 0.5) * step - half)
+        return smooth_rate(min(1, max(0, (half - distance) / softness)))
+
+    # A wide uniform core needs only one moving clip per paint.
+    for weight, indices in groupby(range(count), key=strength):
+        group = tuple(indices)
+        yield group[0] * step - half, (group[-1] + 1) * step - half, weight
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -524,6 +702,7 @@ class KaraokeEffects:
     scanline_mode: Literal[
         "color", "brighten", "follow_before", "follow_after", "role"
     ] = "color"
+    ruby_scanline: Literal["reading", "both"] = "reading"
     scanline_material: LyricMaterial = None
     scanline_brightness: float = 0.60
     scanline_color: Color = Color(255, 255, 255)
@@ -573,6 +752,8 @@ class KaraokeEffects:
         ):
             raise ValueError("zoom pulse curve level must be an integer in [0,5]")
         width = 16 if self.scanline_width is None else self.scanline_width
+        if self.ruby_scanline not in {"reading", "both"}:
+            raise ValueError("ruby_scanline must be reading or both")
         if self.scanline_mode not in {
             "color",
             "brighten",
@@ -829,54 +1010,61 @@ class KaraokeEffects:
         )
 
     def _scanline(
-        self,
-        line: LyricLine,
-        node: TextObject,
-        index: int,
-        path: tuple[tuple[float, float], ...],
-        top: float,
-        bottom: float,
-        material: PaintField | None,
-        before_material: PaintField | None,
+        self, layer: _ScanlineLayer, index: int, path: _FrontPath,
+        band: float, softness: float, top: float, bottom: float,
     ) -> Iterator[TextObject]:
-        ratio = line.layout.script_height / 1080
-        band = self.scanline_width or max(1, round(16 * ratio))
-        softness = (
-            max(1, round(8 * ratio))
-            if self.scanline_softness is None
-            else self.scanline_softness
-        )
-
+        node, sides = layer.drawing, layer.sides
+        material, before_material = layer.sung_brush, layer.waiting_brush
+        if sides:
+            top, bottom = -65536, 65536
         onset, finish = path[0][0], path[-1][0]
         empty = (0.0, top, 0.0, bottom)
         if self.scanline_mode == "brighten" and self.scanline_brightness == 0:
             return
         before = after = (self.scanline_color, self.scanline_color, material)
+        if self.ruby_scanline not in {"reading", "both"}:
+            raise ValueError("ruby_scanline must be reading or both")
         if self.scanline_mode not in {"role", "color"}:
-            before = (
-                _brighten(self.unsung, self.scanline_brightness),
-                _brighten(
-                    self.unsung_outline or node.state.outline, self.scanline_brightness
-                ),
-                before_material,
-            )
-            after = (
-                _brighten(self.sung, self.scanline_brightness),
-                _brighten(
-                    self.sung_outline or node.state.outline, self.scanline_brightness
-                ),
-                material,
-            )
+
+            def lifted(
+                fill: Color, outline: Color, field: PaintField | None
+            ) -> tuple[Color, Color, PaintField | None]:
+                return (
+                    _brighten(fill, self.scanline_brightness),
+                    _brighten(outline, self.scanline_brightness),
+                    field,
+                )
+
+            if sides:
+                sung, waiting = sides
+                before = lifted(
+                    waiting.state.fill, waiting.state.outline, before_material
+                )
+                after = lifted(sung.state.fill, sung.state.outline, material)
+            else:
+                before = lifted(
+                    self.unsung,
+                    self.unsung_outline or node.state.outline,
+                    before_material,
+                )
+                after = lifted(
+                    self.sung, self.sung_outline or node.state.outline, material
+                )
             if self.scanline_mode == "follow_before":
                 after = before
             elif self.scanline_mode == "follow_after":
                 before = after
 
+        same_coverage = sides is None or (
+            sides[0].state.border == sides[1].state.border
+            and sides[0].state.opacity == sides[1].state.opacity
+        )
+
         def painted_slices() -> Iterator[
             tuple[float, float, float, tuple[Color, Color, PaintField | None]]
         ]:
             for lo, hi, strength in _scanline_slices(band, softness):
-                if after == before or lo >= 0:
+                if lo >= 0 or (after == before and (sides is None or strength == 1 and same_coverage)):
                     yield lo, hi, strength, before
                 elif hi <= 0:
                     yield lo, hi, strength, after
@@ -885,29 +1073,40 @@ class KaraokeEffects:
                     yield 0, hi, strength, before
 
         for strip, (lo, hi, strength, paint) in enumerate(painted_slices()):
-            mask = RectangleKeyframes((
-                (onset, empty),
-                *((time, (x + lo, top, x + hi, bottom)) for time, x in path),
-                (finish, empty),
-            ))
+            mask = RectangleKeyframes(
+                (
+                    (onset, empty),
+                    *((time, (x + lo, top, x + hi, bottom)) for time, x in path),
+                    (finish, empty),
+                )
+            )
 
-            copy = replace(
-                node,
-                id=f"{node.id}/{self.id}:front:{index}:{strip}",
-                lifetime=node.lifetime,
-                clock_start=node.time_origin,
-                animations=(),
-                material=paint[2],
-                reference=None,
-                layer=node.layer + 2,
-                state=replace(
+            field = paint[2]
+            if sides:
+                base = sides[0] if hi <= 0 else sides[1]
+                field = _mix_brush(base, paint[0], paint[1], field, strength)
+                state = StatePatch(fill=paint[0], outline=paint[1]).interpolate(
+                    base.state, strength
+                )
+            else:
+                state = replace(
                     node.state,
                     fill=paint[0],
                     outline=paint[1],
                     blur=0,
                     shadow=Vec2(),
                     opacity=node.state.opacity * strength,
-                ),
+                )
+            copy = replace(
+                node,
+                id=f"{node.id}/{self.id}:front:{index}:{strip}",
+                lifetime=node.lifetime,
+                clock_start=node.time_origin,
+                animations=node.animations if sides else (),
+                material=field,
+                reference=None,
+                layer=node.layer if sides else node.layer + 2,
+                state=state,
                 clip=RectangleClip(0, 0, 1, 1, space="local", deform=mask),
             )
             yield copy
@@ -1172,22 +1371,43 @@ class KaraokeEffects:
             return _insert(line, additions)
         # Front and flash copies remain glyph-local and share semantic motion aliases.
         aliases: dict[str, list[str]] = {}
-        painted_nodes = {n.id: n for n in _walk(line)} if (
-            self.material is not None or self.base_material is not None
-        ) else {}
+        painted_nodes = {n.id: n for n in _walk(line)} if "scanline" in self.singing else {}
+        replacements: dict[str, TextObject] = {}
         glyphs = tuple(line._glyph_regions(automatic=True))
         # At unit boundaries the moving band can still intersect ink on either side.
         # Use the nearest edge glyph's measured sweep when tracking across added spacing.
-        body_edges: dict[int, tuple[tuple[_Sweep, ...], tuple[_Sweep, ...]]] = {}
+        # Body notes share one front. Each annotated unit has its own reading front.
+        reading_slots = {
+            glyph.object.id: (reading.unit_index, slot)
+            for slot, (reading, glyph) in enumerate(
+                (r, g) for r in line.layout.ruby for g in r.layout.characters
+            )
+        }
+        reading_only = {
+            i for i, u in enumerate(line.layout.lyrics.units)
+            if self.ruby_scanline == "reading" and u.segments
+            and all(s.ruby is not None and s.ruby.source.text.strip() for s in u.segments)
+        }
+        edges: dict[int | None, dict[int, tuple[tuple[_Sweep, ...], tuple[_Sweep, ...]]]] = {}
         sweeps: dict[str, tuple[_Sweep, ...]] = {}
         if "scanline" in self.singing:
+            first_note, releases = _body_front_clock(line)
             for target, _, unit, box in glyphs:
-                previous = body_edges.get(unit - 1) if target.role == "character" else None
-                passes = _sweeps(target, box, previous[1] if previous else ())
-                sweeps[target.node_id] = passes
-                if target.role == "character":
-                    first, _ = body_edges.get(unit, (passes, passes))
-                    body_edges[unit] = first, passes
+                group, slot = reading_slots.get(target.node_id, (None, unit))
+                track = edges.setdefault(group, {})
+                body = group is None
+                previous = track.get(slot - 1) if body else None
+                clock = line.layout.lyrics.units[unit]._body_singing() if body else (target._reading_span or target.singing[0],)
+                passes = _sweeps(clock, target.delay, box,
+                                 previous[1] if previous else (),
+                                 first_note if body else None, releases if body else {},
+                                 line.layout.lyrics.units[unit]._body_curve() if body else None)
+                sweeps[target.node_id] = () if body and unit in reading_only else passes
+                first, _ = track.get(slot, (passes, passes))
+                track[slot] = first, passes
+        ratio = line.layout.script_height / 1080
+        width = self.scanline_width or max(1, round(16 * ratio))
+        softness = max(1, round(8 * ratio)) if self.scanline_softness is None else self.scanline_softness
         run_spans = _scanline_run_spans(line) if "scanline" in self.singing else {}
         for target, glyph, unit, _ in glyphs:
             node = nodes[target.node_id]
@@ -1220,41 +1440,82 @@ class KaraokeEffects:
                 assert glyph.layout_scale is not None
                 scale = glyph.layout_scale
                 ink = glyph.ink_bounds or glyph.bounds
-                pad = node.state.border + 2
+                base = painted_nodes[target.node_id]
+                sung_id = f"{node.id}/highlight:singing:{unit}"
+                sung_piece = painted_nodes.get(sung_id)
+                rims = (
+                    _hard_rim(painted_nodes.get(sung_id + "/glow"), node.state.border),
+                    _hard_rim(painted_nodes.get(node.id + "/glow"), node.state.border),
+                )
+                pad = max((node.state.border, *(r.state.border for r in rims if r))) + 2
                 top = (ink.top - glyph.bounds.top) / scale.y - pad
                 bottom = (ink.top + ink.height - glyph.bounds.top) / scale.y + pad
                 movements = list(sweeps[target.node_id])
-                if target.role == "character":
-                    radius = self.scanline_width or max(
-                        1, round(16 * line.layout.script_height / 1080)
-                    )
-                    reach = (radius / 2 + pad) * scale.x
-                    for other, (first, last) in body_edges.items():
-                        if other == unit:
-                            continue
-                        for sweep in last if other < unit else first:
-                            overlap = sweep.intersect(
-                                ink.left - reach, ink.right + reach
-                            )
-                            if overlap is not None:
-                                movements.append(overlap)
-                for index, path in enumerate(_front_paths(movements)):
-                    local_path = tuple(
-                        (local_seconds(t, node.time_origin), (x - glyph.object.state.position.x) / scale.x)
+                group, slot = reading_slots.get(target.node_id, (None, unit))
+                reach = (width / 2 + pad) * scale.x
+                for other, (first, last) in edges[group].items():
+                    if other == slot or (group is None and other in reading_only):
+                        continue
+                    for sweep in last if other < slot else first:
+                        overlap = sweep.intersect(ink.left - reach, ink.right + reach)
+                        if overlap is not None:
+                            movements.append(overlap)
+                paths = tuple(
+                    tuple(
+                        (
+                            local_seconds(t, node.time_origin),
+                            (x - glyph.object.state.position.x) / scale.x,
+                        )
                         for t, x in path
                     )
-                    for front in self._scanline(
-                        line,
-                        node,
-                        index,
-                        local_path,
-                        top,
-                        bottom,
-                        material,
-                        before_material,
+                    for path in _front_paths(movements)
+                )
+                layers: list[_ScanlineLayer] = []
+                native_pass = (
+                    not self.hook_feather
+                    and self.singing != "utopia_scanline"
+                    and all(a[-1][0] < b[0][0] for a, b in pairwise(paths))
+                    and not (
+                        self.scanline_mode == "brighten"
+                        and self.scanline_brightness == 0
+                    )
+                )
+                sides = None
+                if (
+                    native_pass
+                    and isinstance(base, TextObject)
+                    and isinstance(sung_piece, TextObject)
+                    and all(
+                        isinstance(p.clip, RectangleClip)
+                        and isinstance(p.clip.deform, RectangleKeyframes)
+                        for p in (base, sung_piece)
+                    )
+                ):
+                    if self.scanline_softness != 0 and _compatible_brushes(
+                        base.material, sung_piece.material, material, before_material
                     ):
-                        additions.setdefault(node.id, []).append(front)
-                        aliases.setdefault(target.id, []).append(front.id)
+                        sides = sung_piece, base
+                    sung_rim, waiting_rim = rims
+                    if sung_rim and waiting_rim:
+                        brush = material if self.scanline_mode == "role" else None
+                        if _compatible_brushes(brush):
+                            layers.append(
+                                _ScanlineLayer(sung_rim, brush, None, (sung_rim, waiting_rim))
+                            )
+                layers.append(_ScanlineLayer(node, material, before_material, sides))
+                for layer in layers:
+                    if layer.sides:
+                        for piece, offset, left in (
+                            (layer.sides[0], -width / 2, True),
+                            (layer.sides[1], width / 2, False),
+                        ):
+                            replacements[piece.id] = _outside_front(
+                                piece, paths, offset, left=left
+                            )
+                    for index, path in enumerate(paths):
+                        for front in self._scanline(layer, index, path, width, softness, top, bottom):
+                            additions.setdefault(node.id, []).append(front)
+                            aliases.setdefault(target.id, []).append(front.id)
             for index, span in enumerate(target.singing):
                 if span.end <= span.start:
                     continue
@@ -1309,7 +1570,7 @@ class KaraokeEffects:
                     )
                     additions.setdefault(node.id, []).append(copy)
                     aliases.setdefault(target.id, []).append(copy.id)
-        result = _insert(line, additions)
+        result = _insert(line, additions, replacements=replacements)
         return replace(
             result,
             targets=tuple(

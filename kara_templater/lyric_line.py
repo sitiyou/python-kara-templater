@@ -20,7 +20,7 @@ from .scene_animation import (
     _resolve_pivot,
     local_seconds,
 )
-from .scene_lyrics import LyricLayout
+from .scene_lyrics import LyricLayout, _reading_intervals
 from .scene_text import DocumentLayout, PositionedText
 
 type LyricRole = Literal["line", "syllable", "segment", "character", "ruby", "cue"]
@@ -68,6 +68,7 @@ class LyricTarget:
     em_size: float | None = None
     source_style: str | None = None
     _line_x: tuple[float, float] | None = field(default=None, repr=False)
+    _reading_span: SingingSpan | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -390,7 +391,7 @@ class LyricLine(ObjectGroup):
                 if ruby.unit_index == index:
                     style = next((c.source_style for c in body.characters
                                   if c.start <= ruby.body_start < c.end), None)
-                    for character in ruby.layout.characters:
+                    for character, span in zip(ruby.layout.characters, _reading_intervals(ruby.layout), strict=True):
                         targets.append(
                             LyricTarget(
                                 character.object.id,
@@ -398,6 +399,7 @@ class LyricLine(ObjectGroup):
                                 "ruby",
                                 (unit.segments[ruby.segment_index].singing,),
                                 tags,
+                                _reading_span=span,
                                 center=_character_center(character),
                                 source_style=style,
                                 _line_x=_line_x(character, *style_spans.get(style, fallback)),
@@ -570,7 +572,7 @@ class LyricLine(ObjectGroup):
         readings = ((glyph, ruby) for ruby in self.layout.ruby for glyph in ruby.layout.characters)
         for target, (glyph, ruby) in zip(self.query("ruby"), readings, strict=True):
             layout = ruby.layout
-            bounds = (layout._sweep_bounds(0, len(layout.source.text), glyph) if automatic
+            bounds = (layout._sweep_bounds(glyph.start, glyph.end, glyph) if automatic
                       else layout.bounds)
             yield target, glyph, ruby.unit_index, bounds
 

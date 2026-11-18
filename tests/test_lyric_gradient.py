@@ -235,7 +235,7 @@ def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
     scene = prepare_tracks(doc, tracks=(Track(
         id="duet", cues={"bars": CuePreset(factory=VolumeCue(count=2, height=24, border=0))},
         effects=(KaraokeEffects(entry="none", exit="none", singing="scanline",
-                               scanline_mode="follow_after", material=ramps,
+                               ruby_scanline="both", scanline_mode="follow_after", material=ramps,
                                base_material={"Lead": ramps["Reply"]}),),
     ),))
     line, = scene.lines

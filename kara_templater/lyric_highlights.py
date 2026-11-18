@@ -9,6 +9,7 @@ from typing import Literal
 
 from .composition import Color, Glow
 from .coverage_animation import Coverage, CoveragePartition, GlowFunction
+from .document_lyrics import LyricUnit
 from .geometry import Vec2, finite
 from .lyric_line import LyricLine, LyricTarget, _line_x
 from .model import Box
@@ -247,19 +248,35 @@ class _SingingHighlights:
     def interval(self, start: float, end: float) -> TimeSpan:
         return TimeSpan(start if self.wipe else end, end)
 
+    def _passes(self, unit: LyricUnit, region: Region) -> tuple[HighlightPass, ...]:
+        curve = unit._body_curve() if self.wipe else None
+        passes = []
+        for index, span in enumerate(unit._body_singing()):
+            time = self.interval(span.start, span.end)
+            item = HighlightPass(time, region, round=index)
+            if curve is not None:
+                item = replace(
+                    item,
+                    rate=curve.at,
+                    inverse_rate=curve.arrival,
+                    breakpoints=tuple(t * time.duration for t, _ in curve.knots[1:-1]),
+                )
+            passes.append(item)
+        return tuple(passes)
+
+    def for_target(self, highlight: Highlight, target: LyricTarget) -> Highlight:
+        if target.role != "ruby":
+            return highlight
+        clock = target._reading_span if self.wipe and target._reading_span else target.singing[0]
+        interval = self.interval(clock.start, clock.end)
+        return replace(highlight, passes=(HighlightPass(interval, highlight.passes[0].region),))
+
     def __call__(self, line: LyricLine) -> tuple[Highlight, ...]:
         return tuple(
             Highlight(
                 f"singing:{index}",
                 index,
-                tuple(
-                    HighlightPass(
-                        self.interval(span.start, span.end),
-                        Region(box.left, box.right),
-                        round=round_id,
-                    )
-                    for round_id, span in enumerate(unit._body_singing())
-                ),
+                self._passes(unit, Region(box.left, box.right)),
                 self.paint,
                 glow=self.glow,
                 material=self.material,
@@ -414,7 +431,7 @@ class _Ownership:
         return union_regions(result)
 
     def singing_keyframes(self, padding: float, feather: float = 0) -> RectangleKeyframes:
-        """A full-unit linear pass; decoration never consumes singing time."""
+        """Piecewise-linear singing motion with separate decoration shoulders."""
         span = self.highlights[0].passes[0]
         start = span.time.start + self.shift - self.birth
         end = span.time.end + self.shift - self.birth
@@ -436,6 +453,8 @@ class _Ownership:
             (
                 (max(-self.birth, start - _EDGE_SECONDS), bounds(left - padding)),
                 (start, bounds(left + feather / 2)),
+                *((start + dt, bounds(left + (right - left) * span.rate(dt / span.time.duration) + feather / 2))
+                  for dt in span.breakpoints),
                 (end, bounds(right + feather / 2)),
                 (end + _EDGE_SECONDS, bounds(right + padding)),
             )
@@ -542,6 +561,8 @@ class LyricHighlights:
         Singing progress uses undecorated measured text bounds. For a single
         linear interval in clip mode, outline/glow margins are traversed in
         separate 20 ms shoulders before/after singing, reserved automatically.
+        Contiguous timed readings divide their host wipe equally at reading
+        checkpoints. Each reading retains its individual singing interval.
         Known rectangle keyframes allow continuous native ASS lowering. Repeated
         intervals retain the general ownership evaluator; coverage keeps its
         color-before-blur semantics. Source singing clocks never change.
@@ -657,18 +678,8 @@ class LyricHighlights:
             chosen = tuple(h for h in highlights if h.unit == unit)
             if not chosen:
                 return
-            if isinstance(self.highlights, _SingingHighlights) and target.role == "ruby":
-                clock = target.singing[0]
-                interval = self.highlights.interval(clock.start, clock.end)
-                chosen = tuple(
-                    replace(
-                        h,
-                        passes=(
-                            replace(h.passes[0], time=interval),
-                        ),
-                    )
-                    for h in chosen
-                )
+            if isinstance(self.highlights, _SingingHighlights):
+                chosen = tuple(self.highlights.for_target(h, target) for h in chosen)
             chosen = tuple(
                 replace(
                     highlight,
@@ -977,7 +988,7 @@ class HighlightArrival:
             unit_index = ruby.unit_index
             unit = line.layout.lyrics.units[unit_index]
             box = line.layout.body.range_bounds(unit.start, unit.end)
-            siblings = ruby.layout.characters
+            siblings = (character,) if isinstance(self.highlights, _SingingHighlights) else ruby.layout.characters
             parent = ruby.layout
             drawing = ruby.layout.bounds
         if not drawing.width or not box.width:
@@ -1041,6 +1052,8 @@ class HighlightArrival:
                 self.names and highlight.id not in self.names
             ):
                 continue
+            if isinstance(self.highlights, _SingingHighlights):
+                highlight = self.highlights.for_target(highlight, target)
             for round_id in sorted({span.round for span in highlight.passes}):
                 passes = tuple(
                     span for span in highlight.passes if span.round == round_id

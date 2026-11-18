@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from typing import Literal
 
 from .document_text import DocumentText, SingingSpan, TextRun, resolve_singing
+from .timeline import ProgressCurve
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,22 @@ class LyricUnit:
         ):
             return (replace(spans[0], end=spans[-1].end),)
         return spans
+
+    def _body_curve(self) -> ProgressCurve | None:
+        """The checkpoints of a merged reading each consume one share of the host."""
+        if len(self.segments) < 2 or len(self._body_singing()) != 1:
+            return None
+        spans = [s.singing for s in self.segments]
+        if any(s.start == s.end for s in spans):
+            return None
+        start, end = spans[0].start, spans[-1].end
+        inner = tuple(
+            ((s.end - start) / (end - start), i / len(spans))
+            for i, s in enumerate(spans[:-1], 1)
+        )
+        if all(abs(t - p) < 1e-9 for t, p in inner):
+            return None
+        return ProgressCurve(((0, 0), *inner, (1, 1)))
 
 
 @dataclass(frozen=True)

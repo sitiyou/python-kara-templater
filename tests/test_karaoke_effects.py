@@ -111,7 +111,7 @@ def test_entry_is_visible_before_motion_has_settled():
 
 
 def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
-    scene = subject(entry="none", exit="none", singing="scanline")
+    scene = subject(entry="none", exit="none", singing="scanline", ruby_scanline="both")
     line = scene.lines[0]
     nodes = {n.id: n for n in _walk(line)}
     fronts = [
@@ -129,7 +129,7 @@ def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
     first, second = line.layout.body.characters[:2]
     # The front skips only the extra clearance between these letters.
     assert first.ink_bounds and second.ink_bounds
-    raw = subject(entry="none", exit="none", singing="scanline", min_outline_gap=None)
+    raw = subject(entry="none", exit="none", singing="scanline", ruby_scanline="both", min_outline_gap=None)
     a, b = raw.lines[0].layout.body.characters[:2]
     extra = second.bounds.left - first.bounds.left - (b.bounds.left - a.bounds.left)
     assert extra > 0
@@ -422,7 +422,8 @@ def test_compact_duotone_preserves_separately_timed_readings(tmp_path):
     rows = Document.load(output).lines
     origin = round(plan.line.lifetime.start * 100) * 10
     for text, size, start, end in (
-        ("A", 80, 1000, 2000),
+        ("A", 80, 1000, 1300),
+        ("A", 80, 1300, 2000),
         ("x", 40, 1000, 1300),
         ("y", 40, 1300, 2000),
     ):
@@ -431,18 +432,25 @@ def test_compact_duotone_preserves_separately_timed_readings(tmp_path):
         assert all(rf"\t({start - origin},{end - origin}," in p for p in parts)
 
 
-def test_scanline_retains_the_glyph_outline_and_inward_feather():
-    scene = subject(
-        text=r"{\k100}H", entry="none", exit="none", singing="scanline",
-        scanline_width=4, scanline_softness=2, scanline_color=Color(16, 100, 232),
-    )
-    line = scene.lines[0]
-    target = line.query("character")[0]
-    nodes = {node.id: node for node in _walk(line)}
-    strips = [nodes[a].state for a in target.aliases if ":front:" in a]
-    assert [s.opacity for s in strips] == pytest.approx([0.15625, 0.84375, 0.84375, 0.15625])
-    assert all(s.fill == s.outline == Color(16, 100, 232) for s in strips)
-    assert all(s.blur == 0 and s.border == nodes[target.node_id].state.border for s in strips)
+@pytest.mark.parametrize("gradient", [False, True])
+def test_scanline_retains_the_glyph_outline_and_inward_feather(gradient):
+    from kara_templater import LyricGradient
+    from kara_templater._raster import rasterize
+
+    def script(singing):
+        return subject(
+            text=r"{\k50}H{\k50}Q", entry="none", exit="none", singing=singing,
+            scanline_width=16, scanline_softness=6, scanline_color=Color(16, 100, 232),
+            material=LyricGradient((Color(244, 20, 70), Color(120, 70, 255))) if gradient else None,
+        ).compile(native_tweens=True).document.dumps()
+
+    ordinary, softened = script("none"), script("scanline")
+    for ms in (1050, 1300, 1500, 1750, 1950):
+        plain, front = (
+            rasterize(ass, ms, (640, 360)).rgba for ass in (ordinary, softened)
+        )
+        assert plain != front
+        assert plain[3::4] == front[3::4]
 
 
 @pytest.mark.parametrize("level,mid_attack,mid_release", [(1, 1.125, 1.125), (3, 1.21875, 1.21875)])
@@ -456,15 +464,40 @@ def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_
         assert evaluator.at(target.node_id, time).scale.x == pytest.approx(baseline * factor)
 
 
+@pytest.mark.parametrize("softness", [0, 4])
+def test_scanline_colors_the_visible_second_outline(softness):
+    from kara_templater import Glow
+    from kara_templater._raster import rasterize
+
+    rim = Color(182, 50, 86)
+
+    def render(singing):
+        glow = Glow(rim, border=7)
+        scene = subject(text=r"{\k100}Q", singing=singing, entry="none", exit="none",
+                        base_glow=glow, glow=glow, scanline_width=16, scanline_softness=softness,
+                        scanline_color=Color(0, 255, 255))
+        return rasterize(scene.compile(native_tweens=True).document.dumps(), 1500, (640, 360)).rgba
+
+    plain, band = render("none"), render("scanline")
+    outer = [i for i in range(0, len(plain), 4) if plain[i:i + 4] == bytes((182, 50, 86, 255))]
+    assert any(band[i:i + 4] == bytes((0, 255, 255, 255)) for i in outer)
+    assert any(band[i:i + 4] == plain[i:i + 4] for i in outer)
+    if softness:
+        assert plain[3::4] == band[3::4]
+        assert any(50 < band[i + 1] < 255 for i in outer)
+
+
 def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
     from kara_templater import LinearGradient, LyricGradient
 
     sky = LyricGradient((Color(15, 100, 212), Color(230, 249, 255)), step=4)
     scene = subject(text=r"{\k60}H", singing="scanline", entry="none", exit="none",
-                    scanline_mode="role", scanline_material=sky, scanline_width=4)
+                    scanline_mode="role", scanline_material=sky, scanline_width=8, scanline_softness=2)
     fronts = [n for n in _walk(scene.lines[0]) if ":front:" in n.id]
-    assert fronts and all(isinstance(n.material, LinearGradient) and
-                          n.material.fill == n.material.outline for n in fronts)
+    brushes = [n.material for n in fronts if isinstance(n.material, LinearGradient)]
+    assert len(brushes) == len(fronts) and all(g.outline for g in brushes)
+    assert any(g.fill == g.outline for g in brushes)  # solid core
+    assert any(g.fill != g.outline for g in brushes)  # softened edges
     document = scene.compile(native_tweens=True).document
     assert any(r"\clip(" in row.text for row in document.lines if not row.comment)
     assert any(d.gradient is not None for d in SceneFrames(scene).at(1.3))
@@ -551,10 +584,8 @@ def test_slide_follows_allocated_lane_and_stars_start_at_their_sweep_position():
         )
 
 
-@pytest.mark.parametrize(
-    "mode,gradient_strips", [("brighten", 2), ("follow_after", 4), ("follow_before", 0)]
-)
-def test_scanline_lifts_gradient_stops_on_the_selected_side(mode, gradient_strips):
+@pytest.mark.parametrize("mode", ["brighten", "follow_after", "follow_before"])
+def test_scanline_lifts_gradient_stops_on_the_selected_side(mode):
     from kara_templater import LinearGradient, LyricGradient
 
     calls = []
@@ -580,12 +611,129 @@ def test_scanline_lifts_gradient_stops_on_the_selected_side(mode, gradient_strip
         for node in _walk(scene.lines[0])
         if ":front:" in node.id and isinstance(node.material, LinearGradient)
     ]
-    assert len(ramps) == gradient_strips
-    assert all(
-        ramp and [s.color for s in ramp.stops] == [Color(178, 0, 0), Color(0, 148, 0)]
-        for ramp in ramps
-    )
+    # The first strip is on the sung side. The outer two strips have the
+    # same 5/32 weight, but the unsung background is white.
+    assert ramps[0] is not None
+    expected = {
+        "brighten": [Color(112, 0, 0), Color(0, 57, 0)],
+        "follow_after": [Color(112, 0, 0), Color(0, 57, 0)],
+        "follow_before": [Color(124, 40, 40), Color(40, 74, 40)],
+    }
+    assert [s.color for s in ramps[0].stops] == expected[mode]
+    if mode == "follow_after":
+        assert ramps[-1] is not None
+        assert [s.color for s in ramps[-1].stops] == [Color(243, 215, 215), Color(215, 238, 215)]
     assert scene.compile(native_tweens=True).event_count > 0
+
+
+def test_dense_scanline_palettes_remain_exportable_to_gpu():
+    from kara_templater import ColorRamp, ColorStop, LinearGradient
+
+    def gradient(offset):
+        return LinearGradient(space="local", axis="y", fill=ColorRamp(tuple(
+            ColorStop(i * 4 + offset, Color(25 * i, 100, 255)) for i in range(9)
+        )))
+
+    scene = subject(
+        text=r"{\k100}M", entry="none", exit="none", singing="scanline",
+        base_material=gradient(0), material=gradient(2), scanline_mode="follow_after",
+    )
+    assert any(draw.gradient is not None for draw in SceneFrames(scene).at(1.5))
+
+
+def test_multicharacter_reading_divides_its_wipe_by_shaped_cluster():
+    from kara_templater import RectangleKeyframes
+
+    scene = subject(text=r"{\k50}空|iがま", start=1000, end=1500,
+                    entry="none", exit="none", singing="none")
+    line, = scene.lines
+    nodes = {n.id: n for n in _walk(line)}
+    glyphs = line.layout.ruby[0].layout.characters
+    assert [g.object.text for g in glyphs] == ["i", "が", "ま"]
+    for target, start, end in zip(line.query("ruby"), (1, 1.166, 1.333),
+                                  (1.166, 1.333, 1.5), strict=True):
+        authored, = target.singing
+        assert (authored.start, authored.end) == (1, 1.5)
+        node = nodes[target.node_id]
+        assert isinstance(node.clip, RectangleClip) and isinstance(node.clip.deform, RectangleKeyframes)
+        knots = [round(t + node.time_origin, 6) for t in node.clip.deform.breakpoints]
+        assert knots[1:-1] == [start, end]
+
+
+def test_timed_readings_own_the_front_and_optional_body_sweeps_once():
+    def fronts(mode):
+        scene = subject(text=r"{\k25}空|そ{\k25}#|ら", start=1000, end=1500,
+                        entry="none", exit="none", singing="scanline", ruby_scanline=mode)
+        line = scene.lines[0]
+        nodes = {n.id: n for n in _walk(line)}
+
+        def bounds(target, ms):
+            result = []
+            for name in target.aliases:
+                if ":front:" not in name:
+                    continue
+                node = nodes[name]
+                assert isinstance(node.clip, RectangleClip) and node.clip.deform
+                box = node.clip.deform.sample(ms / 1000 - node.time_origin)
+                if box:
+                    result.append(box)
+            return result
+
+        body, = line.query("character")
+        assert all(bounds(r, ms) for r, ms in zip(line.query("ruby"), (1150, 1400), strict=True))
+        return [bounds(body, ms) for ms in (1150, 1350)]
+
+    assert fronts("reading") == [[], []]
+    early, late = fronts("both")
+    assert early and late and max(b[2] for b in early) < max(b[2] for b in late)
+
+
+@pytest.mark.parametrize("mode", ["none", "scanline"])
+def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass(tmp_path, mode):
+    from kara_templater._raster import rasterize
+
+    def frame(text, ms):
+        scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
+                        singing=mode, ruby_scanline="both", sung_outline=Color(30, 40, 50),
+                        scanline_color=Color(0, 255, 255), scanline_width=16, scanline_softness=4)
+        path = tmp_path / "lyric.ass"
+        scene.export_compact_ass(path)
+        return rasterize(path.read_text(encoding="utf-8-sig"), ms, (640, 360)).rgba
+
+    short = frame(r"{\k10}空|そ{\k40}#|ら", 1100)
+    equal = frame(r"{\k25}空|そ{\k25}#|ら", 1250)
+    if mode == "none":
+        assert short == equal
+    else:
+        def center(image):
+            columns = [i // 4 % 640 for i in range(0, len(image), 4)
+                       if image[i:i + 4] == bytes((0, 255, 255, 255))]
+            return sum(columns) / len(columns)
+
+        assert center(short) == pytest.approx(center(equal), abs=1)
+    assert short != frame(r"{\k10}空|そ{\k40}#|ら", 1250)
+
+
+def test_body_scanline_holds_release_frame_and_resumes_after_a_pause():
+    from kara_templater._raster import rasterize
+
+    scene = subject(text=r"{\k40}H{\kt80\k40}Q", start=1500, end=2700,
+                    entry="none", exit="none", singing="scanline", scanline_width=24,
+                    scanline_color=Color(0, 255, 255), min_outline_gap=None)
+    script = scene.compile(native_tweens=True).document.dumps()
+
+    def cyan_columns(ms):
+        rgba = rasterize(script, ms, (640, 360)).rgba
+        return {i // 4 % 640 for i in range(0, len(rgba), 4)
+                if rgba[i:i + 4] == bytes((0, 255, 255, 255))}
+
+    assert not cyan_columns(1500)
+    assert cyan_columns(1510)
+    release = cyan_columns(1900)
+    assert release and release == cyan_columns(2300)
+    assert not cyan_columns(1910) and not cyan_columns(2290)
+    assert max(cyan_columns(2350)) > max(release)
+    assert not cyan_columns(2700)
 
 
 def test_scanline_crosses_syllable_boundary_on_both_glyphs():

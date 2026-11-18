@@ -68,7 +68,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L475)
+[Source](../../kara_templater/karaoke_effects.py#L653)
 
 ```python
 KaraokeEffects(
@@ -95,6 +95,7 @@ KaraokeEffects(
     scanline_width: float | None = None,
     scanline_softness: float | None = None,
     scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after', 'role'] = 'color',
+    ruby_scanline: Literal['reading', 'both'] = 'reading',
     scanline_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     scanline_brightness: float = 0.6,
     scanline_color: Color = Color(red=255, green=255, blue=255),
@@ -133,6 +134,7 @@ KaraokeEffects(
 | `scanline_width` | `float \| None` | `None` |
 | `scanline_softness` | `float \| None` | `None` |
 | `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after', 'role']` | `'color'` |
+| `ruby_scanline` | `Literal['reading', 'both']` | `'reading'` |
 | `scanline_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `scanline_brightness` | `float` | `0.6` |
 | `scanline_color` | `Color` | `Color(red=255, green=255, blue=255)` |
@@ -475,7 +477,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L73)
+[Source](../../kara_templater/lyric_line.py#L74)
 
 ```python
 LyricAnimationContext(
@@ -590,7 +592,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L256)
+[Source](../../kara_templater/lyric_line.py#L257)
 
 ```python
 LyricLine(
@@ -811,7 +813,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L105)
+[Source](../../kara_templater/lyric_line.py#L106)
 
 ```python
 LyricRule(

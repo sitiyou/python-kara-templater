@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 from .ass import Document, Line, Style
 from .characters import LayoutCapabilityError
 from .document_lyrics import DocumentLyrics, LyricUnit, RubyText
-from .document_text import DocumentText, _appearance
+from .document_text import DocumentText, SingingSpan, _appearance
 from .geometry import Vec2
 from .model import Box
 from .scene import Lifetime, ObjectGroup
@@ -179,6 +179,39 @@ def _center_reading(text: str) -> bool:
     scripts = ((0x0370, 0x04FF), (0x1100, 0x11FF), (0x3040, 0x30FF),
                (0x3130, 0x318F), (0x3400, 0x9FFF), (0xAC00, 0xD7A3), (0xF900, 0xFAFF))
     return bool(chars) and not any(lo <= ord(c) <= hi for c in chars for lo, hi in scripts)
+
+
+def _reading_intervals(
+    layout: DocumentLayout,
+) -> tuple[SingingSpan, ...]:
+    """Divide one reading checkpoint among shaped clusters on the source millisecond clock."""
+    if not layout.singing:
+        return ()
+    source = layout.singing[0]
+    clusters = layout.characters
+    count = len(clusters)
+    start_ms, end_ms = round(1000 * source.start), round(1000 * source.end)
+    cuts = [
+        source.start,
+        *(
+            max(
+                source.start,
+                min(source.end, (start_ms + (end_ms - start_ms) * i // count) / 1000),
+            )
+            for i in range(1, count)
+        ),
+        source.end,
+    ]
+    return tuple(
+        replace(
+            source,
+            start_offset=c.start,
+            end_offset=c.end,
+            start=cuts[i],
+            end=cuts[i + 1],
+        )
+        for i, c in enumerate(clusters)
+    )
 
 
 def _ruby_style(styles: Mapping[str, Style], parent_name: str) -> Style:
