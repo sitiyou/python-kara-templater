@@ -1,6 +1,7 @@
 """Local gradient strips follow scale and drift without sliding through glyphs."""
 
 from dataclasses import replace
+from math import floor
 
 import pytest
 
@@ -86,7 +87,7 @@ def test_local_gradient_moves_with_scaled_shape(native):
                     animations=(),
                     material=None,
                     state=replace(state, fill=band.fill, outline=band.outline),
-                    clip=RectangleClip(round(a.x), round(a.y), round(b.x), round(b.y)),
+                    clip=RectangleClip(*(floor(v + 0.5) for v in (a.x, a.y, b.x, b.y))),
                 )
             )
         actual = rasterize(result.document.dumps(), ms, (80, 80)).rgba
@@ -108,19 +109,14 @@ def test_local_gradient_moves_with_scaled_shape(native):
                 ) <= (12 if native else 0)
 
 
-@pytest.mark.parametrize("bad", ("screen", "inverse", "crossing"))
+@pytest.mark.parametrize("bad", ("screen", "inverse"))
 def test_local_gradient_rejects_unsupported_mask_contracts(bad):
     original = node()
     assert isinstance(original.clip, RectangleClip)
     if bad == "screen":
         mask = replace(original.clip, space="screen")
-    elif bad == "inverse":
-        mask = replace(original.clip, inverse=True)
     else:
-        mask = replace(
-            original.clip,
-            deform=RectangleKeyframes(((0, (0, 0, 24, 24)), (1, (0, 0, 24, 32)))),
-        )
+        mask = replace(original.clip, inverse=True)
     with pytest.raises(SceneCompileError, match="local gradient"):
         Scene(Document.create()).add(replace(original, clip=mask)).compile(
             native_tweens=True
@@ -189,3 +185,73 @@ def test_local_gradient_does_not_silently_become_screen_space_in_coverage():
     )
     with pytest.raises(SceneCompileError, match="local gradients"):
         Scene(Document.create(width=80, height=80)).add(group).compile()
+
+
+@pytest.mark.parametrize("origin", (8, 8.5))
+def test_horizontal_gradient_reveals_each_strip_at_its_own_crossing(origin):
+    original = node()
+    assert isinstance(original.material, LinearGradient)
+    static = replace(
+        original, animations=(), state=VisualState(position=Vec2(origin, 8)),
+        material=replace(original.material, axis="x", step=1),
+    )
+    scene = Scene(Document.create(width=80, height=80)).add(static)
+    native = scene.compile(native_tweens=True)
+    sampled = scene.compile(budget=SceneBudget(fps=100))
+    assert native.event_count == 24
+    for ms in (0, 100, 250, 400, 500, 750):
+        actual = rasterize(native.document.dumps(), ms, (80, 80)).rgba
+        expected = rasterize(sampled.document.dumps(), ms, (80, 80)).rgba
+        # ASS truncates an interpolated clip coordinate; sampled masks round it.
+        # Only the pixel intersected by the moving edge may differ.
+        front = origin + min(24.0, 48 * ms / 1000)
+        for x in range(80):
+            if abs(x - front) < 1:
+                continue
+            offset = (16 * 80 + x) * 4
+            assert actual[offset:offset + 4] == expected[offset:offset + 4]
+
+
+def test_parallel_sweep_with_scale_keeps_the_gradient_attached_to_the_glyph():
+    original = node()
+    assert isinstance(original.material, LinearGradient)
+    moving = replace(original, material=replace(original.material, axis="x", step=4))
+    scene = Scene(Document.create(width=80, height=80)).add(moving)
+    result = scene.compile(native_tweens=True, budget=SceneBudget(fps=100))
+    assert result.objects[0].strategy == "sampled-bands"
+    time = 0.25
+    state = moving.at(time)
+    rgba = rasterize(result.document.dumps(), 250, (80, 80)).rgba
+    for local_x in (2, 6, 10, 14):
+        point = state.transform.apply(Vec2(local_x, 12))
+        offset = (int(point.y) * 80 + int(point.x)) * 4
+        if local_x > 12:  # The sweep has advanced halfway at this time.
+            assert rgba[offset + 3] == 0
+        else:
+            assert moving.material.fill is not None
+            color = moving.material.fill.at(local_x)
+            assert tuple(rgba[offset:offset + 4]) == (color.red, color.green, color.blue, 255)
+
+
+def test_narrow_moving_band_reserves_only_visible_gradient_strips():
+    original = node()
+    assert isinstance(original.material, LinearGradient)
+    # Empty outside the sweep. Inside, two clip edges traverse the color axis.
+    empty = (0, 0, 0, 24)
+    motion = RectangleKeyframes(((0.1, empty), (0.1, (0, 0, 3, 24)),
+                                 (0.9, (21, 0, 24, 24)), (0.9, empty)))
+    shape = replace(original, material=replace(original.material, axis="x"), animations=(),
+                    clip=RectangleClip(0, 0, 24, 24, space="local", deform=motion))
+    scene = Scene(Document.create(width=80, height=80)).add(shape)
+    compiled = scene.compile(native_tweens=True, budget=SceneBudget(max_active=5))
+    assert compiled.event_count == 24
+    assert compiled.peak_active <= 5
+    for ms in (0, 100, 500, 899, 900, 999):
+        rgba = rasterize(compiled.document.dumps(), ms, (80, 80)).rgba
+        pixels = [x for x in range(80) if rgba[4 * (16 * 80 + x) + 3]]
+        if 100 <= ms < 900:
+            left = 8 + 21 * (ms - 100) / 800
+            assert abs(pixels[0] - left) <= 1
+            assert 2 <= len(pixels) <= 4
+        else:
+            assert not pixels

@@ -158,7 +158,7 @@ class LinearGradient:
     Integer step controls color band width and the declared maximum band count.
     Local space attaches colors to the drawing during scale/translation. It
     currently requires an ordinary positive axis-aligned drawing with a local,
-    non-inverse RectangleKeyframes clip fixed along the color axis, no parent
+    non-inverse RectangleKeyframes clip, no parent
     masks, and no coverage material composition. Unsupported combinations raise
     instead of silently changing coordinate spaces. With native_tweens, eligible
     scale/opacity curves and a single move share native band events.

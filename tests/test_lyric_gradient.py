@@ -111,11 +111,14 @@ def test_gradient_follows_centered_scale_and_translation_in_scene():
     assert after.scale.x == pytest.approx(before.scale.x * 1.2)
 
 
-def test_material_coverage_combination_fails_during_preparation():
+@pytest.mark.parametrize("unsung", [False, True])
+def test_material_coverage_combination_fails_during_preparation(unsung):
     _, line = subject()
+    gradient = LyricGradient((RED, BLUE))
     with pytest.raises(ValueError, match="materials require clip"):
         LyricHighlights.from_singing(
-            StatePatch(), material=LyricGradient((RED, BLUE)), strategy="coverage",
+            StatePatch(), strategy="coverage", material=None if unsung else gradient,
+            base_material=gradient if unsung else None,
         )(line)
 
 
@@ -146,3 +149,118 @@ def test_rendered_sung_body_has_vertical_color_change_and_unsung_body_does_not()
     assert len(rows) > 10
     assert max(rows.values()) > 50
     assert min(rows.values()) < -50
+
+
+def test_horizontal_ramp_uses_the_same_body_coordinates_for_glyphs_and_readings():
+    doc = Document.create(width=320, height=180, styles=(
+        Style(fontname="DejaVu Sans", fontsize=40),
+    ))
+    doc.records.append(Line(text=r"{\k100}M|i{\k100}M|i", start_time=1000, end_time=3000))
+    layout = layout_document_lyrics(doc, len(doc.records) - 1, display=Lifetime(0, 4))
+    line = LyricLine.from_layout(layout)
+    gradient = LyricGradient((RED, BLUE), axis="x")
+    for role, characters in (
+        ("character", layout.body.characters),
+        ("ruby", tuple(c for ruby in layout.ruby for c in ruby.layout.characters)),
+    ):
+        for target, glyph in zip(line.query(role), characters, strict=True):
+            ramp = gradient(line, target)
+            assert ramp.fill is not None and glyph.layout_scale is not None
+            # Compare both ends in line coordinates. A glyph-wide restart,
+            # or a separate reading-wide ramp, would move these endpoints.
+            assert tuple(glyph.bounds.left + stop.position * glyph.layout_scale.x
+                         for stop in ramp.fill.stops) == pytest.approx(
+                             (min(c.ink_bounds.left for c in layout.body.characters if c.ink_bounds),
+                              max(c.ink_bounds.right for c in layout.body.characters if c.ink_bounds))
+                         )
+
+
+@pytest.mark.parametrize("placement", ("inline", "independent"))
+def test_volume_gradient_shares_the_body_span_only_for_a_leading_inline_cue(placement):
+    from kara_templater import (
+        CueMarker,
+        CuePreset,
+        KaraokeEffects,
+        Track,
+        VolumeCue,
+        prepare_tracks,
+    )
+
+    doc = Document.create(width=320, height=180, styles=(Style(fontname="DejaVu Sans", fontsize=40),))
+    marker = CueMarker("intro", "lead", placement=placement)
+    doc.records.append(Line(text=marker.markup() + r"{\k100}M|i{\k100}M",
+                            start_time=1000, end_time=3000))
+    gradient = LyricGradient((RED, BLUE), axis="x")
+    track = Track(id="voice", cues={"lead": CuePreset(factory=VolumeCue(count=3, height=24, border=0))},
+                  effects=(KaraokeEffects(entry="none", exit="none", singing="none", material=gradient),))
+    scene = prepare_tracks(doc, tracks=(track,))
+    line, = scene.lines
+    cue = next(c for c in (*line.children, *line.independent) if "/cue:" in c.id)
+    columns = [n for n in nodes(cue) if isinstance(n.material, LinearGradient)]
+    assert len(columns) == 3
+    for bar in columns:
+        left, right = bar.material.bounds
+        assert left + bar.state.position.x == pytest.approx(0)
+        assert right + bar.state.position.x == pytest.approx(
+            line.layout.body.bounds.right - cue.state.position.x if placement == "inline" else 18
+        )
+    target = line.query("character")[0]
+    left, right = gradient(line, target).bounds
+    assert (left < 0) == (placement == "inline")
+    assert right - left > 18
+    assert scene.compile(native_tweens=True).event_count > 0
+
+
+def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
+    from kara_templater import (
+        CueMarker,
+        CuePreset,
+        KaraokeEffects,
+        Track,
+        VolumeCue,
+        prepare_tracks,
+    )
+
+    doc = Document.create(width=400, height=200, styles=tuple(
+        Style(name=name, fontname="DejaVu Sans", fontsize=40)
+        for name in ("Default", "Lead", "Reply")
+    ))
+    cue = CueMarker("intro", "bars")
+    doc.records.append(Line(
+        text=cue.markup() + r"{\rLead\k50}M|i{\rReply\k50}M|i{\rLead\k50}M|i{\rReply\k50}M|i",
+        start_time=1000, end_time=3000,
+    ))
+    ramps = {"Lead": LyricGradient((RED, BLUE), axis="x"),
+             "Reply": LyricGradient((BLUE, RED), axis="x")}
+    scene = prepare_tracks(doc, tracks=(Track(
+        id="duet", cues={"bars": CuePreset(factory=VolumeCue(count=2, height=24, border=0))},
+        effects=(KaraokeEffects(entry="none", exit="none", singing="scanline",
+                               scanline_mode="follow_after", material=ramps,
+                               base_material={"Lead": ramps["Reply"]}),),
+    ),))
+    line, = scene.lines
+    body = line.layout.body.characters
+    assert [t.source_style for t in line.query("ruby")] == ["Lead", "Reply"] * 2
+    for role, glyphs in (("character", body), ("ruby", tuple(
+        g for r in line.layout.ruby for g in r.layout.characters
+    ))):
+        for target, glyph in zip(line.query(role), glyphs, strict=True):
+            style = target.source_style
+            assert style is not None and glyph.layout_scale is not None
+            left, right = ramps[style](line, target).bounds
+            ink = [c.ink_bounds for c in body if c.source_style == style and c.ink_bounds]
+            expected_left = 0 if style == "Lead" else min(b.left for b in ink)
+            assert (glyph.bounds.left + left * glyph.layout_scale.x,
+                    glyph.bounds.left + right * glyph.layout_scale.x) == pytest.approx(
+                        (expected_left, max(b.right for b in ink)))
+    prefix = next(n for n in line.children if "/cue:" in n.id)
+    bars = [n for n in nodes(prefix) if isinstance(n.material, LinearGradient)]
+    assert len(bars) == 4
+    assert [bar.material.fill.stops[0].color for bar in bars] == [BLUE, RED, BLUE, RED]
+    for bar in bars:
+        assert bar.material.bounds[1] + bar.state.position.x == pytest.approx(body[2].bounds.right)
+    first = line.query("character")[0]
+    front = next(n for n in nodes(line) if n.id.startswith(first.node_id + "/")
+                 and ":front:" in n.id and isinstance(n.material, LinearGradient))
+    assert front.material.bounds == pytest.approx((0, 2 * first.center.x))
+    scene.compile(native_tweens=True)

@@ -22,9 +22,31 @@ highlight = LyricHighlights.from_singing(
 ```
 
 Colors run vertically through each measured glyph and follow its scale/translation.
-Body and ruby resolve their own heights. Separate glow retains its configured
+Body and ruby resolve their own heights. Use `axis="x"` to spread the colors
+across the visible ink of the body line. Readings sample the same horizontal
+positions, so adjacent syllables continue the ramp during the wipe. Separate glow retains its configured
 color; only the sung drawing receives this material. `step=1` uses one-local-pixel
 color bands; increasing it trades gradient resolution for fewer ASS events.
+
+For a duet, use the active ASS style as the singer name. For example,
+`{\rLead}` and `{\rReply}` switch roles within a line. Each horizontal ramp
+spans all the ink belonging to its role, including later appearances after
+another singer intervenes. Ruby follows the style of its associated body text.
+The leading inline volume cue takes the first nonblank singer’s palette.
+Use `base_material` for the waiting lyric and `material` for the sung lyric.
+Each accepts its own gradient or style mapping.
+
+```python
+from kara_templater import Color, KaraokeEffects, LyricGradient
+
+duet = KaraokeEffects(base_material=LyricGradient((Color.hex("#FFF1D8"), Color.hex("#ADE4F0"))), material={
+    "Lead": LyricGradient((Color.hex("#FF0040"), Color.hex("#0040FF")), axis="x"),
+    "Reply": LyricGradient((Color.hex("#FFCC00"), Color.hex("#00EE77")), axis="x"),
+})
+```
+
+Styles absent from the mapping use the recipe's solid sung paint.
+A custom material factory can also read `target.source_style`.
 
 For custom appearance, `material` also accepts a `PaintField` or a factory taking
 `(line, target)` and returning a field (or None). The factory runs once per target
@@ -48,14 +70,14 @@ should grow with the text.
 
 SoftSweep is a spatial color field with (unsung, sung) fill/outline pairs,
 independent front widths, a script-space range, start, duration, and rate.
-With `native_tweens=True`, a static `LinearGradient` can share native rectangle
+With `native_tweens=True`, a static screen-space `LinearGradient` can share native rectangle
 clip animation when the clip edges along the gradient axis stay fixed. For
 example, vertical color bands support a horizontal karaoke sweep. Geometry and
 colors must remain static; eligible opacity fades are supported. Continuous clip
 sections share one event per band, while instantaneous resets remain separate.
 This keeps event counts independent of sampling FPS for eligible objects without
 changing `step`. Inverse clips, animated geometry/colors, custom paint fields,
-and clips crossing the color bands retain the general sampled path. Native clips
+and screen-space clips crossing color bands use the general sampler. Native clips
 retain the compiler's existing integer-coordinate error budget.
 
 Material time, including SoftSweep.start, is local seconds from the owning
@@ -69,8 +91,10 @@ is the extension protocol for your own spatial paint function.
 `LinearGradient(space="local")` attaches the gradient to a drawing, so colors
 follow positive axis-aligned scaling and translation. Color-stop positions and
 `step` then use untransformed drawing coordinates. The initial implementation
-requires a non-inverse local `RectangleKeyframes` clip whose edges along the color
-axis stay fixed, with no parent masks. It is available in ordinary ASS output;
+requires a non-inverse local `RectangleKeyframes` clip with no parent masks.
+A sweep across local color bands uses one native clip event per band for
+stationary geometry. If the glyph also moves or scales during that sweep,
+the compiler samples the intersected bands. It is available in ordinary ASS output;
 coverage/raster material composition and rotated/skewed local gradients raise
 explicit errors. Existing screen-space gradients remain unchanged.
 

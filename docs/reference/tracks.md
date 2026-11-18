@@ -68,7 +68,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L417)
+[Source](../../kara_templater/karaoke_effects.py#L444)
 
 ```python
 KaraokeEffects(
@@ -82,7 +82,8 @@ KaraokeEffects(
     stagger: float = 0.5833333333333334,
     sung: Color = Color(red=255, green=90, blue=111),
     unsung: Color = Color(red=255, green=255, blue=255),
-    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
+    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
+    base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     particle_color: Color | None = None,
@@ -94,7 +95,7 @@ KaraokeEffects(
     scanline_width: float | None = None,
     scanline_softness: float | None = None,
     scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after', 'role'] = 'color',
-    scanline_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
+    scanline_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     scanline_brightness: float = 0.6,
     scanline_color: Color = Color(red=255, green=255, blue=255),
     hook_feather: float = 0,
@@ -119,7 +120,8 @@ KaraokeEffects(
 | `stagger` | `float` | `0.5833333333333334` |
 | `sung` | `Color` | `Color(red=255, green=90, blue=111)` |
 | `unsung` | `Color` | `Color(red=255, green=255, blue=255)` |
-| `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None` | `None` |
+| `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
+| `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `glow` | `LyricGlow` | `None` |
 | `base_glow` | `LyricGlow` | `None` |
 | `particle_color` | `Color \| None` | `None` |
@@ -131,7 +133,7 @@ KaraokeEffects(
 | `scanline_width` | `float \| None` | `None` |
 | `scanline_softness` | `float \| None` | `None` |
 | `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after', 'role']` | `'color'` |
-| `scanline_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None` | `None` |
+| `scanline_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `scanline_brightness` | `float` | `0.6` |
 | `scanline_color` | `Color` | `Color(red=255, green=255, blue=255)` |
 | `hook_feather` | `float` | `0` |
@@ -459,7 +461,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L64)
+[Source](../../kara_templater/lyric_line.py#L73)
 
 ```python
 LyricAnimationContext(
@@ -574,7 +576,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L247)
+[Source](../../kara_templater/lyric_line.py#L256)
 
 ```python
 LyricLine(
@@ -795,7 +797,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L96)
+[Source](../../kara_templater/lyric_line.py#L105)
 
 ```python
 LyricRule(
@@ -1049,9 +1051,10 @@ them never creates copies or changes visual parentage. singing retains the
 original absolute seconds and decoded text offsets.
 center is the undecorated measured center in the node's local coordinates.
 Line/syllable centers use body text, so ruby/glow do not shift the pivot.
+source_style is the body cluster's active ASS style, inherited by its readings.
 A factory changing a target's local coordinate origin must update center too.
 
-[Source](../../kara_templater/lyric_line.py#L39)
+[Source](../../kara_templater/lyric_line.py#L45)
 
 ```python
 LyricTarget(
@@ -1065,6 +1068,7 @@ LyricTarget(
     center: Vec2 = Vec2(x=0, y=0),
     baseline: float | None = None,
     em_size: float | None = None,
+    source_style: str | None = None,
 )
 ```
 
@@ -1082,6 +1086,7 @@ LyricTarget(
 | `center` | `Vec2` | `Vec2(x=0, y=0)` |
 | `baseline` | `float \| None` | `None` |
 | `em_size` | `float \| None` | `None` |
+| `source_style` | `str \| None` | `None` |
 
 ## Placement
 
@@ -1239,7 +1244,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L396)
+[Source](../../kara_templater/orchestration.py#L400)
 
 ```python
 prepare_tracks(

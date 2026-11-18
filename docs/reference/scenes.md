@@ -1006,7 +1006,7 @@ Type: `float`.
 
 Return a new Document. Source records and caller-owned nodes never mutate.
 
-[Source](../../kara_templater/scene_output.py#L1714)
+[Source](../../kara_templater/scene_output.py#L1758)
 
 ```python
 compile_scene(

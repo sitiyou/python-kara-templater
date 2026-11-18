@@ -1,14 +1,16 @@
 """Reusable vector signals for karaoke tracks."""
 
 from dataclasses import dataclass, replace
-from math import cos, floor, pi, sin
+from math import cos, floor, log, pi, sin, sqrt
 from typing import Literal
 
 from ._karaoke_motion import zoom_pulse
 from .composition import Color, Paint
-from .cues import CueContent, CueContext
+from .cues import CueContent, CueContext, _SharedGradientCue
 from .geometry import Contour, CubicSegment, LineSegment, Vec2, VectorPath, finite
-from .scene import Lifetime, ObjectGroup, PathObject
+from .lyric_highlights import LyricGradient
+from .path_geometry import flatten, stroke
+from .scene import Lifetime, ObjectGroup, PathObject, RectangleClip, RectangleKeyframes
 from .scene_animation import AnimationClip, FadeOut, StatePatch, Tween, VisualState
 
 
@@ -61,6 +63,19 @@ def _cue_border(
     return min(8, width // 2) / 2
 
 
+def _gradient_shape(
+    shape: PathObject, gradient: LyricGradient, width: float, height: float,
+    start: float, end: float,
+) -> PathObject:
+    shadow = shape.state.shadow
+    pad = shape.state.border + max(abs(shadow.x), abs(shadow.y)) + 4
+    bounds = (-pad, -pad, width + pad, height + pad)
+    return replace(
+        shape, material=gradient._between(start, end),
+        clip=RectangleClip(*bounds, space="local", deform=RectangleKeyframes(((0, bounds),))),
+    )
+
+
 def _decorated_shape(
     shape: PathObject, paint: Paint, size: float, width: float, context: CueContext
 ) -> tuple[PathObject, ...]:
@@ -70,20 +85,38 @@ def _decorated_shape(
     scale = size / (context.role_em or _host_em(context))
     extra = max(0, glow.border - paint.border)
     extra_radius = _scaled_radius(extra, scale, width)
-    blur = glow.blur * scale
+    blur = floor(glow.blur * scale + 0.5)
     if not extra_radius and not blur:
         return (shape,)
+    path = shape.path
+    border = shape.state.border + extra_radius
+    if blur:
+        # Studio blurs the pen silhouette. In libass a blurred ASS border also
+        # includes the interior until the fill mask is subtracted at composition.
+        pen_width = 2 * border + blur
+        contours: list[Contour] = []
+        for contour in path.contours:
+            pen = stroke(flatten(contour), pen_width)
+            if pen is not None:
+                contours.extend(pen.contours)
+        if not contours:
+            return (shape,)
+        path = VectorPath(tuple(contours))
+        border = 0
     backing = replace(
         shape,
         id=shape.id + "/outer",
-        layer=shape.layer - 1,
-        filled=False,
+        path=path,
+        material=None,
+        clip=None,
+        filled=bool(blur),
         state=replace(
             shape.state,
             fill=glow.color,
             outline=glow.color,
-            border=shape.state.border + extra_radius,
-            blur=blur,
+            border=border,
+            # libass maps the ASS blur value to sigma by 2 / sqrt(log(256)).
+            blur=blur * sqrt(log(256)) / 2,
             opacity=shape.state.opacity * glow.opacity,
         ),
     )
@@ -163,9 +196,11 @@ class VolumeCue:
         border = _cue_border(self.border, size, width, context)
         edge = 2 * border  # Studio reserves a full pen width on each side.
         pitch = width + 2 * edge + self.spacing
+        group_right = edge + (self.count - 1) * pitch + width
         first = min(1.0, self.ratio) * size
         last = first / self.ratio
         bars = []
+        shared_gradients: dict[str, LyricGradient] = {}
         for i in range(self.count):
             height = first + (last - first) * i / max(1, self.count - 1)
             change = max(life.start, life.end - fill * (1 - i / self.count))
@@ -206,6 +241,13 @@ class VolumeCue:
                     ),
                     origin=context.origin,
                 )
+                gradient = context.gradient if start == change else context.base_gradient
+                if gradient is not None and color is None:
+                    x, y = shape.state.position.x, shape.state.position.y
+                    limits = (edge - x, group_right - x) if gradient.axis == "x" else (-y, size - y)
+                    shape = _gradient_shape(shape, gradient, width, height, *limits)
+                    if gradient.axis == "x":
+                        shared_gradients[shape.id] = gradient
                 bars.extend(_decorated_shape(shape, paint, size, width, context))
         group = ObjectGroup(
             id=f"{context.id}/volume",
@@ -214,7 +256,22 @@ class VolumeCue:
             children=tuple(bars),
             origin=context.origin,
         )
-        return CueContent((group,), self.count * pitch - self.spacing, size)
+        content = CueContent((group,), self.count * pitch - self.spacing, size)
+        if not shared_gradients:
+            return content
+
+        def share(left: float, right: float) -> tuple[ObjectGroup, ...]:
+            # The binder now knows all inline reservations and the lyric's right edge.
+            children = []
+            for bar in bars:
+                gradient = shared_gradients.get(bar.id)
+                if gradient is not None:
+                    x = bar.state.position.x
+                    bar = replace(bar, material=gradient._between(left - x, right - x))
+                children.append(bar)
+            return (replace(group, children=tuple(children)),)
+
+        return _SharedGradientCue(content.objects, content.width, size, edge, share)
 
 
 def _note(shape: str, size: float) -> VectorPath:
@@ -380,6 +437,13 @@ class SignalCue:
                     shadow=shadow,
                 ),
             )
+            gradient = context.gradient
+            if gradient is not None and self.color is None:
+                # All slots keep their original colors as the countdown shrinks.
+                left, right = (0.0, size)
+                if gradient.axis == "x":
+                    left, right = -origin.x, size * (1 + (count - 1) * 1.5) - origin.x
+                shape = _gradient_shape(shape, gradient, size, size, left, right)
             children = list(
                 _decorated_shape(shape, context.colors.after, size, size, context)
             )

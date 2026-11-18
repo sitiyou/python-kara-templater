@@ -15,6 +15,7 @@ from ._hook_motion import Span, spans
 from ._native_types import RasterImage
 from .geometry import Affine2D
 from .lyric_highlights import _FeatheredSingingClip
+from .paint_fields import LinearGradient
 from .scene import Scene
 from .timeline import ProgressCurve
 
@@ -77,6 +78,33 @@ class _Table:
         return offset
 
 
+def _ramp_record(table: _Table, mat: LinearGradient | None, kind: int) -> int:
+    ramp = (
+        None
+        if mat is None
+        else mat.fill
+        if kind == 0
+        else mat.outline
+        if kind == 1
+        else None
+    )
+    if ramp is None:
+        return -1
+    return table.add(
+        len(ramp.stops),
+        *(
+            n
+            for s in ramp.stops
+            for n in (
+                s.position,
+                s.color.red / 255,
+                s.color.green / 255,
+                s.color.blue / 255,
+            )
+        ),
+    )
+
+
 def _draw_record(
     table: _Table,
     atlas: _Atlas,
@@ -89,36 +117,17 @@ def _draw_record(
     x, y, w, h, kind, color, pixels = image
     u, v = atlas.add(w, h, pixels)
     mat = draw.gradient
-    ramp = (
-        None
-        if mat is None
-        else mat.fill
-        if kind == 0
-        else mat.outline
-        if kind == 1
-        else None
-    )
-    stops = -1
-    if ramp is not None:
-        stops = table.add(
-            len(ramp.stops),
-            *(
-                n
-                for s in ramp.stops
-                for n in (
-                    s.position,
-                    s.color.red / 255,
-                    s.color.green / 255,
-                    s.color.blue / 255,
-                )
-            ),
-        )
+    stops = _ramp_record(table, mat, kind)
     feather = -1
     if edge is not None and kind in (0, 1):
         before = edge.unsung_fill if kind == 0 else edge.unsung_outline
         core = edge.front_color
         core_id = -1 if core is None else table.add(core.red / 255, core.green / 255, core.blue / 255)
-        feather = table.add(before.red / 255, before.green / 255, before.blue / 255, edge.width, core_id)
+        base = edge.unsung_gradient
+        feather = table.add(before.red / 255, before.green / 255, before.blue / 255,
+                            edge.width, core_id, _ramp_record(table, base, kind),
+                            int(base is not None and base.space == "screen"),
+                            int(base is not None and base.axis == "y"))
     geom = table.add(x, y, w, h, u, v)
     paint = table.add(
         *(float(color >> s & 255) / 255 for s in (24, 16, 8)),
@@ -339,6 +348,17 @@ float weight(int motion, int index) {
     if(k+2>=knots+1+2*refAt(knots)) return item(k+1);
     return mix(item(k+1),item(k+3),(p-item(k))/(item(k+2)-item(k)));
 }
+vec3 paintColor(vec3 solid,int ramp,vec2 screen,vec2 local) {
+    int stops=refAt(ramp);
+    if(stops<0) return solid;
+    vec2 pos=item(ramp+1)>0.?screen:local;
+    float t=item(ramp+2)>0.?pos.y:pos.x;
+    int end=stops+1+4*refAt(stops);
+    for(int k=stops+5;k<end;k+=4) {
+        if(t<=item(k)) return mix(rgbAt(k-3),rgbAt(k+1),clamp((t-item(k-4))/(item(k)-item(k-4)),0.,1.));
+    }
+    return rgbAt(end-3);
+}
 vec4 hook() {
     vec4 bg=HOOKED_tex(HOOKED_pos);
     // mpv supplies the media timestamp. FFmpeg can leave the parameter at -1.
@@ -384,28 +404,18 @@ vec4 hook() {
         }
         vec2 mask=pairAt(g+4)+clamp(uv,vec2(0.5),size-0.5);
         float a=textureLod(KARAMASK,mask/vec2(textureSize(KARAMASK,0)),0.).r*item(p+3)*alpha;
-        vec3 ink=rgbAt(p);
-        int stops=refAt(p+4);
-        if(stops>=0) {
-            vec2 pos=item(p+5)>0.?screen:local;
-            float t=item(p+6)>0.?pos.y:pos.x;
-            int end=stops+1+4*refAt(stops);
-            ink=rgbAt(end-3);
-            for(int k=stops+5;k<end;k+=4) {
-                if(t<=item(k)) {
-                    ink=mix(rgbAt(k-3),rgbAt(k+1),clamp((t-item(k-4))/(item(k)-item(k-4)),0.,1.));
-                    break;
-                }
-            }
-        }
+        vec3 ink=paintColor(rgbAt(p),p+4,screen,local);
         int feather=refAt(p+7);
         if(feather>=0) {
             float phase=edgeDistance/item(feather+3);
-            ink=mix(rgbAt(feather),ink,smoothstep(0.,1.,phase));
-            int core=refAt(feather+4);
-            if(core>=0) {
-                float strength=smoothstep(0.,0.16,phase)*(1.-smoothstep(0.42,0.78,phase));
-                ink=mix(ink,rgbAt(core),strength);
+            if(phase<1.) {
+                vec3 before=paintColor(rgbAt(feather),feather+5,screen,local);
+                ink=mix(before,ink,smoothstep(0.,1.,phase));
+                int core=refAt(feather+4);
+                if(core>=0) {
+                    float strength=smoothstep(0.,0.16,phase)*(1.-smoothstep(0.42,0.78,phase));
+                    ink=mix(ink,rgbAt(core),strength);
+                }
             }
         }
         bg.rgb=mix(bg.rgb,ink,a);

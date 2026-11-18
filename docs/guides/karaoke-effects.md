@@ -108,7 +108,7 @@ its Qt/Direct2D renderer.
 | Inline volume signal | `VolumeCue` | Whole-group flashes, then successive sung-color fills. In this library the cue ends at its own boundary, even when the host lyric stays visible. |
 | Floating shape lamps, count-in text and vector guide marks | `SignalCue`, `TextCue`, `CuePreset` | Seven built-in lamp shapes and custom paths. Cues can be inline or independently positioned. Shape lamps inherit the sung palette. Their colors and size can be overridden. |
 | Studio page timing and alternate writing modes | Partial | Horizontal presets handle lane reuse, section gaps, synchronized page entry/exit, tail extension and smart margins. Imported page breaks, native vertical writing and mirrored right-to-left lyric layout have no equivalent preset. |
-| Role-linked signal styling and timed character replacement | Partial | Built-in signals inherit solid lyric colors or take an explicit role palette. Signals scale static hard outer strokes and glow to their own dimensions. Shared gradient bands and timed guide-glyph replacement need a custom drawing. |
+| Role-linked signal styling and timed character replacement | Partial | Built-in signals inherit solid lyric colors or take an explicit role palette. Signals scale static hard outer strokes and glow to their own dimensions. Leading inline volume bars share a sung horizontal gradient with their lyric line. Independent lamps keep a fixed gradient over all countdown slots. Timed guide-glyph replacement needs a custom drawing. |
 
 See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 [signal preview](../examples/README.md#karaoke-count-ins).
@@ -185,15 +185,16 @@ move independently after birth. They are emitted from body text, not ruby.
   exceeding it raises before particle factories execute.
 - `seed`: deterministic variation, independent of rendering or seeking order.
 - `zoom_pulse_curve_level` controls the zoom attack and release. Levels 0 and 1 are linear (Studio default 1). Levels 2–5 ease toward the peak and accelerate away from it.
-- `scanline_mode="brighten"` lifts the brightness of each side’s fill and outline independently, including the stops of an authored sung linear gradient. `follow_before` and `follow_after` use one side’s palette across the whole band. `scanline_brightness` sets the fraction of remaining HSV value to add (default 0.60).
-- `scanline_mode="role"` takes a reusable paint or a per-target factory in `scanline_material`. For example, pass a singer’s `LyricGradient` to color both the glyph and its outline inside the band. A missing paint falls back to `scanline_color`.
+- `scanline_mode="brighten"` lifts the brightness of each side’s fill and outline independently, including the stops of each side’s linear gradient. `follow_before` and `follow_after` use one side’s palette across the whole band. `scanline_brightness` sets the fraction of remaining HSV value to add (default 0.60).
+- `scanline_mode="role"` takes a reusable paint or a per-target factory in `scanline_material`. For example, pass a singer’s `LyricGradient` to color both the glyph and its outline inside the band. A missing paint falls back to `scanline_color`. With horizontal role gradients,
+  the resting text uses each singer’s full ink span. The static scanline samples
+  the current contiguous run; a zoom-pulse scanline uses the moving glyph’s advance.
 - In the default `color` mode, `scanline_color` sets the band color for both fill and outline (default white). `scanline_softness` sets the inward falloff on each side, default 8 px at 1080p. Zero gives a hard band.
 - `scanline_width`: script pixels, omit for a band of 16 px at 1080p, scaled to script height. An explicit width uses script pixels. At a syllable handoff the band can light ink on both neighboring glyphs. During a timing gap the band disappears.
 - For a soft color change in the standalone GPU hook, use
   `KaraokeEffects(singing="utopia", hook_feather=17, sung_outline=Color.hex("#522432"))`.
   The final 17 script pixels behind a single-interval sweep edge mix the unsung
-  and sung inks inside the glyph and outline masks. A sung vertical gradient
-  keeps its colors. To carry the same transition into a halo, supply both glow
+  and sung inks inside the glyph and outline masks. Both the waiting and sung gradients retain their colors through the feather. To carry the same transition into a halo, supply both glow
   colors with matching border, blur and opacity. Ordinary ASS and repeated
   intervals retain the basic wipe. Choose a scanline mode when you want an
   additional bright stripe. With a feathered hook, set `front_color` to give

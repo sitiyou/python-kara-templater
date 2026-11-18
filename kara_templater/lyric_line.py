@@ -28,6 +28,12 @@ _LYRIC_ROLES = frozenset(("line", "syllable", "segment", "character", "ruby", "c
 type LyricAnchor = Literal["enter", "exit", "singing", "after_singing"]
 
 
+def _line_x(character: PositionedText, left: float, right: float) -> tuple[float, float]:
+    assert character.layout_scale is not None
+    origin, scale = character.bounds.left, character.layout_scale.x
+    return (left - origin) / scale, (right - origin) / scale
+
+
 def _character_center(character: PositionedText) -> Vec2:
     assert character.layout_scale is not None
     return Vec2(
@@ -45,6 +51,7 @@ class LyricTarget:
     original absolute seconds and decoded text offsets.
     center is the undecorated measured center in the node's local coordinates.
     Line/syllable centers use body text, so ruby/glow do not shift the pivot.
+    source_style is the body cluster's active ASS style, inherited by its readings.
     A factory changing a target's local coordinate origin must update center too.
     """
 
@@ -59,6 +66,8 @@ class LyricTarget:
     center: Vec2 = Vec2()
     baseline: float | None = None
     em_size: float | None = None
+    source_style: str | None = None
+    _line_x: tuple[float, float] | None = field(default=None, repr=False)
 
 
 @dataclass(frozen=True)
@@ -288,6 +297,19 @@ class LyricLine(ObjectGroup):
         shaping cluster. Such boundaries fail explicitly, never split codepoints.
         """
         body = layout.body
+        # Studio shares one ink span across all appearances of the same role.
+        style_spans: dict[str | None, tuple[float, float]] = {}
+        fallback = body.bounds.left, body.bounds.right
+        for glyph in body.characters:
+            ink = glyph.ink_bounds
+            if ink is not None and ink.width:
+                left, right = style_spans.get(glyph.source_style, (ink.left, ink.right))
+                style_spans[glyph.source_style] = min(left, ink.left), max(right, ink.right)
+        if body._gradient_left is not None:
+            first = next((g for g in body.characters if g.object.text.strip()), None)
+            if first is not None:
+                left, right = style_spans.get(first.source_style, fallback)
+                style_spans[first.source_style] = min(left, body._gradient_left), right
         line_interval = (
             ()
             if not body.singing
@@ -359,11 +381,15 @@ class LyricLine(ObjectGroup):
                             spans,
                             tags,
                             center=_character_center(character),
+                            source_style=character.source_style,
+                            _line_x=_line_x(character, *style_spans.get(character.source_style, fallback)),
                             baseline=character.baseline, em_size=character.em_size,
                         )
                     )
             for ruby in layout.ruby:
                 if ruby.unit_index == index:
+                    style = next((c.source_style for c in body.characters
+                                  if c.start <= ruby.body_start < c.end), None)
                     for character in ruby.layout.characters:
                         targets.append(
                             LyricTarget(
@@ -373,6 +399,8 @@ class LyricLine(ObjectGroup):
                                 (unit.segments[ruby.segment_index].singing,),
                                 tags,
                                 center=_character_center(character),
+                                source_style=style,
+                                _line_x=_line_x(character, *style_spans.get(style, fallback)),
                                 baseline=character.baseline, em_size=character.em_size,
                             )
                         )

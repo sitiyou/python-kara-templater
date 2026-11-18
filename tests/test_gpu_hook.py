@@ -199,14 +199,19 @@ def test_parametric_motion_matches_the_scene_evaluator(
     assert max(abs(x - y) for x, y in zip(actual, expected, strict=True)) <= 4
 
 
-@pytest.mark.parametrize("core", [None, Color(255, 255, 0)])
-def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core):
+@pytest.mark.parametrize(("core", "gradient"), [(None, False), (Color(255, 255, 0), False), (None, True)])
+def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core, gradient):
+    from kara_templater import ColorRamp, ColorStop, LinearGradient
     from kara_templater.lyric_highlights import _FeatheredSingingClip
 
     before = Color(20, 30, 210)
     after = Color(220, 40, 20)
+    base = LinearGradient(axis="y", space="local", fill=ColorRamp((
+        ColorStop(0, before), ColorStop(18, Color(20, 230, 210)),
+    ))) if gradient else None
     shape = PathObject(
         id="base",
+        material=base,
         path=VectorPath.rectangle(32, 18),
         lifetime=Lifetime(0, 1),
         state=VisualState(position=Vec2(8, 6), fill=before, border=0),
@@ -214,6 +219,7 @@ def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core):
     front = replace(
         shape,
         id="sung",
+        material=None,
         state=replace(shape.state, fill=after),
         clip=(
             _FeatheredSingingClip(
@@ -225,6 +231,7 @@ def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core):
                 width=16,
                 unsung_fill=before,
                 unsung_outline=before,
+                unsung_gradient=base,
                 front_color=core,
             )
         ),
@@ -267,4 +274,8 @@ def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core):
     else:
         assert rgb(27, 15)[1] > 200
         assert max(rgb(x, 15)[1] for x in (13, 35)) < 75
+    if gradient:
+        # Just inside the feather, the incoming ramp still varies with local y.
+        assert rgb(30, 21)[1] > rgb(30, 8)[1] + 90
+        assert abs(rgb(30, 21)[1] - rgb(36, 21)[1]) < 15
     assert max(rgb(24, 2)) < 10

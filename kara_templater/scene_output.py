@@ -720,13 +720,8 @@ def _local_gradient_domain(leaf: _Leaf) -> tuple[int, int]:
             object_id=node.id,
         )
     axis = 0 if material.axis == "x" else 1
-    edges = {(bounds[axis], bounds[axis + 2]) for _, bounds in clip.deform.keyframes}
-    if len(edges) != 1:
-        raise SceneCompileError(
-            "local gradient clip must stay fixed along its color axis",
-            object_id=node.id,
-        )
-    left, right = next(iter(edges))
+    left = min(bounds[axis] for _, bounds in clip.deform.keyframes)
+    right = max(bounds[axis + 2] for _, bounds in clip.deform.keyframes)
     if right <= left:
         raise SceneCompileError(
             "local gradient needs positive color-axis extent", object_id=node.id
@@ -735,11 +730,10 @@ def _local_gradient_domain(leaf: _Leaf) -> tuple[int, int]:
 
 
 def _native_rectangle_material(leaf: _Leaf) -> bool:
-    """Static bands perpendicular to a sweep retain linear clip edges.
+    """Check whether clipping a static color band has a native ASS representation.
 
-    Restrict this proof to opacity animation: moving/scaling geometry or color
-    animation may change band membership or the material's inherited colors.
-    Inverse masks and edges crossing bands still use the general sampler.
+    A parallel sweep on stationary local geometry splits at exact band crossings.
+    A perpendicular sweep can also carry supported local position and scale curves.
     """
     node = leaf.node
     if node.material is None:
@@ -773,7 +767,13 @@ def _native_rectangle_material(leaf: _Leaf) -> bool:
             for before in (False, True)
             for bounds in (_rectangle_bounds(leaf, time, before=before),)
         }
-    return len(edges) == 1
+    if len(edges) == 1:
+        return True
+    # With fixed geometry a moving local mask crosses each band linearly.
+    return node.material.space == "local" and all(
+        not (animation.animation.channels & {"position", "scale"})
+        for _, animation in _rectangle_owned_clips(leaf)
+    )
 
 
 def _native_rectangle(leaf: _Leaf) -> bool:
@@ -848,6 +848,12 @@ def _rectangle_knots(leaf: _Leaf) -> tuple[float, ...]:
     return tuple(sorted({min(leaf.start, min(keys)), *keys, max(leaf.end, max(keys))}))
 
 
+def _band_pixel(value: float) -> int:
+    # Adjacent one-pixel bands must stay adjacent at half-pixel origins.
+    # A keyframe crossing can land one floating-point ulp either side of a tie.
+    return floor(round(value, 6) + 0.5)
+
+
 def _rectangle_bounds(
     leaf: _Leaf,
     time: float,
@@ -865,9 +871,9 @@ def _rectangle_bounds(
     if band is not None:
         assert isinstance(leaf.node.material, LinearGradient)
         if leaf.node.material.axis == "x":
-            left, right = max(left, band.start), min(right, band.end)
+            left, right = (max(band.start, min(x, band.end)) for x in (left, right))
         else:
-            top, bottom = max(top, band.start), min(bottom, band.end)
+            top, bottom = (max(band.start, min(y, band.end)) for y in (top, bottom))
     if clip.space == "local":
         state = _rectangle_state(leaf, time) if state is None else state
         first = state.transform.apply(Vec2(left, top))
@@ -1020,7 +1026,23 @@ def _rectangle_events(
                 left, right = max(round(left), band.start), min(round(right), band.end)
             else:
                 top, bottom = max(round(top), band.start), min(round(bottom), band.end)
-        return f"\\{kind}({round(left)},{round(top)},{round(right)},{round(bottom)})"
+        pixel = _band_pixel if band is not None and local else round
+        return f"\\{kind}({pixel(left)},{pixel(top)},{pixel(right)},{pixel(bottom)})"
+
+    def band_sections(first: float, last: float) -> tuple[float, ...]:
+        material = node.material
+        if band is None or not isinstance(material, LinearGradient) or material.space != "local":
+            return (first, last)
+        assert isinstance(clip.deform, RectangleKeyframes)
+        a = clip.deform.bounds_at(local_seconds(first, node.time_origin))
+        b = clip.deform.bounds_at(local_seconds(last, node.time_origin), before=True)
+        axis = 0 if material.axis == "x" else 1
+        knots = {first, last}
+        for i in (axis, axis + 2):
+            for edge in (band.start, band.end):
+                if min(a[i], b[i]) < edge < max(a[i], b[i]):
+                    knots.add(first + (last - first) * (edge - a[i]) / (b[i] - a[i]))
+        return tuple(sorted(knots))
 
     animations: list[tuple[float, AnimationClip]] = []
     for origin, animation in _rectangle_owned_clips(leaf):
@@ -1055,14 +1077,36 @@ def _rectangle_events(
         first, last = group[0][0], group[-1][1]
         start = _centiseconds(max(first, leaf.start))
         end = _centiseconds(min(last, leaf.end))
+        spans = []
+        for t0, t1 in group:
+            knots = band_sections(t0, t1)
+            spans.extend(zip(knots, knots[1:], strict=False))
+        if band is not None and isinstance(node.material, LinearGradient) and node.material.space == "local":
+            # Between crossings the local mask edges are linear. An empty
+            # midpoint therefore proves the strip invisible for the whole span.
+            visible = []
+            for index, (t0, t1) in enumerate(spans):
+                bounds = clip.deform.bounds_at(local_seconds((t0 + t1) / 2, node.time_origin))
+                left, top, right, bottom = bounds
+                if node.material.axis == "x":
+                    left, right = max(left, band.start), min(right, band.end)
+                else:
+                    top, bottom = max(top, band.start), min(bottom, band.end)
+                if right > left and bottom > top:
+                    visible.append(index)
+            if not visible:
+                continue
+            spans = spans[visible[0]:visible[-1] + 1]
+            start = max(start, floor(spans[0][0] * 100))
+            end = min(end, ceil(spans[-1][1] * 100))
         if start >= end:
             continue
-        tags = tag(first)
-        for section_start, section_end in group:
-            initial, final = tag(section_start), tag(section_end, before=True)
-            if initial != final:
-                a = round(section_start * 1000) - start * 10
-                b = round(section_end * 1000) - start * 10
+        tags = tag(spans[0][0])
+        for t0, t1 in spans:
+            final = tag(t1, before=True)
+            if tag(t0) != final:
+                a = round(t0 * 1000) - start * 10
+                b = round(t1 * 1000) - start * 10
                 tags += rf"\t({a},{b},1,{final})"
         state = replace(
             _rectangle_state(leaf, node.time_origin),
@@ -1524,7 +1568,7 @@ def _painted_events(
         result: list[Line] = []
         for band in material.bands(*domain, 0, paint_state):
             bounds = _rectangle_bounds(leaf, time, band=band, state=paint_state)
-            left, top, right, bottom = (round(value) for value in bounds)
+            left, top, right, bottom = (_band_pixel(value) for value in bounds)
             if left >= right or top >= bottom:
                 continue
             result.append(
@@ -1770,9 +1814,12 @@ def compile_scene(
                 )
         band_bound = 1
         if isinstance(node.material, LinearGradient) and node.material.space == "local":
-            _local_gradient_domain(leaf)
-        if node.material is not None:
+            left, right = _local_gradient_domain(leaf)
+            # A line-wide ramp still draws only the strips within this glyph.
+            band_bound = min(right - left, node.material.max_bands)
+        elif node.material is not None:
             band_bound = node.material.max_bands
+        if node.material is not None:
             if type(band_bound) is not int or not 1 <= band_bound <= budget.max_bands:
                 raise SceneCompileError(
                     "declared paint band budget exceeded",

@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from functools import partial
+from itertools import groupby
 from math import ceil, pi, sin, sqrt
 from typing import Literal, get_args
 
@@ -12,10 +13,12 @@ from .composition import Color
 from .geometry import Vec2, VectorPath, finite
 from .lyric_highlights import (
     LyricGlow,
+    LyricGradient,
     LyricHighlights,
     LyricMaterial,
     _hard_glow_border,
     _resolve_material,
+    _style_material,
 )
 from .lyric_line import (
     LyricAnimationContext,
@@ -23,6 +26,7 @@ from .lyric_line import (
     LyricRule,
     LyricTarget,
     _KaraokePaint,
+    _line_x,
 )
 from .model import Box
 from .paint_fields import ColorRamp, LinearGradient, PaintField
@@ -346,6 +350,29 @@ def _brighten(color: Color, strength: float) -> Color:
     return Color(*(round(c * raised / value) for c in channels))
 
 
+def _scanline_run_spans(line: LyricLine) -> dict[str, tuple[float, float]]:
+    """Studio repaints the band with the brush box of each contiguous glyph run."""
+    spans = {}
+    for layout in (line.layout.body, *(r.layout for r in line.layout.ruby)):
+        for _, items in groupby(layout.characters, key=lambda g: g.source_style):
+            run = tuple(items)
+            left = min(g.bounds.left for g in run)
+            right = max(g.bounds.right for g in run)
+            for glyph in run:
+                spans[glyph.object.id] = _line_x(glyph, left, right)
+    return spans
+
+
+def _scanline_brush(
+    source: LyricMaterial, target: LyricTarget, span: tuple[float, float] | None,
+    fallback: PaintField | None,
+) -> PaintField | None:
+    selected = _style_material(source, target.source_style)
+    if isinstance(selected, LyricGradient) and selected.axis == "x" and span is not None:
+        return selected._between(*span)
+    return fallback
+
+
 def _brighten_gradient(material: LinearGradient, strength: float) -> LinearGradient:
     def ramp(colors: ColorRamp | None) -> ColorRamp | None:
         return (
@@ -452,6 +479,7 @@ class KaraokeEffects:
     sung: Color = Color(255, 90, 111)
     unsung: Color = Color(255, 255, 255)
     material: LyricMaterial = None
+    base_material: LyricMaterial = None
     glow: LyricGlow = None
     base_glow: LyricGlow = None
     particle_color: Color | None = None
@@ -603,6 +631,7 @@ class KaraokeEffects:
             wipe=self.singing != "no_wipe",
             base_paint=StatePatch(fill=self.unsung, outline=self.unsung_outline),
             material=self.material,
+            base_material=self.base_material,
             glow=self.glow,
             base_glow=self.base_glow,
             hook_feather=self.hook_feather,
@@ -780,6 +809,7 @@ class KaraokeEffects:
         top: float,
         bottom: float,
         material: PaintField | None,
+        before_material: PaintField | None,
     ) -> Iterator[TextObject]:
         ratio = line.layout.script_height / 1080
         band = self.scanline_width or max(1, round(16 * ratio))
@@ -801,7 +831,7 @@ class KaraokeEffects:
                 _brighten(
                     self.unsung_outline or node.state.outline, self.scanline_brightness
                 ),
-                None,
+                before_material,
             )
             after = (
                 _brighten(self.sung, self.scanline_brightness),
@@ -1120,9 +1150,9 @@ class KaraokeEffects:
             return _insert(line, additions)
         # Front and flash copies remain glyph-local and share semantic motion aliases.
         aliases: dict[str, list[str]] = {}
-        painted_nodes = (
-            {n.id: n for n in _walk(line)} if self.material is not None else {}
-        )
+        painted_nodes = {n.id: n for n in _walk(line)} if (
+            self.material is not None or self.base_material is not None
+        ) else {}
         glyphs = tuple(line._glyph_regions(automatic=True))
         # At unit boundaries the moving band can still intersect ink on either side.
         # Use the nearest edge glyph's measured sweep when tracking across added spacing.
@@ -1133,21 +1163,34 @@ class KaraokeEffects:
                     passes = _sweeps(target, box)
                     first, _ = body_edges.get(unit, (passes, passes))
                     body_edges[unit] = first, passes
+        run_spans = _scanline_run_spans(line) if "scanline" in self.singing else {}
         for target, glyph, unit, box in glyphs:
             node = nodes[target.node_id]
             if not isinstance(node, TextObject) or not node.text.strip():
                 continue
             material: PaintField | None = None
+            span = run_spans.get(glyph.object.id)
+            if span is not None and self.singing == "zoom_pulse_scanline":
+                span = (0, 2 * target.center.x)
+            before_material = None
             if self.scanline_mode == "role":
-                material = _resolve_material(self.scanline_material, line, target)
+                source = _style_material(self.scanline_material, target.source_style)
+                material = _scanline_brush(source, target, span, None)
+                if material is None:
+                    material = _resolve_material(source, line, target)
                 if isinstance(material, LinearGradient) and material.fill is not None:
                     material = replace(material, outline=material.fill)
-            elif self.scanline_mode in {"follow_after", "brighten"} and painted_nodes:
-                for alias in target.aliases:
-                    source = painted_nodes[alias].material
-                    if isinstance(source, LinearGradient):
-                        material = _brighten_gradient(source, self.scanline_brightness)
-                        break
+            elif self.scanline_mode in {"brighten", "follow_before", "follow_after"} and painted_nodes:
+                if self.scanline_mode != "follow_after":
+                    field = _scanline_brush(self.base_material, target, span, painted_nodes[target.node_id].material)
+                    if isinstance(field, LinearGradient):
+                        before_material = _brighten_gradient(field, self.scanline_brightness)
+                if self.scanline_mode != "follow_before":
+                    sung = next((painted_nodes[a].material for a in target.aliases
+                                 if isinstance(painted_nodes[a].material, LinearGradient)), None)
+                    field = _scanline_brush(self.material, target, span, sung)
+                    if isinstance(field, LinearGradient):
+                        material = _brighten_gradient(field, self.scanline_brightness)
             if "scanline" in self.singing:
                 assert glyph.layout_scale is not None
                 scale = glyph.layout_scale
@@ -1182,6 +1225,7 @@ class KaraokeEffects:
                         top,
                         bottom,
                         material,
+                        before_material,
                     ):
                         additions.setdefault(node.id, []).append(front)
                         aliases.setdefault(target.id, []).append(front.id)

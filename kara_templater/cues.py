@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Protocol
 
@@ -13,6 +13,7 @@ from .composition import Color, Paint
 from .document_text import CueMarker
 from .geometry import Vec2, VectorPath, finite
 from .layout import text_extents
+from .lyric_highlights import LyricGradient
 from .scene import (
     Lifetime,
     ObjectGroup,
@@ -37,7 +38,7 @@ class CueContext:
 
     Factories create local objects for that interval. host is the measured text
     cluster at the marker (the final cluster for an end marker), when available. colors supplies the before/after paint for the first nonblank role.
-    role_em is that role’s measured em in script pixels.
+    role_em is that role’s measured em in script pixels. base_gradient and gradient supply its unsung and sung fill ramps.
     zoom_pulse_curve_level selects the lyric zoom curve for cue steps, or None for steady size.
     """
 
@@ -50,6 +51,8 @@ class CueContext:
     colors: PaintPair = _DEFAULT_COLORS
     zoom_pulse_curve_level: int | None = None
     role_em: float | None = None
+    gradient: LyricGradient | None = None
+    base_gradient: LyricGradient | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +67,14 @@ class CueContent:
         finite(self.width, self.height)
         if self.width < 0 or self.height < 0:
             raise ValueError("cue dimensions cannot be negative")
+
+
+@dataclass(frozen=True)
+class _SharedGradientCue(CueContent):
+    """A cue whose fill can use the lyric span once all inline slots are measured."""
+
+    ink_left: float
+    paint_span: Callable[[float, float], tuple[SceneObject, ...]]
 
 
 class CueFactory(Protocol):
@@ -371,7 +382,26 @@ def bind_cues(
             else replace(item.ink_bounds, left=item.ink_bounds.left + dx)
         )
         characters.append(replace(item, object=obj, bounds=box, ink_bounds=ink))
+    body_bounds = _union(tuple(item.bounds for item in characters))
     inline_placements = tuple(p for p in placements if p.marker.placement == "inline")
+    shared = {
+        p.marker.id: p.position.x + p.content.ink_left for p in inline_placements
+        if p.marker.offset == 0 and isinstance(p.content, _SharedGradientCue) and characters
+    }
+    gradient_left = min(shared.values(), default=body_bounds.left)
+    # The prefix brush ends at the last advance of its associated role.
+    gradient_right = max((g.bounds.right for g in characters
+                          if role is not None and g.source_style == role.source_style),
+                         default=body_bounds.right) if shared else body_bounds.right
+    painted: dict[str, CuePlacement] = {}
+    for index, placement in enumerate(inline_placements):
+        content = placement.content
+        if placement.marker.id in shared and isinstance(content, _SharedGradientCue):
+            x = placement.position.x
+            objects = content.paint_span(gradient_left - x, gradient_right - x)
+            painted[placement.marker.id] = replace(placement, content=replace(content, objects=objects))
+            inline[index] = replace(inline[index], children=objects)
+    placements = [painted.get(p.marker.id, p) for p in placements]
     inline = [
         _released(group, inline_placements[:index])
         for index, group in enumerate(inline)
@@ -379,7 +409,8 @@ def bind_cues(
     bound = replace(
         layout,
         characters=tuple(characters),
-        bounds=_union(tuple(item.bounds for item in characters)),
+        bounds=body_bounds,
+        _gradient_left=gradient_left if shared else None,
     )
     return CuedLayout(bound, tuple(placements), tuple(inline), tuple(independent))
 

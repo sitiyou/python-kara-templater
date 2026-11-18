@@ -114,7 +114,7 @@ Measured editable text objects with decoded source ranges, singing spans, bounds
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/scene_text.py#L52)
+[Source](../../kara_templater/scene_text.py#L53)
 
 ```python
 DocumentLayout(
@@ -464,6 +464,7 @@ PositionedText(
     fonts: tuple[FontFace, ...],
     layout_scale: Vec2 | None = None,
     baseline: float | None = None,
+    source_style: str | None = None,
 )
 ```
 
@@ -479,6 +480,7 @@ PositionedText(
 | `fonts` | `tuple[FontFace, ...]` | `required` |
 | `layout_scale` | `Vec2 \| None` | `None` |
 | `baseline` | `float \| None` | `None` |
+| `source_style` | `str \| None` | `None` |
 
 ### PositionedText.em_size
 
@@ -632,7 +634,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L365)
+[Source](../../kara_templater/scene_text.py#L368)
 
 ```python
 layout_document_text(

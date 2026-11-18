@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from functools import partial
 from typing import Literal
@@ -32,13 +32,38 @@ type LyricGlow = (
     | None
 )
 
-type LyricMaterial = (
-    PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None
-)
+type _ResolvedStyleMaterial = PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None
+type LyricMaterial = _ResolvedStyleMaterial | Mapping[str, LyricGradient]
 
 
-def _resolve_material(source: LyricMaterial, line: LyricLine, target: LyricTarget) -> PaintField | None:
+def _style_material(source: LyricMaterial, style: str | None) -> _ResolvedStyleMaterial:
+    if isinstance(source, Mapping):
+        gradient = source.get(style) if style is not None else None
+        if gradient is not None and not isinstance(gradient, LyricGradient):
+            raise TypeError("style material must be a LyricGradient")
+        return gradient
+    return source
+
+
+def _resolve_material(
+    source: LyricMaterial, line: LyricLine, target: LyricTarget,
+    character: PositionedText | None = None,
+) -> PaintField | None:
+    source = _style_material(source, target.source_style)
     value = source(line, target) if callable(source) else source
+    if (character is not None and isinstance(source, LyricGradient)
+            and source.axis == "x" and isinstance(value, LinearGradient)):
+        # A body-wide brush only needs its stops under this glyph's fill.
+        # Include overhangs and an antialiasing pixel on either edge.
+        assert value.fill is not None and character.layout_scale is not None
+        ink = character.ink_bounds or character.bounds
+        left = (ink.left - character.bounds.left) / character.layout_scale.x - 1
+        right = (ink.right - character.bounds.left) / character.layout_scale.x + 1
+        value = replace(value, fill=ColorRamp((
+            ColorStop(left, value.fill.at(left)),
+            *(s for s in value.fill.stops if left < s.position < right),
+            ColorStop(right, value.fill.at(right)),
+        )))
     if value is not None and not isinstance(value, PaintField):
         raise TypeError("lyric material factory must return a PaintField or None")
     return value
@@ -46,7 +71,8 @@ def _resolve_material(source: LyricMaterial, line: LyricLine, target: LyricTarge
 
 @dataclass(frozen=True)
 class LyricGradient:
-    """Evenly spaced vertical colors attached to each measured body/ruby glyph.
+    """Evenly spaced colors on measured lyrics. Vertical colors span each glyph.
+    Horizontal colors span all body glyphs sharing an ASS style and their readings.
 
     Pass as material to LyricHighlights.from_singing. Coordinates are derived
     from undecorated glyph bounds, independent of glow/outline;
@@ -56,8 +82,11 @@ class LyricGradient:
 
     colors: tuple[Color, ...]
     step: int = 1
+    axis: Literal["x", "y"] = "y"
 
     def __post_init__(self) -> None:
+        if self.axis not in ("x", "y"):
+            raise ValueError("lyric gradient axis must be x or y")
         if len(self.colors) < 2 or not all(isinstance(c, Color) for c in self.colors):
             raise ValueError("lyric gradient needs at least two Color values")
         if type(self.step) is not int or self.step < 1:
@@ -65,15 +94,23 @@ class LyricGradient:
 
     def __call__(self, line: LyricLine, target: LyricTarget) -> LinearGradient:
         """Resolve a local fill gradient once during lyric preparation."""
-        extent = 2 * target.center.y
+        left, right = 0.0, 2 * target.center.y
+        if self.axis == "x":
+            if target._line_x is None:
+                raise ValueError("horizontal lyric gradient needs a measured lyric target")
+            left, right = target._line_x
+        return self._between(left, right)
+
+    def _between(self, left: float, right: float) -> LinearGradient:
+        extent = right - left
         if extent <= 0:
             raise ValueError("lyric gradient needs a positive measured glyph extent")
         return LinearGradient(
             fill=ColorRamp(tuple(
-                ColorStop(extent * index / (len(self.colors) - 1), color)
+                ColorStop(left + extent * index / (len(self.colors) - 1), color)
                 for index, color in enumerate(self.colors)
             )),
-            axis="y", step=self.step, space="local",
+            axis=self.axis, step=self.step, space="local",
         )
 
 
@@ -291,6 +328,7 @@ class _FeatheredSingingClip(RectangleClip):
     width: float
     unsung_fill: Color
     unsung_outline: Color
+    unsung_gradient: LinearGradient | None = None
     front_color: Color | None = None
 
 
@@ -463,6 +501,7 @@ class LyricHighlights:
     glow: LyricGlow = None
     settings: RasterSettings = RasterSettings()
     base_paint: StatePatch = StatePatch()
+    base_material: LyricMaterial = None
     hook_feather: float = 0
     front_color: Color | None = None
 
@@ -489,6 +528,7 @@ class LyricHighlights:
         glow: LyricGlow = None,
         base_glow: LyricGlow = None,
         base_paint: StatePatch | None = None,
+        base_material: LyricMaterial = None,
         material: LyricMaterial = None,
         strategy: Literal["clip", "coverage"] = "clip",
         hook_feather: float = 0,
@@ -504,7 +544,7 @@ class LyricHighlights:
         Known rectangle keyframes allow continuous native ASS lowering. Repeated
         intervals retain the general ownership evaluator; coverage keeps its
         color-before-blur semantics. Source singing clocks never change.
-        material applies only to the sung drawing, leaving the separate glow
+        base_material paints the unsung drawing. material paints the sung drawing, leaving the separate glow
         color intact. It accepts a PaintField or a (line, target) factory called
         once during preparation; use LyricGradient for measured vertical colors.
         Materials require clip strategy. Local gradients currently require a
@@ -516,6 +556,7 @@ class LyricHighlights:
         return cls(
             highlights=_SingingHighlights(paint, glow, material, wipe),
             glow=base_glow,
+            base_material=base_material,
             hook_feather=hook_feather,
             front_color=front_color,
             strategy=strategy,
@@ -631,11 +672,12 @@ class LyricHighlights:
                 replace(
                     highlight,
                     glow=_resolve_glow(highlight.glow, line, target),
-                    material=_resolve_material(highlight.material, line, target),
+                    material=_resolve_material(highlight.material, line, target, character),
                 )
                 for highlight in chosen
             )
-            if self.strategy == "coverage" and any(h.material is not None for h in chosen):
+            before_material = _resolve_material(self.base_material, line, target, character)
+            if self.strategy == "coverage" and (before_material is not None or any(h.material is not None for h in chosen)):
                 raise ValueError("highlight materials require clip strategy")
             base_glow = _resolve_glow(self.glow, line, target)
             if self.strategy == "clip" and any(
@@ -705,11 +747,11 @@ class LyricHighlights:
                 piece = node.copy(id=identity)
                 if highlight is None:
                     piece = replace(
-                        piece, state=self.base_paint.interpolate(piece.state, 1)
+                        piece, state=self.base_paint.interpolate(piece.state, 1), material=before_material,
                     )
                 else:
                     material = highlight.material
-                    assert not callable(material)
+                    assert not callable(material) and not isinstance(material, Mapping)
                     piece = replace(
                         piece,
                         state=highlight.paint.interpolate(piece.state, 1),
@@ -780,6 +822,7 @@ class LyricHighlights:
                                 width=self.hook_feather / scale.x,
                                 unsung_fill=unsung.fill,
                                 unsung_outline=unsung.outline,
+                                unsung_gradient=before_material if isinstance(before_material, LinearGradient) else None,
                                 front_color=self.front_color,
                             ),
                         )
@@ -802,6 +845,7 @@ class LyricHighlights:
                                     piece.clip,
                                     unsung_fill=base_glow.color,
                                     unsung_outline=base_glow.color,
+                                    unsung_gradient=None,
                                     front_color=None,
                                 )
                                 if isinstance(piece.clip, _FeatheredSingingClip)

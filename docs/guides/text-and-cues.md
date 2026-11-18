@@ -78,10 +78,17 @@ To reuse a fixed role palette across tracks, pass a `PaintPair` to
 hard outline, use a `Glow` with zero blur and an outer radius larger than the
 main outline. For example, with a 2 px main outline, `Glow(border=8, blur=0)`
 adds a 6 px outer ring to the lyric. The cue scales that extra width to its
-own size. Its layout slot stays fixed when the ring changes color. On a
+own size. A positive blur softens a ring around the contour, even with both
+outline widths set to zero. Its layout slot stays fixed when the ring changes color. On a
 `KaraokeEffects` recipe, `base_glow` supplies the unsung layer and `glow`
 the sung layer. Explicit cue colors override their respective channels.
-Gradient fills and callback-generated decorations need a custom cue drawing.
+For a sung gradient use `KaraokeEffects(material=LyricGradient(colors, axis="x"))`.
+Leading inline volume columns share the first nonblank singer’s horizontal ramp.
+When the line changes styles, the columns extend only to that singer’s last advance.
+Columns switch from `base_material` to `material` on their individual fill steps.
+A separate lamp row uses the sung palette and spans all of its original slots, so the remaining lamps
+keep their colors during countdown. Explicit cue colors take precedence.
+Callback-generated decorations need a custom cue drawing.
 
 ### Choose the countdown order
 

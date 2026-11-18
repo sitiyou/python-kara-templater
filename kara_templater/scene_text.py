@@ -34,6 +34,7 @@ class PositionedText:
     layout_scale: Vec2 | None = None
     _gap_shift: float = 0
     baseline: float | None = None
+    source_style: str | None = None
 
     @property
     def em_size(self) -> float:
@@ -63,6 +64,7 @@ class DocumentLayout:
     characters: tuple[PositionedText, ...]
     singing: tuple[SingingSpan, ...]
     bounds: Box
+    _gradient_left: float | None = None
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
         """Collect measured text objects into an editable group with the layout lifetime."""
@@ -348,6 +350,7 @@ def _layout_document_view(
                     character.ink_bounds,
                     character.font_faces,
                     baseline=(height - descent) / obj.state.scale.y,
+                    source_style=appearance.style,
                 )
             )
         x += width

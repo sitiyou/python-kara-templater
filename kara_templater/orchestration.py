@@ -21,7 +21,7 @@ from .document_text import DocumentText
 from .geometry import finite
 from .import_ass import SOURCE_PREFIX, SourceBinding, source_marker, source_prefix
 from .karaoke_effects import KaraokeEffects
-from .lyric_highlights import LyricHighlights
+from .lyric_highlights import LyricGradient, LyricHighlights, _style_material
 from .lyric_layout import (
     KaraokeRows,
     Layout,
@@ -311,7 +311,7 @@ def _stamp(node: SceneObject, source: str, track: str) -> SceneObject:
 
 
 def _cue_presets(
-    presets: Mapping[str, CuePreset], recipe: KaraokeEffects | None
+    presets: Mapping[str, CuePreset], recipe: KaraokeEffects | None, role_style: str | None
 ) -> dict[str, CuePreset]:
     """Measure and bind each cue from the same factory result within one line."""
     result: dict[str, CuePreset] = {}
@@ -331,7 +331,11 @@ def _cue_presets(
                     replace(after, fill=recipe.sung, outline=recipe.sung_outline or after.outline,
                                 glow=recipe.glow if isinstance(recipe.glow, Glow) else None),
                 )
-                context = replace(context, colors=colors)
+                material = _style_material(recipe.material, role_style)
+                gradient = material if isinstance(material, LyricGradient) else None
+                base = _style_material(recipe.base_material, role_style)
+                context = replace(context, colors=colors, gradient=gradient,
+                                  base_gradient=base if isinstance(base, LyricGradient) else None)
             if recipe is not None and recipe.singing.startswith("zoom_pulse"):
                 context = replace(context, zoom_pulse_curve_level=recipe.zoom_pulse_curve_level)
             return original(context)
@@ -488,7 +492,8 @@ def prepare_tracks(
                 reserved_border=border,
                 ruby_gap=track.ruby_gap,
             )
-            local_presets = _cue_presets(track.cues, recipe)
+            role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)
+            local_presets = _cue_presets(track.cues, recipe, role_style)
             cued = bind_lyric_cues(bare, local_presets)
             bindings = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,

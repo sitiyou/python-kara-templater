@@ -312,6 +312,10 @@ def test_role_paint_switches_both_volume_strokes_without_changing_column_slots()
     assert isinstance(group, ObjectGroup)
     layers = [n for n in group.children if isinstance(n, PathObject) and "/column:1:" in n.id]
     old_ring, old_body, new_ring, new_body = layers
+    # The second column's outer ink can cover the first one's body.
+    column_zero = next(n for n in group.children if isinstance(n, PathObject) and "/column:0:" in n.id and n.filled)
+    ordered = sorted(group.children, key=lambda n: n.layer)
+    assert ordered.index(column_zero) < ordered.index(old_ring) < ordered.index(old_body)
     assert old_body.state.position == new_body.state.position
     assert old_ring.state.position == new_ring.state.position
     assert not old_ring.filled and not new_ring.filled
@@ -323,3 +327,36 @@ def test_role_paint_switches_both_volume_strokes_without_changing_column_slots()
     assert isinstance(lamp, ObjectGroup)
     assert lamp.children[0].state.border == 6
     assert lamp.children[0].state.outline == new_ring.state.outline
+
+
+def test_strokeless_signal_renders_a_soft_glow_outside_the_body():
+    from dataclasses import replace
+
+    from kara_templater import (
+        Color,
+        CueContext,
+        EventOrigin,
+        Glow,
+        ObjectGroup,
+        Paint,
+        PaintPair,
+        SignalCue,
+        SourceRef,
+        VisualState,
+    )
+    from kara_templater._raster import rasterize
+
+    red, blue = Color(255, 0, 0), Color(0, 0, 255)
+    palette = PaintPair(Paint(), Paint(fill=red, border=0, glow=Glow(blue, blur=6)))
+    context = CueContext("cue", Lifetime(0, 2), (0, 2), EventOrigin((SourceRef("voice"),), "cue"),
+                         colors=palette, role_em=40)
+    lamp, = SignalCue(shape="square", size=40, border=0, edge_brightness=0)(context).objects
+    assert isinstance(lamp, ObjectGroup)
+    lamp = replace(lamp, state=VisualState(position=Vec2(16, 16)))
+    scene = Scene(Document.create(width=80, height=80)).add(lamp)
+    rgba = rasterize(scene.compile().document.dumps(), 0, (80, 80)).rgba
+    outer = (36 * 80 + 12) * 4
+    center = (36 * 80 + 36) * 4
+    # Six-pixel-wide pen convolved with a sigma-6 Gaussian, 3.5 px outside.
+    assert rgba[outer + 2] > 0 and 77 <= rgba[outer + 3] <= 89
+    assert tuple(rgba[center:center + 4]) == (255, 0, 0, 255)

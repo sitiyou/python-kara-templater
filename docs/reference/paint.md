@@ -192,7 +192,7 @@ Glow(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L157)
+[Source](../../kara_templater/lyric_highlights.py#L194)
 
 ```python
 Highlight(
@@ -204,7 +204,7 @@ Highlight(
     repeat: Literal['hold', 'reset'] = 'hold',
     end: Literal['hold', 'hide'] = 'hold',
     glow: LyricGlow = None,
-    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
+    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
 )
 ```
 
@@ -220,7 +220,7 @@ Highlight(
 | `repeat` | `Literal['hold', 'reset']` | `'hold'` |
 | `end` | `Literal['hold', 'hide']` | `'hold'` |
 | `glow` | `LyricGlow` | `None` |
-| `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None` | `None` |
+| `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 
 ### Highlight.regions
 
@@ -243,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L870)
+[Source](../../kara_templater/lyric_highlights.py#L914)
 
 ```python
 HighlightArrival(
@@ -287,7 +287,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L95)
+[Source](../../kara_templater/lyric_highlights.py#L132)
 
 ```python
 HighlightPass(
@@ -341,7 +341,7 @@ An x/y gradient for fill, outline, or both; screen coordinates by default.
 Integer step controls color band width and the declared maximum band count.
 Local space attaches colors to the drawing during scale/translation. It
 currently requires an ordinary positive axis-aligned drawing with a local,
-non-inverse RectangleKeyframes clip fixed along the color axis, no parent
+non-inverse RectangleKeyframes clip, no parent
 masks, and no coverage material composition. Unsupported combinations raise
 instead of silently changing coordinate spaces. With native_tweens, eligible
 scale/opacity curves and a single move share native band events.
@@ -410,19 +410,21 @@ type LyricGlow = Glow | GlowFunction | Callable[[LyricLine, LyricTarget], Glow |
 
 ## LyricGradient
 
-Evenly spaced vertical colors attached to each measured body/ruby glyph.
+Evenly spaced colors on measured lyrics. Vertical colors span each glyph.
+Horizontal colors span all body glyphs sharing an ASS style and their readings.
 
 Pass as material to LyricHighlights.from_singing. Coordinates are derived
 from undecorated glyph bounds, independent of glow/outline;
 step is color-band width in local script pixels. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyric_highlights.py#L47)
+[Source](../../kara_templater/lyric_highlights.py#L72)
 
 ```python
 LyricGradient(
     colors: tuple[Color, ...],
     step: int = 1,
+    axis: Literal['x', 'y'] = 'y',
 )
 ```
 
@@ -432,6 +434,7 @@ LyricGradient(
 | --- | --- | --- |
 | `colors` | `tuple[Color, ...]` | `required` |
 | `step` | `int` | `1` |
+| `axis` | `Literal['x', 'y']` | `'y'` |
 
 ### LyricGradient.__call__
 
@@ -463,7 +466,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L440)
+[Source](../../kara_templater/lyric_highlights.py#L478)
 
 ```python
 LyricHighlights(
@@ -474,6 +477,7 @@ LyricHighlights(
     glow: LyricGlow = None,
     settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
     base_paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
+    base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     hook_feather: float = 0,
     front_color: Color | None = None,
 )
@@ -489,6 +493,7 @@ LyricHighlights(
 | `glow` | `LyricGlow` | `None` |
 | `settings` | `RasterSettings` | `RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128)` |
 | `base_paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
+| `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `hook_feather` | `float` | `0` |
 | `front_color` | `Color \| None` | `None` |
 
@@ -516,7 +521,7 @@ separate 20 ms shoulders before/after singing, reserved automatically.
 Known rectangle keyframes allow continuous native ASS lowering. Repeated
 intervals retain the general ownership evaluator; coverage keeps its
 color-before-blur semantics. Source singing clocks never change.
-material applies only to the sung drawing, leaving the separate glow
+base_material paints the unsung drawing. material paints the sung drawing, leaving the separate glow
 color intact. It accepts a PaintField or a (line, target) factory called
 once during preparation; use LyricGradient for measured vertical colors.
 Materials require clip strategy. Local gradients currently require a
@@ -533,7 +538,8 @@ LyricHighlights.from_singing(
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     base_paint: StatePatch | None = None,
-    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
+    base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
+    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     strategy: Literal['clip', 'coverage'] = 'clip',
     hook_feather: float = 0,
     front_color: Color | None = None,
