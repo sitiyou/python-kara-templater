@@ -5,10 +5,11 @@ Its two visual layers share a layout and the original singing clock. Set the
 row geometry for the song, then inspect a short and a held syllable against
 both light and dark frames.
 
-At 1920 × 1080 the upper row starts 50 px from the left and the lower row
-ends 50 px from the right. The bottom inset is 60 px. The allocator uses the
-tallest measured line in the Track and leaves 45 px between row boxes, including
-space for ruby and inline cues. These margins and the gap scale with script
+At 1920 × 1080 the default two-row layout has 50 px side margins and a 60 px
+bottom inset. Short lines move inward together according to their widths,
+including any inline cue. The grid uses the track's body ascent, descent and
+hard outlines, with 45 px between body boxes. A top-anchored track reserves
+reading space above the first baseline across pages. Margins and row spacing scale with script
 height. The source styles supply the actual fonts and sizes. Studio's own
 typographic reference at this resolution is 100 px body and 45 px ruby.
 For main, harmony and ruby typeface choices, see [Choose a typeface for sung lyrics](../guides/fonts-and-preview.md#choose-a-typeface-for-sung-lyrics).

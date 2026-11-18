@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from math import cos, pi, radians, sin, tan
+from math import cos, pi, pow, radians, sin, tan
 
 from .easing import ease_out
 from .geometry import Vec2
@@ -68,6 +68,23 @@ def _scatter(index: int, seed: int, em: float) -> tuple[Vec2, float]:
     return Vec2(cos(angle), sin(angle)) * travel, (unit_hash(seed, 3) - 0.5) * 720
 
 
+def zoom_pulse(note: float, duration: float, level: int, pivot: Vec2) -> Transform:
+    """Grow during the sung step and release over 0.30 seconds if still visible."""
+    exponent = max(1, level)
+
+    def scale(progress: float) -> float:
+        t = progress * duration
+        if t <= note:
+            return 1.25 - 0.25 * pow(1 - min(1, t / note), exponent)
+        return 1.25 - 0.25 * pow(min(1, (t - note) / 0.30), exponent)
+
+    return Transform(scale=scale, pivot=pivot)
+
+
+def glow_scale(q: float, entering: bool) -> Vec2:
+    return Vec2(1 + 0.6 * (1 - q if entering else q), 1)
+
+
 def stretch(entering: bool, pivot: Vec2) -> Transform:
     return Transform(
         scale=lambda p: Vec2(
@@ -117,7 +134,6 @@ def transition(
 
     def sample(base: VisualState, p: float) -> VisualState:
         q = smooth_rate(p)
-        remaining = 1 - q if entering else q
         opacity = min(1, p * 4) if entering else 1 - q
         offset, scale, rotation, shear = Vec2(), Vec2(1, 1), 0.0, 0.0
         pivot = center
@@ -196,7 +212,7 @@ def transition(
                             skew=combined.skew,
                         )
             case "glow_in" | "glow_out":
-                scale = Vec2(1 + 0.6 * remaining, 1)
+                scale = glow_scale(q, entering)
                 opacity = min(1, 3 * p) if entering else 1 - q
             case "assemble_in":
                 opacity = max(0, (q - 0.45) / 0.55)

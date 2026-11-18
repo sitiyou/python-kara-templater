@@ -4,9 +4,11 @@ import sys
 from pathlib import Path
 
 from kara_templater import (
+    Color,
     CueMarker,
     CuePreset,
     Document,
+    Glow,
     KaraokeEffects,
     KaraokeRows,
     Line,
@@ -61,7 +63,11 @@ def build() -> LyricScene:
                         gap=5,
                     )
                 },
-                effects=(KaraokeEffects(singing="none"),),
+                effects=(KaraokeEffects(
+                    singing="none",
+                    base_glow=Glow(color=Color.hex("#9675BD"), border=5),
+                    glow=Glow(color=Color.hex("#FFCB86"), border=5),
+                ),),
             ),
             Track(
                 id="harmony",
@@ -77,7 +83,10 @@ def build() -> LyricScene:
                         duration=3,
                     )
                 },
-                effects=(KaraokeEffects(singing="none"),),
+                effects=(KaraokeEffects(
+                    singing="none", sung=Color.hex("#23CEAE"),
+                    glow=Glow(color=Color.hex("#436C9C"), border=5),
+                ),),
             ),
         ),
     )

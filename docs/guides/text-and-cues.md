@@ -64,6 +64,25 @@ marker. Their outlines scale with the host font too. Set `height` on `VolumeCue`
 or `size` on `SignalCue` for a fixed size in script pixels. Built-in lamps have a
 small reflection that fades with the lamp. Set `edge_brightness=0` to remove it.
 
+Set a track's solid lyric colors once with `KaraokeEffects`. Lamps use the sung
+fill and outline throughout the countdown. Each column switches from the unsung
+pair to the sung pair as its turn arrives. With source styling alone, the first
+nonblank body run supplies ASS secondary, primary and outline colors. The glyph
+at the marker still determines automatic dimensions.
+With `zoom_pulse` or `zoom_pulse_scanline`, each lamp grows during its own
+countdown step. Each column grows during its fill step and settles over 0.30 s,
+using the same curve level as the sung text.
+
+To reuse a fixed role palette across tracks, pass a `PaintPair` to
+`CuePreset(colors=...)`. The vector cues read its fill, outline, opacity and static glow. For a second
+hard outline, use a `Glow` with zero blur and an outer radius larger than the
+main outline. For example, with a 2 px main outline, `Glow(border=8, blur=0)`
+adds a 6 px outer ring to the lyric. The cue scales that extra width to its
+own size. Its layout slot stays fixed when the ring changes color. On a
+`KaraokeEffects` recipe, `base_glow` supplies the unsung layer and `glow`
+the sung layer. Explicit cue colors override their respective channels.
+Gradient fills and callback-generated decorations need a custom cue drawing.
+
 ### Choose the countdown order
 
 The marker's `placement` sets where the cue appears. Its preset's factory

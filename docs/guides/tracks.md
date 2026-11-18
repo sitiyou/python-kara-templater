@@ -13,7 +13,9 @@ origin or use another row count, pass an explicit `Layout`. See the
 
 Use `KaraokeRows(rows=3)` for a measured left/center/right rotation or
 `KaraokeRows(rows=2, anchor="top")` for upper harmony. The one-to-eight-row
-presets scale margins and inter-row space to script height. For explicit lanes,
+presets scale margins and inter-row space to script height. They align body
+baselines across pages. Top-anchored rows leave space for readings even on
+lines without ruby. Body height and hard outlines set the row pitch. For explicit lanes,
 `Layout(rows=2, alignment=("center", "right"), offsets=(Vec2(), Vec2(-20, 8)))`
 adjusts each row inside the track region. Source singing clocks remain the same.
 

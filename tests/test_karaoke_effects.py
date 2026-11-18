@@ -471,6 +471,8 @@ def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
 
 
 def test_stretch_has_sharp_core_and_five_fading_white_halos():
+    from kara_templater import TextObject
+
     scene = subject(
         text=r"{\k100}A",
         entry="stretch_in",
@@ -482,6 +484,7 @@ def test_stretch_has_sharp_core_and_five_fading_white_halos():
     (target,) = line.query("character")
     halos = [n for n in _walk(line) if ":halo:" in n.id]
     assert len(halos) == 5
+    assert all(isinstance(node, TextObject) and node.scale_border for node in halos)
     t = line.lifetime.start + 0.1
     evaluator = scene.evaluator()
     core = evaluator.at(target.node_id, t)
@@ -629,3 +632,18 @@ def test_second_row_particles_follow_synchronized_entry_and_extended_exit():
     assert stars and max(n.lifetime.start for n in stars) < 0.6
     echoes = [n for n in _walk(line) if ":echo:glow_out:" in n.id]
     assert echoes and all(n.lifetime.start == pytest.approx(line.lifetime.end-0.3) for n in echoes)
+
+
+def test_glow_echoes_stretch_with_the_core_and_scale_their_spacing():
+    scene = subject(text=r"{\k100}A", entry="glow_in", entry_duration=0.6,
+                    singing="none", exit="none")
+    line = scene.lines[0]
+    glyph, = line.query("character")
+    echoes = [n for n in _walk(line) if ":echo:glow_in:" in n.id]
+    left = next(n for n in echoes if n.id.endswith(":-1"))
+    right = next(n for n in echoes if n.id.endswith(":1"))
+    time = left.lifetime.start
+    a, b = left.at(time), right.at(time)
+    assert a.scale.x == pytest.approx(1.6)
+    assert glyph.em_size is not None
+    assert b.position.x - a.position.x == pytest.approx(2 * 0.12 * glyph.em_size * 1.6)

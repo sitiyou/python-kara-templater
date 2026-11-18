@@ -6,7 +6,7 @@ from functools import partial
 from math import ceil, pi, sin, sqrt
 from typing import Literal, get_args
 
-from ._karaoke_motion import stretch, transition
+from ._karaoke_motion import glow_scale, stretch, transition, zoom_pulse
 from ._karaoke_sprites import ornament, star_burst
 from .composition import Color
 from .geometry import Vec2, VectorPath, finite
@@ -14,6 +14,7 @@ from .lyric_highlights import (
     LyricGlow,
     LyricHighlights,
     LyricMaterial,
+    _hard_glow_border,
     _resolve_material,
 )
 from .lyric_line import (
@@ -146,7 +147,8 @@ def _walk(node: SceneObject) -> Iterator[SceneObject]:
 
 
 def _insert(
-    line: LyricLine, additions: dict[str, list[SceneObject]], *, reserve: bool = True
+    line: LyricLine, additions: dict[str, list[SceneObject]], *, reserve: bool = True,
+    replacements: dict[str, TextObject] | None = None,
 ) -> LyricLine:
     windows = tuple(
         TimeSpan(node.lifetime.start, node.lifetime.end)
@@ -157,7 +159,7 @@ def _insert(
 
     def visit(node: SceneObject) -> SceneObject:
         if not isinstance(node, ObjectGroup):
-            return node
+            return replacements.get(node.id, node) if replacements else node
         return replace(
             node,
             children=tuple(
@@ -213,6 +215,8 @@ def _stretch_halo(
         copy = replace(
             node,
             id=f"{prefix}:{width}",
+            scale_border=True,
+            filled=False,
             layer=node.layer - 1,
             lifetime=Lifetime(birth, birth + duration),
             clock_start=birth,
@@ -327,23 +331,9 @@ def _utopia(context: LyricAnimationContext) -> ScalePulse:
     )
 
 
-def _zoom(context: LyricAnimationContext, *, level: int) -> StateFunction:
-    duration = context.duration
-    # Includes a 0.30 s release in the same animation, so the captured baseline is stable.
-    note = context.interval.duration if context.interval is not None else duration
-
-    def sample(base: VisualState, p: float) -> VisualState:
-        t = p * duration
-        amount = (
-            1 - (1 - min(1, t / max(note, 0.001))) ** max(1, level)
-            if t <= note
-            else 1 - min(1, (t - note) / 0.30) ** max(1, level)
-        )
-        return Transform(scale=1 + 0.25 * amount, pivot=context.target.center).sample(
-            base, p
-        )
-
-    return StateFunction(sample, frozenset({"position", "scale"}))
+def _zoom(context: LyricAnimationContext, *, level: int) -> Transform:
+    note = context.interval.duration if context.interval is not None else context.duration
+    return zoom_pulse(max(note, 0.001), context.duration, level, context.target.center)
 
 
 def _brighten(color: Color, strength: float) -> Color:
@@ -484,6 +474,10 @@ class KaraokeEffects:
     sung_outline: Color | None = None
     stroke_flash: bool = False
     id: str = "karaoke"
+
+    @property
+    def _hard_border(self) -> float:
+        return max(_hard_glow_border(self.base_glow), _hard_glow_border(self.glow))
 
     @classmethod
     def duotone(
@@ -1021,6 +1015,7 @@ class KaraokeEffects:
         nodes = {node.id: node for node in _walk(line)}
         additions: dict[str, list[SceneObject]] = {}
         line = self._particles(line, nodes, additions, transitions=True)
+        replacements: dict[str, TextObject] = {}
         # Horizontal glow echoes have their own envelope, beneath the sharp glyph.
         for target in line.query("character", "ruby"):
             node = nodes[target.node_id]
@@ -1033,6 +1028,10 @@ class KaraokeEffects:
                 if total <= 0:
                     continue
                 if kind in {"stretch_in", "stretch_out"}:
+                    for alias in (target.node_id, *target.aliases):
+                        ink = nodes[alias]
+                        if isinstance(ink, TextObject):
+                            replacements[alias] = replace(ink, scale_border=True)
                     peers = line.query(target.role)
                     index = peers.index(target)
                     start = (
@@ -1067,15 +1066,12 @@ class KaraokeEffects:
                     def travel(
                         p: float, enter: bool = entering, x: float = distance
                     ) -> Vec2:
-                        return Vec2(
-                            x
-                            * (
-                                1 - 0.25 * smooth_rate(p)
-                                if enter
-                                else 1 + 0.9 * smooth_rate(p)
-                            ),
-                            0,
-                        )
+                        q = smooth_rate(p)
+                        pitch = 1 - 0.25 * q if enter else 1 + 0.9 * q
+                        return Vec2(x * pitch * glow_scale(q, enter).x, 0)
+
+                    def scale(p: float, enter: bool = entering) -> Vec2:
+                        return glow_scale(smooth_rate(p), enter)
 
                     echo = replace(
                         node,
@@ -1097,11 +1093,11 @@ class KaraokeEffects:
                         ),
                     )
                     echo = echo.animate(
-                        Transform(offset=travel, opacity=envelope),
+                        Transform(offset=travel, opacity=envelope, scale=scale, pivot=target.center),
                         duration=travel_duration,
                     )
                     additions.setdefault(node.id, []).append(echo)
-        return _insert(line, additions, reserve=False)
+        return _insert(line, additions, reserve=False, replacements=replacements)
 
     def _ornaments(self, line: LyricLine, nodes: dict[str, SceneObject]) -> LyricLine:
         additions: dict[str, list[SceneObject]] = {}

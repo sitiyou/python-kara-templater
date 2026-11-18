@@ -5,19 +5,22 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
-from functools import cached_property
+from functools import cache, cached_property
 from hashlib import sha256
 from pathlib import Path
 from urllib.parse import quote, unquote
 
 from ._karaoke_motion import RowSlide
+from .appearance import PaintPair
 from .ass import Document, Line, Style
+from .composition import Glow
 from .coverage_animation import GlowFunction
 from .cues import CueContent, CueContext, CueFactory, CuePreset, bind_lyric_cues
 from .document_lyrics import DocumentLyrics, parse_document_lyrics
 from .document_text import DocumentText
 from .geometry import finite
 from .import_ass import SOURCE_PREFIX, SourceBinding, source_marker, source_prefix
+from .karaoke_effects import KaraokeEffects
 from .lyric_highlights import LyricHighlights
 from .lyric_layout import (
     KaraokeRows,
@@ -25,13 +28,14 @@ from .lyric_layout import (
     LayoutContext,
     LayoutLine,
     Placement,
+    _RowMetrics,
     validate_placements,
 )
 from .lyric_line import LyricLine, LyricRule, _LyricBinding
 from .model import Box
 from .scene import Lifetime, ObjectGroup, Scene, SceneObject
 from .scene_animation import TimeSpan
-from .scene_lyrics import LyricLayout, layout_lyrics
+from .scene_lyrics import LyricLayout, _ruby_style, layout_lyrics
 from .scene_output import SceneBudget, _scene_source_records
 from .scene_text import DocumentLayout, _union
 from .sources import EventOrigin, SourceRef
@@ -306,21 +310,31 @@ def _stamp(node: SceneObject, source: str, track: str) -> SceneObject:
     return replace(node, origin=origin)
 
 
-def _cue_presets(presets: Mapping[str, CuePreset]) -> dict[str, CuePreset]:
+def _cue_presets(
+    presets: Mapping[str, CuePreset], recipe: KaraokeEffects | None
+) -> dict[str, CuePreset]:
     """Measure and bind each cue from the same factory result within one line."""
     result: dict[str, CuePreset] = {}
     for name, preset in presets.items():
-        cache: dict[CueContext, CueContent] = {}
-
+        @cache
         def factory(
             context: CueContext,
             *,
             original: CueFactory = preset.factory,
-            memo: dict[CueContext, CueContent] = cache,
+            inherit: bool = preset.colors is None,
         ) -> CueContent:
-            if context not in memo:
-                memo[context] = original(context)
-            return memo[context]
+            if inherit and recipe is not None:
+                before, after = context.colors.before, context.colors.after
+                colors = PaintPair(
+                    replace(before, fill=recipe.unsung, outline=recipe.unsung_outline or before.outline,
+                                glow=recipe.base_glow if isinstance(recipe.base_glow, Glow) else None),
+                    replace(after, fill=recipe.sung, outline=recipe.sung_outline or after.outline,
+                                glow=recipe.glow if isinstance(recipe.glow, Glow) else None),
+                )
+                context = replace(context, colors=colors)
+            if recipe is not None and recipe.singing.startswith("zoom_pulse"):
+                context = replace(context, zoom_pulse_curve_level=recipe.zoom_pulse_curve_level)
+            return original(context)
 
         result[name] = replace(preset, factory=factory)
     return result
@@ -352,6 +366,30 @@ def _reserved_animations(bindings: tuple[_LyricBinding, ...]) -> Lifetime | None
         return None
     return Lifetime(
         min(start for start, _ in intervals), max(end for _, end in intervals)
+    )
+
+
+def _row_metrics(
+    layout: LyricLayout, styles: Mapping[str, Style], gap: float, border: float
+) -> _RowMetrics | None:
+    body = layout.body
+    if not body.characters:
+        return None
+    glyph = body.characters[0]
+    baseline = glyph.bounds.top + (glyph.baseline or 0) * glyph.object.state.scale.y
+    pad = max(border, *(c.object.state.border for c in body.characters))
+    headroom = 0.0
+    by_start = {c.start: c for c in body.characters}
+    for run in body.source.runs:
+        reading = _ruby_style(styles, run.appearance.style)
+        host = by_start.get(run.start, glyph)
+        ratio = host.fonts[0].em_ratio if host.fonts else 1.0
+        em = reading.fontsize * ratio * reading.scale_y / 100
+        headroom = max(headroom, gap + em + 2 * max(border, reading.outline))
+    return _RowMetrics(
+        baseline, baseline - body.bounds.top + pad,
+        body.bounds.top + body.bounds.height - baseline + pad,
+        max(headroom, body.bounds.top - layout.bounds.top),
     )
 
 
@@ -402,6 +440,7 @@ def prepare_tracks(
             ),
         )
         view = Document([*source_document.records, *track.styles], source_document.meta)
+        styles = view.styles
         allocation_inputs: list[LayoutLine] = []
         prepared: dict[str, LyricLine] = {}
         resolved: dict[str, tuple[_LyricBinding, ...]] = {}
@@ -410,9 +449,10 @@ def prepare_tracks(
             + [
                 effect._hard_border
                 for effect in track.effects
-                if isinstance(effect, LyricHighlights)
+                if isinstance(effect, (LyricHighlights, KaraokeEffects))
             ]
         )
+        recipe = next((e for e in track.effects if isinstance(e, KaraokeEffects)), None)
         for track_index, source in enumerate(selected):
             identity = f"track:{quote(track.id, safe='')}/{source.id}"
             spans = tuple(
@@ -448,7 +488,7 @@ def prepare_tracks(
                 reserved_border=border,
                 ruby_gap=track.ruby_gap,
             )
-            local_presets = _cue_presets(track.cues)
+            local_presets = _cue_presets(track.cues, recipe)
             cued = bind_lyric_cues(bare, local_presets)
             bindings = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
@@ -558,6 +598,7 @@ def prepare_tracks(
                     display=display,
                     bounds=_union((line.layout.bounds, *cue_bounds)),
                     em_size=line.query("line")[0].em_size,
+                    _row_metrics=_row_metrics(line.layout, styles, track.ruby_gap, border),
                     entrance=entrance,
                     exit=exit,
                     sources=(SourceRef(source.id),),

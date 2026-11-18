@@ -133,7 +133,7 @@ def test_releasing_cue_before_lyric_birth_is_shared_and_group_preserves_cue_life
 
 def test_volume_flashes_as_a_group_then_fills_and_clears_at_onset():
     from examples.karaoke_signals import build
-    from kara_templater import Color, ObjectGroup
+    from kara_templater import Color, ObjectGroup, PathObject
 
     scene = build()
     cue = next(n for n in scene.plans[0].line.children if "/cue:" in n.id)
@@ -147,8 +147,11 @@ def test_volume_flashes_as_a_group_then_fills_and_clears_at_onset():
         (0.38, 0, 0),
         (0.75, 0, 1),
     ):
-        bars = [n for n in group.children if n.lifetime.contains(time)]
-        assert len(bars) == 3
+        visible = [n for n in group.children if isinstance(n, PathObject) and n.lifetime.contains(time)]
+        bars = [n for n in visible if n.filled]
+        outer = [n for n in visible if not n.filled]
+        assert len(bars) == len(outer) == 3
+        assert sum(n.state.outline == Color.hex("#FFCB86") for n in outer) == covered
         assert sum(n.state.fill == Color(255, 90, 111) for n in bars) == covered
         assert all(
             evaluator.at(n.id, time).opacity == pytest.approx(opacity) for n in bars
@@ -218,3 +221,105 @@ def test_auto_sized_signals_use_font_at_marker_and_explicit_sizes_win():
         markers=(CueMarker("a", "lead", 0), CueMarker("b", "lamp", 1), CueMarker("c", "fixed", 2)),
     )
     assert [cue.content.height for cue in cues.cues] == [34, 17, 24]
+
+
+def test_cues_share_first_visible_role_colors_but_measure_the_marker_host():
+    from kara_templater import (
+        Color,
+        ObjectGroup,
+        Paint,
+        PaintPair,
+        SignalCue,
+        VolumeCue,
+    )
+
+    doc = Document.create(styles=(
+        Style(name="Main", fontname="DejaVu Sans", fontsize=80),
+        Style(name="Harmony", fontname="DejaVu Sans", fontsize=40),
+    ))
+    doc.styles["Harmony"].fields.update(PrimaryColour="&H0000FF", SecondaryColour="&H00FF00",
+                                       OutlineColour="&HFF0000")
+    doc.records.append(Line(style="Main", text=r"{\k20} {\rHarmony\k40}B{\rMain\k40}C",
+                            start_time=1000, end_time=2000))
+    layout = layout_document_lyrics(doc, len(doc.records) - 1)
+    fixed = PaintPair(Paint(Color.hex("#112233")), Paint(Color.hex("#334455")))
+    presets = {
+        "bar": CuePreset(factory=VolumeCue(count=1)),
+        "lamp": CuePreset(factory=SignalCue(edge_brightness=0), colors=fixed),
+    }
+    bound = bind_lyric_cues(layout, presets, markers=(
+        CueMarker("bar", "bar", 2), CueMarker("lamp", "lamp", 2),
+    ))
+    bar, lamp = bound.cues
+    assert bar.content.height == 34
+    bar_group, lamp_group = bar.content.objects[0], lamp.content.objects[0]
+    assert isinstance(bar_group, ObjectGroup) and isinstance(lamp_group, ObjectGroup)
+    assert {(p.state.fill, p.state.outline) for p in bar_group.children} == {
+        (Color.hex("#00FF00"), Color.hex("#0000FF")),
+        (Color.hex("#FF0000"), Color.hex("#0000FF")),
+    }
+    assert lamp_group.children[0].state.fill == fixed.after.fill
+
+
+def test_role_zoom_tracks_each_step_and_releases_completed_volume_column():
+    from kara_templater import (
+        CueContext,
+        EventOrigin,
+        ObjectGroup,
+        SignalCue,
+        SourceRef,
+        VolumeCue,
+    )
+
+    context = CueContext("intro", Lifetime(0, 2), (0, 0.5, 2), EventOrigin((SourceRef("voice"),), "cue"),
+                         zoom_pulse_curve_level=3)
+    lamps = SignalCue(edge_brightness=0)(context).objects
+    first, second = lamps
+    assert isinstance(first, ObjectGroup) and isinstance(second, ObjectGroup)
+    assert first.children[0].at(0.25).scale.x == pytest.approx(1.21875)
+    assert second.children[0].at(0.25).scale.x == 1
+    assert second.children[0].at(1.25).scale.x == pytest.approx(1.21875)
+    (volume,) = VolumeCue(count=2, flashes=0)(context).objects
+    assert isinstance(volume, ObjectGroup)
+    bar = volume.children[0]
+    assert bar.at(1).scale.x == pytest.approx(1.25)
+    assert bar.at(1.15).scale.x == pytest.approx(1.21875)
+    assert bar.at(1.3).scale.x == pytest.approx(1)
+
+
+def test_role_paint_switches_both_volume_strokes_without_changing_column_slots():
+    from kara_templater import (
+        Color,
+        CueContext,
+        EventOrigin,
+        Glow,
+        ObjectGroup,
+        Paint,
+        PaintPair,
+        PathObject,
+        SignalCue,
+        SourceRef,
+        VolumeCue,
+    )
+
+    before = Paint(border=4, glow=Glow(Color.hex("#DD88FF"), border=8))
+    after = Paint(border=2, glow=Glow(Color.hex("#1166FF"), border=12))
+    context = CueContext("role", Lifetime(0, 4), (0, 2, 4),
+                         EventOrigin((SourceRef("voice"),), "cue"),
+                         colors=PaintPair(before, after), role_em=100)
+    bars = VolumeCue(count=2, height=50, flashes=0)(context)
+    group, = bars.objects
+    assert isinstance(group, ObjectGroup)
+    layers = [n for n in group.children if isinstance(n, PathObject) and "/column:1:" in n.id]
+    old_ring, old_body, new_ring, new_body = layers
+    assert old_body.state.position == new_body.state.position
+    assert old_ring.state.position == new_ring.state.position
+    assert not old_ring.filled and not new_ring.filled
+    assert (old_ring.state.outline, new_ring.state.outline) == (Color.hex("#DD88FF"), Color.hex("#1166FF"))
+    assert (old_ring.state.border, old_body.state.border) == (4, 2)
+    # The narrow column caps each pen independently to half the column width.
+    assert (new_ring.state.border, new_body.state.border) == (4, 1)
+    lamp = SignalCue(size=50, edge_brightness=0)(context).objects[0]
+    assert isinstance(lamp, ObjectGroup)
+    assert lamp.children[0].state.border == 6
+    assert lamp.children[0].state.outline == new_ring.state.outline

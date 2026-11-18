@@ -1,10 +1,11 @@
 """Reusable vector signals for karaoke tracks."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import cos, floor, pi, sin
 from typing import Literal
 
-from .composition import Color
+from ._karaoke_motion import zoom_pulse
+from .composition import Color, Paint
 from .cues import CueContent, CueContext
 from .geometry import Contour, CubicSegment, LineSegment, Vec2, VectorPath, finite
 from .scene import Lifetime, ObjectGroup, PathObject
@@ -38,14 +39,55 @@ def _cue_size(explicit: float | None, context: CueContext) -> float:
     return max(4, floor(font_size / 2 + 0.5))
 
 
+def _scaled_radius(radius: float, scale: float, width: float) -> float:
+    # Studio rounds and caps each pen diameter before stacking the strokes.
+    return min(floor(2 * radius * scale + 0.5), width // 2) / 2
+
+
 def _cue_border(
-    explicit: float | None, size: float, width: float, context: CueContext
+    explicit: float | None,
+    size: float,
+    width: float,
+    context: CueContext,
+    paint: Paint | None = None,
 ) -> float:
     if explicit is not None:
         return explicit
     host = context.host
-    pen = floor(2 * host.state.border * size / _host_em(context) + 0.5) if host else 8
-    return min(pen, width // 2) / 2
+    if paint is not None and context.role_em is not None:
+        return _scaled_radius(paint.border, size / context.role_em, width)
+    if host is not None:
+        return _scaled_radius(host.state.border, size / _host_em(context), width)
+    return min(8, width // 2) / 2
+
+
+def _decorated_shape(
+    shape: PathObject, paint: Paint, size: float, width: float, context: CueContext
+) -> tuple[PathObject, ...]:
+    glow = paint.glow
+    if glow is None or glow.opacity == 0:
+        return (shape,)
+    scale = size / (context.role_em or _host_em(context))
+    extra = max(0, glow.border - paint.border)
+    extra_radius = _scaled_radius(extra, scale, width)
+    blur = glow.blur * scale
+    if not extra_radius and not blur:
+        return (shape,)
+    backing = replace(
+        shape,
+        id=shape.id + "/outer",
+        layer=shape.layer - 1,
+        filled=False,
+        state=replace(
+            shape.state,
+            fill=glow.color,
+            outline=glow.color,
+            border=shape.state.border + extra_radius,
+            blur=blur,
+            opacity=shape.state.opacity * glow.opacity,
+        ),
+    )
+    return backing, replace(shape, state=replace(shape.state, shadow=Vec2()))
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -69,9 +111,9 @@ class VolumeCue:
     ratio: float = 3
     spacing: float = 0
     countdown: float | None = None
-    sung: Color = Color(255, 90, 111)
-    unsung: Color = Color(255, 255, 255)
-    outline: Color = Color(34, 34, 34)
+    sung: Color | None = None
+    unsung: Color | None = None
+    outline: Color | None = None
 
     def __post_init__(self) -> None:
         finite(self.flash_ratio, self.ratio, self.spacing)
@@ -128,31 +170,43 @@ class VolumeCue:
             height = first + (last - first) * i / max(1, self.count - 1)
             change = max(life.start, life.end - fill * (1 - i / self.count))
             path = _rounded(width, height, min(width, height) * 0.22)
-            for start, end, color in (
-                (life.start, change, self.unsung),
-                (change, life.end, self.sung),
+            for start, end, color, paint in (
+                (life.start, change, self.unsung, context.colors.before),
+                (change, life.end, self.sung, context.colors.after),
             ):
                 if end <= start:
                     continue
-                bars.append(
-                    PathObject(
-                        id=f"{context.id}/column:{i}:{start}",
-                        lifetime=Lifetime(start, end),
-                        path=path,
-                        state=VisualState(
-                            position=Vec2(edge + i * pitch, (size - height) / 2),
-                            fill=color,
-                            outline=self.outline,
-                            border=border,
-                            shadow=(
-                                host.state.shadow * (size / _host_em(context))
-                                if host
-                                else Vec2(3, 3)
-                            ),
-                        ),
-                        origin=context.origin,
+                animations: tuple[AnimationClip, ...] = ()
+                if start == change and context.zoom_pulse_curve_level is not None:
+                    note = fill / self.count
+                    duration = min(end - start, note + 0.30)
+                    motion = zoom_pulse(
+                        note,
+                        duration,
+                        context.zoom_pulse_curve_level,
+                        Vec2(width / 2, height / 2),
                     )
+                    animations = (AnimationClip(0, duration, motion),)
+                shape = PathObject(
+                    animations=animations,
+                    id=f"{context.id}/column:{i}:{start}",
+                    lifetime=Lifetime(start, end),
+                    path=path,
+                    state=VisualState(
+                        position=Vec2(edge + i * pitch, (size - height) / 2),
+                        fill=color or paint.fill,
+                        outline=self.outline or paint.outline,
+                        opacity=paint.opacity,
+                        border=_cue_border(self.border, size, width, context, paint),
+                        shadow=(
+                            host.state.shadow * (size / _host_em(context))
+                            if host
+                            else Vec2(3, 3)
+                        ),
+                    ),
+                    origin=context.origin,
                 )
+                bars.extend(_decorated_shape(shape, paint, size, width, context))
         group = ObjectGroup(
             id=f"{context.id}/volume",
             lifetime=life,
@@ -230,8 +284,8 @@ class SignalCue:
     size: float | None = None
     transition: float = 0.67
     slide: Vec2 = Vec2()
-    color: Color = Color(255, 90, 111)
-    outline: Color = Color(34, 34, 34)
+    color: Color | None = None
+    outline: Color | None = None
     border: float | None = None
     edge_brightness: float = 0.6
 
@@ -285,7 +339,7 @@ class SignalCue:
                     for i in range(10)
                 )
             )
-        border = _cue_border(self.border, size, size, context)
+        border = _cue_border(self.border, size, size, context, context.colors.after)
         highlight = None
         if self.edge_brightness and isinstance(self.shape, str):
             x, y, radius = {
@@ -314,20 +368,21 @@ class SignalCue:
             )
             lamp_id = f"{context.id}/lamp:{i}"
             life = Lifetime(context.lifetime.start, end)
-            children = [
-                PathObject(
-                    id=f"{lamp_id}/shape",
-                    lifetime=life,
-                    path=path,
-                    origin=context.origin,
-                    state=VisualState(
-                        fill=self.color,
-                        outline=self.outline,
-                        border=border,
-                        shadow=shadow,
-                    ),
-                )
-            ]
+            shape = PathObject(
+                id=f"{lamp_id}/shape",
+                lifetime=life,
+                path=path,
+                origin=context.origin,
+                state=VisualState(
+                    fill=self.color or context.colors.after.fill,
+                    outline=self.outline or context.colors.after.outline,
+                    border=border,
+                    shadow=shadow,
+                ),
+            )
+            children = list(
+                _decorated_shape(shape, context.colors.after, size, size, context)
+            )
             if highlight is not None:
                 children.append(
                     PathObject(
@@ -339,13 +394,27 @@ class SignalCue:
                         layer=1,
                     )
                 )
+            if context.zoom_pulse_curve_level is not None:
+                duration = end - start
+                motion = zoom_pulse(
+                    duration,
+                    duration,
+                    context.zoom_pulse_curve_level,
+                    Vec2(size / 2, size / 2),
+                )
+                children = [
+                    child.animate(motion, at=start - life.start, duration=duration)
+                    for child in children
+                ]
             nodes.append(
                 ObjectGroup(
                     id=lamp_id,
                     lifetime=life,
                     children=tuple(children),
                     origin=context.origin,
-                    state=VisualState(position=origin),
+                    state=VisualState(
+                        position=origin, opacity=context.colors.after.opacity
+                    ),
                     animations=(
                         AnimationClip(
                             end - context.lifetime.start - fade, fade, exit_motion

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from hashlib import sha256
-from math import ceil, floor
+from math import ceil, floor, hypot
 from urllib.parse import quote
 
 from ._scene_clipping import (
@@ -191,11 +191,21 @@ class _Leaf:
     end: float
     evaluator: SceneEvaluator
     force_affine: bool = False
+    affine_pen_scale: Vec2 | None = None
     rectangle_anchor: Vec2 | None = None
     scale_polynomials: tuple[_ScalePolynomial, ...] = ()
     rectangle_states: dict[float, VisualState] = field(
         default_factory=dict, compare=False
     )
+
+    @property
+    def animated_pen(self) -> bool:
+        """Local border radii can vary with scale even without an explicit border tween."""
+        return isinstance(self.node, TextObject) and self.node.scale_border and any(
+            clip.animation.channels & {"border", "scale"}
+            for owner in (*self.parents, self.node)
+            for clip in owner.animations
+        )
 
     @property
     def dynamic(self) -> bool:
@@ -358,6 +368,7 @@ def _native_tween(leaf: _Leaf) -> bool:
     node = leaf.node
     if (
         leaf.evaluator.referenced(node.id)
+        or leaf.animated_pen
         or leaf.affine_paths
         or node.material is not None
         or node.clip is not None
@@ -434,14 +445,19 @@ def _number(value: float) -> str:
     return "0" if result == "-0" else result
 
 
+def _opacity_tags(opacity: float, filled: bool) -> str:
+    alpha = f"&H{round((1 - opacity) * 255):02X}&"
+    return rf"\alpha{alpha}" if filled else rf"\1a&HFF&\3a{alpha}\4a{alpha}"
+
+
 def _tween_tag(
     clip: AnimationClip, target: VisualState, *, start_offset: float = 0,
-    omit_scale: bool = False,
+    omit_scale: bool = False, filled: bool = True,
 ) -> str:
     tags = {
         "scale": rf"\fscx{_number(target.scale.x * 100)}\fscy{_number(target.scale.y * 100)}",
         "rotation": rf"\frz{_number(-target.rotation)}",
-        "opacity": rf"\alpha&H{round((1 - target.opacity) * 255):02X}&",
+        "opacity": _opacity_tags(target.opacity, filled),
         "fill": rf"\1c{_color(target.fill)}\2c{_color(target.fill)}",
         "outline": rf"\3c{_color(target.outline)}",
         "border": rf"\bord{_number(target.border)}",
@@ -465,7 +481,7 @@ def _tween_tags(leaf: _Leaf) -> str:
             replace(
                 clip, start=local_seconds(owner.time_origin + clip.start, leaf.start)
             ),
-            leaf.at(owner.time_origin + clip.end),
+            leaf.at(owner.time_origin + clip.end), filled=leaf.node.filled,
         )
         for owner, clip in sorted(
             (
@@ -566,6 +582,7 @@ def _eased_rectangle_leaf(leaf: _Leaf, *, max_sections: int = 25_000) -> _Leaf:
     clips = _expanded_clips(node.animations)
     if (
         not isinstance(node.clip, RectangleClip)
+        or leaf.animated_pen
         or type(node.clip.deform) is not RectangleKeyframes
         or any(not (
             _rectangle_animation_known((clip,))
@@ -764,6 +781,7 @@ def _native_rectangle(leaf: _Leaf) -> bool:
     if (
         not isinstance(node.clip, RectangleClip)
         or type(node.clip.deform) is not RectangleKeyframes
+        or leaf.animated_pen
         or leaf.affine_paths
         or leaf.evaluator.referenced(node.id)
         or any(parent.clip is not None for parent in leaf.parents)
@@ -1068,7 +1086,7 @@ def _rectangle_events(
             else:
                 tags += _tween_tag(
                     animation, target, start_offset=origin - start / 100,
-                    omit_scale=bool(leaf.scale_polynomials),
+                    omit_scale=bool(leaf.scale_polynomials), filled=leaf.node.filled,
                 )
         for polynomial in leaf.scale_polynomials:
             for (a, initial), (b, final) in zip(
@@ -1287,14 +1305,20 @@ def _color(value: Color) -> str:
     return f"&H{value.blue:02X}{value.green:02X}{value.red:02X}&"
 
 
-def _tags(state: VisualState) -> str:
-    alpha = round((1 - state.opacity) * 255)
+def _tags(state: VisualState, pen_scale: Vec2 | None = None, *, filled: bool = True) -> str:
+    if pen_scale is None or not state.border:
+        border = rf"\bord{_number(state.border)}"
+    else:
+        border = (
+            rf"\xbord{_number(state.border * abs(pen_scale.x))}"
+            rf"\ybord{_number(state.border * abs(pen_scale.y))}"
+        )
     # Rotation is clockwise in the scene; ASS frz is counterclockwise.
     return (
         rf"\fscx{_number(state.scale.x * 100)}\fscy{_number(state.scale.y * 100)}"
         rf"\frz{_number(-state.rotation)}\frx0\fry0\fax{_number(state.skew.x)}\fay{_number(state.skew.y)}"
         rf"\1c{_color(state.fill)}\2c{_color(state.fill)}\3c{_color(state.outline)}\4c&H000000&"
-        rf"\alpha&H{alpha:02X}&\bord{_number(state.border)}\blur{_number(state.blur)}\be0"
+        rf"{_opacity_tags(state.opacity, filled)}{border}\blur{_number(state.blur)}\be0"
         rf"\xshad{_number(state.shadow.x)}\yshad{_number(state.shadow.y)}"
     )
 
@@ -1355,12 +1379,15 @@ def _event(
         assert drawing is not None
         content = drawing.drawing()
         geometry = r"\an7\p1\pbo0"
+    pen_scale = None
+    if isinstance(node, TextObject) and node.scale_border:
+        pen_scale = leaf.affine_pen_scale or state.scale
     return Line(
         text="{"
         + rf"\r{style}\q2"
         + geometry
         + position
-        + _tags(state)
+        + _tags(state, pen_scale, filled=leaf.node.filled)
         + clipping
         + "}"
         + content,
@@ -1463,6 +1490,12 @@ def _painted_events(
             raise ValueError("affine geometry point budget exceeded")
         linear = replace(state.transform, tx=0, ty=0)
         path = path.map(linear.apply)
+        if isinstance(leaf.node, TextObject) and leaf.node.scale_border:
+            # The transformed path is already in screen axes. Preserve the
+            # elliptical pen extents when resetting the ASS glyph transform.
+            leaf = replace(leaf, affine_pen_scale=Vec2(
+                hypot(linear.a, linear.c), hypot(linear.b, linear.d)
+            ))
         state = replace(state, scale=Vec2(1, 1), rotation=0, skew=Vec2())
     if material is None:
         return _PaintedFrame(

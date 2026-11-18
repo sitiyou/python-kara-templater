@@ -12,6 +12,7 @@ from kara_templater import (
     FadeIn,
     FadeOut,
     Jump,
+    KaraokeRows,
     Layout,
     Line,
     LyricAnimationContext,
@@ -108,11 +109,29 @@ def test_default_track_alternates_bottom_rows_and_scales_margins():
     right = 640 - (lower.placement.position.x + b.right)
     assert left == pytest.approx(right)
     assert left > 50 / 3
-    assert lower.placement.position.y + b.top + b.height == pytest.approx(340)
-    assert lower.placement.position.y + b.top - (
-        upper.placement.position.y + a.top + a.height
-    ) == pytest.approx(15)
+    pad = document().styles["Main"].outline
+    upper_body = upper.line.layout.body.bounds
+    lower_body = lower.line.layout.body.bounds
+    assert lower.placement.position.y + (lower_body.top + lower_body.height) + pad == pytest.approx(340)
+    assert lower.placement.position.y + lower_body.top - (
+        upper.placement.position.y + (upper_body.top + upper_body.height)
+    ) == pytest.approx(15 + 2 * pad)
     assert again.placement.position.x + again.input.bounds.center == pytest.approx(320)
+
+
+def test_top_grid_keeps_body_baseline_across_readings_and_reserves_blank_header():
+    doc = document()
+    first, second, *_ = doc.lines
+    second.text = r"{\k100}ABCD"
+    track = main(layout=KaraokeRows(rows=1, anchor="top"), effects=(),
+                 source=lambda s: s.style == "Main" and s.display.start <= 2)
+    annotated, plain = prepare_tracks(doc, tracks=(track,)).plans
+    assert annotated.line.layout.ruby and not plain.line.layout.ruby
+    assert annotated.placement.position.y == pytest.approx(plain.placement.position.y)
+    first.text = second.text
+    without_readings = prepare_tracks(doc, tracks=(track,)).plans[0]
+    larger_gap = prepare_tracks(doc, tracks=(replace(track, ruby_gap=16),)).plans[0]
+    assert larger_gap.placement.position.y - without_readings.placement.position.y == pytest.approx(10)
 
 
 def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerates():
@@ -561,3 +580,14 @@ def test_track_style_overrides_are_measured_before_allocation_and_leave_source_i
     )
     assert source.dumps() == original
     assert larger_style.fontsize == 40
+
+
+@pytest.mark.parametrize("rows", [1, 2])
+def test_center_anchor_uses_reading_headroom_only_for_a_single_row(rows: int):
+    track = main(layout=KaraokeRows(rows=rows, anchor="center"), effects=(),
+                 source=lambda s: s.style == "Main" and s.display.start <= 2)
+    scene = prepare_tracks(document(), tracks=(track,))
+    more_space = prepare_tracks(document(), tracks=(replace(track, ruby_gap=46),))
+    offsets = [b.placement.position.y - a.placement.position.y
+               for a, b in zip(scene.plans, more_space.plans, strict=True)]
+    assert offsets == pytest.approx([20 if rows == 1 else 0] * len(offsets))

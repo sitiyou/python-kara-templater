@@ -55,7 +55,7 @@ and harmony Tracks different materials while sharing one time axis.
 
 ![A three-column inline signal and a separate row of lamps](assets/karaoke-signals.gif)
 
-The inline columns flash together and then recolor. The stars extinguish from
+The inline columns flash together. Each changes its fill and outer outline when its step begins. The stars use the harmony track’s teal sung color and extinguish from
 right to left. Both signals clear when singing begins; the lyric keeps its
 reserved position. [Runnable example](../../examples/karaoke_signals.py).
 

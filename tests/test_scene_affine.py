@@ -338,3 +338,22 @@ def test_layout_keeps_measurement_scale_when_objects_are_mirrored_or_collapsed()
         assert value.left == pytest.approx(
             original.left - (original.width if scale.x < 0 else 0)
         )
+
+
+def test_text_outline_scales_with_the_glyph_only_when_requested():
+    doc = Document.create(width=320, height=240)
+    glyph = TextObject(id="glyph", text="H", lifetime=Lifetime(0, 1),
+                       state=VisualState(position=Vec2(50, 50), border=4))
+    motion = Tween(StatePatch(scale=Vec2(3, 0.5)))
+    fixed = Scene(doc).add(glyph.animate(motion, duration=1)).compile(native_tweens=True)
+    scaled = Scene(doc).add(replace(glyph, scale_border=True).animate(motion, duration=1))
+    result = scaled.compile(native_tweens=True, budget=SceneBudget(fps=10))
+    assert all(r"\xbord" not in event.text for event in fixed.document.lines)
+    # At the midpoint of the 0.50–0.60 s event the glyph is 210% wide, 72.5% tall.
+    event = next(e for e in result.document.lines if not e.comment and e.start_time == 500)
+    assert r"\xbord8.4\ybord2.9" in event.text
+    script = result.document.dumps()
+    fixed_border = script.replace(r"\xbord8.4\ybord2.9", r"\bord4")
+    assert rasterize(script, 550, (320, 240)).rgba != rasterize(
+        fixed_border, 550, (320, 240)
+    ).rgba

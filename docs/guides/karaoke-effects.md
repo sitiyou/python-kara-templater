@@ -103,12 +103,12 @@ its Qt/Direct2D renderer.
 | Studio element | Available in this library | Coverage |
 | --- | --- | --- |
 | Timed lyrics, independent voices, ruby and repeat readings | `Document`, `Track`, `LyricLine` | Source syllable clocks and measured body/ruby. Separate main and harmony tracks can use different styles. |
-| Horizontal lyric lanes | `KaraokeRows`, `Layout.allocate` | One to eight Studio-style rotations, top/bottom blocks, independent row alignment and offsets. Custom allocators handle exceptional lines and lead resets. |
+| Horizontal lyric lanes | `KaraokeRows`, `Layout.allocate` | One to eight Studio-style rotations, top/center/bottom blocks, independent row alignment and offsets. Custom allocators handle exceptional lines and lead resets. |
 | Singing paint, stroke, shadow, glow, ramps and particles | `KaraokeEffects`, `LyricHighlights`, materials | The catalog implements the animation families. Appearance depends on font metrics, rendering backend and selected material. |
 | Inline volume signal | `VolumeCue` | Whole-group flashes, then successive sung-color fills. In this library the cue ends at its own boundary, even when the host lyric stays visible. |
-| Floating shape lamps, count-in text and vector guide marks | `SignalCue`, `TextCue`, `CuePreset` | Seven built-in lamp shapes and custom paths. Cues can be inline or independently positioned. Cue colors and size are explicit. |
-| Studio page timing and alternate writing modes | Partial | The horizontal allocator handles lane occupancy. Horizontal presets support Studio’s smart horizontal displacement within each row rotation. Imported page breaks, native vertical writing and mirrored right-to-left lyric layout have no equivalent preset. |
-| Role-linked signal styling and timed character replacement | Partial | A template can choose paints and insert a vector mark at a cluster boundary. Automatic role-style inheritance and replacing source glyphs with timed guide glyphs are separate Studio features. |
+| Floating shape lamps, count-in text and vector guide marks | `SignalCue`, `TextCue`, `CuePreset` | Seven built-in lamp shapes and custom paths. Cues can be inline or independently positioned. Shape lamps inherit the sung palette. Their colors and size can be overridden. |
+| Studio page timing and alternate writing modes | Partial | Horizontal presets handle lane reuse, section gaps, synchronized page entry/exit, tail extension and smart margins. Imported page breaks, native vertical writing and mirrored right-to-left lyric layout have no equivalent preset. |
+| Role-linked signal styling and timed character replacement | Partial | Built-in signals inherit solid lyric colors or take an explicit role palette. Signals scale static hard outer strokes and glow to their own dimensions. Shared gradient bands and timed guide-glyph replacement need a custom drawing. |
 
 See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 [signal preview](../examples/README.md#karaoke-count-ins).
@@ -127,7 +127,7 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `utopia` | `utopia` | Overshooting entrance; rotating, flipping, shrinking exit |
 | `tracking_in` | `converge_out` | Spread letters settle; letters converge toward the measured line center |
 | `wave_in` | `scatter_out` | Staggered upward arrival; seeded radial scatter |
-| `stretch_in` | `stretch_out` | Each glyph stretches horizontally with five fading white outline layers around its sharp core |
+| `stretch_in` | `stretch_out` | Each glyph stretches horizontally with five fading white outline layers. The core outline and halo widen along with the glyph. |
 | `glow_in` | `glow_out` | Synchronous glow with horizontal echoes and a sharp text layer |
 | `assemble_in` | `dissolve_out` | Square particles converge on points within each glyph box or scatter outward |
 | `sparkle` | `sparkle` | A 14-star burst sweeps across the line, left to right on entry and right to left on exit |

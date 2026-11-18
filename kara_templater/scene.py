@@ -349,7 +349,11 @@ class TextObject(VisualNode):
     Unsupported affine combinations can lower to glyph geometry with explicit
     budgets. Text is literal Unicode: braces and backslashes are displayed,
     not interpreted as ASS tags; newlines become hard line breaks. CR and NUL
-    are rejected.
+    are rejected. Set scale_border to scale the outline radius along each glyph
+    axis with the text. The default ASS outline radius uses script pixels.
+    Set filled=False for outline-only text.
+    For affine paths baked into screen coordinates, ASS approximates a sheared
+    or tilted elliptical outline using its horizontal and vertical radii.
     """
 
     text: str
@@ -360,6 +364,8 @@ class TextObject(VisualNode):
     spacing: float = 0
     alignment: int = 7
     encoding: int = 1
+    scale_border: bool = False
+    filled: bool = True
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -382,11 +388,13 @@ class TextObject(VisualNode):
 class PathObject(VisualNode):
     """A visual VectorPath drawing with state, lifetime, and optional geometry deformation.
 
-    Coordinates are local to its local origin and parent transforms.
+    Coordinates are local to its local origin and parent transforms. Set filled=False
+    for an outline-only drawing; border sets the outline radius in script pixels.
     """
 
     path: VectorPath
     deform: GeometryAnimation | None = None
+    filled: bool = True
 
     def __post_init__(self) -> None:
         super().__post_init__()

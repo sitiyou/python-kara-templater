@@ -192,7 +192,7 @@ Glow(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L153)
+[Source](../../kara_templater/lyric_highlights.py#L157)
 
 ```python
 Highlight(
@@ -243,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L861)
+[Source](../../kara_templater/lyric_highlights.py#L870)
 
 ```python
 HighlightArrival(
@@ -287,7 +287,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L91)
+[Source](../../kara_templater/lyric_highlights.py#L95)
 
 ```python
 HighlightPass(
@@ -463,7 +463,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L436)
+[Source](../../kara_templater/lyric_highlights.py#L440)
 
 ```python
 LyricHighlights(

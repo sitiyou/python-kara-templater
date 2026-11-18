@@ -374,7 +374,7 @@ Measured body and positioned readings for projected DocumentLyrics.
 
 unit_group builds editable body/ruby groups using the body center as pivot.
 
-[Source](../../kara_templater/scene_lyrics.py#L31)
+[Source](../../kara_templater/scene_lyrics.py#L32)
 
 ```python
 LyricLayout(
@@ -423,7 +423,7 @@ A reading layout associated with a source unit/segment and decoded body range.
 
 Its own text view retains source mappings and singing timing.
 
-[Source](../../kara_templater/scene_lyrics.py#L17)
+[Source](../../kara_templater/scene_lyrics.py#L18)
 
 ```python
 PositionedRuby(
@@ -613,7 +613,7 @@ Body text is shaped together before ruby spacing is applied. Unit boundaries
 crossing a shaping cluster are rejected when independent placement is needed.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L181)
+[Source](../../kara_templater/scene_lyrics.py#L180)
 
 ```python
 layout_document_lyrics(
@@ -671,7 +671,7 @@ reading group and its body before animation. Negative values allow overlap.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L213)
+[Source](../../kara_templater/scene_lyrics.py#L212)
 
 ```python
 layout_lyrics(

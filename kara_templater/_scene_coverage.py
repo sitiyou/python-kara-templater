@@ -538,7 +538,7 @@ class SceneCoverageSampler:
             else appearance
         )
         return _LeafMaterials(
-            fills=paint("fill", 0),
+            fills=paint("fill", 0) if leaf.node.filled else (),
             strokes=paint("stroke", state.border) if state.border else (),
             glows=paint("glow", glow.border, glow) if glow is not None else (),
         )

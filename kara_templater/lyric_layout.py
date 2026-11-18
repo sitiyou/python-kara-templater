@@ -15,6 +15,14 @@ from .scene_animation import TimeSpan
 from .sources import SourceRef
 
 
+@dataclass(frozen=True)
+class _RowMetrics:
+    baseline: float
+    ascent: float
+    descent: float
+    ruby_headroom: float
+
+
 @dataclass(frozen=True, kw_only=True)
 class LayoutLine:
     """Immutable measured input, with original singing and desired visibility.
@@ -37,6 +45,7 @@ class LayoutLine:
     lead: bool = False
     reserved: Lifetime | None = None
     em_size: float | None = None
+    _row_metrics: _RowMetrics | None = None
 
     def __post_init__(self) -> None:
         finite(
@@ -299,8 +308,9 @@ class KaraokeRows:
     """Studio horizontal row presets, scaled from 1080p to the script height.
 
     One row is centered, three use left/center/right, other counts alternate.
-    Use anchor to place a stream at the top or bottom of its region. Row height
-    includes the largest measured lyric, ruby and reserved inline cue in this track.
+    Use anchor to place a stream at the top, center or bottom of its region. Row height
+    follows the body baseline and hard outlines. Top grids reserve reading space
+    even on pages without ruby. Inline cues retain their horizontal reservation.
     smart_horizontal defaults to equal_margins, moving the left and right rows
     inward by half the page's spare width. center_position treats each row
     independently. none keeps the preset alignments against the region margins.
@@ -312,7 +322,7 @@ class KaraokeRows:
     """
 
     rows: int = 2
-    anchor: Literal["top", "bottom"] = "bottom"
+    anchor: Literal["top", "center", "bottom"] = "bottom"
     smart_horizontal: Literal["equal_margins", "center_position", "none"] = (
         "equal_margins"
     )
@@ -332,7 +342,7 @@ class KaraokeRows:
             raise ValueError("Studio presets support one to eight rows")
         if self.smart_horizontal not in ("equal_margins", "center_position", "none"):
             raise ValueError("unknown smart horizontal placement")
-        if self.anchor not in ("top", "bottom"):
+        if self.anchor not in ("top", "center", "bottom"):
             raise ValueError("unknown karaoke row anchor")
 
     def allocate(
@@ -342,15 +352,24 @@ class KaraokeRows:
         region = context.region
         scale = (context.script_height or region.height) / 1080
         inset = min(50 * scale, region.width / 4)
-        height = max((line.bounds.height for line in lines), default=0)
+        metrics = tuple(
+            line._row_metrics or _RowMetrics(line.bounds.top, 0, line.bounds.height, 0)
+            for line in lines
+        )
+        ascent = max((m.ascent for m in metrics), default=0)
+        height = ascent + max((m.descent for m in metrics), default=0)
+        headroom = max((m.ruby_headroom for m in metrics), default=0)
         spacing = (90, 45, 60, 40, 25, 15, 8, 0)[self.rows - 1] * scale
         pitch = max(height + spacing, 0.001)
         margin = (60 if self.rows == 2 else 80) * scale
-        y = (
-            region.top + margin
-            if self.anchor == "top"
-            else region.top + region.height - margin - height - (self.rows - 1) * pitch
-        )
+        grid_height = height + (self.rows - 1) * pitch
+        if self.anchor == "top":
+            y = region.top + margin + headroom
+        elif self.anchor == "center":
+            # Studio centers a single reading/body pair, or a multi-row body grid.
+            y = region.middle - grid_height / 2 + (headroom / 2 if self.rows == 1 else 0)
+        else:
+            y = region.top + region.height - margin - grid_height
         area = Box(
             region.left + inset, region.top, region.width - 2 * inset, region.height
         )
@@ -374,7 +393,9 @@ class KaraokeRows:
         for start, end in zip(sections, sections[1:], strict=False):
             section = lines[start:end]
             placements = layout.allocate(section, replace(context, region=area))
-            adjusted.extend(self._place_section(section, placements, area, alignments))
+            adjusted.extend(self._place_section(
+                section, placements, area, alignments, metrics[start:end], ascent
+            ))
         # Long authored leads/tails can still meet across an instrumental break.
         last_in_row: dict[int | None, int] = {}
         for i, placement in enumerate(adjusted):
@@ -398,6 +419,8 @@ class KaraokeRows:
         placements: tuple[Placement, ...],
         area: Box,
         alignments: tuple[str, ...],
+        metrics: tuple[_RowMetrics, ...],
+        ascent: float,
     ) -> list[Placement]:
         windows = self._page_windows(lines, placements)
         adjusted: list[Placement] = []
@@ -437,10 +460,11 @@ class KaraokeRows:
                             - width,
                         )
                     x = inset_x if slot == "left" else room - inset_x
+                dy = ascent - metrics[len(adjusted)].baseline + line.bounds.top
                 adjusted.append(
                     replace(
                         placement,
-                        position=placement.position + Vec2(x, 0),
+                        position=placement.position + Vec2(x, dy),
                         display=windows[len(adjusted)],
                     )
                 )

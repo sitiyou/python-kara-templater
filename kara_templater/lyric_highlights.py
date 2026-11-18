@@ -77,6 +77,10 @@ class LyricGradient:
         )
 
 
+def _hard_glow_border(glow: LyricGlow) -> float:
+    return glow.border if isinstance(glow, Glow) and not glow.blur and glow.opacity else 0
+
+
 def _resolve_glow(
     glow: LyricGlow, line: LyricLine, target: LyricTarget
 ) -> Glow | GlowFunction | None:
@@ -464,12 +468,17 @@ class LyricHighlights:
 
     @property
     def _hard_border(self) -> float:
-        paints: list[StatePatch] = [self.base_paint]
-        if isinstance(self.highlights, _SingingHighlights):
-            paints.append(self.highlights.paint)
-        elif isinstance(self.highlights, tuple):
-            paints.extend(h.paint for h in self.highlights)
-        return max((p.border or 0 for p in paints if not p.blur), default=0)
+        borders = [_hard_glow_border(self.glow)]
+        if not self.base_paint.blur:
+            borders.append(self.base_paint.border or 0)
+        highlights = self.highlights
+        known = (highlights,) if isinstance(highlights, _SingingHighlights) else highlights
+        if isinstance(known, tuple):
+            for h in known:
+                if not h.paint.blur:
+                    borders.append(h.paint.border or 0)
+                borders.append(_hard_glow_border(h.glow))
+        return max(borders)
 
     @classmethod
     def from_singing(

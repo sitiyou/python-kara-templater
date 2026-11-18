@@ -96,7 +96,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L508)
+[Source](../../kara_templater/scene.py#L516)
 
 ```python
 NativeEvent(
@@ -121,7 +121,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
 
-[Source](../../kara_templater/scene.py#L416)
+[Source](../../kara_templater/scene.py#L424)
 
 ```python
 ObjectGroup(
@@ -250,9 +250,10 @@ ObjectReport(
 
 A visual VectorPath drawing with state, lifetime, and optional geometry deformation.
 
-Coordinates are local to its local origin and parent transforms.
+Coordinates are local to its local origin and parent transforms. Set filled=False
+for an outline-only drawing; border sets the outline radius in script pixels.
 
-[Source](../../kara_templater/scene.py#L381)
+[Source](../../kara_templater/scene.py#L387)
 
 ```python
 PathObject(
@@ -269,6 +270,7 @@ PathObject(
     reference: StateReference | None = None,
     path: VectorPath,
     deform: GeometryAnimation | None = None,
+    filled: bool = True,
 )
 ```
 
@@ -288,6 +290,7 @@ PathObject(
 | `reference` | `StateReference \| None` | `None` |
 | `path` | `VectorPath` | `required` |
 | `deform` | `GeometryAnimation \| None` | `None` |
+| `filled` | `bool` | `True` |
 
 ### PathObject.animate
 
@@ -472,7 +475,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L526)
+[Source](../../kara_templater/scene.py#L534)
 
 ```python
 Scene(
@@ -769,7 +772,11 @@ A text drawing with family name, pixel font size, shaping style, alignment, and 
 Unsupported affine combinations can lower to glyph geometry with explicit
 budgets. Text is literal Unicode: braces and backslashes are displayed,
 not interpreted as ASS tags; newlines become hard line breaks. CR and NUL
-are rejected.
+are rejected. Set scale_border to scale the outline radius along each glyph
+axis with the text. The default ASS outline radius uses script pixels.
+Set filled=False for outline-only text.
+For affine paths baked into screen coordinates, ASS approximates a sheared
+or tilted elliptical outline using its horizontal and vertical radii.
 
 [Source](../../kara_templater/scene.py#L345)
 
@@ -794,6 +801,8 @@ TextObject(
     spacing: float = 0,
     alignment: int = 7,
     encoding: int = 1,
+    scale_border: bool = False,
+    filled: bool = True,
 )
 ```
 
@@ -819,6 +828,8 @@ TextObject(
 | `spacing` | `float` | `0` |
 | `alignment` | `int` | `7` |
 | `encoding` | `int` | `1` |
+| `scale_border` | `bool` | `False` |
+| `filled` | `bool` | `True` |
 
 ### TextObject.animate
 
@@ -995,7 +1006,7 @@ Type: `float`.
 
 Return a new Document. Source records and caller-owned nodes never mutate.
 
-[Source](../../kara_templater/scene_output.py#L1681)
+[Source](../../kara_templater/scene_output.py#L1714)
 
 ```python
 compile_scene(

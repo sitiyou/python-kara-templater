@@ -105,3 +105,23 @@ def test_gpu_cached_local_coverage_matches_untransformed_native_text(alignment):
         canvas.over((x + 80, y + 60, width, height, kind, color, data))
     actual = canvas.finish()
     assert actual.rgba == expected.rgba
+
+
+def test_outline_only_drawing_keeps_its_center_clear_during_native_fade():
+    from kara_templater import PathObject, VectorPath
+    from kara_templater._raster import rasterize
+
+    full = PathObject(id="filled", path=VectorPath.rectangle(24, 24), lifetime=Lifetime(0, 2),
+                      state=VisualState(position=Vec2(12, 12), border=3))
+    ring = replace(full, id="ring", filled=False).animate(FadeOut(), duration=2)
+    doc = Document.create(width=64, height=64)
+    # Cache both versions of exactly the same path at the same radius.
+    filled_draw, ring_draw = SceneFrames(Scene(doc).add(full, ring)).at(1)
+    assert any(i[4] == 0 and i[5] & 255 == 0 for i in filled_draw.images)
+    assert all(i[4] != 0 or i[5] & 255 == 255 for i in ring_draw.images)
+    assert any(i[4] == 1 and i[5] & 255 == 0 for i in ring_draw.images)
+    compiled = Scene(doc).add(ring).compile(native_tweens=True)
+    assert compiled.event_count == 1
+    rgba = rasterize(compiled.document.dumps(), 1000, (64, 64)).rgba
+    assert rgba[4 * (24 * 64 + 24) + 3] == 0
+    assert 120 <= rgba[4 * (24 * 64 + 10) + 3] <= 135

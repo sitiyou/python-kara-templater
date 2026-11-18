@@ -6,9 +6,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Protocol
 
+from .appearance import PaintPair
 from .ass import Style
 from .colors import CYAN, WHITE
-from .composition import Color
+from .composition import Color, Paint
 from .document_text import CueMarker
 from .geometry import Vec2, VectorPath, finite
 from .layout import text_extents
@@ -25,13 +26,19 @@ from .scene_lyrics import LyricLayout, PositionedRuby, _move
 from .scene_text import DocumentLayout, PositionedText, _union
 from .sources import EventOrigin, SourceRef
 
+_DEFAULT_COLORS = PaintPair(
+    Paint(WHITE, Color(34, 34, 34)), Paint(Color(255, 90, 111), Color(34, 34, 34))
+)
+
 
 @dataclass(frozen=True)
 class CueContext:
     """Factory input containing a stable cue ID, absolute seconds lifetime, absolute step boundaries, and source origin.
 
     Factories create local objects for that interval. host is the measured text
-    cluster at the marker (the final cluster for an end marker), when available.
+    cluster at the marker (the final cluster for an end marker), when available. colors supplies the before/after paint for the first nonblank role.
+    role_em is that role’s measured em in script pixels.
+    zoom_pulse_curve_level selects the lyric zoom curve for cue steps, or None for steady size.
     """
 
     id: str
@@ -40,6 +47,9 @@ class CueContext:
     origin: EventOrigin
     host: TextObject | None = None
     host_em: float | None = None
+    colors: PaintPair = _DEFAULT_COLORS
+    zoom_pulse_curve_level: int | None = None
+    role_em: float | None = None
 
 
 @dataclass(frozen=True)
@@ -72,7 +82,8 @@ class CueFactory(Protocol):
 class CuePreset:
     """A cue factory with lead/duration in seconds, normalized step fractions, gap, position, and reservation policy.
 
-    An explicit trigger overrides the relevant singing interval default.
+    An explicit trigger overrides the relevant singing interval default. colors fixes
+    the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
     """
 
     factory: CueFactory
@@ -83,6 +94,7 @@ class CuePreset:
     position: Vec2 = Vec2()
     keep_space: bool = True
     trigger: float | None = None
+    colors: PaintPair | None = None
 
     def __post_init__(self) -> None:
         finite(self.lead, self.duration, self.gap, *self.steps)
@@ -257,6 +269,13 @@ def bind_cues(
     placements: list[CuePlacement] = []
     inline: list[ObjectGroup] = []
     independent: list[ObjectGroup] = []
+    first = next((run.appearance for run in layout.source.runs if run.text.strip()), None)
+    role = next((g for g in layout.characters if g.object.text.strip()), None)
+    border = role.object.state.border if role else 0
+    colors = (
+        PaintPair(Paint(first.secondary, first.outline, border), Paint(first.primary, first.outline, border))
+        if first else _DEFAULT_COLORS
+    )
     for marker in sorted(markers, key=lambda marker: marker.offset):
         if marker.offset not in boundaries:
             raise ValueError(
@@ -297,6 +316,8 @@ def bind_cues(
             origin,
             host.object if host is not None else None,
             host.em_size if host is not None else None,
+            preset.colors or colors,
+            role_em=role.em_size if role else None,
         )
         content = preset.factory(context)
         for node in content.objects:

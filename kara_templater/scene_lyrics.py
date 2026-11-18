@@ -1,5 +1,6 @@
 """Document lyric binding: shared shaped body, scoped ruby and source anchors."""
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 
 from .ass import Document, Line, Style
@@ -137,24 +138,22 @@ def _move(layout: DocumentLayout, dx: float, dy: float) -> DocumentLayout:
     )
 
 
+def _ruby_style(styles: Mapping[str, Style], parent_name: str) -> Style:
+    name = parent_name + "-furigana"
+    if name in styles:
+        return styles[name]
+    parent = styles[parent_name]
+    return replace(parent, name=name, fontsize=parent.fontsize / 2,
+                   outline=parent.outline / 2, shadow=parent.shadow / 2)
+
+
 def _ruby_view(document: Document, ruby: RubyText) -> tuple[Document, RubyText]:
     styles = document.styles
     replacements: dict[str, Style] = {}
     runs = []
     for run in ruby.source.runs:
-        name = run.appearance.style + "-furigana"
-        parent = styles[run.appearance.style]
-        style = styles.get(
-            name,
-            replace(
-                parent,
-                name=name,
-                fontsize=parent.fontsize / 2,
-                outline=parent.outline / 2,
-                shadow=parent.shadow / 2,
-            ),
-        )
-        replacements[name] = style
+        style = _ruby_style(styles, run.appearance.style)
+        replacements[style.name] = style
         baseline = _appearance(style)
         appearance = replace(
             baseline,

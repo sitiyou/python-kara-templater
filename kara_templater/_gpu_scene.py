@@ -60,7 +60,7 @@ def _shape_key(node: TextObject | PathObject, state: VisualState) -> tuple[objec
         if isinstance(node, TextObject)
         else (node.path,)
     )
-    return (*shape, state.border, state.blur, state.shadow)
+    return (*shape, node.filled, state.border, state.blur, state.shadow)
 
 
 def _coverage(
