@@ -1,12 +1,12 @@
 """Reusable vector signals for karaoke tracks."""
 
 from dataclasses import dataclass
-from math import cos, pi, sin
+from math import cos, floor, pi, sin
 from typing import Literal
 
 from .composition import Color
 from .cues import CueContent, CueContext
-from .geometry import Vec2, VectorPath, finite
+from .geometry import Contour, CubicSegment, LineSegment, Vec2, VectorPath, finite
 from .scene import Lifetime, ObjectGroup, PathObject
 from .scene_animation import AnimationClip, FadeOut, StatePatch, Tween, VisualState
 
@@ -26,6 +26,24 @@ def _rounded(width: float, height: float, radius: float) -> VectorPath:
     return VectorPath.polygon(*points)
 
 
+def _cue_size(explicit: float | None, context: CueContext) -> float:
+    if explicit is not None:
+        return explicit
+    host = context.host
+    font_size = host.font_size * host.state.scale.y if host else 100
+    return max(4, floor(font_size / 2 + 0.5))
+
+
+def _cue_border(
+    explicit: float | None, size: float, width: float, context: CueContext
+) -> float:
+    if explicit is not None:
+        return explicit
+    host = context.host
+    pen = floor(2 * host.state.border * size / host.font_size + 0.5) if host else 8
+    return min(pen, width // 2) / 2
+
+
 @dataclass(frozen=True, kw_only=True)
 class VolumeCue:
     """Descending inline columns. Flash together, then fill from left to right.
@@ -35,12 +53,13 @@ class VolumeCue:
     fill get equal time by default; flash_ratio scales the length of each pulse
     relative to the fill. ratio is first-to-last column height and spacing is
     additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
-    and idle before the active portion. height and border use script pixels.
+    and idle before the active portion. height and border use script pixels. Omit height for half the host font size.
+    An omitted border scales the host outline, capped at a quarter of the column width.
     """
 
     count: int = 4
-    height: float = 50
-    border: float = 4
+    height: float | None = None
+    border: float | None = None
     flashes: int = 3
     flash_ratio: float = 1
     ratio: float = 3
@@ -51,7 +70,10 @@ class VolumeCue:
     outline: Color = Color(34, 34, 34)
 
     def __post_init__(self) -> None:
-        finite(self.height, self.border, self.flash_ratio, self.ratio, self.spacing)
+        finite(self.flash_ratio, self.ratio, self.spacing)
+        for dimension in (self.height, self.border):
+            if dimension is not None:
+                finite(dimension)
         if (
             type(self.count) is not int
             or self.count < 1
@@ -63,7 +85,9 @@ class VolumeCue:
             raise ValueError(
                 "flash_ratio and spacing must be nonnegative and ratio positive"
             )
-        if self.height <= 0 or self.border < 0:
+        if (self.height is not None and self.height <= 0) or (
+            self.border is not None and self.border < 0
+        ):
             raise ValueError("height must be positive and border nonnegative")
         if self.countdown is not None:
             finite(self.countdown)
@@ -87,10 +111,13 @@ class VolumeCue:
             for i in range(self.flashes if cycle else 0)
             for phase, opacity in ((1 / 6, 0), (2 / 3, 1))
         )
-        width = max(1, round(self.height / 4))
-        edge = self.border + 1
+        size = _cue_size(self.height, context)
+        width = max(1, floor(size / 4 + 0.5))
+        host = context.host
+        border = _cue_border(self.border, size, width, context)
+        edge = 2 * border  # Studio reserves a full pen width on each side.
         pitch = width + 2 * edge + self.spacing
-        first = min(1.0, self.ratio) * self.height
+        first = min(1.0, self.ratio) * size
         last = first / self.ratio
         bars = []
         for i in range(self.count):
@@ -109,11 +136,15 @@ class VolumeCue:
                         lifetime=Lifetime(start, end),
                         path=path,
                         state=VisualState(
-                            position=Vec2(edge + i * pitch, (self.height - height) / 2),
+                            position=Vec2(edge + i * pitch, (size - height) / 2),
                             fill=color,
                             outline=self.outline,
-                            border=self.border,
-                            shadow=Vec2(3, 3),
+                            border=border,
+                            shadow=(
+                                host.state.shadow * (size / host.font_size)
+                                if host
+                                else Vec2(3, 3)
+                            ),
                         ),
                         origin=context.origin,
                     )
@@ -125,40 +156,51 @@ class VolumeCue:
             children=tuple(bars),
             origin=context.origin,
         )
-        return CueContent((group,), self.count * pitch - self.spacing, self.height)
+        return CueContent((group,), self.count * pitch - self.spacing, size)
 
 
 def _note(shape: str, size: float) -> VectorPath:
     from .path_boolean import path_boolean
 
-    def stem(x: float, top: float, bottom: float) -> VectorPath:
-        return VectorPath.rectangle(0.08, bottom - top).map(lambda p: p + Vec2(x, top))
+    def stem(x: float, y: float, w: float, h: float) -> VectorPath:
+        return VectorPath.rectangle(w, h).map(lambda p: p + Vec2(x, y))
 
-    def head(x: float, y: float) -> VectorPath:
-        return VectorPath.circle(1).map(lambda p: Vec2(x + 0.18 * p.x, y + 0.12 * p.y))
+    def head(x: float, y: float, w: float, h: float) -> VectorPath:
+        return VectorPath.circle(1).map(lambda p: Vec2(x + w * p.x, y + h * p.y))
 
     if shape == "notepair":
         parts = [
-            head(0.23, 0.8),
-            stem(0.32, 0.19, 0.82),
-            head(0.73, 0.7),
-            stem(0.82, 0.09, 0.72),
+            head(0.24, 0.74, 0.17, 0.11),
+            stem(0.342, 0.16, 0.06, 0.60),
+            head(0.62, 0.60, 0.17, 0.11),
+            stem(0.722, 0.04, 0.06, 0.58),
             VectorPath.polygon(
-                Vec2(0.32, 0.14), Vec2(0.9, 0.04), Vec2(0.9, 0.18), Vec2(0.32, 0.28)
+                Vec2(0.342, 0.08),
+                Vec2(0.782, 0.02),
+                Vec2(0.782, 0.12),
+                Vec2(0.342, 0.18),
             ),
         ]
     else:
-        parts = [head(0.35, 0.8), stem(0.44, 0.08, 0.82)]
-        for y in (0.08, 0.29) if shape == "note16" else (0.08,):
-            parts.append(
-                VectorPath.polygon(
-                    Vec2(0.49, y),
-                    Vec2(0.78, y + 0.18),
-                    Vec2(0.72, y + 0.35),
-                    Vec2(0.66, y + 0.22),
-                    Vec2(0.49, y + 0.11),
-                )
+        parts = [head(0.34, 0.78, 0.20, 0.12), stem(0.468, 0.10, 0.064, 0.70)]
+        flag = VectorPath(
+            (
+                Contour(
+                    Vec2(0.532, 0),
+                    (
+                        CubicSegment(
+                            Vec2(0.747, 0.06), Vec2(0.827, 0.20), Vec2(0.707, 0.36)
+                        ),
+                        LineSegment(Vec2(0.632, 0.285)),
+                        CubicSegment(
+                            Vec2(0.722, 0.18), Vec2(0.647, 0.09), Vec2(0.532, 0.055)
+                        ),
+                    ),
+                ),
             )
+        )
+        for y in (0.10, 0.26) if shape == "note16" else (0.10,):
+            parts.append(flag.map(lambda p, dy=y: p + Vec2(0, dy)))
     path = parts[0]
     for part in parts[1:]:
         merged = path_boolean(path, part, "union", tolerance=0.002)
@@ -171,7 +213,7 @@ def _note(shape: str, size: float) -> VectorPath:
 class SignalCue:
     """A row of vector lamps extinguishing on cue steps, right to left by default.
 
-    size is the side of a lamp in script pixels. Each lamp fades over the last
+    size is the side of a lamp in script pixels, defaulting to half the host font size. Each lamp fades over the last
     transition fraction of its step. Pass a custom path in the unit square to
     use a drawn symbol with the same layout and clock.
     """
@@ -181,18 +223,28 @@ class SignalCue:
         | VectorPath
     ) = "circle"
     direction: Literal["left_to_right", "right_to_left"] = "right_to_left"
-    size: float = 50
+    size: float | None = None
     transition: float = 0.67
     slide: Vec2 = Vec2()
     color: Color = Color(255, 90, 111)
     outline: Color = Color(34, 34, 34)
-    border: float = 2
+    border: float | None = None
+    edge_brightness: float = 0.6
 
     def __post_init__(self) -> None:
         if self.direction not in ("left_to_right", "right_to_left"):
             raise ValueError("unknown signal direction")
-        finite(self.size, self.transition, self.border)
-        if self.size <= 0 or not 0 <= self.transition <= 1 or self.border < 0:
+        if self.size is not None:
+            finite(self.size)
+        if self.border is not None:
+            finite(self.border)
+        finite(self.transition, self.edge_brightness)
+        if (
+            (self.size is not None and self.size <= 0)
+            or not 0 <= self.transition <= 1
+            or (self.border is not None and self.border < 0)
+            or not 0 <= self.edge_brightness <= 1
+        ):
             raise ValueError("invalid signal size, transition or border")
         if not isinstance(self.shape, VectorPath) and self.shape not in (
             "circle",
@@ -207,7 +259,7 @@ class SignalCue:
 
     def __call__(self, context: CueContext) -> CueContent:
         """Place lamp shapes on their own intervals within the cue lifetime."""
-        size = self.size
+        size = _cue_size(self.size, context)
         if isinstance(self.shape, VectorPath):
             path = self.shape.map(lambda p: p * size)
         elif self.shape in ("note8", "note16", "notepair"):
@@ -229,6 +281,20 @@ class SignalCue:
                     for i in range(10)
                 )
             )
+        border = _cue_border(self.border, size, size, context)
+        highlight = None
+        if self.edge_brightness and isinstance(self.shape, str):
+            x, y, radius = {
+                "star": (0.5, 0.36, 0.10),
+                "note8": (0.29, 0.745, 0.06),
+                "note16": (0.29, 0.745, 0.06),
+                "notepair": (0.20, 0.705, 0.055),
+            }.get(self.shape, (0.34, 0.34, 0.16))
+            highlight = VectorPath.circle(radius * size).map(
+                lambda p: p + Vec2(x, y) * size
+            )
+        host = context.host
+        shadow = host.state.shadow * (size / host.font_size) if host else Vec2()
         nodes = []
         count = len(context.steps) - 1
         for i, (start, end) in enumerate(
@@ -242,17 +308,40 @@ class SignalCue:
                 if self.slide != Vec2()
                 else FadeOut()
             )
-            nodes.append(
+            lamp_id = f"{context.id}/lamp:{i}"
+            life = Lifetime(context.lifetime.start, end)
+            children = [
                 PathObject(
-                    id=f"{context.id}/lamp:{i}",
-                    lifetime=Lifetime(context.lifetime.start, end),
+                    id=f"{lamp_id}/shape",
+                    lifetime=life,
                     path=path,
+                    origin=context.origin,
                     state=VisualState(
-                        position=origin,
                         fill=self.color,
                         outline=self.outline,
-                        border=self.border,
+                        border=border,
+                        shadow=shadow,
                     ),
+                )
+            ]
+            if highlight is not None:
+                children.append(
+                    PathObject(
+                        id=f"{lamp_id}/highlight",
+                        lifetime=life,
+                        path=highlight,
+                        origin=context.origin,
+                        state=VisualState(opacity=0.55 * self.edge_brightness),
+                        layer=1,
+                    )
+                )
+            nodes.append(
+                ObjectGroup(
+                    id=lamp_id,
+                    lifetime=life,
+                    children=tuple(children),
+                    origin=context.origin,
+                    state=VisualState(position=origin),
                     animations=(
                         AnimationClip(
                             end - context.lifetime.start - fade, fade, exit_motion
@@ -260,7 +349,6 @@ class SignalCue:
                     )
                     if fade
                     else (),
-                    origin=context.origin,
                 )
             )
         return CueContent(tuple(nodes), size * (1 + (count - 1) * 1.5), size)

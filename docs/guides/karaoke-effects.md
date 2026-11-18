@@ -82,7 +82,7 @@ renders; only the singing setting changes.
 | --- | --- |
 | The color travels across the word and the glyph briefly grows | `KaraokeEffects()` (default singing mode `utopia`) |
 | The color travels across the word while the glyph stays still | `KaraokeEffects(singing="none")` |
-| The entire timed unit changes color on its first frame | `KaraokeEffects(singing="no_wipe")` |
+| The entire timed unit changes color when singing finishes | `KaraokeEffects(singing="no_wipe")` |
 
 To check a template, pause halfway through a long note. The wipe leaves
 both colors visible; the onset switch has already painted the whole unit.
@@ -139,8 +139,8 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 
 `entry_duration` and `exit_duration` are seconds for the complete transition.
 `stagger` is the fraction of that duration assigned to delay between the first
-and last character (default 0.55); the remainder is each character's travel.
-Whole-line fades/slides and glow transitions are synchronous. Zero duration
+and last character (default 7/12); the remainder is each character's travel.
+Studio’s character fade, drip and flip use a 600 ms window. Utopia uses 700 ms for entry (200 ms stagger and 500 ms motion) and 750 ms per departing glyph. Geometric/particle transitions accept 120–3000 ms. Whole-line fades/slides and glow transitions are synchronous. Zero duration
 turns off that transition.
 
 The entry fades to full opacity early enough that its movement stays visible.
@@ -151,7 +151,7 @@ capacity error; reduce the effect duration or adjust the allocator in that case.
 
 Differences from the reference include seeded trajectories, independently drawn
 ornament shapes, glyph-contour particle placement and eased motion. Utopia exit begins after the following character finishes; the final character
-uses the remaining display tail. Its duration remains explicitly configurable. Snow's open-center version is an original
+uses the remaining display tail. Its departure lasts 750 ms. Snow's open-center version is an original
 six-branch drawing, not a copy of the reference sprite. Assembly is an illusion
 made from separate contour particles and text opacity, not glyph mesh fracture.
 
@@ -160,7 +160,7 @@ made from separate contour particles and text opacity, not glyph mesh fracture.
 | `singing` | Behavior |
 | --- | --- |
 | `none` | Ordinary timed color wipe; the name follows the source menu |
-| `no_wipe` | Recolor the entire timed unit at onset, including zero-duration units |
+| `no_wipe` | Recolor the entire timed unit at completion, including zero-duration units |
 | `utopia` | Eased 1.15× pulse peaking at 25% of the note or 100 ms, whichever comes first |
 | `scanline` | Ordinary wipe with a narrow luminous leading edge |
 | `utopia_scanline` | Pulse plus leading edge |
@@ -178,12 +178,15 @@ breathes in size/opacity. Ornaments attach to the original glyph's parent and
 move independently after birth. They are emitted from body text, not ruby.
 
 - `particle_size`: fraction of measured glyph height, default 0.40.
-- `particle_rate`: births per second per timed glyph for singing decoration.
-- `particle_color`: white by default. Pass `None` for effect colors: petals are pink and other
-  particles use `sung`.
+- Singing emits one burst per glyph onset. The defaults are three ripple rings, four petals or snowflakes, seven moving stars, or three classic stars or notes. Set `particle_rate` to choose a density per second of singing. Ripple keeps its three-ring timing.
+- `particle_color` overrides the built-in palette. Singing particles default to white. Entry and exit particles alternate two cherry pinks, or two icy whites for snow.
 - `max_particles`: total entry/exit/singing particle budget per line, default 512;
   exceeding it raises before particle factories execute.
 - `seed`: deterministic variation, independent of rendering or seeking order.
+- `zoom_pulse_curve_level` controls the zoom attack and release. Levels 0 and 1 are linear (Studio default 1). Levels 2–5 ease toward the peak and accelerate away from it.
+- `scanline_mode="brighten"` lifts the brightness of each side’s solid fill and outline independently. `follow_before` and `follow_after` use one side’s palette across the whole band. `scanline_brightness` sets the fraction of remaining HSV value to add (default 0.60).
+- `scanline_mode="role"` takes a reusable paint or a per-target factory in `scanline_material`. For example, pass a singer’s `LyricGradient` to color both the glyph and its outline inside the band. A missing paint falls back to `scanline_color`.
+- In the default `color` mode, `scanline_color` sets the band color for both fill and outline (default white). `scanline_softness` sets the inward falloff on each side, default 8 px at 1080p. Zero gives a hard band.
 - `scanline_width`: script pixels, omit for a band of 16 px at 1080p, scaled to script height. An explicit width uses script pixels.
 - For a soft color change in the standalone GPU hook, use
   `KaraokeEffects(singing="utopia", hook_feather=17, sung_outline=Color.hex("#522432"))`.

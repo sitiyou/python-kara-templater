@@ -48,7 +48,7 @@ Compose entry, singing, exit and ornaments as one Track.effects callable.
 All durations are seconds, widths are script pixels; particle_size is a
 fraction of each glyph's measured height. Entry/exit duration includes the
 full stagger span. Zero disables that transition. `none` singing retains
-ordinary wipe; `no_wipe` recolors the whole timed unit at onset. Utopia pulses
+ordinary wipe; `no_wipe` recolors the whole timed unit at completion. Utopia pulses
 within each note; zoom_pulse grows throughout the note and releases over .30 s.
 Ornament tails reserve display without altering source singing intervals.
 material/glow/base_glow use the same factories as LyricHighlights.
@@ -68,7 +68,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L179)
+[Source](../../kara_templater/karaoke_effects.py#L243)
 
 ```python
 KaraokeEffects(
@@ -79,18 +79,24 @@ KaraokeEffects(
     decoration: KaraokeDecoration = 'none',
     entry_duration: float = 0.3,
     exit_duration: float = 0.3,
-    stagger: float = 0.55,
+    stagger: float = 0.5833333333333334,
     sung: Color = Color(red=255, green=90, blue=111),
     unsung: Color = Color(red=255, green=255, blue=255),
     material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
-    particle_color: Color | None = Color(red=255, green=255, blue=255),
+    particle_color: Color | None = None,
     particle_size: float = 0.4,
-    particle_rate: float = 7,
+    particle_rate: float | None = None,
     max_particles: int = 512,
     seed: int = 0,
+    zoom_pulse_curve_level: int = 1,
     scanline_width: float | None = None,
+    scanline_softness: float | None = None,
+    scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after', 'role'] = 'color',
+    scanline_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None = None,
+    scanline_brightness: float = 0.6,
+    scanline_color: Color = Color(red=255, green=255, blue=255),
     hook_feather: float = 0,
     front_color: Color | None = None,
     unsung_outline: Color | None = None,
@@ -110,18 +116,24 @@ KaraokeEffects(
 | `decoration` | `KaraokeDecoration` | `'none'` |
 | `entry_duration` | `float` | `0.3` |
 | `exit_duration` | `float` | `0.3` |
-| `stagger` | `float` | `0.55` |
+| `stagger` | `float` | `0.5833333333333334` |
 | `sung` | `Color` | `Color(red=255, green=90, blue=111)` |
 | `unsung` | `Color` | `Color(red=255, green=255, blue=255)` |
 | `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None` | `None` |
 | `glow` | `LyricGlow` | `None` |
 | `base_glow` | `LyricGlow` | `None` |
-| `particle_color` | `Color \| None` | `Color(red=255, green=255, blue=255)` |
+| `particle_color` | `Color \| None` | `None` |
 | `particle_size` | `float` | `0.4` |
-| `particle_rate` | `float` | `7` |
+| `particle_rate` | `float \| None` | `None` |
 | `max_particles` | `int` | `512` |
 | `seed` | `int` | `0` |
+| `zoom_pulse_curve_level` | `int` | `1` |
 | `scanline_width` | `float \| None` | `None` |
+| `scanline_softness` | `float \| None` | `None` |
+| `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after', 'role']` | `'color'` |
+| `scanline_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None` | `None` |
+| `scanline_brightness` | `float` | `0.6` |
+| `scanline_color` | `Color` | `Color(red=255, green=255, blue=255)` |
 | `hook_feather` | `float` | `0` |
 | `front_color` | `Color \| None` | `None` |
 | `unsung_outline` | `Color \| None` | `None` |
@@ -422,7 +434,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L61)
+[Source](../../kara_templater/lyric_line.py#L63)
 
 ```python
 LyricAnimationContext(
@@ -536,7 +548,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L244)
+[Source](../../kara_templater/lyric_line.py#L246)
 
 ```python
 LyricLine(
@@ -754,7 +766,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L93)
+[Source](../../kara_templater/lyric_line.py#L95)
 
 ```python
 LyricRule(
@@ -1010,7 +1022,7 @@ center is the undecorated measured center in the node's local coordinates.
 Line/syllable centers use body text, so ruby/glow do not shift the pivot.
 A factory changing a target's local coordinate origin must update center too.
 
-[Source](../../kara_templater/lyric_line.py#L38)
+[Source](../../kara_templater/lyric_line.py#L39)
 
 ```python
 LyricTarget(
@@ -1022,6 +1034,7 @@ LyricTarget(
     delay: float = 0,
     aliases: tuple[str, ...] = (),
     center: Vec2 = Vec2(x=0, y=0),
+    baseline: float | None = None,
 )
 ```
 
@@ -1037,6 +1050,7 @@ LyricTarget(
 | `delay` | `float` | `0` |
 | `aliases` | `tuple[str, ...]` | `()` |
 | `center` | `Vec2` | `Vec2(x=0, y=0)` |
+| `baseline` | `float \| None` | `None` |
 
 ## Placement
 

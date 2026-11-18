@@ -36,6 +36,7 @@ class PaintBand:
     outline: Color
 
 
+@runtime_checkable
 class PaintField(Protocol):
     """Pure local-time field. Bands must exactly partition the requested domain.
 

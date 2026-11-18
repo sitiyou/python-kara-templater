@@ -151,7 +151,7 @@ def test_zoom_uses_full_note_then_releases_without_stacking_repeats():
     evaluator = scene.evaluator()
     base = evaluator.at(target.node_id, 0.9).scale.x
     assert evaluator.at(target.node_id, 1.99).scale.x == pytest.approx(
-        base * 1.25, rel=1e-4
+        base * 1.2475
     )
     assert evaluator.at(target.node_id, 2.9).scale.x <= base * 1.25 + 1e-7
     assert evaluator.at(target.node_id, 3.30).scale.x == pytest.approx(base)
@@ -223,6 +223,11 @@ def test_no_wipe_is_instant_including_zero_length_notes():
     after = nodes[target.aliases[0]]
     assert isinstance(after.clip, RectangleClip) and after.clip.deform is not None
     assert after.clip.deform.sample(1.01 - after.time_origin) is not None
+    second = scene.lines[0].query("character")[1]
+    mask = nodes[second.aliases[0]].clip
+    assert isinstance(mask, RectangleClip) and mask.deform is not None
+    assert mask.deform.sample(1.99 - after.time_origin) is None
+    assert mask.deform.sample(2.00 - after.time_origin) is not None
 
 
 def test_utopia_exit_follows_next_character_instead_of_waiting_for_line_end():
@@ -234,7 +239,8 @@ def test_utopia_exit_follows_next_character_instead_of_waiting_for_line_end():
     evaluator = scene.evaluator()
     assert evaluator.at(first.node_id, 2).opacity == 1
     assert 0 < evaluator.at(first.node_id, 2.3).opacity < 1
-    assert evaluator.at(first.node_id, 2.75).opacity == 0
+    assert evaluator.at(first.node_id, 2.70).opacity == pytest.approx(0.2)
+    assert evaluator.at(first.node_id, 2.85).opacity == pytest.approx(0)
     assert evaluator.at(last.node_id, 2.75).opacity == 1
 
 
@@ -302,7 +308,7 @@ def test_compact_ass_uses_resolved_recipe_and_absolute_singing(tmp_path):
     rows = Document.load(path).lines
     assert all(row.start_time == 0 for row in rows)
     assert [row.text.split(r"\fad(0,270)}")[1] for row in rows] == [
-        r"{\k140}{\k20}A", r"{\k160}{\k40}B",
+        r"{\k160}{\k0}A", r"{\k200}{\k0}B",
     ]
     assert all(r"\1c&H38220C&" in row.text for row in rows)
     assert all(not row.comment for row in scene.document.lines)
@@ -423,3 +429,42 @@ def test_compact_duotone_preserves_separately_timed_readings(tmp_path):
         parts = [r.text for r in rows if r.text.endswith(text)]
         assert parts and all(rf"\fs{size}" in p for p in parts)
         assert all(rf"\t({start - origin},{end - origin}," in p for p in parts)
+
+
+def test_scanline_retains_the_glyph_outline_and_inward_feather():
+    scene = subject(
+        text=r"{\k100}H", entry="none", exit="none", singing="scanline",
+        scanline_width=4, scanline_softness=2, scanline_color=Color(16, 100, 232),
+    )
+    line = scene.lines[0]
+    target = line.query("character")[0]
+    nodes = {node.id: node for node in _walk(line)}
+    strips = [nodes[a].state for a in target.aliases if ":front:" in a]
+    assert [s.opacity for s in strips] == pytest.approx([0.15625, 0.84375, 0.84375, 0.15625])
+    assert all(s.fill == s.outline == Color(16, 100, 232) for s in strips)
+    assert all(s.blur == 0 and s.border == nodes[target.node_id].state.border for s in strips)
+
+
+@pytest.mark.parametrize("level,mid_attack,mid_release", [(1, 1.125, 1.125), (3, 1.21875, 1.21875)])
+def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_release):
+    scene = subject(text=r"{\k100}A", entry="none", exit="none",
+                    singing="zoom_pulse", zoom_pulse_curve_level=level)
+    target = scene.lines[0].query("character")[0]
+    evaluator = scene.evaluator()
+    baseline = evaluator.at(target.node_id, 1).scale.x
+    for time, factor in ((1.5, mid_attack), (2, 1.25), (2.15, mid_release), (2.3, 1)):
+        assert evaluator.at(target.node_id, time).scale.x == pytest.approx(baseline * factor)
+
+
+def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
+    from kara_templater import LinearGradient, LyricGradient
+
+    sky = LyricGradient((Color(15, 100, 212), Color(230, 249, 255)), step=4)
+    scene = subject(text=r"{\k60}H", singing="scanline", entry="none", exit="none",
+                    scanline_mode="role", scanline_material=sky, scanline_width=4)
+    fronts = [n for n in _walk(scene.lines[0]) if ":front:" in n.id]
+    assert fronts and all(isinstance(n.material, LinearGradient) and
+                          n.material.fill == n.material.outline for n in fronts)
+    document = scene.compile(native_tweens=True).document
+    assert any(r"\clip(" in row.text for row in document.lines if not row.comment)
+    assert any(d.gradient is not None for d in SceneFrames(scene).at(1.3))

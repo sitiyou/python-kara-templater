@@ -100,7 +100,7 @@ Color.hex(
 
 Piecewise linear colors at absolute script coordinates; ends clamp.
 
-[Source](../../kara_templater/paint_fields.py#L100)
+[Source](../../kara_templater/paint_fields.py#L101)
 
 ```python
 ColorRamp(
@@ -130,7 +130,7 @@ An RGB color at a finite script-space position along a paint field axis.
 
 ColorRamp requires ordered stops.
 
-[Source](../../kara_templater/paint_fields.py#L86)
+[Source](../../kara_templater/paint_fields.py#L87)
 
 ```python
 ColorStop(
@@ -192,7 +192,7 @@ Glow(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L146)
+[Source](../../kara_templater/lyric_highlights.py#L153)
 
 ```python
 Highlight(
@@ -243,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L880)
+[Source](../../kara_templater/lyric_highlights.py#L861)
 
 ```python
 HighlightArrival(
@@ -287,7 +287,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L84)
+[Source](../../kara_templater/lyric_highlights.py#L91)
 
 ```python
 HighlightPass(
@@ -346,7 +346,7 @@ masks, and no coverage material composition. Unsupported combinations raise
 instead of silently changing coordinate spaces. With native_tweens, eligible
 scale/opacity curves and a single move share native band events.
 
-[Source](../../kara_templater/paint_fields.py#L153)
+[Source](../../kara_templater/paint_fields.py#L154)
 
 ```python
 LinearGradient(
@@ -417,7 +417,7 @@ from undecorated glyph bounds, independent of glow/outline;
 step is color-band width in local script pixels. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyric_highlights.py#L40)
+[Source](../../kara_templater/lyric_highlights.py#L47)
 
 ```python
 LyricGradient(
@@ -463,7 +463,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L425)
+[Source](../../kara_templater/lyric_highlights.py#L436)
 
 ```python
 LyricHighlights(
@@ -509,6 +509,7 @@ LyricHighlights.__call__(
 
 Sweep source singing across body/ruby without authoring clip geometry.
 
+With wipe=False, each timed unit switches paint at completion.
 Singing progress uses undecorated measured text bounds. For a single
 linear interval in clip mode, outline/glow margins are traversed in
 separate 20 ms shoulders before/after singing, reserved automatically.
@@ -528,6 +529,7 @@ to reveal text instead of recoloring an already visible baseline.
 LyricHighlights.from_singing(
     paint: StatePatch,
     *,
+    wipe: bool = True,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     base_paint: StatePatch | None = None,
@@ -656,7 +658,7 @@ Changes to the incoming VisualState are sampled independently. Omit this
 protocol when an arbitrary callback cannot make the constancy guarantee;
 the compiler then samples its complete visible lifetime.
 
-[Source](../../kara_templater/paint_fields.py#L70)
+[Source](../../kara_templater/paint_fields.py#L71)
 
 ### PaintActivity.active_intervals
 
@@ -770,7 +772,7 @@ Widths are script pixels. The front travels past both ends so the declared
 span is completely unsung at start and completely sung at start+duration.
 start and duration are local seconds from the owning object's clock origin.
 
-[Source](../../kara_templater/paint_fields.py#L216)
+[Source](../../kara_templater/paint_fields.py#L217)
 
 ```python
 SoftSweep(

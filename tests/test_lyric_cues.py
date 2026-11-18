@@ -200,3 +200,21 @@ def test_empty_leading_k_advances_cue_trigger_without_a_dummy_syllable():
         markers=(CueMarker("one", "lead"),),
     )
     assert bound.inline[0].lifetime == Lifetime(1, 5)
+
+
+def test_auto_sized_signals_use_font_at_marker_and_explicit_sizes_win():
+    from kara_templater import SignalCue, VolumeCue
+
+    doc = Document.create(styles=(
+        Style(name="Main", fontname="DejaVu Sans", fontsize=80),
+        Style(name="Harmony", fontname="DejaVu Sans", fontsize=40),
+    ))
+    doc.records.append(Line(style="Main", text=r"{\k50}A{\rHarmony\k50}B", start_time=1000, end_time=2000))
+    lyrics = layout_document_lyrics(doc, len(doc.records) - 1)
+    cues = bind_lyric_cues(
+        lyrics,
+        {"lead": CuePreset(factory=VolumeCue()), "lamp": CuePreset(factory=SignalCue()),
+         "fixed": CuePreset(factory=SignalCue(size=24))},
+        markers=(CueMarker("a", "lead", 0), CueMarker("b", "lamp", 1), CueMarker("c", "fixed", 2)),
+    )
+    assert [cue.content.height for cue in cues.cues] == [40, 20, 24]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Literal, Self
 
@@ -10,6 +10,7 @@ from .characters import LayoutCapabilityError
 from .composition import Color
 from .document_text import SingingSpan
 from .geometry import Vec2, finite
+from .model import Box
 from .scene import Lifetime, ObjectGroup, SceneObject
 from .scene_animation import (
     AnimationClip,
@@ -56,6 +57,7 @@ class LyricTarget:
     delay: float = 0
     aliases: tuple[str, ...] = ()
     center: Vec2 = Vec2()
+    baseline: float | None = None
 
 
 @dataclass(frozen=True)
@@ -351,6 +353,7 @@ class LyricLine(ObjectGroup):
                             spans,
                             tags,
                             center=_character_center(character),
+                            baseline=character.baseline,
                         )
                     )
             for ruby in layout.ruby:
@@ -364,6 +367,7 @@ class LyricLine(ObjectGroup):
                                 (unit.segments[ruby.segment_index].singing,),
                                 tags,
                                 center=_character_center(character),
+                                baseline=character.baseline,
                             )
                         )
         # Untimed/unassigned drawable text is retained as ordinary children.
@@ -514,6 +518,26 @@ class LyricLine(ObjectGroup):
                 for target in self.targets
             ),
         )
+
+    def _glyph_regions(
+        self, *, automatic: bool,
+    ) -> Iterator[tuple[LyricTarget, PositionedText, int, Box]]:
+        """Pair semantic targets with their timed body's or reading's sweep bounds."""
+        body = self.layout.body
+        for target, glyph in zip(self.query("character"), body.characters, strict=True):
+            index, unit = next(
+                (i, u) for i, u in enumerate(self.layout.lyrics.units)
+                if u.start <= glyph.start and glyph.end <= u.end
+            )
+            bounds = (body._sweep_bounds(unit.start, unit.end, glyph) if automatic
+                      else body.range_bounds(unit.start, unit.end))
+            yield target, glyph, index, bounds
+        readings = ((glyph, ruby) for ruby in self.layout.ruby for glyph in ruby.layout.characters)
+        for target, (glyph, ruby) in zip(self.query("ruby"), readings, strict=True):
+            layout = ruby.layout
+            bounds = (layout._sweep_bounds(0, len(layout.source.text), glyph) if automatic
+                      else layout.bounds)
+            yield target, glyph, ruby.unit_index, bounds
 
     def query(
         self, *roles: LyricRole, tags: frozenset[str] = frozenset()

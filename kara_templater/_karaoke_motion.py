@@ -2,17 +2,18 @@
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from math import cos, pi, sin
+from math import cos, pi, radians, sin, tan
 
+from .easing import ease_out
 from .geometry import Vec2
 from .lyric_line import LyricAnimationContext
-from .particles import ParticleContext
 from .scene_animation import (
     Channel,
     StateAnimation,
     StateFunction,
     Transform,
     VisualState,
+    linear_rate,
     smooth_rate,
 )
 
@@ -45,6 +46,18 @@ class Slide:
         )
 
 
+def _scatter(index: int, seed: int, em: float) -> tuple[Vec2, float]:
+    def channel(salt: int) -> float:
+        # Studio indexes its scatter fan by glyph order using unsigned 32-bit arithmetic.
+        value = ((index + seed) * 0x85EBCA77 + salt * 0xC2B2AE3D) & 0xFFFFFFFF
+        value = ((value ^ (value >> 15)) * 0x2545F491) & 0xFFFFFFFF
+        return ((value ^ (value >> 13)) & 0xFFFFFF) / 0x1000000
+
+    angle = 2 * pi * channel(1)
+    travel = em * 2.2 * (0.55 + 0.45 * channel(2))
+    return Vec2(cos(angle), sin(angle)) * travel, (channel(3) - 0.5) * 720
+
+
 def transition(
     context: LyricAnimationContext,
     kind: str,
@@ -57,18 +70,25 @@ def transition(
     targets = context.line.query(target.role)
     index = targets.index(target)
     spread = 0 if len(targets) < 2 else 2 * index / (len(targets) - 1) - 1
-    if kind in {"fade", "char_fade"}:
-        return Slide(Vec2(), entering, fast_reveal=False)
+    if kind == "char_fade":
+        return Slide(Vec2(), entering, fast_reveal=False, rate=linear_rate)
+    if kind == "fade":
+        return Slide(Vec2(), entering, fast_reveal=False, rate=ease_out)
     if kind in {"slide_in", "slide_out"}:
-        return Slide(Vec2(-em if entering else em, 0), entering)
-    if kind in {"rise", "wave_in"}:
-        return Slide(Vec2(0, em * 0.55 if entering else -em * 0.55), entering)
+        return Slide(Vec2(-max(36, 0.9 * em), 0), entering, fast_reveal=False, rate=ease_out)
+    if kind == "wave_in":
+        return Slide(Vec2(0, max(24, em * 0.5)), entering)
+    if kind == "rise":
+        distance = max(18, em * 0.35)
+        return Slide(
+            Vec2(0, distance if entering else -distance),
+            entering,
+            fast_reveal=False,
+            rate=ease_out,
+        )
     if kind == "tracking_in":
         return Slide(Vec2(spread * em * 1.6, 0), entering)
-    random = ParticleContext(target.id, 0, seed, Vec2(), context.line.origin)
-    angle = random.uniform("direction", 0, 2 * pi)
-    travel = Vec2(cos(angle), sin(angle)) * em * random.uniform("distance", 1.4, 2.6)
-    spin = random.uniform("spin", -210, 210)
+    travel, spin = _scatter(index, seed, em) if kind == "scatter_out" else (Vec2(), 0.0)
 
     def sample(base: VisualState, p: float) -> VisualState:
         q = smooth_rate(p)
@@ -79,7 +99,7 @@ def transition(
         match kind:
             case "scatter_out":
                 offset = travel * (1 - (1 - p) ** 2)
-                rotation, scale = spin * p, Vec2(1, 1) * (1 - 0.45 * q)
+                rotation, scale = spin * p, Vec2(1, 1) * (1 - 0.4 * p)
                 opacity = (1 - p) ** 2
             case "converge_out":
                 # Resolve body-node centers through layout, rather than character index widths.
@@ -96,31 +116,42 @@ def transition(
                 if x is not None:
                     distance = context.line.layout.body.bounds.center - x
                 offset = Vec2(distance * q, 0)
-                scale = Vec2(1, 1) * (1 - 0.65 * q)
-            case "char_drip":
-                shear = (1 if entering else -1) * 2.4 * remaining
-                pivot = Vec2(center.x * 2, center.y * (2 if entering else 0))
-            case "spin_flip":
-                scale = Vec2(1, 1) * max(0.001, 1 - remaining)
-                shear = (1 if entering else -1) * 1.8 * remaining
+                scale = Vec2(1, 1) * (1 - 0.2 * q)
+            case "char_drip" | "spin_flip":
+                visible = p if entering else 1 - p
+                slope = (
+                    tan(min(radians(89), (1 - visible) * pi / 2)) if visible else 0.0
+                )
+                shear = slope if entering else -slope
+                if kind == "spin_flip":
+                    shear = -shear
+                    scale = Vec2(1, 1) * visible
+                    opacity = visible
+                else:
+                    opacity = float(visible > 0)
+                    baseline = target.baseline if target.baseline is not None else center.y * 2
+                    pivot = Vec2(center.x * 2, baseline if entering else baseline - center.y * 2)
             case "utopia":
                 if entering:
-                    factor = (
-                        1.12 * smooth_rate(p / 0.6)
-                        if p < 0.6
-                        else 1 + 0.12 * (1 - smooth_rate((p - 0.6) / 0.4))
-                    )
-                    scale = Vec2(1, 1) * max(0.001, factor)
+                    pivot = Vec2(0, target.baseline) if target.baseline is not None else center
+                    factor = 1.3 * p / 0.8 if p < 0.8 else 1 + 0.3 * (1 - p) / 0.2
+                    opacity = min(1, p / 0.8)
+                    scale = Vec2(1, 1) * factor
                 else:
-                    offset = Vec2(-em * 1.5 * sin(pi * p / 2), em * sin(pi * p / 2))
-                    scale = Vec2((1 - q) * cos(pi * p), 1 - q)
+                    horizontal = sin(pi * p) if p <= 0.5 else 1 + sin(pi * (p - 0.5))
+                    offset = Vec2(-horizontal, sin(pi * p / 2)) * (
+                        context.line.layout.script_height / 15
+                    )
+                    opacity = 1 - p
+                    scale = Vec2((1 - p) * cos(pi * p), 1 - p)
                     rotation = -180 * p
             case "stretch_in" | "stretch_out":
                 scale, blur = Vec2(1 + 2.2 * remaining, 1), em * 0.1 * remaining
             case "glow_in" | "glow_out":
-                scale, blur = Vec2(1 + 0.6 * remaining, 1), em * 0.14 * remaining
+                scale = Vec2(1 + 0.6 * remaining, 1)
+                opacity = min(1, 3 * p) if entering else 1 - q
             case "assemble_in":
-                opacity = smooth_rate(max(0, (p - 0.45) / 0.55))
+                opacity = max(0, (q - 0.45) / 0.55)
             case "dissolve_out":
                 opacity = 1 - smooth_rate(min(1, p / 0.55))
         transformed = Transform(

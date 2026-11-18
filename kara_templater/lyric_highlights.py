@@ -37,6 +37,13 @@ type LyricMaterial = (
 )
 
 
+def _resolve_material(source: LyricMaterial, line: LyricLine, target: LyricTarget) -> PaintField | None:
+    value = source(line, target) if callable(source) else source
+    if value is not None and not isinstance(value, PaintField):
+        raise TypeError("lyric material factory must return a PaintField or None")
+    return value
+
+
 @dataclass(frozen=True)
 class LyricGradient:
     """Evenly spaced vertical colors attached to each measured body/ruby glyph.
@@ -193,6 +200,10 @@ class _SingingHighlights:
     paint: StatePatch
     glow: LyricGlow
     material: LyricMaterial = None
+    wipe: bool = True
+
+    def interval(self, start: float, end: float) -> TimeSpan:
+        return TimeSpan(start if self.wipe else end, end)
 
     def __call__(self, line: LyricLine) -> tuple[Highlight, ...]:
         return tuple(
@@ -201,7 +212,7 @@ class _SingingHighlights:
                 index,
                 tuple(
                     HighlightPass(
-                        TimeSpan(span.start, span.end),
+                        self.interval(span.start, span.end),
                         Region(box.left, box.right),
                         round=round_id,
                     )
@@ -465,6 +476,7 @@ class LyricHighlights:
         cls,
         paint: StatePatch,
         *,
+        wipe: bool = True,
         glow: LyricGlow = None,
         base_glow: LyricGlow = None,
         base_paint: StatePatch | None = None,
@@ -476,6 +488,7 @@ class LyricHighlights:
     ) -> LyricHighlights:
         """Sweep source singing across body/ruby without authoring clip geometry.
 
+        With wipe=False, each timed unit switches paint at completion.
         Singing progress uses undecorated measured text bounds. For a single
         linear interval in clip mode, outline/glow margins are traversed in
         separate 20 ms shoulders before/after singing, reserved automatically.
@@ -492,7 +505,7 @@ class LyricHighlights:
         to reveal text instead of recoloring an already visible baseline.
         """
         return cls(
-            highlights=_SingingHighlights(paint, glow, material),
+            highlights=_SingingHighlights(paint, glow, material, wipe),
             glow=base_glow,
             hook_feather=hook_feather,
             front_color=front_color,
@@ -533,38 +546,7 @@ class LyricHighlights:
         if any(h.unit >= len(line.layout.lyrics.units) for h in highlights):
             raise ValueError("highlight unit is outside lyrics")
         automatic = isinstance(self.highlights, _SingingHighlights)
-        drawings: list[tuple[LyricTarget, PositionedText, int, Box]] = []
-        for target, character in zip(
-            line.query("character"), line.layout.body.characters, strict=True
-        ):
-            unit = next(
-                i
-                for i, unit in enumerate(line.layout.lyrics.units)
-                if unit.start <= character.start and character.end <= unit.end
-            )
-            source = line.layout.lyrics.units[unit]
-            drawings.append(
-                (
-                    target,
-                    character,
-                    unit,
-                    line.layout.body._sweep_bounds(source.start, source.end, character)
-                    if automatic
-                    else line.layout.body.range_bounds(source.start, source.end),
-                )
-            )
-        readings = tuple(
-            (character, ruby)
-            for ruby in line.layout.ruby
-            for character in ruby.layout.characters
-        )
-        for target, (character, ruby) in zip(line.query("ruby"), readings, strict=True):
-            box = (
-                ruby.layout._sweep_bounds(0, len(ruby.layout.source.text), character)
-                if automatic
-                else ruby.layout.bounds
-            )
-            drawings.append((target, character, ruby.unit_index, box))
+        drawings = tuple(line._glyph_regions(automatic=automatic))
 
         def shoulder(highlight: Highlight) -> float:
             return (
@@ -624,13 +606,14 @@ class LyricHighlights:
             chosen = tuple(h for h in highlights if h.unit == unit)
             if not chosen:
                 return
-            if automatic and target.role == "ruby":
+            if isinstance(self.highlights, _SingingHighlights) and target.role == "ruby":
                 clock = target.singing[0]
+                interval = self.highlights.interval(clock.start, clock.end)
                 chosen = tuple(
                     replace(
                         h,
                         passes=(
-                            replace(h.passes[0], time=TimeSpan(clock.start, clock.end)),
+                            replace(h.passes[0], time=interval),
                         ),
                     )
                     for h in chosen
@@ -639,9 +622,7 @@ class LyricHighlights:
                 replace(
                     highlight,
                     glow=_resolve_glow(highlight.glow, line, target),
-                    material=highlight.material(line, target)
-                    if callable(highlight.material)
-                    else highlight.material,
+                    material=_resolve_material(highlight.material, line, target),
                 )
                 for highlight in chosen
             )

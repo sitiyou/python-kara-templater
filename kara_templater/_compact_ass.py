@@ -112,6 +112,8 @@ def _layout_events(
         on, off = round(span.start * 100), round(span.end * 100)
         if span.start_offset != offset or on < cursor or off > end:
             return None
+        if not paint.wipe:
+            on = off
         if cursor < on:
             pieces.append(rf"{{\k{on - cursor}}}")
         tag = "kf" if paint.wipe else "k"

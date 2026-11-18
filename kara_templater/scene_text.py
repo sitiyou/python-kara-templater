@@ -21,7 +21,8 @@ from .sources import EventOrigin, SourceRef
 class PositionedText:
     """A drawable text cluster, decoded source range, measured advance/ink bounds, and selected font faces.
 
-    Layout scale is retained when used for range measurements.
+    Layout scale is retained when used for range measurements. baseline is the
+    local y coordinate of the font baseline measured during shaping.
     """
 
     start: int
@@ -32,6 +33,7 @@ class PositionedText:
     fonts: tuple[FontFace, ...]
     layout_scale: Vec2 | None = None
     _gap_shift: float = 0
+    baseline: float | None = None
 
     def __post_init__(self) -> None:
         scale = (
@@ -281,7 +283,7 @@ def _layout_document_view(
         try:
             for run in runs:
                 _style_supported(styles[run.appearance.style])
-            width, height, _, _ = text_extents(style, text)
+            width, height, descent, _ = text_extents(style, text)
             box = Box(x, 0, width, height)
             measured = layout_characters(
                 LaidOutLine(box, (LaidOutUnit(TextUnit(text), box, ()),)), style=style
@@ -340,6 +342,7 @@ def _layout_document_view(
                     character.box,
                     character.ink_bounds,
                     character.font_faces,
+                    baseline=(height - descent) / obj.state.scale.y,
                 )
             )
         x += width

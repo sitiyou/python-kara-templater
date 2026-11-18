@@ -59,6 +59,11 @@ keep reserved space. Choose a factory by its clock and appearance.
 | `BarsCue` | A descending bar countdown drops individual bars at the supplied steps. | The last bar clears. |
 | `TextCue` | Each step displays its configured label. | The last label clears. |
 
+By default the volume columns and shape lamps measure half the font size at the
+marker. Their outlines scale with the host font too. Set `height` on `VolumeCue`
+or `size` on `SignalCue` for a fixed size in script pixels. Built-in lamps have a
+small reflection that fades with the lamp. Set `edge_brightness=0` to remove it.
+
 ### Choose the countdown order
 
 The marker's `placement` sets where the cue appears. Its preset's factory

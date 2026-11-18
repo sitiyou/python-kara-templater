@@ -30,13 +30,15 @@ from .sources import EventOrigin, SourceRef
 class CueContext:
     """Factory input containing a stable cue ID, absolute seconds lifetime, absolute step boundaries, and source origin.
 
-    Factories create local objects for that interval.
+    Factories create local objects for that interval. host is the measured text
+    cluster at the marker (the final cluster for an end marker), when available.
     """
 
     id: str
     lifetime: Lifetime
     steps: tuple[float, ...]
     origin: EventOrigin
+    host: TextObject | None = None
 
 
 @dataclass(frozen=True)
@@ -283,11 +285,16 @@ def bind_cues(
         lifetime = Lifetime(start, start + preset.duration)
         identifier = f"{layout.id}/cue:{marker.id}"
         origin = EventOrigin((SourceRef(layout.id),), f"cue {marker.id}")
+        host = next(
+            (glyph for glyph in layout.characters if glyph.start == marker.offset),
+            layout.characters[-1] if layout.characters else None,
+        )
         context = CueContext(
             identifier,
             lifetime,
             tuple(start + step * preset.duration for step in preset.steps),
             origin,
+            host.object if host is not None else None,
         )
         content = preset.factory(context)
         for node in content.objects:

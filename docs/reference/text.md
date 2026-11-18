@@ -114,7 +114,7 @@ Measured editable text objects with decoded source ranges, singing spans, bounds
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/scene_text.py#L45)
+[Source](../../kara_templater/scene_text.py#L47)
 
 ```python
 DocumentLayout(
@@ -447,7 +447,8 @@ PositionedRuby(
 
 A drawable text cluster, decoded source range, measured advance/ink bounds, and selected font faces.
 
-Layout scale is retained when used for range measurements.
+Layout scale is retained when used for range measurements. baseline is the
+local y coordinate of the font baseline measured during shaping.
 
 [Source](../../kara_templater/scene_text.py#L20)
 
@@ -460,6 +461,7 @@ PositionedText(
     ink_bounds: Box | None,
     fonts: tuple[FontFace, ...],
     layout_scale: Vec2 | None = None,
+    baseline: float | None = None,
 )
 ```
 
@@ -474,6 +476,7 @@ PositionedText(
 | `ink_bounds` | `Box \| None` | `required` |
 | `fonts` | `tuple[FontFace, ...]` | `required` |
 | `layout_scale` | `Vec2 \| None` | `None` |
+| `baseline` | `float \| None` | `None` |
 
 ## Segment
 
@@ -621,7 +624,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L357)
+[Source](../../kara_templater/scene_text.py#L360)
 
 ```python
 layout_document_text(
