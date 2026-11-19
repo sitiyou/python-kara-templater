@@ -166,6 +166,8 @@ def stable(value: object) -> str:
 
 
 def annotation(value: object) -> str:
+    if value is Path:
+        return "pathlib.Path"
     if value is inspect.Signature.empty:
         return "unannotated"
     if value is None or value is type(None):
