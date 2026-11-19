@@ -2,7 +2,7 @@
 
 The release workflow in .github/workflows/release.yml checks source quality,
 builds a source distribution, tests an installed package outside the checkout,
-and builds repaired CPython 3.12–3.14 wheels for Linux x86-64 and Windows AMD64.
+and builds repaired CPython 3.12–3.15 wheels for Linux x86-64 and Windows AMD64.
 It uploads artifacts and has a separate publishing job restricted to version tags.
 A local tag or pyproject version alone does not prove publication.
 

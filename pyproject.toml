@@ -24,9 +24,9 @@ kara_templater = ["py.typed", "*.pyi"]
 testpaths = ["tests"]
 
 [tool.cibuildwheel]
-build = ["cp3{12,13,14}-manylinux_x86_64", "cp3{12,13,14}-win_amd64"]
+build = ["cp3{12,13,14,15}-manylinux_x86_64", "cp3{12,13,14,15}-win_amd64"]
 test-sources = ["tests", "examples", "tools", "docs", "README.md", "THIRD_PARTY.md", "pyproject.toml", "setup.py"]
-test-requires = ["pytest", "setuptools>=77", "Pillow>=10", "ty==0.0.100"]
+test-requires = ["pytest", "setuptools>=77", "Pillow>=10", "ty==0.0.106"]
 test-command = "python -m pytest tests -v && python -m kara_templater examples/karaoke.ass output.ass"
 
 [tool.cibuildwheel.linux]
@@ -40,7 +40,7 @@ repair-wheel-command = """auditwheel repair --plat manylinux_2_28_x86_64 --only-
   --exclude 'libpng16.so.*' --exclude 'libbrotlidec.so.*' \\
   --exclude 'libbrotlicommon.so.*' --exclude 'libpcre2-8.so.*' \\
   -w {dest_dir} {wheel}"""
-before-all = "dnf install -y epel-release && dnf install -y autoconf automake libtool nasm pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts"
+before-all = "dnf install -y epel-release && dnf install -y autoconf automake libtool nasm pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts google-noto-sans-cjk-ttc-fonts"
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
@@ -50,7 +50,7 @@ repair-wheel-command = "delvewheel repair --strip --no-mangle libharfbuzz-0.dll 
 [dependency-groups]
 checks = [
     "ruff==0.17.4",
-    "ty==0.0.100",
+    "ty==0.0.106",
     "pytest>=8",
     "Pillow>=10",
     "setuptools>=77",
@@ -82,7 +82,7 @@ ignore = ["E731", "E741"]
 [tool.ty.rules]
 # Defaults already diagnose incompatible arguments, assignments and returns.
 # These additionally prevent dynamic values leaking through declared contracts.
-unsound-return-statement = "error"
+unsound-return = "error"
 unsound-assignment = "error"
 unsound-yield = "error"
 missing-type-argument = "error"
