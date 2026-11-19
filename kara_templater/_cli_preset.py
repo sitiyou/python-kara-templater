@@ -37,13 +37,13 @@ class _SourcePlacement(Layout):
         column, row = (self.align - 1) % 3, (self.align - 1) // 3
         result = []
         for line in lines:
-            box = line.bounds
+            box = line.body_bounds or line.bounds
             x = (
                 self.left
                 if column == 0
                 else region.width - self.right - box.width
                 if column == 2
-                else (region.width - box.width) / 2
+                else self.left + (region.width - self.left - self.right - box.width) / 2
             )
             y = (
                 region.height - self.vertical - box.height

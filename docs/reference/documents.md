@@ -766,7 +766,7 @@ Import supported timed ASS lyrics into KaraokeItem values with stable source bin
 
 Preserve source timing and report unsupported tags with record/style context.
 
-[Source](../../kara_templater/import_ass.py#L175)
+[Source](../../kara_templater/import_ass.py#L186)
 
 ```python
 import_karaoke(
@@ -781,7 +781,7 @@ import_karaoke(
 
 ASS secondary is unsung, primary is sung; decode AABBGGRR at this boundary.
 
-[Source](../../kara_templater/import_ass.py#L255)
+[Source](../../kara_templater/import_ass.py#L266)
 
 ```python
 paint_pair_from_style(

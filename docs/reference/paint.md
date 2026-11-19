@@ -210,7 +210,7 @@ Glow.from_studio(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L207)
+[Source](../../kara_templater/lyric_highlights.py#L212)
 
 ```python
 Highlight(
@@ -261,7 +261,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L1042)
+[Source](../../kara_templater/lyric_highlights.py#L1164)
 
 ```python
 HighlightArrival(
@@ -307,7 +307,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L139)
+[Source](../../kara_templater/lyric_highlights.py#L144)
 
 ```python
 HighlightPass(
@@ -442,7 +442,7 @@ from undecorated glyph bounds, independent of glow/outline;
 step is color-band width in local script pixels. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyric_highlights.py#L79)
+[Source](../../kara_templater/lyric_highlights.py#L84)
 
 ```python
 LyricGradient(
@@ -490,7 +490,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L581)
+[Source](../../kara_templater/lyric_highlights.py#L681)
 
 ```python
 LyricHighlights(
@@ -503,6 +503,9 @@ LyricHighlights(
     base_paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
     base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     hook_feather: float = 0,
+    edge_duration: float = 0.02,
+    blend_glow: bool = True,
+    ass_feather_bands: int = 0,
     front_color: Color | None = None,
 )
 ```
@@ -519,6 +522,9 @@ LyricHighlights(
 | `base_paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
 | `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `hook_feather` | `float` | `0` |
+| `edge_duration` | `float` | `0.02` |
+| `blend_glow` | `bool` | `True` |
+| `ass_feather_bands` | `int` | `0` |
 | `front_color` | `Color \| None` | `None` |
 
 ### LyricHighlights.__call__
@@ -542,7 +548,14 @@ With reverse=True, each timed unit fills from its right edge.
 With wipe=False, each timed unit switches paint at completion.
 Singing progress uses undecorated measured text bounds. For a single
 linear interval in clip mode, outline/glow margins are traversed in
-separate 20 ms shoulders before/after singing, reserved automatically.
+separate shoulders before/after singing, reserved automatically. edge_duration
+sets their duration in seconds (default 0.02). segment_colors maps
+(unit index, reading index) to sung colors. Mapped segments sweep successive
+equal portions of their body, holding their position through rests.
+ruby_fill overrides the sung fill of all readings independently.
+blend_glow=False gives each side a clipped halo with its own color.
+ass_feather_bands also draws a flat palette soft front in standard ASS
+using up to 16 moving color strips (zero disables the approximation).
 Contiguous timed readings divide their host wipe equally at reading
 checkpoints. With ruby_reading_units=True, visible reading characters instead
 receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
@@ -572,6 +585,11 @@ LyricHighlights.from_singing(
     material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     strategy: Literal['clip', 'coverage'] = 'clip',
     hook_feather: float = 0,
+    segment_colors: Mapping[tuple[int, int], Color] | None = None,
+    ruby_fill: Color | None = None,
+    edge_duration: float = 0.02,
+    blend_glow: bool = True,
+    ass_feather_bands: int = 0,
     front_color: Color | None = None,
     settings: RasterSettings | None = None,
 ) -> LyricHighlights

@@ -253,8 +253,73 @@ def test_studio_cells_keep_explicit_tracking_between_clusters_and_ink_timed():
                                                  ceil(moved.ink_bounds.right) + 3)
 
 
-def test_studio_long_reading_centers_on_host_and_reserves_its_overhang():
-    doc, index = document(r"{\k50}M|reading{\k50}X")
+@pytest.mark.parametrize(("marker", "kind"), [("", "join"), ("!", "break"), ("！", "break"),
+                                              ("<", "spill"), ("＜", "spill")])
+def test_adjacent_wide_ruby_groups_and_continuation_clocks(marker, kind):
+    from kara_templater import layout_line, parse_karaoke
+
+    doc, index = document(r"{\k10}M｜a{\k10}N｜" + marker + r"long{\k10}＃｜word")
+    line = doc.lines[0]
+    scene = layout_document_lyrics(doc, index, min_outline_gap=None)
+    simple = layout_line(parse_karaoke(line), style=doc.styles["Default"])
+    boxes = [u.box for u in simple.units]
+    readings = [s.ruby for u in simple.units for s in u.segments if s.ruby]
+    for hosts, ruby in ((boxes, readings), ([c.bounds for c in scene.body.characters],
+                                            [r.layout.bounds for r in scene.ruby])):
+        first, second = hosts
+        r1, r2, r3 = ruby
+        assert r3.left == pytest.approx(r2.right)
+        if kind == "join":
+            assert r1.left == pytest.approx(first.left)
+            assert r2.left == pytest.approx(r1.right)
+        else:
+            assert r1.center == pytest.approx(first.center)
+            if kind == "spill":
+                assert (r2.left + r3.right) / 2 == pytest.approx(second.center)
+                assert r2.left == pytest.approx(first.right, abs=0.25)
+            else:
+                assert r2.left == pytest.approx(second.left)
+    assert [r.segment_index for r in scene.ruby] == [0, 0, 1]
+    assert [s.singing.end - s.singing.start for s in scene.lyrics.units[-1].segments] == pytest.approx([0.1, 0.1])
+
+
+def test_short_readings_across_two_syllables_center_as_one_run():
+    doc, index = document(r"{\k10}MMM|a{\k20}MMM|b")
+    layout = layout_document_lyrics(doc, index, min_outline_gap=None)
+    first, second = (r.layout.bounds for r in layout.ruby)
+    assert first.right == pytest.approx(second.left)
+    assert (first.left + second.right) / 2 == pytest.approx(layout.body.bounds.center)
+
+
+def test_spill_on_a_continuation_applies_to_its_whole_group():
+    doc, index = document(r"{\k10}X|a{\k10}#|＜long")
+    layout = layout_document_lyrics(doc, index)
+    first, last = layout.ruby
+    assert (first.layout.bounds.left + last.layout.bounds.right) / 2 == pytest.approx(layout.body.bounds.center)
+
+
+@pytest.mark.parametrize("bare", ["", "X", "XXXX", "XXXXXXXX"])
+def test_bare_syllable_consumes_previous_overflow_before_next_short_reading(bare):
+    first = r"{\k10}M|verylongreading"
+    middle = r"{\k10}" + bare if bare else ""
+    doc, index = document(first + middle + r"{\k10}MMMM|!a")
+    layout = layout_document_lyrics(doc, index, min_outline_gap=None)
+    wide, short = layout.ruby
+    host = layout.body.range_bounds(1 + len(bare), 5 + len(bare))
+    baseline = layout.body.range_bounds(0, 1 + len(bare))
+    assert host.left == pytest.approx(max(wide.layout.bounds.right, baseline.right), abs=0.5)
+    assert short.layout.bounds.center == pytest.approx(host.center)
+
+
+def test_spaces_surrounding_an_annotated_syllable_belong_to_its_body():
+    doc, index = document(r"{\k10} A|a  {\k10} ＃｜b ")
+    lyrics = parse_document_lyrics(doc.text_at(index), start=1)
+    assert lyrics.body.text == " A  "
+    assert [s.ruby.source.text for s in lyrics.units[0].segments if s.ruby] == ["a", "b"]
+
+
+def test_float_left_long_reading_centers_on_host_and_reserves_its_overhang():
+    doc, index = document(r"{\k50}M|<reading{\k50}X")
     layout = layout_document_lyrics(doc, index, studio_spacing=True)
     reading, = layout.ruby
     host = layout.body.range_bounds(0, 1)
@@ -263,8 +328,8 @@ def test_studio_long_reading_centers_on_host_and_reserves_its_overhang():
     assert layout.bounds.left == reading.layout.bounds.left
 
 
-@pytest.mark.parametrize(("reading", "spread"), [("да", True), ("da", False), ("??", False)])
-def test_studio_ruby_shares_spare_width_by_script(reading, spread):
+@pytest.mark.parametrize("reading", ["だよ", "да", "da", "??"])
+def test_short_reading_centers_at_its_natural_spacing(reading):
     doc, index = document(r"{\k50}ЖЖЖЖ|" + reading)
     layout = layout_document_lyrics(doc, index, studio_spacing=True, min_outline_gap=None)
     ruby, = layout.ruby
@@ -273,7 +338,7 @@ def test_studio_ruby_shares_spare_width_by_script(reading, spread):
     spare = layout.body.bounds.width - natural
     assert spare > 0
     assert ruby.layout.bounds.center == pytest.approx(layout.body.bounds.center)
-    assert second.bounds.left - first.bounds.right == pytest.approx(spare / 3 if spread else 0)
+    assert second.bounds.left - first.bounds.right == pytest.approx(0)
 
 
 def test_studio_spacing_uses_selected_em_and_preserves_overhanging_ink():

@@ -100,8 +100,13 @@ def parse_karaoke(line: Line) -> KaraokeLine:
         base, separator, ruby = text.replace("｜", "|").partition("|")
         if "|" in ruby:
             raise ValueError("multiple ruby separators in one singing segment")
-        continuation = base in {"#", "＃"}
-        ruby_continuation = ruby.startswith(("<", "＜"))
+        continuation = base.strip(" \t") in {"#", "＃"}
+        if separator:
+            reading = ruby.rstrip(" \t")
+            base += ruby[len(reading):]
+            ruby = reading
+        spillback = ruby.startswith(("<", "＜"))
+        join = bool(separator) and not ruby.startswith(("!", "！", "<", "＜"))
         if ruby.startswith(("<", "＜", "!", "！")):
             ruby = ruby[1:]
         if pending is None:
@@ -118,9 +123,15 @@ def parse_karaoke(line: Line) -> KaraokeLine:
                     raise ValueError(
                         "continuation requires a preceding timed text unit"
                     )
-                units[-1] = replace(units[-1], segments=(*units[-1].segments, segment))
+                units[-1] = replace(
+                    units[-1], segments=(*units[-1].segments, segment),
+                    ruby_spillback=units[-1].ruby_spillback or spillback,
+                    ruby_continuation=units[-1].ruby_continuation if any(
+                        part.ruby for part in units[-1].segments
+                    ) else join,
+                )
             else:
-                units.append(TextUnit(base, (segment,), ruby_continuation))
+                units.append(TextUnit(base, (segment,), join, spillback))
         text, pending = "", None
 
     offset = 0

@@ -29,12 +29,14 @@ class TextUnit:
     """One body text unit with ordered, nonoverlapping singing segments.
 
     Static units can have no segments and repeated singing retains a single body
-    string.
+    string. ruby_continuation joins the preceding annotated unit. ruby_spillback
+    allows a wide joined reading to extend to the left as well as the right.
     """
 
     text: str
     segments: tuple[Segment, ...] = ()
     ruby_continuation: bool = False
+    ruby_spillback: bool = True
 
     def __post_init__(self) -> None:
         for left, right in zip(self.segments, self.segments[1:], strict=False):

@@ -18,7 +18,7 @@ from .coverage_animation import GlowFunction
 from .cues import CueContent, CueContext, CueFactory, CuePreset, bind_lyric_cues
 from .document_lyrics import DocumentLyrics, parse_document_lyrics
 from .document_text import DocumentText
-from .geometry import finite
+from .geometry import Vec2, finite
 from .import_ass import SOURCE_PREFIX, SourceBinding, source_marker, source_prefix
 from .karaoke_effects import KaraokeEffects
 from .lyric_highlights import LyricGradient, LyricHighlights, _style_material
@@ -470,6 +470,7 @@ def prepare_tracks(
         styles = view.styles
         allocation_inputs: list[LayoutLine] = []
         prepared: dict[str, LyricLine] = {}
+        row_cues: dict[str, Vec2] = {}
         resolved: dict[str, tuple[_LyricBinding, ...]] = {}
         border = max(
             [track.reserved_border]
@@ -538,14 +539,15 @@ def prepare_tracks(
                 max(display.end, singing.end + exit),
             )
             reserved = _reserved_animations(bindings)
-            if cued.inline:
+            timed_cues = [cue for cue in cued.cues if cue.marker.placement == "inline" or cue.preset.line_edge]
+            if timed_cues:
                 reserved = Lifetime(
                     min(
-                        *(cue.lifetime.start for cue in cued.inline),
+                        *(cue.lifetime.start for cue in timed_cues),
                         reserved.start if reserved else singing.start,
                     ),
                     max(
-                        *(cue.lifetime.end for cue in cued.inline),
+                        *(cue.lifetime.end for cue in timed_cues),
                         reserved.end if reserved else singing.end,
                     ),
                 )
@@ -626,6 +628,20 @@ def prepare_tracks(
                 for cue in cued.cues
                 if cue.marker.placement == "inline"
             )
+            bounds = _union((line.layout.bounds, *cue_bounds))
+            lyric_bounds = bounds
+            for marker, group in zip(
+                (cue for cue in cued.cues if cue.marker.placement == "independent"), cued.independent, strict=True
+            ):
+                edge = marker.preset.line_edge
+                if edge is None:
+                    continue
+                width, height = marker.content.width, marker.content.height
+                x = min(bounds.left, bounds.center - width / 2)
+                y = (bounds.top - marker.preset.gap - height if edge == "above"
+                     else bounds.top + bounds.height + marker.preset.gap)
+                row_cues[group.id] = Vec2(x, y)
+                bounds = _union((bounds, Box(x, y, width, height)))
             column = None
             if track.vertical:
                 allowance = max((round(g.object.font_size * g.object.state.scale.y) + track.ruby_gap
@@ -636,11 +652,12 @@ def prepare_tracks(
                     id=identity,
                     singing=singing,
                     display=display,
-                    bounds=_union((line.layout.bounds, *cue_bounds)),
+                    bounds=bounds,
+                    body_bounds=line.layout.body.bounds,
                     em_size=line.query("line")[0].em_size,
                     _column_metrics=column,
                     _lyric_width=bare.bounds.width if cue_bounds else None,
-                    _row_metrics=None if column else _row_metrics(line.layout, styles, track.ruby_gap, border),
+                    _row_metrics=None if column or bounds != lyric_bounds else _row_metrics(line.layout, styles, track.ruby_gap, border),
                     entrance=entrance,
                     exit=exit,
                     sources=(SourceRef(source.id),),
@@ -674,7 +691,11 @@ def prepare_tracks(
             stamped = _stamp(line, source.id, track.id)
             assert isinstance(stamped, LyricLine)
             independent = tuple(
-                _stamp(cue, source.id, track.id) for cue in line.independent
+                _stamp(
+                    replace(cue, state=replace(cue.state, position=row_cues[cue.id] + line.state.position))
+                    if cue.id in row_cues else cue, source.id, track.id,
+                )
+                for cue in line.independent
             )
             line = replace(
                 stamped,

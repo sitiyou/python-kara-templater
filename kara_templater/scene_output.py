@@ -1916,6 +1916,9 @@ def compile_scene(
     on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult:
     """Return a new Document. Source records and caller-owned nodes never mutate."""
+    from .lyric_highlights import _ass_feathers
+
+    scene = _ass_feathers(scene)
     budget = SceneBudget() if budget is None else budget
     if on_estimate is not None and not callable(on_estimate):
         raise TypeError("on_estimate must be callable")

@@ -328,10 +328,14 @@ their absolute pass times even in that early window.
 
 The default `KaraokeRows` preset measures each shaped cluster using its visible
 ink, side bearings and primary outline. It uses the resulting cells for body
-text, readings and inline cue placement. A reading wider than its host extends
-on both sides and the allocator includes that overhang in the line width.
-Short kana readings share the spare width of a wider host. Latin readings stay
-centered with their natural spacing.
+text, readings and inline cue placement. Horizontal furigana follows Aegisub's grouping rules at either cell spacing.
+Adjacent annotated syllables share one reading group. Short readings center over the
+group at their natural spacing. A wide reading starts at the group's left edge.
+Use `|!` to begin a separate group or `|<` to begin a group that can overflow
+equally to the left and right. A `#` syllable extends the previous body unit
+and retains its own singing interval. Fullwidth forms work too. Bare syllables
+can absorb a preceding overhang. When space is still needed, the engine moves
+the following group together with its body. [Aegisub furigana tutorial](https://aegisub.org/docs/latest/furigana_karaoke)
 The Studio sweep traverses the ink and the primary hard outline during the
 singing interval. Extra outline clearance, glow and shadow add no travel time. A plain `Layout` uses native font advances. Set
 `Track(studio_spacing=True, ...)` or `False` to choose independently of the rows.

@@ -156,7 +156,11 @@ replaced independently of the input marker syntax.
 
 Use bind_cues for plain DocumentLayout or bind_lyric_cues for LyricLayout, supplying
 a mapping of preset names to CuePreset values. Inline cues reserve body space;
-independent cues use their configured position without reserving lyric width.
+independent cues use their configured canvas position by default. To keep a
+separate guide clear of ruby on alternating rows, set the Track preset to
+`CuePreset(factory=BarsCue(), line_edge="above", gap=12)`. The allocator
+receives the combined bounds of the measured lyric row and guide. Use
+`line_edge="below"` to place the guide beneath a top row.
 Ruby follows the same inline reservation/release rule as its associated body.
 The default cue trigger is the first relevant singing interval; a preset may
 specify an absolute trigger. No beat grid is inferred.

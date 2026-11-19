@@ -27,7 +27,7 @@ A CueFactory producing a stepwise bar countdown from vector objects.
 Width, height, border, and colors are explicit and the returned content reserves
 its own layout dimensions.
 
-[Source](../../kara_templater/cues.py#L125)
+[Source](../../kara_templater/cues.py#L131)
 
 ```python
 BarsCue(
@@ -36,6 +36,7 @@ BarsCue(
     color: Color = Color(red=0, green=255, blue=255),
     border: float = 2,
     outline: Color = Color(red=255, green=255, blue=255),
+    direction: Literal['left_to_right', 'right_to_left'] = 'left_to_right',
 )
 ```
 
@@ -48,6 +49,7 @@ BarsCue(
 | `color` | `Color` | `Color(red=0, green=255, blue=255)` |
 | `border` | `float` | `2` |
 | `outline` | `Color` | `Color(red=255, green=255, blue=255)` |
+| `direction` | `Literal['left_to_right', 'right_to_left']` | `'left_to_right'` |
 
 ### BarsCue.__call__
 
@@ -150,7 +152,7 @@ A bound marker, preset, content, and trigger placement in the lyric layout.
 
 It retains the data needed to reserve or release inline space.
 
-[Source](../../kara_templater/cues.py#L205)
+[Source](../../kara_templater/cues.py#L214)
 
 ```python
 CuePlacement(
@@ -176,6 +178,9 @@ CuePlacement(
 
 A cue factory with lead/duration in seconds, normalized step fractions, gap, position, and reservation policy.
 
+On a Track, line_edge places an independent cue above or below the measured
+lyric row (including ruby), reserves its dimensions and applies gap in pixels.
+With no line_edge, independent cues use absolute position.
 An explicit trigger overrides the relevant singing interval default. colors fixes
 the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
 
@@ -190,6 +195,7 @@ CuePreset(
     steps: tuple[float, ...] = (0, 0.3333333333333333, 0.6666666666666666, 1),
     gap: float = 12,
     position: Vec2 = Vec2(x=0, y=0),
+    line_edge: Literal['above', 'below'] | None = None,
     keep_space: bool = True,
     trigger: float | None = None,
     colors: PaintPair | None = None,
@@ -206,6 +212,7 @@ CuePreset(
 | `steps` | `tuple[float, ...]` | `(0, 0.3333333333333333, 0.6666666666666666, 1)` |
 | `gap` | `float` | `12` |
 | `position` | `Vec2` | `Vec2(x=0, y=0)` |
+| `line_edge` | `Literal['above', 'below'] \| None` | `None` |
 | `keep_space` | `bool` | `True` |
 | `trigger` | `float \| None` | `None` |
 | `colors` | `PaintPair \| None` | `None` |
@@ -216,7 +223,7 @@ A plain-text layout after cue binding, with inline and independent cue groups.
 
 Its group combines the adjusted text and reserved-space behavior.
 
-[Source](../../kara_templater/cues.py#L219)
+[Source](../../kara_templater/cues.py#L228)
 
 ```python
 CuedLayout(
@@ -251,7 +258,7 @@ CuedLayout.group(
 
 Body/ruby with shared cue reservations; independent cues remain separate.
 
-[Source](../../kara_templater/cues.py#L465)
+[Source](../../kara_templater/cues.py#L474)
 
 ```python
 CuedLyrics(
@@ -345,7 +352,7 @@ A CueFactory displaying configurable countdown text for each step.
 It measures the requested font and returns objects plus explicit reserved width
 and height.
 
-[Source](../../kara_templater/cues.py#L163)
+[Source](../../kara_templater/cues.py#L172)
 
 ```python
 TextCue(
@@ -450,7 +457,7 @@ Defaults trigger at the first singing interval; there is no inferred beat.
 A preset can supply an absolute trigger. Inline reservations are included in
 range/background measurements and optionally released after the cue ends.
 
-[Source](../../kara_templater/cues.py#L259)
+[Source](../../kara_templater/cues.py#L268)
 
 ```python
 bind_cues(
@@ -469,7 +476,7 @@ Markers use projected body offsets. A reservation inside a body unit moves
 its ruby by half the reserved width, keeping its original center offset from
 the expanded body box; before a unit it moves ruby by the full width.
 
-[Source](../../kara_templater/cues.py#L491)
+[Source](../../kara_templater/cues.py#L500)
 
 ```python
 bind_lyric_cues(

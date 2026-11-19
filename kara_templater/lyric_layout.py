@@ -37,13 +37,15 @@ class LayoutLine:
     entrance/exit are required animation durations in seconds, outside singing.
     display includes optional preview/tail and any explicitly reserved cue time.
     tags and cue markers carry source data; their layout meaning is user-defined.
-    bounds includes body, ruby and reserved inline decorations in local pixels.
+    bounds includes body, ruby and reserved decorations in local pixels.
+    body_bounds gives the measured body alone for ASS style alignment.
     """
 
     id: str
     singing: TimeSpan
     display: Lifetime
     bounds: Box
+    body_bounds: Box | None = None
     entrance: float = 0
     exit: float = 0
     sources: tuple[SourceRef, ...] = ()

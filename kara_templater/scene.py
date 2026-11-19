@@ -121,6 +121,13 @@ class RectangleKeyframes:
         """Evaluate bounds; before selects the left limit at a reset boundary."""
         finite(time)
         times = tuple(key[0] for key in self.keyframes)
+        # Local clocks are rounded to 1e-10 s. Recover the authored knot before
+        # selecting a side of a jump, even at a large absolute song offset.
+        nearest = bisect_left(times, time)
+        for knot in times[max(0, nearest - 1):nearest + 1]:
+            if time == local_seconds(knot, 0):
+                time = knot
+                break
         index = (bisect_left if before else bisect_right)(times, time)
         if index == 0:
             return self.keyframes[0][1]

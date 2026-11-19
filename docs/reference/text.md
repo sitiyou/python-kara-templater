@@ -41,7 +41,7 @@ An axis-aligned layout rectangle in script pixels.
 
 right, center, and middle are derived from left, top, width, and height.
 
-[Source](../../kara_templater/model.py#L58)
+[Source](../../kara_templater/model.py#L60)
 
 ```python
 Box(
@@ -253,7 +253,7 @@ An ordered tuple of TextUnit values forming one lyric line.
 
 It contains source content and timing, independently of its measured layout.
 
-[Source](../../kara_templater/model.py#L48)
+[Source](../../kara_templater/model.py#L50)
 
 ```python
 KaraokeLine(
@@ -273,7 +273,7 @@ The measured line box and ordered laid-out units.
 
 Each unit still references its original structured source.
 
-[Source](../../kara_templater/model.py#L111)
+[Source](../../kara_templater/model.py#L113)
 
 ```python
 LaidOutLine(
@@ -295,7 +295,7 @@ A singing segment with its measured horizontal interval and optional reading box
 
 Geometry belongs to layout; times belong to its source Segment.
 
-[Source](../../kara_templater/model.py#L86)
+[Source](../../kara_templater/model.py#L88)
 
 ```python
 LaidOutSegment(
@@ -321,7 +321,7 @@ A source TextUnit paired with a layout box and measured segments.
 
 Unit geometry can contain multiple repeated singing intervals.
 
-[Source](../../kara_templater/model.py#L99)
+[Source](../../kara_templater/model.py#L101)
 
 ```python
 LaidOutUnit(
@@ -376,7 +376,7 @@ Measured body and positioned readings for projected DocumentLyrics.
 
 unit_group builds editable body/ruby groups using the body center as pivot.
 
-[Source](../../kara_templater/scene_lyrics.py#L92)
+[Source](../../kara_templater/scene_lyrics.py#L93)
 
 ```python
 LyricLayout(
@@ -425,7 +425,7 @@ A reading layout associated with a source unit/segment and decoded body range.
 
 Its own text view retains source mappings and singing timing.
 
-[Source](../../kara_templater/scene_lyrics.py#L78)
+[Source](../../kara_templater/scene_lyrics.py#L79)
 
 ```python
 PositionedRuby(
@@ -550,7 +550,7 @@ space_width_percent sets an ASCII space's width as a percentage of the
 selected font em (10 to 100). allow_biting includes negative side bearings
 when measuring overhanging glyphs. Hard-outline clearance applies afterward.
 
-[Source](../../kara_templater/scene_lyrics.py#L61)
+[Source](../../kara_templater/scene_lyrics.py#L62)
 
 ```python
 StudioSpacing(
@@ -597,7 +597,8 @@ TextRange(
 One body text unit with ordered, nonoverlapping singing segments.
 
 Static units can have no segments and repeated singing retains a single body
-string.
+string. ruby_continuation joins the preceding annotated unit. ruby_spillback
+allows a wide joined reading to extend to the left as well as the right.
 
 [Source](../../kara_templater/model.py#L27)
 
@@ -606,6 +607,7 @@ TextUnit(
     text: str,
     segments: tuple[Segment, ...] = (),
     ruby_continuation: bool = False,
+    ruby_spillback: bool = True,
 )
 ```
 
@@ -616,6 +618,7 @@ TextUnit(
 | `text` | `str` | `required` |
 | `segments` | `tuple[Segment, ...]` | `()` |
 | `ruby_continuation` | `bool` | `False` |
+| `ruby_spillback` | `bool` | `True` |
 
 ## VectorGuide
 
@@ -624,7 +627,7 @@ A timed lyric glyph with a baseline-relative path and horizontal advance in em u
 Positive y points down. One em follows the selected font at the marker.
 Track.guide_symbols maps individual body characters to guide glyphs.
 
-[Source](../../kara_templater/scene_lyrics.py#L21)
+[Source](../../kara_templater/scene_lyrics.py#L22)
 
 ```python
 VectorGuide(
@@ -667,7 +670,7 @@ crossing a shaping cluster are rejected when independent placement is needed.
 vertical stacks cells downward around x=0, with readings on the right.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L433)
+[Source](../../kara_templater/scene_lyrics.py#L420)
 
 ```python
 layout_document_lyrics(
@@ -708,7 +711,7 @@ Measure a structured KaraokeLine with body and reading styles at the requested r
 
 Return layout boxes without changing source singing intervals.
 
-[Source](../../kara_templater/layout.py#L66)
+[Source](../../kara_templater/layout.py#L82)
 
 ```python
 layout_line(
@@ -733,7 +736,7 @@ and reading cells horizontally, in script pixels.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L473)
+[Source](../../kara_templater/scene_lyrics.py#L460)
 
 ```python
 layout_lyrics(

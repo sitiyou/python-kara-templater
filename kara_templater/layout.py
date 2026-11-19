@@ -63,6 +63,22 @@ def _measure(style: Style, text: str) -> Box:
     return Box(0, 0, width, height)
 
 
+def _ruby_group(
+    body: float, reading: float, spillback: bool, previous: float | None,
+) -> tuple[float, float, float | None]:
+    """Return body shift, reading offset and carried spill, as in karaskel.do_furigana_layout."""
+    if not reading:
+        return 0, 0, previous - body if previous is not None and previous > 0 else None
+    shift = max(0.0, previous or 0.0)
+    excess = reading - body
+    if excess <= 0:
+        return shift, -excess / 2, excess / 2
+    if spillback:
+        # Lua distinguishes an absent spill from zero (a flush preceding annotation).
+        return shift + (excess / 2 if previous is not None else 0), -excess / 2, excess / 2
+    return shift, 0, excess
+
+
 def layout_line(
     source: KaraokeLine,
     *,
@@ -98,21 +114,21 @@ def layout_line(
         groups[-1].append(_MeasuredUnit(unit, body.width, body.height, readings))
 
     cursor = 0.0
-    ruby_right: float | None = None
+    spill: float | None = None
     for group in groups:
         body_width = sum(unit.width for unit in group)
         readings = [r for unit in group for r in unit.readings if r is not None]
-        offset = (body_width - sum(r.width for r in readings)) / 2
-        if readings and ruby_right is not None:
-            cursor = max(cursor, ruby_right - min(0, offset))
+        extra, offset, spill = _ruby_group(
+            body_width, sum(r.width for r in readings),
+            any(u.source.ruby_spillback and any(u.readings) for u in group), spill,
+        )
+        cursor += extra
         ruby_cursor = cursor + offset
         for unit in group:
             unit.left = cursor
             unit.ruby_left = ruby_cursor
             cursor += unit.width
             ruby_cursor += sum(r.width for r in unit.readings if r is not None)
-        if readings:
-            ruby_right = ruby_cursor
 
     full = _measure(style, "".join(unit.text for unit in source.units))
     width = max(full.width, cursor)

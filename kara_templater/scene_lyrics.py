@@ -9,6 +9,7 @@ from .characters import LayoutCapabilityError
 from .document_lyrics import DocumentLyrics, LyricUnit, RubyText
 from .document_text import DocumentText, SingingSpan, _appearance
 from .geometry import Vec2, VectorPath, finite
+from .layout import _ruby_group
 from .model import Box
 from .path_geometry import flatten
 from .scene import Lifetime, ObjectGroup
@@ -305,15 +306,15 @@ def _clear_outlines(
 
 
 def _reading_row(
-    readings: list[DocumentLayout], interval: float, gap: float | None,
+    readings: list[DocumentLayout], gap: float | None,
     reserved_border: float, right_to_left: bool,
 ) -> list[DocumentLayout]:
     """Apply outline clearance across all timing fragments of a horizontal annotation."""
     cells: list[PositionedText] = []
     cursor = 0.0
     for reading in readings:
-        cells.extend(_shift(c, cursor + i * interval) for i, c in enumerate(reading.characters))
-        cursor += reading.bounds.width + len(reading.characters) * interval
+        cells.extend(_shift(c, cursor) for c in reading.characters)
+        cursor += reading.bounds.width
     cells_with_clearance = _clear_outlines(tuple(cells), gap, reserved_border, right_to_left)
     result: list[DocumentLayout] = []
     start = 0
@@ -333,20 +334,6 @@ def _move(layout: DocumentLayout, dx: float, dy: float) -> DocumentLayout:
             layout.bounds, left=layout.bounds.left + dx, top=layout.bounds.top + dy
         ),
     )
-
-
-def _center_reading(text: str) -> bool:
-    """Studio keeps mostly Latin text and symbol-only readings together."""
-    chars = [c for c in text if not c.isspace()]
-    latin = sum(
-        c.isascii() and c.isalnum() or "À" <= c <= "Ö" or "Ø" <= c <= "ö" or "ø" <= c <= "ÿ"
-        for c in chars
-    )
-    if latin:
-        return latin * 2 > len(chars)
-    scripts = ((0x0370, 0x04FF), (0x1100, 0x11FF), (0x3040, 0x30FF),
-               (0x3130, 0x318F), (0x3400, 0x9FFF), (0xAC00, 0xD7A3), (0xF900, 0xFAFF))
-    return bool(chars) and not any(lo <= ord(c) <= hi for c in chars for lo, hi in scripts)
 
 
 def _after_onset(start: float, display_end: float) -> float:
@@ -617,6 +604,7 @@ def layout_lyrics(
     # stays with its existing body unit, including explicit ruby breaks.
     groups: list[list[LyricUnit]] = []
     group_rubies: list[list[int]] = []
+    boundaries = {c.start for c in body.characters}
     for ui, unit in enumerate(lyrics.units):
         indices = [i for i, ruby in enumerate(rubies) if ruby.unit_index == ui]
         first = next(
@@ -627,16 +615,10 @@ def layout_lyrics(
             ),
             None,
         )
-        join = bool(
-            (not indices and groups and not group_rubies[-1])
-            or (
-                indices
-                and groups
-                and group_rubies[-1]
-                and first is not None
-                and first.mode == "join"
-            )
-        )
+        join = bool(indices and groups and group_rubies[-1] and first and first.mode == "join")
+        # Adjacent bare syllables can share a single shaped cluster.
+        if not indices and groups and not group_rubies[-1] and unit.start not in boundaries:
+            join = True
         if join:
             groups[-1].append(unit)
             group_rubies[-1].extend(indices)
@@ -644,42 +626,23 @@ def layout_lyrics(
             groups.append([unit])
             group_rubies.append(indices)
     shift = 0.0
-    ruby_right: float | None = None
+    spill: float | None = None
+    previous_right = 0.0
     for units, indices in zip(groups, group_rubies, strict=True):
         start, end = units[0].start, units[-1].end
         if start == end:
             continue
         box = body.range_bounds(start, end)
         readings = [rubies[i].layout for i in indices]
-        width = sum(reading.bounds.width for reading in readings)
-        reading_gap = 0.0
-        if studio_spacing and readings and width < box.width:
-            count = sum(len(reading.characters) for reading in readings)
-            if (count > 1 and not _center_reading(body.source.text[start:end])
-                    and not _center_reading("".join(r.source.text for r in readings))):
-                reading_gap = (box.width - width) / (count + 1)
-        if readings:
-            readings = _reading_row(readings, reading_gap, min_outline_gap, reserved_border, right_to_left)
-            width = _union(tuple(r.bounds for r in readings)).width
-        first_ruby = next(
-            (
-                s.ruby
-                for unit in units
-                for s in unit.segments
-                if s.ruby is not None and s.ruby.source.text
-            ),
-            None,
-        )
-        offset = (
-            (box.width - width) / 2
-            if first_ruby is not None
-            and (studio_spacing or first_ruby.mode == "spill" or width <= box.width)
-            else 0
-        )
+        readings = _reading_row(readings, min_outline_gap, reserved_border, right_to_left) if readings else []
+        width = _union(tuple(r.bounds for r in readings)).width if readings else 0.0
+        spillback = any(s.ruby and s.ruby.mode == "spill" for unit in units for s in unit.segments)
+        if spill is not None and spill > 0:
+            spill -= max(0.0, box.left - previous_right)
+        extra, offset, spill = _ruby_group(box.width, width, spillback, spill)
+        shift += extra
         left = box.left + shift
-        if indices and ruby_right is not None:
-            left = max(left, ruby_right - min(0, offset))
-        shift = left - box.left
+        previous_right = box.right
         body_top = float("inf")
         for i, item in enumerate(characters):
             if start <= item.start and item.end <= end:
@@ -715,7 +678,6 @@ def layout_lyrics(
             ruby = rubies[index]
             moved = _move(reading, left + offset, row_bottom - reading.bounds.top - reading.bounds.height)
             rubies[index] = replace(ruby, layout=moved)
-        ruby_right = left + offset + width
     body = replace(
         body,
         characters=tuple(characters),

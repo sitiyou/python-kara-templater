@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from typing import Protocol
+from typing import Literal, Protocol
 
 from .appearance import PaintPair
 from .ass import Style
@@ -93,6 +93,9 @@ class CueFactory(Protocol):
 class CuePreset:
     """A cue factory with lead/duration in seconds, normalized step fractions, gap, position, and reservation policy.
 
+    On a Track, line_edge places an independent cue above or below the measured
+    lyric row (including ruby), reserves its dimensions and applies gap in pixels.
+    With no line_edge, independent cues use absolute position.
     An explicit trigger overrides the relevant singing interval default. colors fixes
     the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
     """
@@ -103,11 +106,14 @@ class CuePreset:
     steps: tuple[float, ...] = (0, 1 / 3, 2 / 3, 1)
     gap: float = 12
     position: Vec2 = Vec2()
+    line_edge: Literal["above", "below"] | None = None
     keep_space: bool = True
     trigger: float | None = None
     colors: PaintPair | None = None
 
     def __post_init__(self) -> None:
+        if self.line_edge not in (None, "above", "below"):
+            raise ValueError("line_edge must be above or below")
         finite(self.lead, self.duration, self.gap, *self.steps)
         if self.trigger is not None:
             finite(self.trigger)
@@ -136,12 +142,15 @@ class BarsCue:
     border: float = 2
     outline: Color = WHITE
 
+    direction: Literal["left_to_right", "right_to_left"] = "left_to_right"
+
     def __call__(self, context: CueContext) -> CueContent:
         """Create local bar objects and explicit reserved dimensions for the supplied cue clock."""
         count = len(context.steps) - 1
         cell = self.width / count
         objects: list[SceneObject] = []
-        for index, end in enumerate(context.steps[1:]):
+        ends = context.steps[1:] if self.direction == "left_to_right" else tuple(reversed(context.steps[1:]))
+        for index, end in enumerate(ends):
             height = self.height * (1 - 0.5 * index / count)
             objects.append(
                 PathObject(

@@ -36,7 +36,8 @@ def preset(
 
 
 @pytest.mark.parametrize("alignment", range(1, 10))
-def test_source_alignment_and_event_margins_survive_common_allocation(alignment):
+@pytest.mark.parametrize("annotation", ["", "|<long reading"])
+def test_source_alignment_and_event_margins_survive_common_allocation(alignment, annotation):
     document = Document.create(
         width=320,
         height=180,
@@ -52,7 +53,7 @@ def test_source_alignment_and_event_margins_survive_common_allocation(alignment)
     )
     document.records.append(
         Line(
-            text=r"{\k100}AB",
+            text=r"{\k100}AB" + annotation,
             start_time=1000,
             end_time=3000,
             margin_l=35,
@@ -62,11 +63,12 @@ def test_source_alignment_and_event_margins_survive_common_allocation(alignment)
     )
     scene = preset(document, preview=0.2, tail=0.4, fade_in=0.1, fade_out=0.2)
     plan = scene.plans[0]
-    x = plan.placement.position.x + plan.input.bounds.left
-    y = plan.placement.position.y + plan.input.bounds.top
+    box = plan.line.layout.body.bounds
+    x = plan.placement.position.x + box.left
+    y = plan.placement.position.y + box.top
     column, row = (alignment - 1) % 3, (alignment - 1) // 3
-    width, height = plan.input.bounds.width, plan.input.bounds.height
-    assert x == pytest.approx((35, (320 - width) / 2, 320 - 45 - width)[column])
+    width, height = box.width, box.height
+    assert x == pytest.approx((35, 35 + (320 - 35 - 45 - width) / 2, 320 - 45 - width)[column])
     assert y == pytest.approx((180 - 25 - height, (180 - height) / 2, 25)[row])
     assert plan.placement.display.start == 0.8
     assert plan.placement.display.end == 3.4

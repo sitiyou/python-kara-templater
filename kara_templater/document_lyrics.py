@@ -194,11 +194,12 @@ def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyri
             )
         split = a + separators[0] if separators else b
         base = text[a:split]
-        continuation = base in ("#", "＃")
+        continuation = base.strip(" \t") in ("#", "＃")
         if any(c in base for c in "#＃") and not continuation:
             raise ValueError(
                 f"record {source.record_index}, text offset {a}: continuation must be a standalone #"
             )
+        ruby_end = a + len(value.rstrip(" \t")) if separators else b
         if continuation:
             if not units or not units[-1].segments or units[-1].start == units[-1].end:
                 raise ValueError(
@@ -208,20 +209,22 @@ def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyri
             first, last = unit.start, unit.end
         else:
             first, last = append_body(a, split)
+            if ruby_end < b:
+                _, last = append_body(ruby_end, b)
         ruby = None
         if separators:
             ruby_start = split + 1
             mode: Literal["join", "break", "spill"] = "join"
-            if ruby_start < b and text[ruby_start] in "!！<＜":
+            if ruby_start < ruby_end and text[ruby_start] in "!！<＜":
                 mode = "break" if text[ruby_start] in "!！" else "spill"
                 ruby_start += 1
-            if first == last and ruby_start < b:
+            if first == last and ruby_start < ruby_end:
                 raise ValueError(
                     f"record {source.record_index}, text offset {a}: ruby needs visible body text"
                 )
             ruby = RubyText(
-                replace(source, runs=_slice(source, ruby_start, b), timing=(), cues=()),
-                (LyricMapping(ruby_start, b, 0, b - ruby_start),),
+                replace(source, runs=_slice(source, ruby_start, ruby_end), timing=(), cues=()),
+                (LyricMapping(ruby_start, ruby_end, 0, ruby_end - ruby_start),),
                 mode,
             )
         segment = LyricSegment(

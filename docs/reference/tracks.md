@@ -249,7 +249,7 @@ sync_entry and sync_ending align the first and last pages respectively;
 sync_each_page applies enabled synchronization to every page. fill_section
 holds each row toward the next same-row preview and aligns final page tails.
 
-[Source](../../kara_templater/lyric_layout.py#L315)
+[Source](../../kara_templater/lyric_layout.py#L317)
 
 ```python
 KaraokeRows(
@@ -327,7 +327,7 @@ Alignment and offsets can be supplied per row.
 Alternating alignment places even rows on the left and odd rows on the right. Bounds already
 include ruby and inline cue reservations. gap is row-origin spacing in pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L180)
+[Source](../../kara_templater/lyric_layout.py#L182)
 
 ```python
 Layout(
@@ -376,7 +376,7 @@ Read-only placement region and explicitly supplied cross-track references.
 Other tracks are information for overrides, never implicitly allocated by the
 built-in algorithm. Coordinates and measurements use script pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L103)
+[Source](../../kara_templater/lyric_layout.py#L105)
 
 ```python
 LayoutContext(
@@ -401,7 +401,8 @@ Immutable measured input, with original singing and desired visibility.
 entrance/exit are required animation durations in seconds, outside singing.
 display includes optional preview/tail and any explicitly reserved cue time.
 tags and cue markers carry source data; their layout meaning is user-defined.
-bounds includes body, ruby and reserved inline decorations in local pixels.
+bounds includes body, ruby and reserved decorations in local pixels.
+body_bounds gives the measured body alone for ASS style alignment.
 
 [Source](../../kara_templater/lyric_layout.py#L33)
 
@@ -412,6 +413,7 @@ LayoutLine(
     singing: TimeSpan,
     display: Lifetime,
     bounds: Box,
+    body_bounds: Box | None = None,
     entrance: float = 0,
     exit: float = 0,
     sources: tuple[SourceRef, ...] = (),
@@ -431,6 +433,7 @@ LayoutLine(
 | `singing` | `TimeSpan` | `required` |
 | `display` | `Lifetime` | `required` |
 | `bounds` | `Box` | `required` |
+| `body_bounds` | `Box \| None` | `None` |
 | `entrance` | `float` | `0` |
 | `exit` | `float` | `0` |
 | `sources` | `tuple[SourceRef, ...]` | `()` |
@@ -1103,7 +1106,7 @@ A visual origin and absolute display interval for one stable line id.
 row is optional metadata; free-form layouts do not need numbered slots.
 adjustments explains deliberate changes to desired visibility.
 
-[Source](../../kara_templater/lyric_layout.py#L125)
+[Source](../../kara_templater/lyric_layout.py#L127)
 
 ```python
 Placement(
