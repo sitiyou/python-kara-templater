@@ -70,7 +70,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L804)
+[Source](../../kara_templater/karaoke_effects.py#L798)
 
 ```python
 KaraokeEffects(
@@ -90,7 +90,8 @@ KaraokeEffects(
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     particle_color: Color | tuple[Color, Color] | Literal['follow_before', 'follow_after', 'follow_mix'] | None = None,
-    particle_layers: Literal['solid', 'stroke'] = 'solid',
+    particle_layers: Literal['solid', 'stroke', 'decor', 'all'] = 'solid',
+    particle_glow_concentration: int = 0,
     particle_size: float = 0.4,
     particle_rate: float | None = None,
     max_particles: int = 512,
@@ -99,6 +100,7 @@ KaraokeEffects(
     scanline_width: float | None = None,
     scanline_softness: float | None = None,
     scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after', 'role'] = 'color',
+    ruby_reading_units: bool = False,
     ruby_scanline: Literal['reading', 'both'] = 'reading',
     scanline_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     scanline_brightness: float = 0.6,
@@ -131,7 +133,8 @@ KaraokeEffects(
 | `glow` | `LyricGlow` | `None` |
 | `base_glow` | `LyricGlow` | `None` |
 | `particle_color` | `Color \| tuple[Color, Color] \| Literal['follow_before', 'follow_after', 'follow_mix'] \| None` | `None` |
-| `particle_layers` | `Literal['solid', 'stroke']` | `'solid'` |
+| `particle_layers` | `Literal['solid', 'stroke', 'decor', 'all']` | `'solid'` |
+| `particle_glow_concentration` | `int` | `0` |
 | `particle_size` | `float` | `0.4` |
 | `particle_rate` | `float \| None` | `None` |
 | `max_particles` | `int` | `512` |
@@ -140,6 +143,7 @@ KaraokeEffects(
 | `scanline_width` | `float \| None` | `None` |
 | `scanline_softness` | `float \| None` | `None` |
 | `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after', 'role']` | `'color'` |
+| `ruby_reading_units` | `bool` | `False` |
 | `ruby_scanline` | `Literal['reading', 'both']` | `'reading'` |
 | `scanline_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `scanline_brightness` | `float` | `0.6` |
@@ -600,7 +604,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L261)
+[Source](../../kara_templater/lyric_line.py#L262)
 
 ```python
 LyricLine(

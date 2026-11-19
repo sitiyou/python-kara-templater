@@ -256,6 +256,7 @@ class _KaraokePaint:
     sung_outline: Color | None = None
     feather: float = 0
     reverse: bool = False
+    ruby_reading_units: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)

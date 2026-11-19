@@ -84,8 +84,8 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
         for unit in line.layout.lyrics.units:
             spans = unit._body_singing()
             if len(spans) == 1 and (duration := spans[0].end - spans[0].start) > 0:
-                curves[unit.start] = tuple(((s.end - spans[0].start) / duration, b)
-                                           for s, _, b in unit._body_parts())
+                parts = line.layout._body_wipe(unit, reading_units=paint.ruby_reading_units, reverse=paint.reverse)
+                curves[unit.start] = tuple(((s.end - spans[0].start) / duration, b) for s, _, b in parts)
         body = replace(
             body,
             singing=tuple(

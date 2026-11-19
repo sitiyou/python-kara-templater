@@ -7,9 +7,9 @@ from itertools import groupby, pairwise
 from math import ceil, floor, pi, sin, sqrt
 from typing import Literal, get_args
 
-from ._karaoke_motion import glow_scale, stretch, transition, zoom_pulse
-from ._karaoke_sprites import ornament, painted_particle, star_burst
-from .composition import Color, Glow, Paint
+from ._karaoke_motion import HALO_STROKES, glow_scale, stretch, transition, zoom_pulse
+from ._karaoke_sprites import _ParticlePaint, ornament, painted_particle, star_burst
+from .composition import Color, Glow
 from .document_text import SingingSpan
 from .geometry import Vec2, VectorPath, finite
 from .lyric_highlights import (
@@ -199,13 +199,7 @@ def _stretch_halo(
 ) -> Iterator[TextObject]:
     motion = stretch(entering, pivot)
     white = Color(255, 255, 255)
-    for width, strength in (
-        (0.10, 0.42),
-        (0.22, 0.24),
-        (0.38, 0.14),
-        (0.58, 0.08),
-        (0.82, 0.045),
-    ):
+    for width, strength in HALO_STROKES:
 
         def sample(base: VisualState, p: float, pen: float = width) -> VisualState:
             q = smooth_rate(p)
@@ -426,11 +420,6 @@ def _zoom(context: LyricAnimationContext, *, level: int) -> Transform:
     return zoom_pulse(max(note, 0.001), context.duration, level, context.target.center)
 
 
-@dataclass(frozen=True)
-class _ParticlePaint(Paint):
-    gradient: LinearGradient | None = None
-
-
 def _particle_ink(
     source: LyricMaterial, target: LyricTarget, painted: SceneObject | None, fallback: Color,
 ) -> _ParticlePaint:
@@ -439,24 +428,24 @@ def _particle_ink(
     if isinstance(declared, LyricGradient):
         colors = declared.colors
         ramp = ColorRamp(tuple(ColorStop(i / (len(colors) - 1), c) for i, c in enumerate(colors)))
-        axis = declared.axis
+        gradient = LinearGradient(axis=declared.axis, fill=ramp)
     else:
         field = painted.material if painted is not None else None
-        if not isinstance(field, LinearGradient) or field.fill is None:
+        if not isinstance(field, LinearGradient):
             return _ParticlePaint(fill=fallback)
-        stops = field.fill.stops
-        start, end = stops[0].position, stops[-1].position
-        ramp = ColorRamp(tuple(ColorStop((s.position - start) / (end - start), s.color) for s in stops))
-        colors = tuple(s.color for s in stops)
-        axis = field.axis
+        start, end = field.bounds
+
+        def normalized(source: ColorRamp | None) -> ColorRamp | None:
+            if source is None:
+                return None
+            return ColorRamp(tuple(ColorStop((s.position - start) / (end - start), s.color) for s in source.stops))
+
+        gradient = replace(field, fill=normalized(field.fill), outline=normalized(field.outline))
+        colors = tuple(s.color for s in field.fill.stops) if field.fill else (fallback,)
     mean = Color(sum(c.red for c in colors) // len(colors),
                  sum(c.green for c in colors) // len(colors),
                  sum(c.blue for c in colors) // len(colors))
-    return _ParticlePaint(fill=mean, gradient=LinearGradient(axis=axis, fill=ramp))
-
-
-def _particle_x_color(ramp: ColorRamp, left: float, width: float, x: float) -> Color:
-    return ramp.at(round(32 * (x - left) / width) / 32)
+    return _ParticlePaint(fill=mean, gradient=gradient)
 
 
 def _brighten(color: Color, strength: float) -> Color:
@@ -642,6 +631,11 @@ def _sweeps(
         if reverse:
             left, right = bounds.right - bounds.width * a, bounds.right - bounds.width * b
         start, end = span.start + delay, span.end + delay
+        if a == b == 0:
+            # A leading empty reading has no painted edge to illuminate.
+            if first_note == start:
+                first_note = end
+            continue
         if end <= start:
             # A checkpoint jump has a release position for the next note.
             # Its zero-width time interval paints no moving band.
@@ -846,7 +840,8 @@ class KaraokeEffects:
     glow: LyricGlow = None
     base_glow: LyricGlow = None
     particle_color: Color | tuple[Color, Color] | Literal["follow_before", "follow_after", "follow_mix"] | None = None
-    particle_layers: Literal["solid", "stroke"] = "solid"
+    particle_layers: Literal["solid", "stroke", "decor", "all"] = "solid"
+    particle_glow_concentration: int = 0
     particle_size: float = 0.40
     particle_rate: float | None = None
     max_particles: int = 512
@@ -857,6 +852,7 @@ class KaraokeEffects:
     scanline_mode: Literal[
         "color", "brighten", "follow_before", "follow_after", "role"
     ] = "color"
+    ruby_reading_units: bool = False
     ruby_scanline: Literal["reading", "both"] = "reading"
     scanline_material: LyricMaterial = None
     scanline_brightness: float = 0.60
@@ -956,7 +952,9 @@ class KaraokeEffects:
             or not isinstance(self.unsung, Color)
         ):
             raise ValueError("effects need an id and Color paints")
-        if self.particle_layers not in ("solid", "stroke"):
+        if type(self.particle_glow_concentration) is not int or not -1 <= self.particle_glow_concentration <= 2:
+            raise ValueError("particle glow concentration must be an integer in [-1,2]")
+        if self.particle_layers not in ("solid", "stroke", "decor", "all"):
             raise ValueError("unknown particle paint layers")
         palette = self.particle_color
         if palette is not None and palette not in ("follow_before", "follow_after", "follow_mix") and not isinstance(palette, Color) and not (
@@ -1016,6 +1014,7 @@ class KaraokeEffects:
             StatePatch(fill=self.sung, outline=self.sung_outline),
             wipe=self.singing != "no_wipe",
             reverse=self.reverse_wipe,
+            ruby_reading_units=self.ruby_reading_units,
             base_paint=StatePatch(fill=self.unsung, outline=self.unsung_outline),
             material=self.material,
             base_material=self.base_material,
@@ -1118,6 +1117,7 @@ class KaraokeEffects:
                 self.sung_outline,
                 self.hook_feather,
                 self.reverse_wipe,
+                self.ruby_reading_units,
             ),
         )
 
@@ -1288,12 +1288,12 @@ class KaraokeEffects:
 
     def _follow_particle_ink(
         self, line: LyricLine,
-    ) -> tuple[dict[str, tuple[_ParticlePaint, ...]], Callable[[float], Color] | None]:
+    ) -> tuple[dict[str, tuple[_ParticlePaint, ...]], Callable[[VisualState], VisualState] | None]:
         """Resolve solid character palettes and the line sparkle's position-dependent color."""
         followed: dict[str, tuple[_ParticlePaint, ...]] = {}
-        color_at_x = None
+        role_tint = None
         if not isinstance(self.particle_color, str):
-            return followed, color_at_x
+            return followed, role_tint
         painted = {n.id: n for n in _walk(line)}
         centers: list[tuple[float, Color]] = []
         for target, glyph, unit, _ in line._glyph_regions(automatic=False):
@@ -1312,25 +1312,36 @@ class KaraokeEffects:
                     inks.append(ink)
                     continue
                 em = target.em_size or max(1, target.center.y * 2)
-                border = min(0.25, piece.state.border / em)
+                strokes = self.particle_layers in ("stroke", "all")
+                decor = self.particle_layers in ("decor", "all")
+                border = min(0.25, piece.state.border / em) if strokes else 0
                 halo = painted.get(identity + "/glow")
                 rim = None
-                if halo and not halo.state.blur and halo.state.border > piece.state.border:
+                if strokes and halo and not halo.state.blur and halo.state.border > piece.state.border:
                     extra = min(0.25, (halo.state.border - piece.state.border) / em)
                     rim = Glow(halo.state.outline, border=border + extra, opacity=halo.state.opacity)
-                inks.append(replace(ink, outline=piece.state.outline, border=border, glow=rim))
+                soft = None
+                offset = Vec2()
+                if decor:
+                    if halo and halo.state.blur:
+                        if self.particle_glow_concentration >= 0 and halo.state.opacity:
+                            soft = Glow(halo.state.outline, blur=halo.state.blur / em, opacity=halo.state.opacity)
+                    else:
+                        offset = piece.state.shadow * self.particle_size
+                inks.append(replace(ink, outline=piece.state.outline, border=border, glow=rim,
+                                    halo=soft, shadow_offset=offset, concentration=self.particle_glow_concentration))
             followed[target.node_id] = tuple(inks)
             centers.append((glyph.bounds.center, inks[0].fill))
         if self.particle_color != "follow_mix" and len({ink for _, ink in centers}) > 1:
-            def role_at(x: float) -> Color:
+            def role_at(state: VisualState) -> VisualState:
                 ink = centers[0][1]
                 for center, candidate in centers:
-                    if x < center:
+                    if state.position.x < center:
                         break
                     ink = candidate
-                return ink
-            color_at_x = role_at
-        return followed, color_at_x
+                return replace(state, fill=ink)
+            role_tint = role_at
+        return followed, role_tint
 
     def _particles(
         self,
@@ -1346,7 +1357,7 @@ class KaraokeEffects:
         active = [(i, p) for i, p in enumerate(plans) if (p.phase != "singing") == transitions]
         if not active:
             return line
-        followed, color_at_x = self._follow_particle_ink(line)
+        followed, role_tint = self._follow_particle_ink(line)
         line_particles: list[SceneObject] = []
         for plan_index, plan in active:
             target, node, kind = plan.target, plan.node, plan.kind
@@ -1355,11 +1366,11 @@ class KaraokeEffects:
             seed = self.seed + (line.track_index & 0xFFFF) * 0x9E37
             display = line.lifetime if entering or exiting else None
             palette = self.particle_color
-            pens: tuple[Paint, ...] = ()
+            pens: tuple[_ParticlePaint, ...] = ()
             if isinstance(palette, str):
                 paints = followed[target.node_id]
                 colors = tuple(paint.fill for paint in paints)
-                if (self.particle_layers == "stroke" and kind != "ripple"
+                if (self.particle_layers != "solid" and kind != "ripple"
                         and (kind != "sparkle" or palette == "follow_mix")):
                     pens = paints
             elif isinstance(palette, tuple):
@@ -1379,10 +1390,11 @@ class KaraokeEffects:
                 seed += 1 if entering else 3
                 destination = line_particles
             else:
-                center, box = (
-                    node.state.transform.apply(target.center),
-                    target.center * 2,
-                )
+                # The pen origin can sit inside the lyric cell. Particle spread
+                # uses the entire measured cell, independent of that offset.
+                cell = line.layout.body.characters[plan.glyph_index].bounds
+                center = node.state.transform.apply(target.center)
+                box = Vec2(cell.width, cell.height)
                 seed += plan.glyph_index + _burst_seed(kind, entering, exiting)
                 destination = additions.setdefault(node.id, [])
             context = ParticleContext(
@@ -1392,10 +1404,10 @@ class KaraokeEffects:
                 center,
                 line.origin,
             )
-            fields: tuple[Callable[[float], Color] | None, ...] = ()
+            fields: tuple[Callable[[VisualState], VisualState] | None, ...] = ()
             if kind == "sparkle" and palette in ("follow_before", "follow_after"):
-                fields = (color_at_x,)
-            elif isinstance(palette, str) and self.particle_layers == "stroke":
+                fields = (role_tint,)
+            elif isinstance(palette, str) and self.particle_layers != "solid":
                 bounds = line.layout.body.bounds
                 # Character ornaments move in their parent's local coordinates;
                 # sparkle already uses the whole line's coordinate system.
@@ -1403,8 +1415,7 @@ class KaraokeEffects:
                 if kind != "sparkle":
                     left += center.x - line.layout.body.characters[plan.glyph_index].bounds.center
                 fields = tuple(
-                    partial(_particle_x_color, g.fill, left, max(1, bounds.width))
-                    if (g := paint.gradient) and g.axis == "x" and g.fill else None
+                    paint.across_line(left, bounds.width, stroke=bool(pens))
                     for paint in followed[target.node_id]
                 )
             if kind in {"sparkle", "twinkle", "twinkle_classic"}:
@@ -1426,7 +1437,7 @@ class KaraokeEffects:
             # Studio draws the entire first colour burst before the second.
             for stream, color in enumerate(colors):
                 radial = None
-                if kind == "ripple" and self.particle_layers == "stroke" and isinstance(palette, str):
+                if kind == "ripple" and self.particle_layers != "solid" and isinstance(palette, str):
                     gradient = followed[target.node_id][stream].gradient
                     if gradient is not None and gradient.axis == "y":
                         radial = gradient.fill
@@ -1610,12 +1621,16 @@ class KaraokeEffects:
                     reading_ends[group] = line.layout.lyrics.units[unit].segments[-1].singing.end + target.delay
             clocks = {g: _front_clock(notes, reading_ends.get(g) if g is not None else None)
                       for g, notes in intervals.items()}
+            body_clocks = {
+                i: line.layout._body_wipe(unit, reading_units=self.ruby_reading_units, reverse=self.reverse_wipe)
+                for i, unit in enumerate(line.layout.lyrics.units)
+            }
             for target, _, unit, box in glyphs:
                 group, slot = reading_slots.get(target.node_id, (None, unit))
                 track = edges.setdefault(group, {})
                 body = group is None
                 previous = track.get(slot - 1) if body and not self.reverse_wipe else None
-                clock = line.layout.lyrics.units[unit]._body_parts() if body else ((target._reading_span or target.singing[0], 0, 1),)
+                clock = body_clocks[unit] if body else ((target._reading_span or target.singing[0], 0, 1),)
                 passes = _sweeps(clock, target.delay, box,
                                  previous[1] if previous else (),
                                  *clocks[group],

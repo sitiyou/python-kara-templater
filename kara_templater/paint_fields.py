@@ -156,11 +156,13 @@ class LinearGradient:
     """An x/y gradient for fill, outline, or both; screen coordinates by default.
 
     Integer step controls color band width and the declared maximum band count.
-    Local space attaches colors to the drawing during scale/translation. It
-    currently requires an ordinary positive axis-aligned drawing with a local,
-    non-inverse RectangleKeyframes clip, no parent
-    masks, and no coverage material composition. Unsupported combinations raise
-    instead of silently changing coordinate spaces. With native_tweens, eligible
+    Local space uses untransformed drawing coordinates. On an unmasked closed
+    vector path, fill and outline ramps follow translation, rotation and scaling.
+    The path must have fixed geometry, with shadows and blur on separate drawings.
+    ASS samples moving outline bands in screen space. The GPU samples local color directly.
+    For text or a clipped drawing, local gradients require positive axis-aligned
+    transforms and a non-inverse local RectangleKeyframes clip without parent masks.
+    Coverage material composition is unsupported. With native_tweens, eligible
     scale/opacity curves and a single move share native band events.
     """
 

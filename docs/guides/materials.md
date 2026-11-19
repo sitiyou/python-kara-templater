@@ -88,15 +88,20 @@ LinearGradient uses ColorRamp/ColorStop values along x or y. Fields compile into
 bounded ASS color bands; step and max_bands affect precision and cost. PaintField
 is the extension protocol for your own spatial paint function.
 
-`LinearGradient(space="local")` attaches the gradient to a drawing, so colors
-follow positive axis-aligned scaling and translation. Color-stop positions and
-`step` then use untransformed drawing coordinates. The initial implementation
-requires a non-inverse local `RectangleKeyframes` clip with no parent masks.
-A sweep across local color bands uses one native clip event per band for
-stationary geometry. If the glyph also moves or scales during that sweep,
-the compiler samples the intersected bands. It is available in ordinary ASS output;
-coverage/raster material composition and rotated/skewed local gradients raise
-explicit errors. Existing screen-space gradients remain unchanged.
+`LinearGradient(space="local")` uses untransformed drawing coordinates for
+color stops and band width. On an unmasked, closed vector path, a fill gradient
+rotates with the path. ASS cuts the fixed path into colored pieces once and
+transforms them around the original pivot. The standalone hook samples the
+gradient continuously. To color the pen, set the gradient’s `outline` ramp and
+a positive border radius. ASS clips the original pen into rotated color bands,
+including the part that extends beyond the path. A solid face stays in one piece.
+Moving outline bands use sampled ASS events. Place shadows and blur on separate drawings.
+
+For text and clipped paths, local gradients follow positive axis-aligned scaling
+and translation and require a non-inverse local `RectangleKeyframes` clip without
+parent masks. A sweep across stationary geometry uses one native clip event per
+band. For a moving or scaling glyph, the compiler can sample the intersections.
+Coverage materials do not support local gradients.
 
 Eligible local gradients retain native clip and scale/opacity transforms; a
 single position-only linear Tween can share the same event. Multiple moves or

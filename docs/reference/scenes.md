@@ -36,7 +36,7 @@ Callback-free coverage work counts, before pixels or ASS rectangles exist.
 frames includes declared breakpoints; target_samples is frames times drawable
 leaves. Neither predicts encoded event count, memory use, or elapsed time.
 
-[Source](../../kara_templater/scene_output.py#L119)
+[Source](../../kara_templater/scene_output.py#L121)
 
 ```python
 CoverageEstimate(
@@ -214,7 +214,7 @@ Per-object output strategy, event count, source origin, sample interval, and obs
 
 Optional metrics apply only to relevant strategies.
 
-[Source](../../kara_templater/scene_output.py#L146)
+[Source](../../kara_templater/scene_output.py#L148)
 
 ```python
 ObjectReport(
@@ -594,7 +594,7 @@ boolean work; exceeding a limit raises instead of reducing quality.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
 
-[Source](../../kara_templater/scene_output.py#L79)
+[Source](../../kara_templater/scene_output.py#L81)
 
 ```python
 SceneBudget(
@@ -629,7 +629,7 @@ An invalid scene or exceeded compilation limit with object_id and optional sourc
 
 Callback causes remain available for diagnosis.
 
-[Source](../../kara_templater/scene_output.py#L63)
+[Source](../../kara_templater/scene_output.py#L65)
 
 ```python
 SceneCompileError(
@@ -648,7 +648,7 @@ estimated_events counts ordinary/native output estimates, excluding coverage
 rectangles whose count is unknown until rendering. coverage reports their
 planned work separately. Final budgets still apply to all output.
 
-[Source](../../kara_templater/scene_output.py#L133)
+[Source](../../kara_templater/scene_output.py#L135)
 
 ```python
 SceneEstimate(
@@ -738,7 +738,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/scene_output.py#L165)
+[Source](../../kara_templater/scene_output.py#L167)
 
 ```python
 SceneResult(
@@ -1009,7 +1009,7 @@ Type: `float`.
 
 Return a new Document. Source records and caller-owned nodes never mutate.
 
-[Source](../../kara_templater/scene_output.py#L1812)
+[Source](../../kara_templater/scene_output.py#L1911)
 
 ```python
 compile_scene(

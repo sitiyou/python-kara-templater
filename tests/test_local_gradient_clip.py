@@ -109,6 +109,84 @@ def test_local_gradient_moves_with_scaled_shape(native):
                 ) <= (12 if native else 0)
 
 
+@pytest.mark.parametrize("angle", (0, 90))
+def test_unmasked_vector_gradient_rotates_with_its_hole(angle):
+    outer = VectorPath.rectangle(24, 24)
+    inner = VectorPath.rectangle(8, 8).map(lambda p: Vec2(16 - p.x, 8 + p.y))
+    gradient = LinearGradient(space="local", axis="y", step=8, fill=ColorRamp((
+        ColorStop(0, Color(255, 0, 0)), ColorStop(24, Color(0, 0, 255)),
+    )))
+    state = VisualState(position=Vec2(32, 20), rotation=angle)
+    obj = PathObject(id="sprite", lifetime=Lifetime(0, 1), state=state, material=gradient,
+                     path=VectorPath((*outer.contours, *inner.contours)))
+    doc = Scene(Document.create(width=80, height=80)).add(obj).compile().document
+    frame = rasterize(doc.dumps(), 500, (80, 80)).rgba
+
+    def pixel(x, y):
+        point = state.transform.apply(Vec2(x, y))
+        index = (round(point.y) * 80 + round(point.x)) * 4
+        return tuple(frame[index:index + 4])
+
+    assert pixel(12, 4) == (212, 0, 42, 255)
+    assert pixel(12, 20) == (42, 0, 212, 255)
+    assert pixel(12, 12)[3] == 0
+
+
+@pytest.mark.parametrize("filled", (True, False))
+@pytest.mark.parametrize("ms", (200, 800))
+def test_rotated_outline_gradient_follows_a_moving_path(filled, ms):
+    red, blue = Color(255, 0, 0), Color(0, 0, 255)
+    gradient = LinearGradient(space="local", axis="y", step=8,
+                              outline=ColorRamp((ColorStop(0, red), ColorStop(24, blue))))
+    state = VisualState(position=Vec2(45, 16), fill=Color(0, 255, 0), border=5, rotation=90)
+    obj = PathObject(id="pen", lifetime=Lifetime(0, 1), state=state, material=gradient,
+                     path=VectorPath.rectangle(24, 24), filled=filled)
+    obj = obj.animate(Tween(StatePatch(position=Vec2(65, 16))), duration=1)
+    scene = Scene(Document.create(width=96, height=64)).add(obj)
+    result = scene.compile(native_tweens=True, budget=SceneBudget(fps=50))
+    assert result.objects[0].peak_clip_points == 4
+    frame = rasterize(result.document.dumps(), ms, (96, 64)).rgba
+
+    def pixel(x, y):
+        position = obj.at(ms / 1000).transform.apply(Vec2(x, y))
+        index = (round(position.y) * 96 + round(position.x)) * 4
+        return tuple(frame[index:index + 4])
+
+    assert pixel(-2, 4) == (212, 0, 42, 255)
+    assert pixel(-2, 20) == (42, 0, 212, 255)
+    assert pixel(12, -3) == (255, 0, 0, 255)
+    assert pixel(12, 27) == (0, 0, 255, 255)
+    assert pixel(12, 8) == ((0, 255, 0, 255) if filled else (0, 0, 0, 0))
+
+
+def test_local_fill_and_pen_ramps_share_the_reflected_drawing_coordinates():
+    fill = ColorRamp((ColorStop(0, Color(0, 255, 0)), ColorStop(24, Color(0, 0, 0))))
+    outline = ColorRamp((ColorStop(0, Color(255, 0, 0)), ColorStop(24, Color(0, 0, 255))))
+    material = LinearGradient(space="local", axis="x", step=8, fill=fill, outline=outline)
+    state = VisualState(position=Vec2(55, 22), scale=Vec2(-1.2, 1.4), border=5)
+    obj = PathObject(id="pen", lifetime=Lifetime(0, 1), state=state, material=material,
+                     path=VectorPath.rectangle(24, 24), scale_border=True)
+    result = Scene(Document.create(width=80, height=80)).add(obj).compile()
+    frame = rasterize(result.document.dumps(), 500, (80, 80)).rgba
+
+    def pixel(x, y):
+        point = state.transform.apply(Vec2(x, y))
+        index = (round(point.y) * 80 + round(point.x)) * 4
+        return tuple(frame[index:index + 4])
+
+    assert pixel(4, -2) == (212, 0, 42, 255)
+    assert pixel(20, -2) == (42, 0, 212, 255)
+    assert pixel(4, 12) == (0, 212, 0, 255)
+    assert pixel(20, 12) == (0, 42, 0, 255)
+
+
+def test_unmasked_gradient_reports_unsplit_shadow():
+    original = node()
+    sprite = replace(original, clip=None, state=replace(original.state, shadow=Vec2(2, 2)))
+    with pytest.raises(SceneCompileError, match="separate blur or shadow"):
+        Scene(Document.create()).add(sprite).compile()
+
+
 @pytest.mark.parametrize("bad", ("screen", "inverse"))
 def test_local_gradient_rejects_unsupported_mask_contracts(bad):
     original = node()

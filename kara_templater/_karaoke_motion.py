@@ -19,6 +19,14 @@ from .scene_animation import (
 )
 from .scene_evaluation import compose_states
 
+HALO_STROKES = (
+    (0.10, 0.42),
+    (0.22, 0.24),
+    (0.38, 0.14),
+    (0.58, 0.08),
+    (0.82, 0.045),
+)
+
 
 @dataclass(frozen=True)
 class Slide:

@@ -1,16 +1,16 @@
 """Original vector ornaments and deterministic trajectories for built-in karaoke."""
 
 from collections.abc import Callable, Iterator
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from functools import lru_cache
 from math import ceil, cos, pi, sin, sqrt
 
-from ._karaoke_motion import unit_hash
-from .composition import Color, Paint
+from ._karaoke_motion import HALO_STROKES, unit_hash
+from .composition import Color, Glow, Paint
 from .easing import ease_out
 from .geometry import Contour, CubicSegment, Vec2, VectorPath
 from .karaoke_cues import _note
-from .paint_fields import ColorRamp
+from .paint_fields import ColorRamp, ColorStop, LinearGradient
 from .particles import ParticleContext
 from .scene import Lifetime, PathObject
 from .scene_animation import Channel, StateFunction, Transform, VisualState, smooth_rate
@@ -314,12 +314,54 @@ def _draw(
     ).animate(animation, duration=end - start)
 
 
+@dataclass(frozen=True)
+class _ParticlePaint(Paint):
+    gradient: LinearGradient | None = None
+    halo: Glow | None = None
+    concentration: int = 0
+    shadow_offset: Vec2 = Vec2()
+
+    def across_line(
+        self, left: float, width: float, *, stroke: bool,
+    ) -> Callable[[VisualState], VisualState] | None:
+        if self.gradient is None or self.gradient.axis != "x":
+            return None
+        fill = self.gradient.fill
+        outline = self.gradient.outline if stroke and self.border else None
+        if fill is None and outline is None:
+            return None
+
+        def tint(state: VisualState) -> VisualState:
+            # Studio snaps a particle's position to the nearest 1/32 of the line.
+            u = round(32 * (state.position.x - left) / max(width, 1)) / 32
+            return replace(state, fill=fill.at(u) if fill else state.fill,
+                           outline=outline.at(u) if outline else state.outline)
+        return tint
+
+
 def painted_particle(
-    node: PathObject, pen: Paint | None, color_at_x: Callable[[float], Color] | None,
+    node: PathObject, pen: _ParticlePaint | None, tint: Callable[[VisualState], VisualState] | None,
 ) -> Iterator[PathObject]:
     """Paint the moving face and its independent rim in source order."""
     if pen is not None:
         unit = 1 / node.state.scale.x
+        if pen.halo is not None:
+            halo = pen.halo
+            passes = pen.concentration + 1
+            for level in range(passes):
+                radius = halo.blur * (passes - level) / passes
+                for width, strength in HALO_STROKES:
+                    if radius * width < 0.0005:
+                        continue
+                    yield replace(node, id=f"{node.id}/halo:{level}:{width}", scale_border=True, filled=False,
+                                  state=replace(node.state, outline=halo.color, border=unit * radius * width / 2,
+                                                opacity=node.state.opacity * halo.opacity * strength))
+        elif pen.shadow_offset != Vec2():
+            black = Color(0, 0, 0)
+            yield replace(node, id=node.id + "/shadow", scale_border=True, state=replace(
+                node.state, position=node.state.position + pen.shadow_offset, fill=black, outline=black,
+                border=(pen.glow.border if pen.glow else pen.border) * unit,
+            ))
         if pen.glow is not None:
             rim = pen.glow
             yield replace(node, id=node.id + "/rim", scale_border=True, state=replace(
@@ -327,13 +369,28 @@ def painted_particle(
                 opacity=node.state.opacity * rim.opacity,
             ))
         node = replace(node, scale_border=True, state=replace(node.state, outline=pen.outline, border=pen.border * unit))
-    if color_at_x is not None:
+        if pen.gradient and pen.gradient.axis == "y":
+            def local_ramp(ramp: ColorRamp | None) -> ColorRamp | None:
+                if ramp is None:
+                    return None
+                return ColorRamp(tuple(ColorStop((s.position - 0.5) * unit, s.color) for s in ramp.stops))
+
+            fill = local_ramp(pen.gradient.fill)
+            outline = local_ramp(pen.gradient.outline) if pen.border else None
+            if fill or outline:
+                if pen.border and outline is None:
+                    yield replace(node, id=node.id + "/stroke", filled=False)
+                    node = replace(node, state=replace(node.state, border=0))
+                material = LinearGradient(axis="y", space="local", fill=fill, outline=outline,
+                                          step=max(1, ceil(unit / 5)))
+                yield replace(node, material=material)
+                return
+    if tint is not None:
         clip, = node.animations
         motion = clip.animation
-        def tint(base: VisualState, p: float) -> VisualState:
-            state = motion.sample(base, p)
-            return replace(state, fill=color_at_x(state.position.x))
-        animation = StateFunction(tint, motion.channels | frozenset[Channel](("fill",)))
+        def tinted_motion(base: VisualState, p: float) -> VisualState:
+            return tint(motion.sample(base, p))
+        animation = StateFunction(tinted_motion, motion.channels | frozenset[Channel](("fill", "outline")))
         node = replace(node, animations=(replace(clip, animation=animation),))
     yield node
 
@@ -347,10 +404,10 @@ def star_burst(
     duration: float,
     count: int,
     colors: tuple[Color, ...],
-    pens: tuple[Paint, ...] = (),
+    pens: tuple[_ParticlePaint, ...] = (),
     exiting: bool,
     display: Lifetime | None,
-    fields: tuple[Callable[[float], Color] | None, ...] = (),
+    fields: tuple[Callable[[VisualState], VisualState] | None, ...] = (),
 ) -> Iterator[PathObject]:
     """Emit one deterministic star pattern per palette colour around the box centre."""
     for variant, color in enumerate(colors):

@@ -285,6 +285,133 @@ def test_particle_pens_follow_size_and_leave_rings_without_outlines():
     assert any(max(image[-1]) > 160 for image in draw.images)
 
 
+def test_snow_inherits_vertical_face_gradient_in_rotating_sprite_coordinates():
+    from kara_templater import LinearGradient, LyricGradient
+
+    red, blue = Color(255, 0, 0), Color(0, 0, 255)
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none",
+                    decoration="snow_solid", particle_color="follow_after", particle_layers="stroke",
+                    material=LyricGradient((red, blue)))
+    faces = [p for p in _walk(scene.lines[0]) if ":particle:" in p.id and isinstance(p.material, LinearGradient)]
+    assert len(faces) == 4
+    face = faces[0]
+    em = 1 / face.state.scale.x
+    assert isinstance(face.material, LinearGradient) and face.material.fill is not None
+    assert face.material.space == "local" and face.material.axis == "y"
+    assert face.material.fill.at(-em / 2) == red and face.material.fill.at(em / 2) == blue
+    assert face.at(1.1).rotation != face.at(1.2).rotation
+    assert scene.compile(native_tweens=True).event_count > 0
+
+
+def test_petal_primary_outline_gradient_uses_local_sprite_em():
+    from kara_templater import ColorRamp, ColorStop, LinearGradient
+
+    red, blue, face_color = Color(255, 0, 0), Color(0, 0, 255), Color(20, 120, 40)
+    outline = ColorRamp((ColorStop(-12, red), ColorStop(12, blue)))
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none",
+                    decoration="petal", particle_color="follow_after", particle_layers="stroke",
+                    sung=face_color, material=LinearGradient(axis="y", outline=outline))
+    petals = [p for p in _walk(scene.lines[0]) if ":particle:" in p.id]
+    assert len(petals) == 4
+    petal = petals[0]
+    material = petal.material
+    assert isinstance(material, LinearGradient) and material.outline is not None
+    assert material.space == "local" and material.axis == "y" and material.fill is None
+    half = 0.5 / petal.state.scale.x
+    assert material.outline.at(-half) == red and material.outline.at(half) == blue
+    assert petal.at(1.2).fill == face_color
+    assert scene.compile(native_tweens=True).event_count > 0
+
+
+@pytest.mark.parametrize("gradient_face", (False, True))
+def test_horizontal_particle_outline_tracks_motion_independently_of_face(gradient_face):
+    from kara_templater import ColorRamp, ColorStop, LinearGradient
+
+    black = Color(0, 0, 0)
+    fill = ColorRamp((ColorStop(0, black), ColorStop(32, Color(255, 0, 0))))
+    outline = ColorRamp((ColorStop(0, Color(0, 255, 0)), ColorStop(32, black)))
+    solid = Color(150, 30, 80)
+    scene = subject(text=r"{\k25}H{\k25}H{\k25}H{\k25}H", entry="none", exit="none",
+                    singing="none", decoration="petal", particle_size=1.5, sung=solid,
+                    material=LinearGradient(axis="x", fill=fill if gradient_face else None, outline=outline),
+                    particle_color="follow_after", particle_layers="stroke")
+    line, = scene.lines
+    levels = set()
+    for petal in (p for p in _walk(line) if ":particle:" in p.id):
+        for fraction in (0.1, 0.5, 0.9):
+            state = petal.at(petal.lifetime.start + (petal.lifetime.end - petal.lifetime.start) * fraction)
+            levels.add(state.outline.green)
+            assert state.outline.red == state.outline.blue == 0
+            if gradient_face:
+                assert abs(state.fill.red + state.outline.green - 255) <= 1
+                assert state.fill.green == state.fill.blue == 0
+            else:
+                assert state.fill == solid
+    assert len(levels) >= 6
+    assert scene.compile(native_tweens=True).event_count > 0
+
+
+def test_note_spread_uses_the_scaled_cell_width():
+    def onset_positions(scale_x):
+        doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=56, scale_x=scale_x),))
+        doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}W"))
+        effects = KaraokeEffects(entry="none", exit="none", singing="none", decoration="note")
+        line, = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=False, effects=(effects,)),)).lines
+        return [p.at(p.lifetime.start).position.x for p in _walk(line) if ":particle:" in p.id]
+
+    narrow, normal, wide = (onset_positions(scale) for scale in (50, 100, 150))
+    assert len(normal) == 3
+    assert max(abs(a - b) for a, b in zip(narrow, wide, strict=True)) > 3
+    for a, b, c in zip(narrow, normal, wide, strict=True):
+        assert b == pytest.approx((a + c) / 2, abs=0.1)
+
+
+@pytest.mark.parametrize(("layers", "concentration", "passes", "stroked"), [
+    ("solid", 1, 0, False), ("stroke", 1, 0, True), ("decor", -1, 0, False),
+    ("decor", 0, 1, False), ("all", 1, 2, True), ("all", 2, 3, True),
+])
+def test_particle_glow_scales_and_fades_with_its_source(layers, concentration, passes, stroked):
+    from kara_templater import Glow
+
+    green = Color(0, 255, 50)
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none", decoration="petal",
+                    glow=Glow(green, blur=16, opacity=0.75), particle_layers=layers,
+                    particle_glow_concentration=concentration, particle_color="follow_after")
+    line, = scene.lines
+    em = line.query("character")[0].em_size
+    sprites = [n for n in _walk(line) if ":particle:" in n.id]
+    face = next(n for n in sprites if "/halo:" not in n.id)
+    assert bool(face.state.border) == stroked
+    rings = [n for n in sprites if n.id.startswith(face.id + "/halo:")]
+    assert len(rings) == passes * 5
+    for time in (1.15, 1.3):
+        state = face.at(time)
+        for level in range(passes):
+            inner = rings[5 * level]
+            assert isinstance(inner, PathObject)
+            sample = inner.at(time)
+            assert not inner.filled and sample.outline == green
+            assert sample.position == state.position and sample.rotation == state.rotation
+            assert sample.opacity == pytest.approx(state.opacity * 0.42 * 0.75)
+            # The innermost Studio pen has full width 10% of its pass radius.
+            assert sample.border * inner.state.scale.x == pytest.approx(0.05 * 16 / em * (passes - level) / passes)
+
+
+def test_particle_shadow_offset_remains_in_line_coordinates_while_petal_turns():
+    doc = Document.create(styles=(Style(fontsize=48, shadow=8),))
+    doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}H"))
+    recipe = KaraokeEffects(entry="none", exit="none", singing="none", decoration="petal",
+                            particle_layers="all", particle_color="follow_after", particle_size=1.5)
+    line, = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
+    nodes = {n.id: n for n in _walk(line)}
+    shadow = next(n for n in nodes.values() if n.id.endswith("/shadow"))
+    face = nodes[shadow.id.removesuffix("/shadow")]
+    assert face.at(1.15).rotation != face.at(1.3).rotation
+    for time in (1.15, 1.3):
+        delta = shadow.at(time).position - face.at(time).position
+        assert (delta.x, delta.y) == pytest.approx((12, 12))
+
+
 def test_each_ripple_samples_the_gradient_at_its_own_expansion():
     from kara_templater import LyricGradient
 
@@ -1059,6 +1186,103 @@ def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass(tmp_path,
 
         assert center(short) == pytest.approx(center(equal), abs=1)
     assert short != frame(r"{\k10}空|そ{\k40}#|ら", 1250)
+
+
+@pytest.mark.parametrize("compact", [False, True])
+@pytest.mark.parametrize("reverse", [False, True])
+def test_reading_clock_spends_half_the_note_on_each_host_glyph(tmp_path, compact, reverse):
+    from kara_templater._raster import rasterize
+
+    scene = subject(text=r"{\k100}iW|ab", start=1000, end=2000, entry="none", exit="none",
+                    singing="none", ruby_reading_units=True, reverse_wipe=reverse,
+                    sung=Color(255, 0, 0), unsung=Color(0, 0, 255),
+                    sung_outline=Color(255, 0, 0), unsung_outline=Color(0, 0, 255))
+    if compact:
+        path = tmp_path / "reading.ass"
+        scene.export_compact_ass(path)
+        ass = path.read_text(encoding="utf-8-sig")
+    else:
+        ass = scene.compile(native_tweens=True).document.dumps()
+    frame = rasterize(ass, 1500, (640, 360)).rgba
+    bottom = max(i // (640 * 4) for i in range(3, len(frame), 4) if frame[i])
+    # At the handoff one complete glyph should be red and the other blue.
+    # Compare both sides against settled pixels for those same glyphs.
+    def columns(rgba, color):
+        return {i // 4 % 640 for i in range((bottom - 16) * 640 * 4, len(rgba), 4)
+                if rgba[i:i + 4] == color}
+    red, blue = bytes((255, 0, 0, 255)), bytes((0, 0, 255, 255))
+    total = sorted(columns(rasterize(ass, 2010, (640, 360)).rgba, red))
+    gap = max(range(1, len(total)), key=lambda i: total[i] - total[i - 1])
+    left, right = set(total[:gap]), set(total[gap:])
+    assert len(left) < len(right) / 2
+    assert columns(frame, red) == (right if reverse else left)
+    assert columns(frame, blue) == (left if reverse else right)
+
+
+def test_reading_handoff_reaches_each_hosts_own_ink_at_ass_ticks():
+    from kara_templater import layout_document_lyrics
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=64, outline=1),))
+    doc.records.append(Line(start_time=1000, end_time=1500, text=r"{\k10})(|abc{\k40}#|d"))
+    layout = layout_document_lyrics(doc, len(doc.records) - 1, studio_spacing=True)
+    unit, = layout.lyrics.units
+    first, second = layout.body.characters
+    whole = layout.body._sweep_bounds(unit.start, unit.end, first)
+    first_ink, second_ink = (layout.body._sweep_bounds(c.start, c.end, c) for c in (first, second))
+    assert second_ink.left > first_ink.right + 2
+
+    # The 100 ms part covers 3 of 4 reading characters. It crosses the
+    # host boundary at 1066.7 ms, between two representable ASS poses.
+    parts = layout._body_wipe(unit, reading_units=True, reverse=False)
+
+    def edge(t):
+        span, a, b = next(p for p in parts if p[0].start <= t <= p[0].end)
+        progress = a + (b - a) * (t - span.start) / (span.end - span.start)
+        return whole.left + whole.width * progress
+
+    assert edge(1.06) == pytest.approx(first_ink.left + 0.90 * first_ink.width)
+    assert edge(1.07) == pytest.approx(second_ink.left + 0.05 * second_ink.width)
+
+
+def test_leading_empty_reading_delays_the_first_visible_scanline():
+    from kara_templater._raster import rasterize
+
+    scene = subject(text=r"{\k10}W|{\k40}#|abcd", start=1000, end=1500,
+                    entry="none", exit="none", singing="scanline", ruby_scanline="both",
+                    ruby_reading_units=True, scanline_color=Color(0, 255, 255),
+                    scanline_width=16, scanline_softness=3)
+    ass = scene.compile(native_tweens=True).document.dumps()
+
+    def cyan(ms):
+        frame = rasterize(ass, ms, (640, 360)).rgba
+        return any(frame[i:i + 4] == bytes((0, 255, 255, 255)) for i in range(0, len(frame), 4))
+
+    assert not any(cyan(ms) for ms in (1020, 1080, 1100))
+    assert cyan(1150)
+
+
+@pytest.mark.parametrize("compact", [False, True])
+def test_ruby_character_clock_holds_body_at_three_quarters_through_empty_part(tmp_path, compact):
+    from kara_templater._raster import rasterize
+
+    def body(text, times):
+        scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
+                        singing="none", ruby_reading_units=True, sung_outline=Color(30, 40, 50))
+        if compact:
+            path = tmp_path / "ruby.ass"
+            scene.export_compact_ass(path)
+            ass = path.read_text(encoding="utf-8-sig")
+        else:
+            ass = scene.compile(native_tweens=True).document.dumps()
+        frames = [rasterize(ass, ms, (640, 360)).rgba for ms in times]
+        # Ruby and body occupy separate rows. Compare the body including both outlines.
+        bottom = max(i // (640 * 4) for i in range(3, len(frames[0]), 4) if frames[0][i])
+        return [f[(bottom - 18) * 640 * 4:] for f in frames]
+
+    grouped = body(r"{\k10}W|abが{\k20}#|{\k20}#|d", [1050, 1100, 1200, 1290, 1420])
+    reference, = body(r"{\k40}W|abがd{\k10}#|", [1300])
+    assert grouped[0] != reference != grouped[-1]
+    assert all(frame == reference for frame in grouped[1:-1])
 
 
 @pytest.mark.parametrize(("text", "jump_ms"), [

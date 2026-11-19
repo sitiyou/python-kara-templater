@@ -24,7 +24,7 @@ from .scene import (
     _CellWipeClip,
 )
 from .scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
-from .scene_lyrics import _after_onset
+from .scene_lyrics import LyricLayout, _after_onset
 from .scene_text import PositionedText
 from .text_geometry import _VectorGuideText
 from .timeline import Region, union_regions
@@ -256,19 +256,22 @@ class _SingingHighlights:
     material: LyricMaterial = None
     wipe: bool = True
     reverse: bool = False
+    ruby_reading_units: bool = False
 
     def interval(self, start: float, end: float) -> TimeSpan:
         return TimeSpan(start if self.wipe else end, end)
 
-    def _passes(self, unit: LyricUnit, region: Region) -> tuple[HighlightPass, ...]:
+    def _passes(self, layout: LyricLayout, unit: LyricUnit, region: Region) -> tuple[HighlightPass, ...]:
         if self.wipe:
             passes = []
-            for i, (span, a, b) in enumerate(unit._body_parts()):
+            repeated = len(unit._body_singing()) > 1
+            parts = layout._body_wipe(unit, reading_units=self.ruby_reading_units, reverse=self.reverse)
+            for i, (span, a, b) in enumerate(parts):
                 start, end = (1 - b, 1 - a) if self.reverse else (a, b)
                 bounds = Region(region.left + region.width * start,
                                 region.right if end == 1 else region.left + region.width * end)
                 passes.append(HighlightPass(self.interval(span.start, span.end), bounds,
-                                            round=i if a == 0 else 0, reverse=self.reverse))
+                                            round=i if repeated else 0, reverse=self.reverse))
             return tuple(passes)
         return tuple(HighlightPass(self.interval(span.start, span.end), region, round=i)
                      for i, span in enumerate(unit._body_singing()))
@@ -294,7 +297,7 @@ class _SingingHighlights:
             Highlight(
                 f"singing:{index}",
                 index,
-                self._passes(unit, _sweep_axis(box, line.layout._vertical)),
+                self._passes(line.layout, unit, _sweep_axis(box, line.layout._vertical)),
                 self.paint,
                 glow=self.glow,
                 material=self.material,
@@ -583,6 +586,7 @@ class LyricHighlights:
         *,
         wipe: bool = True,
         reverse: bool = False,
+        ruby_reading_units: bool = False,
         glow: LyricGlow = None,
         base_glow: LyricGlow = None,
         base_paint: StatePatch | None = None,
@@ -601,7 +605,8 @@ class LyricHighlights:
         linear interval in clip mode, outline/glow margins are traversed in
         separate 20 ms shoulders before/after singing, reserved automatically.
         Contiguous timed readings divide their host wipe equally at reading
-        checkpoints. Each reading retains its individual singing interval.
+        checkpoints. With ruby_reading_units=True, visible reading characters instead
+        receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
         Known rectangle keyframes allow continuous native ASS lowering. Repeated
         intervals retain the general ownership evaluator; coverage keeps its
         color-before-blur semantics. Source singing clocks never change.
@@ -615,7 +620,7 @@ class LyricHighlights:
         to reveal text instead of recoloring an already visible baseline.
         """
         return cls(
-            highlights=_SingingHighlights(paint, glow, material, wipe, reverse),
+            highlights=_SingingHighlights(paint, glow, material, wipe, reverse, ruby_reading_units),
             glow=base_glow,
             base_material=base_material,
             hook_feather=hook_feather,

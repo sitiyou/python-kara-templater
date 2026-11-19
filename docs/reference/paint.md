@@ -243,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L981)
+[Source](../../kara_templater/lyric_highlights.py#L986)
 
 ```python
 HighlightArrival(
@@ -343,11 +343,13 @@ HighlightPass.front(
 An x/y gradient for fill, outline, or both; screen coordinates by default.
 
 Integer step controls color band width and the declared maximum band count.
-Local space attaches colors to the drawing during scale/translation. It
-currently requires an ordinary positive axis-aligned drawing with a local,
-non-inverse RectangleKeyframes clip, no parent
-masks, and no coverage material composition. Unsupported combinations raise
-instead of silently changing coordinate spaces. With native_tweens, eligible
+Local space uses untransformed drawing coordinates. On an unmasked closed
+vector path, fill and outline ramps follow translation, rotation and scaling.
+The path must have fixed geometry, with shadows and blur on separate drawings.
+ASS samples moving outline bands in screen space. The GPU samples local color directly.
+For text or a clipped drawing, local gradients require positive axis-aligned
+transforms and a non-inverse local RectangleKeyframes clip without parent masks.
+Coverage material composition is unsupported. With native_tweens, eligible
 scale/opacity curves and a single move share native band events.
 
 [Source](../../kara_templater/paint_fields.py#L154)
@@ -470,7 +472,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L535)
+[Source](../../kara_templater/lyric_highlights.py#L538)
 
 ```python
 LyricHighlights(
@@ -524,7 +526,8 @@ Singing progress uses undecorated measured text bounds. For a single
 linear interval in clip mode, outline/glow margins are traversed in
 separate 20 ms shoulders before/after singing, reserved automatically.
 Contiguous timed readings divide their host wipe equally at reading
-checkpoints. Each reading retains its individual singing interval.
+checkpoints. With ruby_reading_units=True, visible reading characters instead
+receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
 Known rectangle keyframes allow continuous native ASS lowering. Repeated
 intervals retain the general ownership evaluator; coverage keeps its
 color-before-blur semantics. Source singing clocks never change.
@@ -543,6 +546,7 @@ LyricHighlights.from_singing(
     *,
     wipe: bool = True,
     reverse: bool = False,
+    ruby_reading_units: bool = False,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     base_paint: StatePatch | None = None,
@@ -786,7 +790,7 @@ Widths are script pixels. The front travels past both ends so the declared
 span is completely unsung at start and completely sung at start+duration.
 start and duration are local seconds from the owning object's clock origin.
 
-[Source](../../kara_templater/paint_fields.py#L217)
+[Source](../../kara_templater/paint_fields.py#L219)
 
 ```python
 SoftSweep(

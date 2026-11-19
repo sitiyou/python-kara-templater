@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from math import floor
+from math import ceil, floor
 
 from .ass import Document, Line, Style
 from .characters import LayoutCapabilityError
@@ -102,6 +102,61 @@ class LyricLayout:
     bounds: Box
     script_height: int = 1080
     _vertical: bool = False
+
+    def _body_wipe(
+        self, unit: LyricUnit, *, reading_units: bool, reverse: bool,
+    ) -> tuple[tuple[SingingSpan, float, float], ...]:
+        parts = unit._body_parts(reading_units=reading_units)
+        if (not reading_units or self._vertical or unit.end - unit.start < 2
+                or not any(s.ruby and s.ruby.source.text for s in unit.segments)
+                or len(unit._body_singing()) != 1):
+            return parts
+        glyphs = [c for c in self.body.characters if unit.start <= c.start and c.end <= unit.end]
+        if len(glyphs) < 2:
+            return parts
+        glyphs.sort(key=lambda c: c.bounds.center, reverse=reverse)
+        extent = self.body._sweep_bounds(unit.start, unit.end, glyphs[0])
+        if extent.width == 0:
+            return parts
+        # Studio sweeps each glyph's primary ink, then crosses its side bearing
+        # at the handoff. The offsets exclude clearance added after shaping.
+        slots: list[tuple[float, float]] = []
+        for glyph in glyphs:
+            box = self.body._sweep_bounds(glyph.start, glyph.end, glyph)
+            shift = glyphs[0]._gap_shift - glyph._gap_shift
+            x0, x1 = box.left + shift - extent.left, box.right + shift - extent.left
+            if reverse:
+                x0, x1 = extent.width - x1, extent.width - x0
+            left = max(slots[-1][1] if slots else 0.0, min(1.0, x0 / extent.width))
+            slots.append((left, max(left, min(1.0, x1 / extent.width))))
+        count = len(slots)
+
+        def position(progress: float) -> float:
+            if progress == 0 or progress == 1:
+                return progress
+            # At the exact switch Studio still shows the outgoing release.
+            index = ceil(progress * count) - 1
+            left, right = slots[index]
+            return left + (right - left) * (progress * count - index)
+
+        result = []
+        for span, a, b in parts:
+            duration = span.end - span.start
+            # Keep native linear ASS motion within each glyph. Only its handoff
+            # needs two additional poses, on the surrounding centiseconds.
+            times = {span.end}
+            for i in range(1, count):
+                if a <= i / count <= b and b > a:
+                    handoff = span.start + duration * (i / count - a) / (b - a)
+                    tick = floor(handoff * 100 + 1e-9)
+                    times.update(t for t in (tick / 100, (tick + 1) / 100) if span.start < t < span.end)
+            start, entry = span.start, position(a)
+            for end in sorted(times):
+                progress = b if end == span.end else a + (b - a) * (end - span.start) / duration
+                release = position(progress)
+                result.append((replace(span, start=start, end=end), entry, release))
+                start, entry = end, release
+        return tuple(result)
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
         """Combine measured body and positioned ruby objects into an editable group."""

@@ -67,19 +67,29 @@ class LyricUnit:
             return (replace(spans[0], end=spans[-1].end),)
         return spans
 
-    def _body_parts(self) -> tuple[tuple[SingingSpan, float, float], ...]:
-        """Assign equal distances to merged checkpoints, including instantaneous ones."""
+    def _body_parts(self, *, reading_units: bool = False) -> tuple[tuple[SingingSpan, float, float], ...]:
+        """Split a merged body sweep by checkpoints or by visible reading characters."""
         spans = self._body_singing()
         if len(spans) == 1 and len(self.segments) > 1:
-            # Equally spaced checkpoints already describe one constant-speed sweep.
-            count = len(self.segments)
-            duration = (spans[0].end - spans[0].start) / count
-            if any(abs(seg.singing.end - seg.singing.start - duration) > 1e-9
-                   for seg in self.segments):
-                return tuple(
-                    (seg.singing, i / count, (i + 1) / count)
-                    for i, seg in enumerate(self.segments)
-                )
+            weights = [1] * len(self.segments)
+            if reading_units:
+                # Studio attaches combining dakuten and handakuten to their kana.
+                counts = [
+                    sum(i == 0 or ch not in "\u3099\u309a" for i, ch in enumerate(seg.ruby.source.text))
+                    if seg.ruby else 0
+                    for seg in self.segments
+                ]
+                if any(counts):
+                    weights = counts
+            total = sum(weights)
+            distance = 0
+            parts = []
+            for seg, weight in zip(self.segments, weights, strict=True):
+                parts.append((seg.singing, distance / total, (distance + weight) / total))
+                distance += weight
+            duration = spans[0].end - spans[0].start
+            if any(abs(s.end - s.start - duration * (b - a)) > 1e-9 for s, a, b in parts):
+                return tuple(parts)
         return tuple((span, 0.0, 1.0) for span in spans)
 
 

@@ -9,6 +9,7 @@ from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from hashlib import sha256
 from math import ceil, floor, hypot
+from typing import Literal
 from urllib.parse import quote
 
 from ._scene_clipping import (
@@ -23,6 +24,7 @@ from .composition import Color
 from .easing import ease_out
 from .geometry import LineSegment, Vec2, VectorPath, finite
 from .layout import text_extents
+from .model import Box
 from .paint_fields import LinearGradient, PaintActivity, PaintBand
 from .path_boolean import path_boolean
 from .path_geometry import intersect_convex, path_bounds
@@ -311,6 +313,9 @@ def _native_move(leaf: _Leaf) -> bool:
         leaf.evaluator.referenced(node.id)
         or (isinstance(node, PathObject) and node.deform is not None)
         or (node.material is not None and node.material.breakpoints)
+        # Local pen-band masks are fixed in screen space within each ASS event.
+        or (isinstance(node.material, LinearGradient) and node.material.space == "local"
+            and node.material.outline is not None)
         or (
             node.clip is not None
             and (
@@ -714,10 +719,101 @@ def _rectangle_geometry_knots(leaf: _Leaf) -> tuple[float, ...]:
     )
 
 
+def _path_gradient_domain(box: Box, axis: str) -> tuple[int, int]:
+    return (floor(box.left), ceil(box.right)) if axis == "x" else (floor(box.top), ceil(box.top + box.height))
+
+
+@lru_cache(maxsize=128)
+def _local_path_faces(
+    path: VectorPath, material: LinearGradient, max_points: int,
+) -> tuple[tuple[Color, VectorPath], ...]:
+    box = path_bounds(path)
+    faces = []
+    if box.width == 0 or box.height == 0:
+        return ()
+    for band in material.bands(*_path_gradient_domain(box, material.axis), 0, VisualState()):
+        left, right = box.left, box.right
+        top, bottom = box.top, box.top + box.height
+        if material.axis == "x":
+            left, right = band.start, band.end
+        else:
+            top, bottom = band.start, band.end
+        boundary = (Vec2(left, top), Vec2(right, top), Vec2(right, bottom), Vec2(left, bottom))
+        piece = intersect_convex(path, boundary, max_points=max_points)
+        if piece is not None:
+            faces.append((band.fill, piece))
+    return tuple(faces)
+
+
+def _bounded_screen_mask(
+    source: RectangleClip | VectorClip | Literal[False] | None, width: int, height: int, max_points: int,
+) -> RectangleClip | VectorClip | Literal[False] | None:
+    # ASS clips act after blur. Restrict oversized polygon masks before output:
+    # huge half-planes can exceed libass's mask bitmap limits. Leave ordinary
+    # masks intact to retain rasterizer edge rounding, including overscan paths.
+    if (
+        isinstance(source, VectorClip)
+        and all(
+            isinstance(segment, LineSegment)
+            for contour in source.path.contours
+            for segment in contour.segments
+        )
+        and any(
+            abs(point.x) > 32768 or abs(point.y) > 32768
+            for contour in source.path.contours
+            for point in (contour.start, *(segment.end for segment in contour.segments))
+        )
+    ):
+        bounded = intersect_convex(
+            source.path,
+            (Vec2(0, 0), Vec2(width, 0), Vec2(width, height), Vec2(0, height)),
+            max_points=max_points,
+        )
+        if bounded is None:
+            if not source.inverse:
+                return False
+            source = None
+        else:
+            source = replace(source, path=bounded)
+    return source
+
+
+def _pen_band_masks(
+    node: PathObject, state: VisualState, material: LinearGradient,
+    width: int, height: int, max_points: int,
+) -> tuple[tuple[PaintBand, VectorClip], ...]:
+    # Bound the full pen and one antialias pixel in local coordinates. The
+    # inverse linear transform maps a screen-space radius onto each local axis.
+    matrix = state.transform
+    det = abs(state.scale.x * state.scale.y * (1 - state.skew.x * state.skew.y))
+    radius = state.border
+    if node.scale_border:
+        radius *= max(hypot(matrix.a, matrix.c), hypot(matrix.b, matrix.d),
+                      abs(state.scale.x), abs(state.scale.y))
+    dx = (radius + 2) * hypot(matrix.d, matrix.c) / det
+    dy = (radius + 2) * hypot(matrix.b, matrix.a) / det
+    bounds = path_bounds(node.path)
+    box = Box(bounds.left - dx, bounds.top - dy, bounds.width + 2 * dx, bounds.height + 2 * dy)
+    masks = []
+    for band in material.bands(*_path_gradient_domain(box, material.axis), 0, state):
+        left, right = (band.start, band.end) if material.axis == "x" else (box.left, box.right)
+        top, bottom = (band.start, band.end) if material.axis == "y" else (box.top, box.top + box.height)
+        rect = VectorPath.polygon(Vec2(left, top), Vec2(right, top), Vec2(right, bottom), Vec2(left, bottom))
+        mask = _bounded_screen_mask(VectorClip(rect.map(matrix.apply)), width, height, max_points)
+        if isinstance(mask, VectorClip):
+            masks.append((band, mask))
+    return tuple(masks)
+
+
 def _local_gradient_domain(leaf: _Leaf) -> tuple[int, int]:
     node = leaf.node
     material, clip = node.material, node.clip
     assert isinstance(material, LinearGradient) and material.space == "local"
+    if isinstance(node, PathObject) and clip is None and not any(p.clip for p in leaf.parents):
+        if node.deform is not None:
+            raise SceneCompileError("local path gradient requires fixed path geometry", object_id=node.id)
+        left, right = _path_gradient_domain(path_bounds(node.path), material.axis)
+        return left, max(left + 1, right)  # a zero-area face emits no events
     if (
         not isinstance(clip, RectangleClip)
         or clip.space != "local"
@@ -1518,36 +1614,9 @@ def _painted_events(
         if resolved_mask is None
         else resolved_mask
     )
-    source = resolved.clip
+    source = _bounded_screen_mask(resolved.clip, width, height, budget.max_path_points)
     if source is False:
         return _PaintedFrame((), resolved.peak_points)
-    # ASS clips act after blur. Restrict oversized polygon masks before output:
-    # huge half-planes can exceed libass's mask bitmap limits. Leave ordinary
-    # masks intact to retain rasterizer edge rounding, including overscan paths.
-    if (
-        isinstance(source, VectorClip)
-        and all(
-            isinstance(segment, LineSegment)
-            for contour in source.path.contours
-            for segment in contour.segments
-        )
-        and any(
-            abs(point.x) > 32768 or abs(point.y) > 32768
-            for contour in source.path.contours
-            for point in (contour.start, *(segment.end for segment in contour.segments))
-        )
-    ):
-        bounded = intersect_convex(
-            source.path,
-            (Vec2(0, 0), Vec2(width, 0), Vec2(width, height), Vec2(0, height)),
-            max_points=budget.max_path_points,
-        )
-        if bounded is None:
-            if not source.inverse:
-                return _PaintedFrame((), resolved.peak_points)
-            source = None
-        else:
-            source = replace(source, path=bounded)
     clip_points = max(
         resolved.peak_points,
         source.path.point_count if isinstance(source, VectorClip) else 0,
@@ -1614,6 +1683,36 @@ def _painted_events(
             affine,
         )
     if isinstance(material, LinearGradient) and material.space == "local":
+        if isinstance(leaf.node, PathObject) and leaf.node.clip is None:
+            if paint_state.blur or paint_state.shadow != Vec2():
+                raise ValueError("local path gradient needs a separate blur or shadow drawing")
+            if material.outline is not None and paint_state.border:
+                masks = _pen_band_masks(leaf.node, paint_state, material, width, height, budget.max_path_points)
+                solid_face = material.fill is None and leaf.node.filled
+                pen = replace(leaf, node=replace(leaf.node, filled=False)) if solid_face else leaf
+                events = [_event(pen, replace(state, fill=band.fill, outline=band.outline),
+                                 start, end, style, path=path, paint_clip=mask) for band, mask in masks]
+                if solid_face:
+                    # Draw the uninterrupted face over the clipped pen. Band
+                    # boundaries must not introduce seams in a uniform fill.
+                    events.append(_event(leaf, replace(state, border=0), start, end, style, path=path))
+                return _PaintedFrame(tuple(events), max((m.path.point_count for _, m in masks), default=0), path_points, affine)
+            if material.fill is None:
+                return _PaintedFrame((_event(leaf, state, start, end, style, path=path),), clip_points, path_points, affine)
+            events = []
+            if paint_state.border:
+                pen = replace(leaf, node=replace(leaf.node, filled=False))
+                events.append(_event(pen, state, start, end, style, path=path, move=move))
+                state = replace(state, border=0)
+            if not leaf.node.filled:
+                return _PaintedFrame(tuple(events), clip_points, path_points, affine)
+            for color, face in _local_path_faces(leaf.node.path, material, budget.max_path_points):
+                if affine:
+                    face = face.map(replace(paint_state.transform, tx=0, ty=0).apply)
+                piece = replace(leaf, node=replace(leaf.node, path=face))
+                events.append(_event(piece, replace(state, fill=color), start, end, style, move=move))
+                path_points = max(path_points, face.point_count)
+            return _PaintedFrame(tuple(events), clip_points, path_points, affine)
         if affine or state.rotation % 360 != 0:
             raise ValueError(
                 "local gradient currently requires positive axis-aligned transforms"
@@ -1867,10 +1966,21 @@ def compile_scene(
                     origin=node.origin,
                 )
         band_bound = 1
+        separate_paint = False
         if isinstance(node.material, LinearGradient) and node.material.space == "local":
             left, right = _local_gradient_domain(leaf)
             # A line-wide ramp still draws only the strips within this glyph.
             band_bound = min(right - left, node.material.max_bands)
+            if isinstance(node, PathObject) and node.clip is None:
+                may_have_pen = node.state.border or node.reference or any(
+                    "border" in clip.animation.channels for clip in node.animations
+                )
+                if node.material.outline is not None and may_have_pen:
+                    if budget.max_path_points < 4:
+                        raise SceneCompileError("local pen mask exceeds point budget", object_id=node.id)
+                    band_bound = node.material.max_bands
+                separate_paint = bool(node.filled and may_have_pen
+                                      and (node.material.fill is None or node.material.outline is None))
         elif node.material is not None:
             band_bound = node.material.max_bands
         if node.material is not None:
@@ -1882,6 +1992,7 @@ def compile_scene(
                 )
             if node.material.axis not in ("x", "y"):
                 raise SceneCompileError("paint axis must be x or y", object_id=node.id)
+        band_bound += int(separate_paint)
         if node.material is not None and any(
             isinstance(n.clip, RectangleClip) and n.clip.inverse
             for n in (*leaf.parents, node)
@@ -2322,7 +2433,7 @@ def compile_scene(
                 peak_path_points,
                 peak_bands if node.material is not None else None,
                 peak_clip_points
-                if any(n.clip is not None for n in (*leaf.parents, node))
+                if peak_clip_points or any(n.clip is not None for n in (*leaf.parents, node))
                 else None,
             )
         )
