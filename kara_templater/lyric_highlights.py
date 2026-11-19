@@ -23,7 +23,9 @@ from .scene import (
     SceneObject,
 )
 from .scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
+from .scene_lyrics import _after_onset
 from .scene_text import PositionedText
+from .text_geometry import _VectorGuideText
 from .timeline import Region, union_regions
 
 type LyricGlow = (
@@ -270,7 +272,14 @@ class _SingingHighlights:
         return tuple(HighlightPass(self.interval(span.start, span.end), region, round=i)
                      for i, span in enumerate(unit._body_singing()))
 
-    def for_target(self, highlight: Highlight, target: LyricTarget) -> Highlight:
+    def for_target(self, highlight: Highlight, target: LyricTarget, glyph: PositionedText) -> Highlight:
+        if self.wipe and isinstance(glyph.object, _VectorGuideText) and all(
+            p.time.duration == 0 for p in highlight.passes
+        ):
+            def after_start(p: HighlightPass) -> HighlightPass:
+                start = _after_onset(p.time.start, glyph.object.lifetime.end)
+                return replace(p, time=TimeSpan(start, start))
+            return replace(highlight, passes=tuple(after_start(p) for p in highlight.passes))
         if target.role != "ruby" or (not self.wipe and len(highlight.passes) == 1):
             return highlight
         clock = target._reading_span if self.wipe and target._reading_span else target.singing[0]
@@ -698,7 +707,7 @@ class LyricHighlights:
             if not chosen:
                 return
             if isinstance(self.highlights, _SingingHighlights):
-                chosen = tuple(self.highlights.for_target(h, target) for h in chosen)
+                chosen = tuple(self.highlights.for_target(h, target, character) for h in chosen)
             chosen = tuple(
                 replace(
                     highlight,
@@ -1076,7 +1085,7 @@ class HighlightArrival:
             ):
                 continue
             if isinstance(self.highlights, _SingingHighlights):
-                highlight = self.highlights.for_target(highlight, target)
+                highlight = self.highlights.for_target(highlight, target, character)
             for round_id in sorted({span.round for span in highlight.passes}):
                 passes = tuple(
                     span for span in highlight.passes if span.round == round_id

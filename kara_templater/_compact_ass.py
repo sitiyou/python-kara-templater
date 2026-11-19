@@ -13,6 +13,7 @@ from .scene_animation import VisualState
 from .scene_lyrics import _reading_intervals
 from .scene_output import SceneBudget, _color, _number
 from .scene_text import DocumentLayout
+from .text_geometry import _VectorGuideText
 
 type _Knots = tuple[tuple[float, float], ...]
 
@@ -74,6 +75,8 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
     line = plan.line
     paint = line._karaoke_paint
     body = line.layout.body
+    if any(isinstance(g.object, _VectorGuideText) for g in body.characters):
+        return None
     curves: dict[int, _Knots] = {}
     if line.layout.ruby:
         if paint is None or (paint.sung_outline is None and not paint.reverse):

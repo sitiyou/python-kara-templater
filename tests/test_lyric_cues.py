@@ -244,6 +244,33 @@ def test_empty_leading_k_advances_cue_trigger_without_a_dummy_syllable():
     assert bound.inline[0].lifetime == Lifetime(1, 5)
 
 
+@pytest.mark.parametrize(("align", "tops"), [
+    ("top", [0, 0, 0]), ("center", [0, 8, 16]), ("bottom", [0, 16, 32]),
+])
+def test_volume_alignment_and_em_ratios(align, tops):
+    from kara_templater import (
+        CueContext,
+        EventOrigin,
+        ObjectGroup,
+        SignalCue,
+        SourceRef,
+        VolumeCue,
+    )
+
+    context = CueContext("count", Lifetime(0, 2), (0, 1, 2),
+                         EventOrigin((SourceRef("timed"),), "cue"), host_em=64)
+    cue = VolumeCue(count=3, flashes=0, border=0, ratio=3, align=align,
+                    size_ratio=0.75, column_width_ratio=1/3)
+    content = cue(context)
+    assert (content.width, content.height) == (48, 48)
+    group, = content.objects
+    assert isinstance(group, ObjectGroup)
+    bars = [bar for bar in group.children if bar.lifetime.contains(1.9)]
+    assert [bar.state.position for bar in bars] == [Vec2(i * 16, y) for i, y in enumerate(tops)]
+    assert SignalCue(size_ratio=0.75)(context).height == 48
+    assert SignalCue(size=12, size_ratio=0.75)(context).height == 12
+
+
 def test_auto_sized_signals_use_font_at_marker_and_explicit_sizes_win():
     from kara_templater import SignalCue, VolumeCue
 

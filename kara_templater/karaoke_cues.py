@@ -21,18 +21,20 @@ from .scene_animation import (
 )
 
 
-def _rounded(width: float, height: float, radius: float) -> VectorPath:
+def _rounded(width: float, height: float) -> VectorPath:
+    radius = max(1, min(width, height) * 0.22)
+    rx, ry = min(width / 2, radius), min(height / 2, radius)
     points: list[Vec2] = []
     corners = (
-        (width - radius, radius),
-        (width - radius, height - radius),
-        (radius, height - radius),
-        (radius, radius),
+        (width - rx, ry),
+        (width - rx, height - ry),
+        (rx, height - ry),
+        (rx, ry),
     )
     for i, (x, y) in enumerate(corners):
         for step in range(5):
             angle = (i - 1 + step / 4) * pi / 2
-            points.append(Vec2(x + radius * cos(angle), y + radius * sin(angle)))
+            points.append(Vec2(x + rx * cos(angle), y + ry * sin(angle)))
     return VectorPath.polygon(*points)
 
 
@@ -40,12 +42,12 @@ def _host_em(context: CueContext) -> float:
     return context.host_em or (context.host.font_size if context.host else 100)
 
 
-def _cue_size(explicit: float | None, context: CueContext) -> float:
+def _cue_size(explicit: float | None, ratio: float, context: CueContext) -> float:
     if explicit is not None:
         return explicit
     host = context.host
     font_size = _host_em(context) * (host.state.scale.y if host else 1)
-    return max(4, floor(font_size / 2 + 0.5))
+    return max(4, floor(font_size * ratio + 0.5))
 
 
 def _scaled_radius(radius: float, scale: float, width: float) -> float:
@@ -152,12 +154,16 @@ class VolumeCue:
     relative to the fill. transition controls the softness of each flash from 0
     (hard blink) to 1. ratio is first-to-last column height and spacing is
     additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
-    and idle before the active portion. height and border use script pixels. Omit height for half the host font’s measured em size.
+    and idle before the active portion. height and border use script pixels. Omit height to use size_ratio times the host em. column_width_ratio sets the width relative to height.
+    align aligns the column tops, centers or bottoms.
     An omitted border scales the host outline, capped at a quarter of the column width.
     """
 
     count: int = 4
     height: float | None = None
+    size_ratio: float = 0.5
+    column_width_ratio: float = 0.25
+    align: Literal["top", "center", "bottom"] = "center"
     border: float | None = None
     flashes: int = 3
     flash_ratio: float = 1
@@ -170,7 +176,11 @@ class VolumeCue:
     outline: Color | None = None
 
     def __post_init__(self) -> None:
-        finite(self.flash_ratio, self.transition, self.ratio, self.spacing)
+        finite(self.flash_ratio, self.transition, self.ratio, self.spacing, self.size_ratio, self.column_width_ratio)
+        if self.size_ratio <= 0 or self.column_width_ratio <= 0:
+            raise ValueError("size_ratio and column_width_ratio must be positive")
+        if self.align not in ("top", "center", "bottom"):
+            raise ValueError("unknown volume column alignment")
         if not 0 <= self.transition <= 1:
             raise ValueError("transition must be between 0 and 1")
         for dimension in (self.height, self.border):
@@ -209,21 +219,24 @@ class VolumeCue:
             for i in range(self.flashes if cycle else 0)
             for clip in _volume_flash(idle + cycle * i, cycle, self.transition)
         )
-        size = _cue_size(self.height, context)
-        width = max(1, floor(size / 4 + 0.5))
+        size = _cue_size(self.height, self.size_ratio, context)
+        width = max(1, floor(size * self.column_width_ratio + 0.5))
         host = context.host
         border = _cue_border(self.border, size, width, context)
         edge = 2 * border  # Studio reserves a full pen width on each side.
         pitch = width + 2 * edge + self.spacing
         group_right = edge + (self.count - 1) * pitch + width
         first = min(1.0, self.ratio) * size
+        alignment = {"top": 0.0, "center": 0.5, "bottom": 1.0}[self.align]
         last = first / self.ratio
         bars = []
         shared_gradients: dict[str, LyricGradient] = {}
         for i in range(self.count):
             height = first + (last - first) * i / max(1, self.count - 1)
             change = max(life.start, life.end - fill * (1 - i / self.count))
-            path = _rounded(width, height, min(width, height) * 0.22)
+            y = (size - height) * alignment
+            height = max(1.0, height)
+            path = _rounded(width, height)
             for start, end, color, paint in (
                 (life.start, change, self.unsung, context.colors.before),
                 (change, life.end, self.sung, context.colors.after),
@@ -247,7 +260,7 @@ class VolumeCue:
                     lifetime=Lifetime(start, end),
                     path=path,
                     state=VisualState(
-                        position=Vec2(edge + i * pitch, (size - height) / 2),
+                        position=Vec2(edge + i * pitch, y),
                         fill=color or paint.fill,
                         outline=self.outline or paint.outline,
                         opacity=paint.opacity,
@@ -347,7 +360,7 @@ def _note(shape: str, size: float) -> VectorPath:
 class SignalCue:
     """A row of vector lamps extinguishing on cue steps, right to left by default.
 
-    size is the side of a lamp in script pixels, defaulting to half the host font’s measured em size. Each lamp fades over the last
+    size is the side of a lamp in script pixels, defaulting to size_ratio times the host font’s measured em size. Each lamp fades over the last
     transition fraction of its step. Pass a custom path in the unit square to
     use a drawn symbol with the same layout and clock. spacing adds script pixels between lamps.
     Set countdown in seconds to keep all lamps lit before the active steps.
@@ -359,6 +372,7 @@ class SignalCue:
     ) = "circle"
     direction: Literal["left_to_right", "right_to_left"] = "right_to_left"
     size: float | None = None
+    size_ratio: float = 0.5
     spacing: float = 0
     countdown: float | None = None
     transition: float = 0.67
@@ -375,7 +389,9 @@ class SignalCue:
             finite(self.size)
         if self.border is not None:
             finite(self.border)
-        finite(self.transition, self.edge_brightness, self.spacing)
+        finite(self.transition, self.edge_brightness, self.spacing, self.size_ratio)
+        if self.size_ratio <= 0:
+            raise ValueError("size_ratio must be positive")
         if self.spacing < 0:
             raise ValueError("spacing must be nonnegative")
         if self.countdown is not None:
@@ -402,7 +418,7 @@ class SignalCue:
 
     def __call__(self, context: CueContext) -> CueContent:
         """Place lamp shapes on their own intervals within the cue lifetime."""
-        size = _cue_size(self.size, context)
+        size = _cue_size(self.size, self.size_ratio, context)
         if isinstance(self.shape, VectorPath):
             path = self.shape.map(lambda p: p * size)
         elif self.shape in ("note8", "note16", "notepair"):
@@ -414,7 +430,7 @@ class SignalCue:
         elif self.shape == "square":
             path = VectorPath.rectangle(size, size)
         elif self.shape == "rounded":
-            path = _rounded(size, size, size * 0.22)
+            path = _rounded(size, size)
         else:
             path = VectorPath.polygon(
                 *(

@@ -60,7 +60,11 @@ keep reserved space. Choose a factory by its clock and appearance.
 | `TextCue` | Each step displays its configured label. | The last label clears. |
 
 By default the volume columns and shape lamps measure half the selected font’s measured em size at the
-marker. Their outlines scale with the host font too. Set `height` on `VolumeCue`
+marker. Use `size_ratio=0.75` to follow the marker font at three quarters of its em.
+For columns, `column_width_ratio` sets each column’s width as a fraction of the group height
+(default 0.25). `VolumeCue(align="bottom")` puts the shorter bars on the same baseline as the
+tallest one. Choose `"top"` or `"center"` (default) to align their tops or centers.
+Their outlines scale with the host font too. Set `height` on `VolumeCue`
 or `size` on `SignalCue` for a fixed size in script pixels. Built-in lamps have a
 small reflection that fades with the lamp. Set `edge_brightness=0` to remove it.
 
@@ -92,6 +96,33 @@ Set `SignalCue(spacing=8)` for eight extra script pixels between adjacent lamps.
 A separate lamp row uses the sung palette and spans all of its original slots, so the remaining lamps
 keep their colors during countdown. Explicit cue colors take precedence.
 Callback-generated decorations need a custom cue drawing.
+
+### Sing an inline vector symbol
+
+For symbols that fill in time with the lyrics and stay visible after their beat,
+give each symbol an ordinary karaoke interval in the body, for example
+`{\k30}◆{\k30}◆{\k50}歌`. Map the marker to a drawing on the track:
+
+```python
+from kara_templater import KaraokeEffects, Track, Vec2, VectorGuide, VectorPath
+
+triangle = VectorPath.polygon(Vec2(0.1, -0.75), Vec2(0.7, -0.4), Vec2(0.1, -0.05))
+track = Track(
+    id="main",
+    guide_symbols={"◆": VectorGuide(triangle, advance=0.8)},
+    effects=(KaraokeEffects(singing="utopia_scanline"),),
+)
+```
+
+The coordinates and advance are fractions of the local font em. Zero y is the
+baseline and negative y extends above it. The mapping applies to every matching
+body character on that track. Existing timed placeholder characters can use
+their original intervals. The column advance positions the next lyric, while
+the ink bounds set the sweep distance. Ruby and outline clearance use the
+replacement geometry. To anchor two symbols to the first sung character, give
+both symbols a `\k0` interval before it. With the built-in wipe they retain their
+waiting color on the onset frame and switch at the next ASS centisecond.
+Ordinary ASS and standalone hooks both draw the path.
 
 ### Choose the countdown order
 

@@ -8,12 +8,54 @@ from .ass import Document, Line, Style
 from .characters import LayoutCapabilityError
 from .document_lyrics import DocumentLyrics, LyricUnit, RubyText
 from .document_text import DocumentText, SingingSpan, _appearance
-from .geometry import Vec2
+from .geometry import Vec2, VectorPath, finite
 from .model import Box
+from .path_geometry import flatten
 from .scene import Lifetime, ObjectGroup
 from .scene_animation import VisualState
 from .scene_text import DocumentLayout, PositionedText, _layout_document_view, _union
 from .sources import EventOrigin, SourceRef
+from .text_geometry import TextOutline, _VectorGuideText
+
+
+@dataclass(frozen=True)
+class VectorGuide:
+    """A timed lyric glyph with a baseline-relative path and horizontal advance in em units.
+
+    Positive y points down. One em follows the selected font at the marker.
+    Track.guide_symbols maps individual body characters to guide glyphs.
+    """
+
+    path: VectorPath
+    advance: float = 1
+
+    def __post_init__(self) -> None:
+        finite(self.advance)
+        if self.advance < 0:
+            raise ValueError("guide advance must be nonnegative")
+
+    def _place(self, item: PositionedText) -> PositionedText:
+        node = item.object
+        em = item.em_size
+        baseline = Vec2(0, item.baseline or 0)
+        path = self.path.map(lambda point: point * em + baseline)
+        # The wipe follows the curve itself. Its Bézier handles can lie outside the ink.
+        points = tuple(p for contour in path.contours for p in flatten(contour, tolerance=0.1).points)
+        xmin, xmax = min(p.x for p in points), max(p.x for p in points)
+        ymin, ymax = min(p.y for p in points), max(p.y for p in points)
+        scale = node.state.scale
+        advance = max(1, round(self.advance * em)) * scale.x
+        pos = Vec2(item.bounds.left, node.state.position.y)
+        bounds = replace(item.bounds, width=advance)
+        measured = TextOutline(path, Box(0, 0, advance / scale.x, bounds.height / scale.y), item.fonts)
+        drawing = _VectorGuideText(**vars(node), outline=measured)
+        return replace(
+            item,
+            object=replace(drawing, state=replace(node.state, position=pos)),
+            bounds=bounds,
+            ink_bounds=Box(pos.x + xmin * scale.x, pos.y + ymin * scale.y,
+                           (xmax - xmin) * scale.x, (ymax - ymin) * scale.y),
+        )
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -115,6 +157,20 @@ def _shift(item: PositionedText, dx: float, dy: float = 0) -> PositionedText:
             top=item.ink_bounds.top + dy,
         ),
     )
+
+
+def _place_guides(layout: DocumentLayout, guides: Mapping[str, VectorGuide]) -> DocumentLayout:
+    """Replace the measured cells before clearance, ruby placement and RTL ordering."""
+    delta = 0.0
+    items = []
+    for original in layout.characters:
+        item = _shift(original, delta) if delta else original
+        guide = guides.get(item.object.text)
+        if guide is not None:
+            item = guide._place(item)
+            delta += item.bounds.width - original.bounds.width
+        items.append(item)
+    return replace(layout, characters=tuple(items), bounds=_union(tuple(item.bounds for item in items)))
 
 
 def _rtl_cells(layout: DocumentLayout, axis: float) -> DocumentLayout:
@@ -220,6 +276,11 @@ def _center_reading(text: str) -> bool:
     return bool(chars) and not any(lo <= ord(c) <= hi for c in chars for lo, hi in scripts)
 
 
+def _after_onset(start: float, display_end: float) -> float:
+    """First ASS tick after Studio's inclusive waiting frame."""
+    return min(display_end, (round(start * 1000) // 10 + 1) / 100)
+
+
 def _reading_intervals(
     reading: PositionedRuby, unit: LyricUnit, *, wipe: bool = True,
 ) -> tuple[SingingSpan, ...]:
@@ -251,7 +312,7 @@ def _reading_intervals(
     for i, glyph in enumerate(clusters):
         start, end = cuts[i:i + 2]
         if start == end == onset:
-            start = end = min(layout.lifetime.end, (round(start * 1000) // 10 + 1) / 100)
+            start = end = _after_onset(start, layout.lifetime.end)
         intervals.append(replace(source, start_offset=glyph.start, end_offset=glyph.end,
                                  start=start, end=end))
     return tuple(intervals)
@@ -304,6 +365,7 @@ def layout_document_lyrics(
     display: Lifetime | None = None,
     ruby_gap: float = 6,
     studio_spacing: bool | StudioSpacing = False,
+    guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
@@ -326,6 +388,7 @@ def layout_document_lyrics(
         else display,
         ruby_gap=ruby_gap,
         studio_spacing=studio_spacing,
+        guide_symbols=guide_symbols,
         right_to_left=right_to_left,
         min_outline_gap=min_outline_gap,
         reserved_border=reserved_border,
@@ -340,6 +403,7 @@ def layout_lyrics(
     display: Lifetime,
     ruby_gap: float = 6,
     studio_spacing: bool | StudioSpacing = False,
+    guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
@@ -353,8 +417,6 @@ def layout_lyrics(
     No ASS event is required or synthesized. Singing intervals retain their full
     seconds precision; record indices, if present, are provenance only.
     """
-    from .geometry import finite
-
     finite(ruby_gap, reserved_border, min_outline_gap or 0)
     if reserved_border < 0 or (min_outline_gap is not None and min_outline_gap < 0):
         raise ValueError("outline clearance must be nonnegative")
@@ -401,12 +463,17 @@ def layout_lyrics(
     singing = tuple(
         segment.singing for unit in lyrics.units for segment in unit.segments
     )
+    if guide_symbols and any(len(key) != 1 or key.isspace() for key in guide_symbols):
+        raise ValueError("each vector guide marker must be one nonblank character")
     body = _layout_document_view(
-        document, lyrics.body, record_index, id=id, display=display, singing=singing
+        document, lyrics.body, record_index, id=id, display=display, singing=singing,
+        guide_markers=guide_symbols or (),
     )
     cells = StudioSpacing() if studio_spacing is True else studio_spacing
     if cells:
         body = _studio_cells(body, cells)
+    if guide_symbols and body.characters:
+        body = _place_guides(body, guide_symbols)
     body = _clear_outlines(body, min_outline_gap, reserved_border, right_to_left)
     rubies: list[PositionedRuby] = []
     for ui, unit in enumerate(lyrics.units):

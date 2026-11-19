@@ -211,6 +211,7 @@ from .scene_lyrics import (
     LyricLayout,
     PositionedRuby,
     StudioSpacing,
+    VectorGuide,
     layout_document_lyrics,
     layout_lyrics,
 )
@@ -371,6 +372,7 @@ __all__ = [
     "Polyline",
     "PositionedRuby",
     "StudioSpacing",
+    "VectorGuide",
     "PositionedText",
     "ProgressCurve",
     "RED",

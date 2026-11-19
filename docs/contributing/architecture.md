@@ -53,6 +53,10 @@ They are not interchangeable names for one rendering operation.
 
 The KaraokeRows preset fits cells to shaped ink and side bearings. Glyph-local paint
 and clipping use the pen origin, which may differ from the left edge of the cell.
+Registered vector guides split the font shaping run at the source character.
+Their em-scaled path and advance replace the cell before clearance and ruby placement.
+The glyph remains a lyric target through animation binding. The shared Scene leaf
+collector then lowers it and its paint layers to path drawings for ASS and GPU.
 Lyric binding applies Track outline clearance to shaped cluster ink bounds before
 ruby, cues and row allocation. Each cluster retains the cumulative extra distance
 so automatic sweeps and compact ASS timing share the Studio primary-stroke interval or the native font advances.

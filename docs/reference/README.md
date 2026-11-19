@@ -16,7 +16,7 @@ Use `--check` to verify that committed pages match the current public API.
 | [Scenes and compilation](scenes.md) | 22 |
 | [Animation and timing](animation.md) | 26 |
 | [Track authoring](tracks.md) | 26 |
-| [Text measurement and layout](text.md) | 27 |
+| [Text measurement and layout](text.md) | 28 |
 | [Geometry and paths](geometry.md) | 29 |
 | [Colors and appearance](paint.md) | 30 |
 | [Lyric cues](cues.md) | 13 |
@@ -27,7 +27,7 @@ Use `--check` to verify that committed pages match the current public API.
 
 ## Symbol index
 
-234 public exports.
+235 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [AnimationClip](animation.md#animationclip)
@@ -209,6 +209,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [Tween](animation.md#tween)
 - [Vec2](geometry.md#vec2)
 - [VectorClip](scenes.md#vectorclip)
+- [VectorGuide](text.md#vectorguide)
 - [VectorPath](geometry.md#vectorpath)
 - [VisualNode](scenes.md#visualnode)
 - [VisualState](animation.md#visualstate)

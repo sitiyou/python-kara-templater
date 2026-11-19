@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Collection, Iterator
 from dataclasses import dataclass, replace
+from itertools import groupby
 from math import ceil, floor
 
 from .ass import Document, Line, Style
@@ -276,6 +278,21 @@ def _style_supported(style: Style) -> None:
             )
 
 
+def _guide_runs(runs: tuple[TextRun, ...], markers: Collection[str]) -> Iterator[TextRun]:
+    """Isolate vector slots so neighboring text shapes normally on either side."""
+    for run in runs:
+        start = 0
+        for index, char in enumerate(run.text):
+            if char not in markers:
+                continue
+            if start < index:
+                yield replace(run, text=run.text[start:index], start=run.start + start, end=run.start + index)
+            yield replace(run, text=char, start=run.start + index, end=run.start + index + 1)
+            start = index + 1
+        if start < len(run.text):
+            yield replace(run, text=run.text[start:], start=run.start + start)
+
+
 def _layout_document_view(
     document: Document,
     source: DocumentText,
@@ -284,6 +301,7 @@ def _layout_document_view(
     id: str | None = None,
     display: Lifetime | None = None,
     singing: tuple[SingingSpan, ...] | None = None,
+    guide_markers: Collection[str] = (),
 ) -> DocumentLayout:
     """Measure an event into verified drawable clusters without changing its times.
 
@@ -308,21 +326,20 @@ def _layout_document_view(
     identifier = f"record:{record_index}" if id is None else id
     lifetime = display
     styles = document.styles
-    groups: list[list[TextRun]] = []
-    for run in source.runs:
-        if groups and _shape_key(styles[groups[-1][-1].appearance.style]) == _shape_key(
-            styles[run.appearance.style]
-        ):
-            groups[-1].append(run)
-        else:
-            groups.append([run])
+    runs = _guide_runs(source.runs, guide_markers) if guide_markers else iter(source.runs)
+    groups = groupby(runs, key=lambda run: (
+        _shape_key(styles[run.appearance.style]),
+        run.start if run.text in guide_markers else None,
+    ))
     items: list[PositionedText] = []
     x = 0.0
-    for runs in groups:
-        style = styles[runs[0].appearance.style]
-        text = "".join(run.text for run in runs)
+    for (_, marker), grouped in groups:
+        group = tuple(grouped)
+        style = styles[group[0].appearance.style]
+        # Only the host font em and baseline are needed for an authored vector.
+        text = "M" if marker is not None else "".join(run.text for run in group)
         try:
-            for run in runs:
+            for run in group:
                 _style_supported(styles[run.appearance.style])
             width, height, descent, _ = text_extents(style, text)
             box = Box(x, 0, width, height)
@@ -331,15 +348,15 @@ def _layout_document_view(
             )
         except LayoutCapabilityError as error:
             raise LayoutCapabilityError(
-                f"record {record_index}, decoded text range {runs[0].start}:{runs[-1].end}, "
+                f"record {record_index}, decoded text range {group[0].start}:{group[-1].end}, "
                 f"style {style.name!r}: {error}"
             ) from error
         for character in measured:
             start, end = (
-                runs[0].start + character.source.start,
-                runs[0].start + character.source.end,
+                group[0].start + character.source.start,
+                group[0].start + character.source.end,
             )
-            covered = [run for run in runs if run.start < end and run.end > start]
+            covered = [run for run in group if run.start < end and run.end > start]
             appearance = covered[0].appearance
             if any(
                 replace(run.appearance, inline_colors=frozenset())
@@ -357,7 +374,7 @@ def _layout_document_view(
             origin = EventOrigin((SourceRef(identifier, len(items)),), "document text")
             obj = TextObject(
                 id=f"{identifier}/text:{start}:{end}",
-                text=character.text,
+                text=character.text if marker is None else group[0].text,
                 lifetime=lifetime,
                 font=style.fontname,
                 font_size=style.fontsize,

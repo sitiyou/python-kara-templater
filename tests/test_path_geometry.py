@@ -123,6 +123,22 @@ def test_text_outline_matches_nominal_ink_and_preserves_source(alignment: int):
     assert sum(abs(a - b) for a, b in zip(aa, ea, strict=True)) / max(1, sum(ea)) < 0.05
 
 
+def test_vector_replacement_retains_clip_clock_and_hollow_center():
+    from kara_templater import RectangleClip, RectangleKeyframes
+
+    clip = RectangleClip(0, 0, 32, 32, space="local", deform=RectangleKeyframes((
+        (0, (0, -4, 0, 36)), (1, (0, -4, 36, 36)),
+    )))
+    node = TextObject(id="slot", text=" ", lifetime=Lifetime(0, 3), clock_start=1,
+                      clip=clip, filled=False, state=VisualState(position=Vec2(20, 20), border=2))
+    guide = text_to_path(node, path=VectorPath.rectangle(32, 32))
+    script = Scene(document()).add(guide).compile(native_tweens=True).document.dumps()
+    for ms, visible in ((2200, True), (500, False), (1500, True)):
+        alpha = rasterize(script, ms, (640, 360)).rgba[3::4]
+        assert bool(alpha[19 * 640 + 24]) == visible
+        assert alpha[36 * 640 + 36] == 0
+
+
 def test_whitespace_and_complex_outline_limits():
     node = TextObject(id="blank", lifetime=Lifetime(0, 1), text="   ")
     assert outline_text(node).path is None

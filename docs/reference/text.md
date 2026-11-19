@@ -25,6 +25,7 @@ Font-dependent layout, source clusters, and editable body/ruby binding. Unicode 
 - [StudioSpacing](#studiospacing)
 - [TextRange](#textrange)
 - [TextUnit](#textunit)
+- [VectorGuide](#vectorguide)
 - [layout_characters](#layout_characters)
 - [layout_document_lyrics](#layout_document_lyrics)
 - [layout_document_text](#layout_document_text)
@@ -115,7 +116,7 @@ Measured editable text objects with decoded source ranges, singing spans, bounds
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/scene_text.py#L55)
+[Source](../../kara_templater/scene_text.py#L57)
 
 ```python
 DocumentLayout(
@@ -375,7 +376,7 @@ Measured body and positioned readings for projected DocumentLyrics.
 
 unit_group builds editable body/ruby groups using the body center as pivot.
 
-[Source](../../kara_templater/scene_lyrics.py#L50)
+[Source](../../kara_templater/scene_lyrics.py#L92)
 
 ```python
 LyricLayout(
@@ -424,7 +425,7 @@ A reading layout associated with a source unit/segment and decoded body range.
 
 Its own text view retains source mappings and singing timing.
 
-[Source](../../kara_templater/scene_lyrics.py#L36)
+[Source](../../kara_templater/scene_lyrics.py#L78)
 
 ```python
 PositionedRuby(
@@ -454,7 +455,7 @@ bounds is the allocated cell. The pen origin is object.state.position.
 Layout scale is retained when used for range measurements. baseline is the
 local y coordinate of the font baseline measured during shaping.
 
-[Source](../../kara_templater/scene_text.py#L21)
+[Source](../../kara_templater/scene_text.py#L23)
 
 ```python
 PositionedText(
@@ -549,7 +550,7 @@ space_width_percent sets an ASCII space's width as a percentage of the
 selected font em (10 to 100). allow_biting includes negative side bearings
 when measuring overhanging glyphs. Hard-outline clearance applies afterward.
 
-[Source](../../kara_templater/scene_lyrics.py#L19)
+[Source](../../kara_templater/scene_lyrics.py#L61)
 
 ```python
 StudioSpacing(
@@ -616,6 +617,29 @@ TextUnit(
 | `segments` | `tuple[Segment, ...]` | `()` |
 | `ruby_continuation` | `bool` | `False` |
 
+## VectorGuide
+
+A timed lyric glyph with a baseline-relative path and horizontal advance in em units.
+
+Positive y points down. One em follows the selected font at the marker.
+Track.guide_symbols maps individual body characters to guide glyphs.
+
+[Source](../../kara_templater/scene_lyrics.py#L21)
+
+```python
+VectorGuide(
+    path: VectorPath,
+    advance: float = 1,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `path` | `VectorPath` | `required` |
+| `advance` | `float` | `1` |
+
 ## layout_characters
 
 Measure verified clusters in the original unit layout, without relayout.
@@ -642,7 +666,7 @@ Body text is shaped together before ruby spacing is applied. Unit boundaries
 crossing a shaping cluster are rejected when independent placement is needed.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L299)
+[Source](../../kara_templater/scene_lyrics.py#L360)
 
 ```python
 layout_document_lyrics(
@@ -653,6 +677,7 @@ layout_document_lyrics(
     display: Lifetime | None = None,
     ruby_gap: float = 6,
     studio_spacing: bool | StudioSpacing = False,
+    guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
@@ -663,7 +688,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L402)
+[Source](../../kara_templater/scene_text.py#L419)
 
 ```python
 layout_document_text(
@@ -704,7 +729,7 @@ reading group and its body before animation. Negative values allow overlap.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L335)
+[Source](../../kara_templater/scene_lyrics.py#L398)
 
 ```python
 layout_lyrics(
@@ -715,6 +740,7 @@ layout_lyrics(
     display: Lifetime,
     ruby_gap: float = 6,
     studio_spacing: bool | StudioSpacing = False,
+    guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,

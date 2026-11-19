@@ -597,7 +597,8 @@ def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_
 
 
 @pytest.mark.parametrize("softness", [0, 4])
-def test_scanline_colors_the_visible_second_outline(softness):
+@pytest.mark.parametrize("motion, front", [("none", "scanline"), ("utopia", "utopia_scanline")])
+def test_scanline_colors_the_visible_second_outline(softness, motion, front):
     from kara_templater import Glow
     from kara_templater._raster import rasterize
 
@@ -610,12 +611,19 @@ def test_scanline_colors_the_visible_second_outline(softness):
                         scanline_color=Color(0, 255, 255))
         return rasterize(scene.compile(native_tweens=True).document.dumps(), 1500, (640, 360)).rgba
 
-    plain, band = render("none"), render("scanline")
+    plain, band = render(motion), render(front)
     outer = [i for i in range(0, len(plain), 4) if plain[i:i + 4] == bytes((182, 50, 86, 255))]
     assert any(band[i:i + 4] == bytes((0, 255, 255, 255)) for i in outer)
     assert any(band[i:i + 4] == plain[i:i + 4] for i in outer)
+    if motion == "utopia":
+        rim_rows = {outer[0] // (640 * 4), outer[-1] // (640 * 4)}
+        assert all(band[i:i + 4] == plain[i:i + 4] for i in outer if i // (640 * 4) in rim_rows)
     if softness:
-        assert plain[3::4] == band[3::4]
+        if motion == "utopia":
+            # Repainting antialiased edges may raise alpha within the original ink.
+            assert all(before or not after for before, after in zip(plain[3::4], band[3::4], strict=True))
+        else:
+            assert plain[3::4] == band[3::4]
         assert any(50 < band[i + 1] < 255 for i in outer)
 
 

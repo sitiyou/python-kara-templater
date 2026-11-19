@@ -1023,8 +1023,6 @@ class KaraokeEffects:
     ) -> Iterator[TextObject]:
         node, sides = layer.drawing, layer.sides
         material, before_material = layer.sung_brush, layer.waiting_brush
-        if sides:
-            top, bottom = -65536, 65536
         onset, finish = path[0][0], path[-1][0]
         empty = (0.0, top, 0.0, bottom)
         if self.scanline_mode == "brighten" and self.scanline_brightness == 0:
@@ -1437,8 +1435,9 @@ class KaraokeEffects:
                 track[slot] = first, passes
         ratio = line.layout.script_height / 1080
         width = self.scanline_width or max(1, round(16 * ratio))
-        softness = max(1, round(8 * ratio)) if self.scanline_softness is None else self.scanline_softness
+        softness = round(8 * ratio) if self.scanline_softness is None else self.scanline_softness
         run_spans = _scanline_run_spans(line) if "scanline" in self.singing else {}
+        transformed_band = self.singing == "utopia_scanline"
         for target, glyph, unit, _ in glyphs:
             node = nodes[target.node_id]
             if not isinstance(node, TextObject) or not node.text.strip():
@@ -1478,8 +1477,10 @@ class KaraokeEffects:
                     _hard_rim(painted_nodes.get(node.id + "/glow"), node.state.border),
                 )
                 pad = max((node.state.border, *(r.state.border for r in rims if r))) + 2
-                top = (ink.top - glyph.bounds.top) / scale.y - pad
-                bottom = (ink.top + ink.height - glyph.bounds.top) / scale.y + pad
+                # Utopia paints inside the transformed fill path’s bounding box.
+                vertical_pad = 0 if transformed_band else pad
+                top = (ink.top - glyph.bounds.top) / scale.y - vertical_pad
+                bottom = (ink.top + ink.height - glyph.bounds.top) / scale.y + vertical_pad
                 movements = list(sweeps[target.node_id])
                 group, slot = reading_slots.get(target.node_id, (None, unit))
                 reach = (width / 2 + pad) * scale.x
@@ -1503,7 +1504,6 @@ class KaraokeEffects:
                 layers: list[_ScanlineLayer] = []
                 native_pass = (
                     not self.hook_feather
-                    and self.singing != "utopia_scanline"
                     and all(a[-1][0] < b[0][0] for a, b in pairwise(paths))
                     and not (
                         self.scanline_mode == "brighten"
@@ -1521,8 +1521,10 @@ class KaraokeEffects:
                         for p in (base, sung_piece)
                     )
                 ):
-                    if self.scanline_softness != 0 and _compatible_brushes(
-                        base.material, sung_piece.material, material, before_material
+                    if (
+                        not transformed_band
+                        and softness > 0
+                        and _compatible_brushes(base.material, sung_piece.material, material, before_material)
                     ):
                         sides = sung_piece, base
                     sung_rim, waiting_rim = rims
@@ -1534,7 +1536,9 @@ class KaraokeEffects:
                             )
                 layers.append(_ScanlineLayer(node, material, before_material, sides))
                 for layer in layers:
-                    if layer.sides:
+                    strip_top, strip_bottom = top, bottom
+                    if layer.sides and not transformed_band:
+                        strip_top, strip_bottom = -65536, 65536
                         sung, waiting = layer.sides
                         left_piece, right_piece = (waiting, sung) if self.reverse_wipe else (sung, waiting)
                         for piece, offset, left in (
@@ -1545,8 +1549,10 @@ class KaraokeEffects:
                                 piece, paths, offset, left=left
                             )
                     for index, path in enumerate(paths):
-                        for front in self._scanline(layer, index, path, width, softness, top, bottom):
-                            additions.setdefault(node.id, []).append(front)
+                        for front in self._scanline(
+                            layer, index, path, width, softness, strip_top, strip_bottom
+                        ):
+                            additions.setdefault(layer.drawing.id, []).append(front)
                             aliases.setdefault(target.id, []).append(front.id)
             if not self.stroke_flash or target.role != "character":
                 continue

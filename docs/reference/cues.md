@@ -286,12 +286,12 @@ CuedLyrics.group(
 
 A row of vector lamps extinguishing on cue steps, right to left by default.
 
-size is the side of a lamp in script pixels, defaulting to half the host font’s measured em size. Each lamp fades over the last
+size is the side of a lamp in script pixels, defaulting to size_ratio times the host font’s measured em size. Each lamp fades over the last
 transition fraction of its step. Pass a custom path in the unit square to
 use a drawn symbol with the same layout and clock. spacing adds script pixels between lamps.
 Set countdown in seconds to keep all lamps lit before the active steps.
 
-[Source](../../kara_templater/karaoke_cues.py#L346)
+[Source](../../kara_templater/karaoke_cues.py#L359)
 
 ```python
 SignalCue(
@@ -299,6 +299,7 @@ SignalCue(
     shape: Literal['circle', 'square', 'rounded', 'star', 'note8', 'note16', 'notepair'] | VectorPath = 'circle',
     direction: Literal['left_to_right', 'right_to_left'] = 'right_to_left',
     size: float | None = None,
+    size_ratio: float = 0.5,
     spacing: float = 0,
     countdown: float | None = None,
     transition: float = 0.67,
@@ -317,6 +318,7 @@ SignalCue(
 | `shape` | `Literal['circle', 'square', 'rounded', 'star', 'note8', 'note16', 'notepair'] \| VectorPath` | `'circle'` |
 | `direction` | `Literal['left_to_right', 'right_to_left']` | `'right_to_left'` |
 | `size` | `float \| None` | `None` |
+| `size_ratio` | `float` | `0.5` |
 | `spacing` | `float` | `0` |
 | `countdown` | `float \| None` | `None` |
 | `transition` | `float` | `0.67` |
@@ -383,16 +385,20 @@ fill get equal time by default; flash_ratio scales the length of each pulse
 relative to the fill. transition controls the softness of each flash from 0
 (hard blink) to 1. ratio is first-to-last column height and spacing is
 additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
-and idle before the active portion. height and border use script pixels. Omit height for half the host font’s measured em size.
+and idle before the active portion. height and border use script pixels. Omit height to use size_ratio times the host em. column_width_ratio sets the width relative to height.
+align aligns the column tops, centers or bottoms.
 An omitted border scales the host outline, capped at a quarter of the column width.
 
-[Source](../../kara_templater/karaoke_cues.py#L145)
+[Source](../../kara_templater/karaoke_cues.py#L147)
 
 ```python
 VolumeCue(
     *,
     count: int = 4,
     height: float | None = None,
+    size_ratio: float = 0.5,
+    column_width_ratio: float = 0.25,
+    align: Literal['top', 'center', 'bottom'] = 'center',
     border: float | None = None,
     flashes: int = 3,
     flash_ratio: float = 1,
@@ -412,6 +418,9 @@ VolumeCue(
 | --- | --- | --- |
 | `count` | `int` | `4` |
 | `height` | `float \| None` | `None` |
+| `size_ratio` | `float` | `0.5` |
+| `column_width_ratio` | `float` | `0.25` |
+| `align` | `Literal['top', 'center', 'bottom']` | `'center'` |
 | `border` | `float \| None` | `None` |
 | `flashes` | `int` | `3` |
 | `flash_ratio` | `float` | `1` |

@@ -891,7 +891,7 @@ morph(
 
 Shape at the source font's nominal scale; object transforms stay independent.
 
-[Source](../../kara_templater/text_geometry.py#L25)
+[Source](../../kara_templater/text_geometry.py#L32)
 
 ```python
 outline_text(
@@ -972,15 +972,19 @@ stroke(
 
 ## text_to_path
 
-Preserve source, state, lifetime and animations when replacing text by geometry.
+Use the shaped outline or a supplied path in the text object's local coordinates.
 
-[Source](../../kara_templater/text_geometry.py#L97)
+Preserve visibility, animation and clip clocks, fill mode, and source identity.
+max_points limits native glyph extraction when path is omitted.
+
+[Source](../../kara_templater/text_geometry.py#L108)
 
 ```python
 text_to_path(
     node: TextObject,
     *,
     id: str | None = None,
+    path: VectorPath | None = None,
     max_points: int = 4096,
 ) -> PathObject
 ```

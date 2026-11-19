@@ -11,6 +11,11 @@ path_bounds measures path geometry. flatten converts curves with an explicit
 tolerance, and resample_path produces compatible sampled contours. layout_path
 arranges PathItem values along a path with spacing and tangent orientation.
 Text outlines come from outline_text or text_to_path using the measured font.
+Use `text_to_path(node, path=outline)` to draw a custom outline in the node’s local
+coordinates with its existing animation and clip timing. The path uses script pixels.
+For a baseline-relative outline in em units, scale it by the measured glyph’s
+`em_size` and add its local `baseline` to each y coordinate. The caller supplies
+the layout advance when the replacement has different metrics.
 Whitespace can have layout advance without an extractable visible contour.
 
 split_path creates geometric pieces for independent animation. merge_geometry

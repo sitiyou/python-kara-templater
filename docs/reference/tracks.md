@@ -438,7 +438,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L158)
+[Source](../../kara_templater/orchestration.py#L165)
 
 ```python
 LinePlan(
@@ -861,7 +861,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L169)
+[Source](../../kara_templater/orchestration.py#L176)
 
 ```python
 LyricScene(
@@ -1000,7 +1000,7 @@ An immutable source view used by Track predicates and metadata functions.
 id identifies source content independently of its track/view. Original
 singing intervals remain in lyrics; display is the original ASS visibility.
 
-[Source](../../kara_templater/orchestration.py#L44)
+[Source](../../kara_templater/orchestration.py#L50)
 
 ```python
 LyricSource(
@@ -1200,7 +1200,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L104)
+[Source](../../kara_templater/orchestration.py#L110)
 
 ```python
 Track(
@@ -1213,6 +1213,7 @@ Track(
     tail: float = 1.0,
     effects: tuple[LyricEffect, ...] = (),
     cues: Mapping[str, CuePreset] = _HAS_DEFAULT_FACTORY_CLASS(),
+    guide_symbols: Mapping[str, VectorGuide] = _HAS_DEFAULT_FACTORY_CLASS(),
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset({}),
     styles: tuple[Style, ...] = (),
     references: tuple[LayoutLine, ...] = (),
@@ -1237,6 +1238,7 @@ Track(
 | `tail` | `float` | `1.0` |
 | `effects` | `tuple[LyricEffect, ...]` | `()` |
 | `cues` | `Mapping[str, CuePreset]` | `dict()` |
+| `guide_symbols` | `Mapping[str, VectorGuide]` | `dict()` |
 | `tags` | `frozenset[str] \| Callable[[LyricSource], frozenset[str]]` | `frozenset({})` |
 | `styles` | `tuple[Style, ...]` | `()` |
 | `references` | `tuple[LayoutLine, ...]` | `()` |
@@ -1273,7 +1275,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L408)
+[Source](../../kara_templater/orchestration.py#L415)
 
 ```python
 prepare_tracks(

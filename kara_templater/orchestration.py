@@ -35,7 +35,13 @@ from .lyric_line import LyricLine, LyricRule, _LyricBinding
 from .model import Box
 from .scene import Lifetime, ObjectGroup, Scene, SceneObject
 from .scene_animation import TimeSpan
-from .scene_lyrics import LyricLayout, StudioSpacing, _ruby_style, layout_lyrics
+from .scene_lyrics import (
+    LyricLayout,
+    StudioSpacing,
+    VectorGuide,
+    _ruby_style,
+    layout_lyrics,
+)
 from .scene_output import SceneBudget, _scene_source_records
 from .scene_text import DocumentLayout, _union
 from .sources import EventOrigin, SourceRef
@@ -133,6 +139,7 @@ class Track:
     tail: float = 1.0
     effects: tuple[LyricEffect, ...] = ()
     cues: Mapping[str, CuePreset] = field(default_factory=dict)
+    guide_symbols: Mapping[str, VectorGuide] = field(default_factory=dict)
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset()
     styles: tuple[Style, ...] = ()
     references: tuple[LayoutLine, ...] = ()
@@ -505,6 +512,7 @@ def prepare_tracks(
                 reserved_border=border,
                 ruby_gap=track.ruby_gap,
                 studio_spacing=studio_spacing,
+                guide_symbols=track.guide_symbols,
                 right_to_left=track.right_to_left,
             )
             role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)

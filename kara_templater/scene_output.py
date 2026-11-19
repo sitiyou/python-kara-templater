@@ -54,7 +54,7 @@ from .scene_animation import (
 )
 from .scene_evaluation import SceneEvaluator, SceneReferenceError, compose_states
 from .sources import EventOrigin
-from .text_geometry import outline_text
+from .text_geometry import _VectorGuideText, outline_text, text_to_path
 
 
 class SceneCompileError(ValueError):
@@ -292,6 +292,8 @@ def _leaves(
         start = max(n.lifetime.start for n in (*parents, node))
         end = min(n.lifetime.end for n in (*parents, node))
         if end > start:
+            if isinstance(node, _VectorGuideText):
+                node = text_to_path(node, path=node.outline.path)
             leaves.append(_Leaf(node, parents, start, end, evaluator))
             order.append(node.id)
 

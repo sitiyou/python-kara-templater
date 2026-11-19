@@ -279,3 +279,63 @@ def test_studio_spacing_uses_selected_em_and_preserves_overhanging_ink():
         assert j.ink_bounds.width == before.characters[0].ink_bounds.width
         assert f.start == before.characters[2].start
         assert after.singing == before.singing
+
+
+def test_timed_vector_guide_preserves_ruby_and_singing_in_ass_exports(tmp_path):
+    from kara_templater import (
+        KaraokeEffects,
+        Track,
+        Vec2,
+        VectorGuide,
+        VectorPath,
+        prepare_tracks,
+    )
+    from kara_templater._raster import rasterize
+
+    doc, index = document(r"{\k50}◆|!x{\k50}A")
+    guide = VectorGuide(VectorPath.rectangle(0.6, 0.4).map(lambda p: p + Vec2(0.1, -0.7)), 0.8)
+    recipe = KaraokeEffects(entry="none", singing="none", exit="none", sung=Color(255, 0, 0))
+    scene = prepare_tracks(doc, tracks=(Track(id="lyrics", guide_symbols={"◆": guide}, effects=(recipe,)),))
+    layout = scene.lines[0].layout
+    glyph = layout.body.characters[0]
+    assert glyph.bounds.width == round(0.8 * glyph.em_size)
+    assert glyph.ink_bounds is not None
+    assert glyph.ink_bounds.width == pytest.approx(0.6 * glyph.em_size)
+    assert layout.ruby[0].body_start == 0
+    assert layout.body.singing == tuple(s.singing for u in doc.lyrics_at(index).units for s in u.segments)
+    compact = tmp_path / "guide.ass"
+    scene.export_compact_ass(compact)
+    for output in (scene.compile(native_tweens=True).document, Document.parse(compact.read_text())):
+        rows = [row for row in output.lines if not row.comment]
+        assert all("◆" not in row.text for row in rows)
+        assert any(r"\p1" in row.text for row in rows)
+        counts = []
+        for time in (1010, 1250, 1490):
+            frame = rasterize(output.dumps(), time, (640, 360)).rgba
+            counts.append(sum(r > 180 and g < 80 and a > 180
+                              for r, g, a in zip(frame[0::4], frame[1::4], frame[3::4], strict=True)))
+        assert counts[0] < counts[1] < counts[2]
+
+
+def test_anchored_guides_stay_unsung_on_the_shared_onset():
+    from kara_templater import (
+        KaraokeEffects,
+        Track,
+        VectorGuide,
+        VectorPath,
+        prepare_tracks,
+    )
+    from kara_templater._raster import rasterize
+
+    doc, _ = document(r"{\k0}◆{\k0}◆{\k100}A")
+    scene = prepare_tracks(doc, tracks=(Track(
+        id="lyrics", guide_symbols={"◆": VectorGuide(VectorPath.rectangle(0.7, 0.3))},
+        effects=(KaraokeEffects(entry="none", exit="none", singing="none", sung=Color(255, 0, 0)),),
+    ),))
+    script = scene.compile(native_tweens=True).document.dumps()
+    def has_red(ms):
+        frame = rasterize(script, ms, (640, 360)).rgba
+        return any(r > 180 and g < 80 and a > 180
+                   for r, g, a in zip(frame[0::4], frame[1::4], frame[3::4], strict=True))
+    assert has_red(1010)
+    assert not has_red(1000)
