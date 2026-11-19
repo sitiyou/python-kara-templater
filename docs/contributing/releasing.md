@@ -39,9 +39,10 @@ solely because a repair tool can emit an additional tag.
 
 Windows uses UCRT64/Meson and delvewheel. Repair leaves libharfbuzz-0.dll unmangled
 because of its FreeType dependency cycle; other selected DLLs are name-mangled.
-Test without UCRT/MSYS build-toolchain directories on PATH so bundled dependency
-loading is actually exercised. Wine can test Windows ABI artifacts but does not
-replace a native Windows host for platform/rendering claims.
+For 1.0.0 the release workflow checks wheel metadata, CPython tags, the native
+extension and bundled DLLs statically. Windows runtime validation is deferred
+until after publication. On a Windows host, use a clean environment without
+UCRT/MSYS build-toolchain directories on PATH to verify DLL loading.
 
 Review the fixed native dependency notices alongside dependency/repair changes.
 

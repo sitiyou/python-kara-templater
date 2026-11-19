@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kara-templater"
-version = "0.2.1"
+version = "1.0.0"
 description = "Scriptable karaoke effects and ASS generation with native libass text metrics"
 requires-python = ">=3.12"
 license = "MIT"

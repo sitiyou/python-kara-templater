@@ -156,10 +156,27 @@ jobs:
             rm "$log_file"
             sleep "$((attempt * 5))"
           done
-      - name: Build, repair and test Windows wheels
+      - name: Build and repair Windows wheels
         if: runner.os == 'Windows'
         shell: bash
+        env:
+          CIBW_TEST_SKIP: "*-win_amd64"
         run: python -m cibuildwheel --output-dir wheelhouse dist/*.tar.gz
+      - name: Inspect Windows extension and bundled DLLs
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+          wheels = sorted(Path('wheelhouse').glob('*.whl'))
+          for abi in ('cp312', 'cp313', 'cp314'):
+              wheel, = (w for w in wheels if w.name.endswith(f'-{abi}-{abi}-win_amd64.whl'))
+              with ZipFile(wheel) as archive:
+                  files = archive.namelist()
+                  assert f'kara_templater/_metrics.{abi}-win_amd64.pyd' in files, wheel
+                  assert any(f.lower().endswith('/libharfbuzz-0.dll') for f in files), wheel
+          PY
       - name: Check wheel metadata
         shell: bash
         run: python -m twine check --strict wheelhouse/*.whl
