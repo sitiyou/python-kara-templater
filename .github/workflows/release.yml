@@ -14,8 +14,8 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install pinned checkers and typing dependencies
@@ -31,8 +31,8 @@ jobs:
     needs: quality
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
       - name: Install build tools
@@ -86,7 +86,7 @@ jobs:
               subprocess.run([sys.executable, "-m", "pytest", "tests", "-v"], cwd=check, check=True)
               subprocess.run(["kara-templater", "examples/karaoke.ass", "output.ass"], cwd=check, check=True)
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist-sdist
           path: dist/*.tar.gz
@@ -100,11 +100,11 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: dist-sdist
           path: dist
@@ -180,7 +180,7 @@ jobs:
       - name: Check wheel metadata
         shell: bash
         run: python -m twine check --strict wheelhouse/*.whl
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: dist-wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -196,7 +196,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: dist-*
           merge-multiple: true
