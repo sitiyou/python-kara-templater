@@ -70,7 +70,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L858)
+[Source](../../kara_templater/karaoke_effects.py#L891)
 
 ```python
 KaraokeEffects(
@@ -239,7 +239,9 @@ Use anchor to place a stream at the top, center or bottom of its region. Row hei
 follows the body baseline and hard outlines. Top grids reserve reading space
 even on pages without ruby. Inline cues retain their horizontal reservation.
 smart_horizontal defaults to equal_margins, moving the left and right rows
-inward by half the page's spare width. center_position treats each row
+inward by half the page's spare width. An inline cue contributes its width
+when positioning its host row. Peers measure that row by its lyrics and ruby.
+center_position treats each row
 independently. none keeps the preset alignments against the region margins.
 section_gap starts a new rotation after a longer singing silence (0 disables
 splitting). lane_gap reserves seconds between occupants when available.
@@ -247,7 +249,7 @@ sync_entry and sync_ending align the first and last pages respectively;
 sync_each_page applies enabled synchronization to every page. fill_section
 holds each row toward the next same-row preview and aligns final page tails.
 
-[Source](../../kara_templater/lyric_layout.py#L314)
+[Source](../../kara_templater/lyric_layout.py#L315)
 
 ```python
 KaraokeRows(
@@ -325,7 +327,7 @@ Alignment and offsets can be supplied per row.
 Alternating alignment places even rows on the left and odd rows on the right. Bounds already
 include ruby and inline cue reservations. gap is row-origin spacing in pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L179)
+[Source](../../kara_templater/lyric_layout.py#L180)
 
 ```python
 Layout(
@@ -374,7 +376,7 @@ Read-only placement region and explicitly supplied cross-track references.
 Other tracks are information for overrides, never implicitly allocated by the
 built-in algorithm. Coordinates and measurements use script pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L102)
+[Source](../../kara_templater/lyric_layout.py#L103)
 
 ```python
 LayoutContext(
@@ -1123,7 +1125,7 @@ A visual origin and absolute display interval for one stable line id.
 row is optional metadata; free-form layouts do not need numbered slots.
 adjustments explains deliberate changes to desired visibility.
 
-[Source](../../kara_templater/lyric_layout.py#L124)
+[Source](../../kara_templater/lyric_layout.py#L125)
 
 ```python
 Placement(

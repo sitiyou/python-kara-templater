@@ -420,6 +420,24 @@ class _SingingPulse:
     duration: float
     animation: ScalePulse | Transform
 
+    def rule(self, target: LyricTarget, resume: float | None) -> LyricRule | None:
+        skip = max(0.0, (resume or 0.0) - self.note.start)
+        if skip >= self.duration:
+            return None
+
+        def anchor(_line: LyricLine, _target: LyricTarget) -> tuple[TimeSpan, ...]:
+            return (self.note,)
+
+        def remaining(base: VisualState, progress: float) -> VisualState:
+            elapsed = skip + progress * (self.duration - skip)
+            return self.animation.sample(base, elapsed / self.duration)
+
+        return LyricRule(
+            target, anchor,
+            StateFunction(remaining, self.animation.channels) if skip else self.animation,
+            duration=self.duration - skip, offset=skip, hold=isinstance(self.animation, ScalePulse),
+        )
+
     def inverse_scale(self, elapsed: float) -> float:
         progress = min(1.0, max(0.0, elapsed / self.duration)) if self.duration else 0.0
         return 1 / self.animation.sample(VisualState(), progress).scale.x
@@ -619,6 +637,12 @@ class _Sweep:
     left: float
     right: float
 
+    def after(self, time: float) -> "_Sweep":
+        if self.start >= time:
+            return self
+        progress = (time - self.start) / (self.end - self.start)
+        return _Sweep(time, self.end, self.left + (self.right - self.left) * progress, self.right)
+
     def intersect(self, left: float, right: float) -> "_Sweep | None":
         width = self.right - self.left
         if width == 0:
@@ -786,6 +810,15 @@ def _hard_rim(node: SceneObject | None, primary_border: float) -> TextObject | N
     ):
         return node
     return None
+
+
+def _hard_rims(
+    nodes: dict[str, SceneObject], glyph: SceneObject, sung_id: str,
+) -> tuple[TextObject | None, TextObject | None]:
+    return (
+        _hard_rim(nodes.get(sung_id + "/glow"), glyph.state.border),
+        _hard_rim(nodes.get(glyph.id + "/glow"), glyph.state.border),
+    )
 
 
 def _outside_front(
@@ -1048,10 +1081,10 @@ class KaraokeEffects:
         delay = line.query("line")[0].delay
         first, last = first + delay, last + delay
         entry_window = _transition_window(self.entry, self.entry_duration, entering=True)
-        # A character fade can continue across the first sung note. Keep its
-        # opacity timeline clear of the following exit on exceptionally short lines.
+        # Studio disables entry without preroll. With even a short preroll its
+        # staggered characters keep their full attack during the first note.
         entry_total = min(first, entry_window)
-        if self.entry == "char_fade":
+        if first > 0 and self.entry in _CHAR_TRANSITIONS:
             entry_total = min(last, entry_window) if self.exit != "none" and self.exit_duration else entry_window
         release = 0.30 if self.singing.startswith("zoom_pulse") else 0
         exit_total = _transition_window(self.exit, self.exit_duration, entering=False)
@@ -1097,9 +1130,12 @@ class KaraokeEffects:
                 pulses_by_target[target.node_id] = _singing_pulses(
                     intervals, target, zoom=self.singing.startswith("zoom_pulse"), level=self.zoom_pulse_curve_level,
                 )
+        # The character-transition painter keeps the ordinary wipe and resumes
+        # the luminous band on the frame after its inclusive entry window.
+        singing_resume = line.lifetime.start + entry_total + 0.01 if first < entry_total else None
         line = replace(
             self, entry_duration=entry_total, exit_duration=exit_total
-        )._ornaments(line, original, pulses_by_target)
+        )._ornaments(line, original, pulses_by_target, singing_resume)
         reading_edges = _reading_edges(line)
         for entering, kind, total in (
             (True, self.entry, entry_total),
@@ -1149,13 +1185,9 @@ class KaraokeEffects:
             rules = []
             for target in line.query("character", "ruby"):
                 for pulse in pulses_by_target[target.node_id]:
-                    def anchor(
-                        _line: LyricLine, _target: LyricTarget, span: TimeSpan = pulse.note,
-                    ) -> tuple[TimeSpan, ...]:
-                        return (span,)
-
-                    rules.append(LyricRule(target, anchor, pulse.animation, duration=pulse.duration,
-                                           hold=isinstance(pulse.animation, ScalePulse)))
+                    rule = pulse.rule(target, singing_resume)
+                    if rule is not None:
+                        rules.append(rule)
             line = line.schedule(*rules)
         return replace(
             line,
@@ -1614,7 +1646,7 @@ class KaraokeEffects:
         return _insert(line, additions, reserve=False, replacements=replacements)
 
     def _ornaments(self, line: LyricLine, nodes: dict[str, SceneObject],
-                   pulses_by_target: dict[str, tuple[_SingingPulse, ...]]) -> LyricLine:
+                   pulses_by_target: dict[str, tuple[_SingingPulse, ...]], band_start: float | None) -> LyricLine:
         additions: dict[str, list[SceneObject]] = {}
         line = self._particles(line, nodes, additions, transitions=False)
         transition_kinds = {
@@ -1655,6 +1687,7 @@ class KaraokeEffects:
         }
         edges: dict[int | None, dict[int, tuple[tuple[_Sweep, ...], tuple[_Sweep, ...]]]] = {}
         sweeps: dict[str, tuple[_Sweep, ...]] = {}
+        transformed_band = self.singing in {"utopia_scanline", "zoom_pulse_scanline"}
         if "scanline" in self.singing:
             intervals: dict[int | None, set[tuple[float, float]]] = {}
             reading_ends: dict[int, float] = {}
@@ -1672,15 +1705,32 @@ class KaraokeEffects:
                 i: line.layout._body_wipe(unit, reading_units=self.ruby_reading_units, reverse=self.reverse_wipe)
                 for i, unit in enumerate(line.layout.lyrics.units)
             }
-            for target, _, unit, box in glyphs:
+            # A zero-duration space separates words on the page but contributes
+            # no sung endpoint. Keep the last timed word for the handoff frame.
+            previous_body_slots: list[int] = []
+            previous_slot = -1
+            for slot, lyric in enumerate(line.layout.lyrics.units):
+                previous_body_slots.append(previous_slot)
+                text = line.layout.body.source.text[lyric.start:lyric.end]
+                if text.strip() or any(s.end > s.start for s, _, _ in body_clocks[slot]):
+                    previous_slot = slot
+            for target, glyph, unit, box in glyphs:
                 group, slot = reading_slots.get(target.node_id, (None, unit))
                 track = edges.setdefault(group, {})
                 body = group is None
-                previous = track.get(slot - 1) if body and not self.reverse_wipe else None
+                previous = track.get(previous_body_slots[slot]) if body and not self.reverse_wipe else None
                 clock = body_clocks[unit] if body else ((target._reading_span or target.singing[0], 0, 1),)
+                first_note, releases = clocks[group]
+                if not body and transformed_band:
+                    # The animated painter sweeps each reading fragment across its font
+                    # advance and draws its strip strictly inside that fragment's note.
+                    advance = glyph._font_advance
+                    box = replace(box, left=glyph.object.state.position.x,
+                                  width=glyph.bounds.width if advance is None else advance)
+                    first_note, releases = clock[0][0].start + target.delay, {}
                 passes = _sweeps(clock, target.delay, box,
                                  previous[1] if previous else (),
-                                 *clocks[group],
+                                 first_note, releases,
                                  first_pixel=0.5 if body else 0.0, reverse=self.reverse_wipe)
                 sweeps[target.node_id] = () if body and unit in reading_only else passes
                 first, _ = track.get(slot, (passes, passes))
@@ -1688,8 +1738,8 @@ class KaraokeEffects:
         ratio = line.layout.script_height / 1080
         width = self.scanline_width or max(1, round(16 * ratio))
         softness = round(8 * ratio) if self.scanline_softness is None else self.scanline_softness
+        reading_hosts = _character_hosts(line) if reading_slots and "scanline" in self.singing else {}
         run_spans = _scanline_run_spans(line) if "scanline" in self.singing else {}
-        transformed_band = self.singing in {"utopia_scanline", "zoom_pulse_scanline"}
         for target, glyph, unit, _ in glyphs:
             node = nodes[target.node_id]
             if not isinstance(node, TextObject) or not node.text.strip():
@@ -1724,11 +1774,29 @@ class KaraokeEffects:
                 base = painted_nodes[target.node_id]
                 sung_id = f"{node.id}/highlight:singing:{unit}"
                 sung_piece = painted_nodes.get(sung_id)
-                rims = (
-                    _hard_rim(painted_nodes.get(sung_id + "/glow"), node.state.border),
-                    _hard_rim(painted_nodes.get(node.id + "/glow"), node.state.border),
-                )
-                pad = max((node.state.border, *(r.state.border for r in rims if r))) + 2
+                rims = _hard_rims(painted_nodes, node, sung_id)
+                # The repaint uses the host pen. A soft adjustment only changes
+                # pixels covered by both that pen and the original reading.
+                band_node = node
+                inside_reading = False
+                if target.role == "ruby":
+                    host = nodes[reading_hosts[target.node_id].node_id]
+                    border = host.state.border
+                    if self.scanline_mode in {"color", "role"}:
+                        host_rims = _hard_rims(painted_nodes, host, f"{host.id}/highlight:singing:{unit}")
+                        after, before = (rim.state.border if rim else border for rim in host_rims)
+                        if before == after:
+                            # Qt tests nonzero antialiased coverage. Allow half a
+                            # pixel of fringe, leaving a full pixel of opaque ink.
+                            inside_reading = (
+                                softness > 0 and node.state.opacity == 1 and before + 1.5 <= node.state.border
+                            )
+                            if softness == 0 or inside_reading:
+                                border = before + (0.5 if inside_reading else 0)
+                                rims = (None, None)
+                    if softness == 0 or inside_reading:
+                        band_node = replace(node, state=replace(node.state, border=border))
+                pad = max((band_node.state.border, *(r.state.border for r in rims if r))) + 2
                 # During a pulse Studio repaints only the height of the transformed fill.
                 vertical_pad = 0 if transformed_band else pad
                 top = (ink.top - glyph.bounds.top) / scale.y - vertical_pad
@@ -1736,13 +1804,16 @@ class KaraokeEffects:
                 movements = list(sweeps[target.node_id])
                 group, slot = reading_slots.get(target.node_id, (None, unit))
                 reach = width / 2 + pad * scale.x
-                for other, (first, last) in edges[group].items():
+                neighbors = edges[group].items() if group is None or not transformed_band else ()
+                for other, (first, last) in neighbors:
                     if other == slot or (group is None and other in reading_only):
                         continue
                     for sweep in last if other < slot else first:
                         overlap = sweep.intersect(ink.left - reach, ink.right + reach)
                         if overlap is not None:
                             movements.append(overlap)
+                if band_start is not None:
+                    movements = [s.after(band_start) for s in movements if s.end > band_start]
                 paths = tuple(
                     tuple(
                         (
@@ -1774,7 +1845,7 @@ class KaraokeEffects:
                     )
                 ):
                     if (
-                        softness > 0
+                        softness > 0 and not inside_reading
                         and _compatible_brushes(base.material, sung_piece.material, material, before_material)
                     ):
                         sides = sung_piece, base
@@ -1785,7 +1856,7 @@ class KaraokeEffects:
                             layers.append(
                                 _ScanlineLayer(sung_rim, brush, None, (sung_rim, waiting_rim))
                             )
-                layers.append(_ScanlineLayer(node, material, before_material, sides))
+                layers.append(_ScanlineLayer(band_node, material, before_material, sides))
                 pulses = pulses_by_target.get(target.node_id, ())
                 band_paths = tuple(_band_path(p, scale.x, node.time_origin, pulses, width) for p in paths)
                 for layer in layers:

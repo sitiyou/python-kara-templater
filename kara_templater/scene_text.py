@@ -39,6 +39,7 @@ class PositionedText:
     _gap_shift: float = 0
     baseline: float | None = None
     source_style: str | None = None
+    _font_advance: float | None = None
 
     @property
     def em_size(self) -> float:

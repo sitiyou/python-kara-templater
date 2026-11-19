@@ -248,13 +248,13 @@ def _studio_cells(layout: DocumentLayout, settings: StudioSpacing) -> DocumentLa
         scale = item.object.state.scale.x
         spacing = item.object.spacing * scale
         edge = round(2 * item.object.state.border)
+        advance = max(1, round(item.bounds.width - spacing))
         if ink is None:
             em = round(item.em_size * scale)
             percent = settings.space_width_percent
             width = em * percent // 100 if item.object.text == " " else em * percent * 25 // 1000 + edge
             dx = x - item.bounds.left
         else:
-            advance = max(1, round(item.bounds.width - spacing))
             # A single glyph's pixel bearings include any partial overhang.
             # Studio falls back to truncating path bounds for a shaped cluster.
             bearing = floor if len(item.object.text) == 1 else int
@@ -267,7 +267,7 @@ def _studio_cells(layout: DocumentLayout, settings: StudioSpacing) -> DocumentLa
             dx = x + int(ink_width * left / advance) + edge / 2 - ink.left
         placed = _shift(item, dx)
         bounds = replace(item.bounds, left=x, width=width)
-        characters.append(replace(placed, bounds=bounds))
+        characters.append(replace(placed, bounds=bounds, _font_advance=advance))
         x += max(0, width + spacing)
     return replace(
         layout, characters=tuple(characters), _studio_spacing=True,

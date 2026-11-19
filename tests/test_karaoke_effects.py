@@ -97,8 +97,8 @@ def test_zero_preview_and_ruby_have_no_overlapping_animations():
     assert not any(":flash:" in n.id for n in nodes if "/ruby" in n.id)
 
 
-@pytest.mark.parametrize("start", [0, 100])
-def test_char_fade_at_video_start_keeps_its_attack_across_the_first_note(start):
+def test_char_fade_with_short_preroll_keeps_its_attack_across_the_first_note():
+    start = 100
     scene = subject(text=r"{\k10}H{\k10}I", start=start, end=start + 200,
                     entry="char_fade", exit="none", singing="none", entry_duration=0.6)
     line, = scene.lines
@@ -108,6 +108,37 @@ def test_char_fade_at_video_start_keeps_its_attack_across_the_first_note(start):
     assert evaluator.at(first.node_id, 0.125).opacity == pytest.approx(0.5)
     assert evaluator.at(second.node_id, 0.25).opacity == 0
     assert evaluator.at(second.node_id, 0.475).opacity == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("kind", ["char_fade", "char_drip", "spin_flip"])
+def test_character_entry_requires_positive_preroll(kind):
+    scene = subject(text=r"{\k100}A", start=0, end=1000, entry=kind, exit="none", singing="none")
+    glyph, = scene.lines[0].query("character")
+    assert scene.evaluator().at(glyph.node_id, 0).opacity == 1
+
+
+@pytest.mark.parametrize("kind", ["char_drip", "spin_flip"])
+def test_short_preroll_resumes_the_sung_pulse_and_band_at_their_current_phase(kind):
+    from kara_templater._raster import rasterize
+
+    def build(entry):
+        return subject(text=r"{\k70}H{\k80}W", start=100, end=1600, entry=entry, exit="none",
+                       singing="zoom_pulse_scanline", scanline_color=Color(0, 255, 255),
+                       scanline_width=16, scanline_softness=0)
+
+    scene, plain = build(kind), build("none")
+    first, second = scene.lines[0].query("character")
+    evaluator = scene.evaluator()
+    assert evaluator.at(second.node_id, 0.30).opacity == 0
+    assert evaluator.at(first.node_id, 0.61).scale == plain.evaluator().at(first.node_id, 0.61).scale
+    script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
+
+    def cyan(ms):
+        rgba = rasterize(script, ms, (640, 360)).rgba
+        return any(rgba[i:i + 4] == b"\x00\xff\xff\xff" for i in range(0, len(rgba), 4))
+
+    assert not cyan(600)
+    assert cyan(610)
 
 
 @pytest.mark.parametrize("phase", ["entry", "exit"])
@@ -1157,6 +1188,61 @@ def test_multicharacter_reading_divides_its_wipe_by_shaped_cluster():
         assert knots[1:-1] == [start, end]
 
 
+@pytest.mark.parametrize("singing", ["utopia_scanline", "zoom_pulse_scanline"])
+def test_pulsing_reading_band_only_repaints_the_current_kana(singing):
+    from kara_templater import Glow
+    from kara_templater._raster import rasterize
+
+    def cyan_counts(pen, rim=0):
+        style = Style(fontname="DejaVu Sans", fontsize=56, outline=pen, shadow=0)
+        doc = Document.create(width=640, height=360, styles=(
+            style, replace(style, name="Default-furigana", fontsize=28, outline=0.5),
+        ))
+        doc.records.append(Line(start_time=1000, end_time=1600, text=r"{\k30}A|H{\k30}#|H"))
+        def host_glow(_line, target):
+            return Glow(Color(10, 10, 10), border=rim) if rim and target.role == "character" else None
+
+        fx = KaraokeEffects(entry="none", exit="none", singing=singing, scanline_width=24,
+                            glow=host_glow, base_glow=host_glow,
+                            scanline_softness=0, scanline_color=Color(0, 255, 255))
+        scene = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=True, effects=(fx,)),))
+        script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
+        counts = []
+        for ms in (1150, 1300, 1450):
+            rgba = rasterize(script, ms, (640, 360)).rgba
+            counts.append(sum(rgba[i:i + 4] == b"\x00\xff\xff\xff" for i in range(0, len(rgba), 4)))
+        return counts
+
+    thin, thick = cyan_counts(0.5), cyan_counts(3)
+    assert thin[1] == thick[1] == 0
+    assert thick[0] > thin[0] > 0
+    assert thick[2] > thin[2] > 0
+    assert cyan_counts(0.5, rim=3) == thick
+
+
+def test_soft_reading_strip_preserves_outer_ink_beyond_the_host_pen():
+    from kara_templater._raster import rasterize
+
+    def frame(host_pen, singing):
+        style = Style(fontname="DejaVu Sans", fontsize=56, outline=host_pen, shadow=0)
+        doc = Document.create(width=640, height=360, styles=(
+            style, replace(style, name="Default-furigana", fontsize=28, outline=4),
+        ))
+        doc.records.append(Line(start_time=1000, end_time=1600, text=r"{\k60}A|H"))
+        recipe = KaraokeEffects(entry="none", exit="none", singing=singing,
+                                scanline_width=32, scanline_softness=4, scanline_color=Color(0, 255, 255))
+        scene = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=True, effects=(recipe,)),))
+        script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
+        return rasterize(script, 1300, (640, 360)).rgba
+
+    narrow = frame(1, "zoom_pulse_scanline")
+    broad = frame(4, "zoom_pulse_scanline")
+    assert narrow[3::4] == frame(1, "zoom_pulse")[3::4]
+    def cyan(rgba):
+        return sum(rgba[i:i + 4] == b"\x00\xff\xff\xff" for i in range(0, len(rgba), 4))
+    assert 0 < cyan(narrow) < 0.85 * cyan(broad)
+
+
 def test_timed_readings_own_the_front_and_optional_body_sweeps_once():
     def fronts(mode):
         scene = subject(text=r"{\k25}空|そ{\k25}#|ら", start=1000, end=1500,
@@ -1333,6 +1419,24 @@ def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, 
     for ms in (jump_ms - 10, jump_ms, jump_ms + 10):
         assert red_pixels(scripts[0], ms) == red_pixels(scripts[1], ms)
     assert red_pixels(scripts[0], jump_ms) - red_pixels(scripts[0], jump_ms - 10) > 100
+
+
+def test_scanline_releases_previous_word_across_untimed_spaces():
+    from kara_templater._raster import rasterize
+
+    scene = subject(text=r"{\k50}W{\k0}  {\k50}W", start=1000, end=2000,
+                    entry="none", exit="none", singing="scanline", scanline_width=16,
+                    scanline_softness=3, scanline_color=Color(0, 255, 255))
+    script = scene.compile(native_tweens=True).document.dumps()
+
+    def front(ms):
+        rgba = rasterize(script, ms, (640, 360)).rgba
+        xs = [i // 4 % 640 for i in range(0, len(rgba), 4) if rgba[i:i + 4] == b"\x00\xff\xff\xff"]
+        return sum(xs) / len(xs)
+
+    before, release, after = map(front, (1490, 1500, 1510))
+    assert abs(release - before) < 3
+    assert after - release > 6
 
 
 def test_scanline_handoff_uses_endpoint_after_instant_final_reading():

@@ -54,6 +54,7 @@ class LayoutLine:
     em_size: float | None = None
     _row_metrics: _RowMetrics | None = None
     _column_metrics: _ColumnMetrics | None = None
+    _lyric_width: float | None = None
 
     def __post_init__(self) -> None:
         finite(
@@ -322,7 +323,9 @@ class KaraokeRows:
     follows the body baseline and hard outlines. Top grids reserve reading space
     even on pages without ruby. Inline cues retain their horizontal reservation.
     smart_horizontal defaults to equal_margins, moving the left and right rows
-    inward by half the page's spare width. center_position treats each row
+    inward by half the page's spare width. An inline cue contributes its width
+    when positioning its host row. Peers measure that row by its lyrics and ruby.
+    center_position treats each row
     independently. none keeps the preset alignments against the region margins.
     section_gap starts a new rotation after a longer singing silence (0 disables
     splitting). lane_gap reserves seconds between occupants when available.
@@ -510,13 +513,9 @@ class KaraokeRows:
         widths = {"left": 0.0, "center": 0.0, "right": 0.0}
         for lane, line in enumerate(page):
             slot = alignments[slot_offset + lane]
-            widths[slot] = max(widths[slot], line.bounds.width)
+            widths[slot] = max(widths[slot], line.bounds.width if line._lyric_width is None else line._lyric_width)
         head_em = page[0].em_size or page[0].bounds.height
-        slack = (
-            max(0, area.width - sum(widths.values()) + head_em)
-            if widths["left"] and widths["right"]
-            else 0.0
-        )
+        page_slack = area.width - sum(widths.values()) + head_em
         for i, line in zip(indices, page, strict=True):
             row = offset + i - indices.start
             slot = alignments[min(slot_offset + row, self.rows - 1)]
@@ -527,7 +526,12 @@ class KaraokeRows:
             else:
                 inset_x = 0.0
                 if self.smart_horizontal == "equal_margins":
-                    inset_x = slack / 2
+                    # Studio measures peers as lyrics alone. Only the line being
+                    # placed contributes its inline cue to the page widths.
+                    measured_slot = alignments[slot_offset + i - indices.start]
+                    extra = max(0, width - widths[measured_slot])
+                    if widths["left"] and widths["right"]:
+                        inset_x = max(0, page_slack - extra) / 2
                 elif self.smart_horizontal == "center_position":
                     inset_x = max(
                         0,

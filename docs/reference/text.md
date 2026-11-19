@@ -116,7 +116,7 @@ Measured editable text objects with decoded source ranges, singing spans, bounds
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/scene_text.py#L57)
+[Source](../../kara_templater/scene_text.py#L58)
 
 ```python
 DocumentLayout(
@@ -690,7 +690,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L419)
+[Source](../../kara_templater/scene_text.py#L420)
 
 ```python
 layout_document_text(

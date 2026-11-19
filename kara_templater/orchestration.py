@@ -639,6 +639,7 @@ def prepare_tracks(
                     bounds=_union((line.layout.bounds, *cue_bounds)),
                     em_size=line.query("line")[0].em_size,
                     _column_metrics=column,
+                    _lyric_width=bare.bounds.width if cue_bounds else None,
                     _row_metrics=None if column else _row_metrics(line.layout, styles, track.ruby_gap, border),
                     entrance=entrance,
                     exit=exit,

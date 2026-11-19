@@ -591,3 +591,15 @@ def test_center_anchor_uses_reading_headroom_only_for_a_single_row(rows: int):
     offsets = [b.placement.position.y - a.placement.position.y
                for a, b in zip(scene.plans, more_space.plans, strict=True)]
     assert offsets == pytest.approx([20 if rows == 1 else 0] * len(offsets))
+
+
+def test_inline_lead_only_affects_its_hosts_equal_margin_placement():
+    doc = document()
+    track = main(layout=KaraokeRows(rows=2), effects=(),
+                 cues={"bars": CuePreset(factory=BarsCue(width=42), gap=0)})
+    first, second, *_ = prepare_tracks(doc, tracks=(track,)).plans
+    record = next(r for r in doc.records if isinstance(r, Line))
+    record.text = CueMarker("lead", "bars").markup() + record.text
+    host, peer, *_ = prepare_tracks(doc, tracks=(track,)).plans
+    assert peer.placement.position == second.placement.position
+    assert host.placement.position.x != first.placement.position.x
