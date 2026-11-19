@@ -7,8 +7,9 @@ from math import ceil
 from typing import TypeGuard
 
 from ._gpu import GpuClip
-from ._gpu_scene import DrawCommand, SceneFrames
+from ._gpu_scene import DrawCommand, SceneFrames, _cutout_border
 from ._karaoke_motion import Slide
+from ._native_types import RasterImage
 from .scene import RectangleClip, RectangleKeyframes, VisualNode
 from .scene_animation import (
     AnimationClip,
@@ -48,6 +49,7 @@ class Span:
     draw: DrawCommand
     motion: Motion | None = None
     clip_end: tuple[float, float, float, float] | None = None
+    alternate_masks: tuple[RasterImage, ...] | None = None
 
 
 def _supported(
@@ -232,4 +234,9 @@ def spans(
             state = leaf.at(t)
             if state.opacity == 0 or state.singular:
                 continue
-        yield Span(lo, hi, frames.draw_state(leaf, state, clip), motion, clip_end)
+        draw = frames.draw_state(leaf, state, clip)
+        alternate = None
+        if motion and _cutout_border(leaf.node, state) != _cutout_border(leaf.node, motion.end):
+            other = replace(state, opacity=motion.end.opacity)
+            alternate = frames.draw_state(leaf, other, clip).images
+        yield Span(lo, hi, draw, motion, clip_end, alternate)

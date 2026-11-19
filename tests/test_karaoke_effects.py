@@ -562,6 +562,21 @@ def test_stroke_flash_uses_the_body_onset_and_stationary_outline():
     assert scene.compile(native_tweens=True).event_count
 
 
+def test_outline_flash_reaches_the_ink_inside_a_hard_scanline():
+    from kara_templater._raster import rasterize
+
+    def render(flash):
+        scene = subject(text=r"{\k50}A", end=1500, entry="none", exit="none",
+                        singing="scanline", scanline_width=48, scanline_softness=0,
+                        scanline_color=Color(0, 128, 255), stroke_flash=flash)
+        script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
+        return rasterize(script, 1060, (640, 360)).rgba
+
+    plain, flashed = render(False), render(True)
+    blue = bytes((0, 128, 255, 255))
+    assert any(plain[i:i + 4] == blue and flashed[i] > 80 for i in range(0, len(plain), 4))
+
+
 def test_entry_is_visible_before_motion_has_settled():
     scene = build(entry="tracking_in", singing="none", exit="none")
     line = scene.lines[0]
@@ -1220,17 +1235,25 @@ def test_pulsing_reading_band_only_repaints_the_current_kana(singing):
     assert cyan_counts(0.5, rim=3) == thick
 
 
-def test_soft_reading_strip_preserves_outer_ink_beyond_the_host_pen():
+@pytest.mark.parametrize("secondary", [False, True])
+def test_soft_reading_strip_preserves_outer_ink_beyond_the_host_pen(secondary):
+    from kara_templater import Glow
     from kara_templater._raster import rasterize
 
     def frame(host_pen, singing):
         style = Style(fontname="DejaVu Sans", fontsize=56, outline=host_pen, shadow=0)
         doc = Document.create(width=640, height=360, styles=(
-            style, replace(style, name="Default-furigana", fontsize=28, outline=4),
+            style, replace(style, name="Default-furigana", fontsize=28, outline=0.5 if secondary else 4),
         ))
         doc.records.append(Line(start_time=1000, end_time=1600, text=r"{\k60}A|H"))
-        recipe = KaraokeEffects(entry="none", exit="none", singing=singing,
-                                scanline_width=32, scanline_softness=4, scanline_color=Color(0, 255, 255))
+
+        def rim(_line, target):
+            return Glow(Color(0, 0, 0), border=4) if secondary and target.role == "ruby" else None
+
+        recipe = KaraokeEffects(
+            entry="none", exit="none", singing=singing, base_glow=rim, glow=rim,
+            scanline_width=32, scanline_softness=4, scanline_color=Color(0, 255, 255),
+        )
         scene = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=True, effects=(recipe,)),))
         script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
         return rasterize(script, 1300, (640, 360)).rgba

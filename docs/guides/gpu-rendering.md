@@ -95,7 +95,9 @@ also need evaluation while the object is visible.
 
 The shader draws text/static paths in layer order, with affine transforms,
 opacity, ordinary rectangle clips and continuous fill/outline linear gradients
-(up to 16 stops). Stroke, blur and shadow coverage is rasterized at export.
+(up to 16 stops). Stroke, blur and shadow coverage is rasterized at export. A fade on outlined
+text can reuse two native masks. The shader selects the translucent border
+when the fill fades so that the border does not show through the letter.
 Use standard ASS compilation for native events; inherited/vector/inverse clips,
 deformed paths and explicit coverage groups are unsupported by this backend.
 

@@ -126,7 +126,7 @@ def test_parametric_motion_matches_the_scene_evaluator(
             id="shape",
             path=VectorPath.rectangle(28, 24),
             lifetime=Lifetime(0, 2),
-            state=VisualState(position=Vec2(119, 3), fill=Color(240, 60, 40)),
+            state=VisualState(position=Vec2(119, 3), fill=Color(240, 60, 40), border=2),
             clip=RectangleClip(
                 0,
                 0,

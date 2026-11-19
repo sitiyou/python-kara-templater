@@ -107,8 +107,8 @@ its Qt/Direct2D renderer.
 | Singing paint, stroke, shadow, glow, ramps and particles | `KaraokeEffects`, `LyricHighlights`, materials | The catalog implements the animation families. Appearance depends on font metrics, rendering backend and selected material. |
 | Inline volume signal | `VolumeCue` | Whole-group flashes, then successive sung-color fills. In this library the cue ends at its own boundary, even when the host lyric stays visible. |
 | Floating shape lamps, count-in text and vector guide marks | `SignalCue`, `TextCue`, `CuePreset` | Seven built-in lamp shapes and custom paths. Cues can be inline or independently positioned. Shape lamps inherit the sung palette. Their colors and size can be overridden. |
-| Studio page timing and alternate writing modes | Partial | Horizontal presets support short pages, authored section breaks, synchronized entry/exit and smart margins. Use the [Track layout override](tracks.md) to map source tags to boundaries. Horizontal cells support right-to-left placement. Studio project import and native vertical writing remain outside the preset. |
-| Role-linked signal styling and timed character replacement | Partial | Built-in signals inherit solid lyric colors or take an explicit role palette. Signals scale static hard outer strokes and glow to their own dimensions. Leading inline volume bars share a sung horizontal gradient with their lyric line. Independent lamps keep a fixed gradient over all countdown slots. Timed guide-glyph replacement needs a custom drawing. |
+| Studio page timing and writing direction | `KaraokeRows`, `Track` | Short pages, authored section breaks, synchronized entry/exit and smart margins. Horizontal rows support right-to-left placement. Vertical tracks allocate columns from right to left, place readings beside the host and sweep downward. See [vertical Japanese lyrics](tracks.md#vertical-japanese-lyrics). |
+| Role-linked signal styling and timed character replacement | Signal palettes, `Track.guide_symbols` | Signals inherit lyric colors or take an explicit palette. Leading inline volume bars share a sung horizontal gradient with their lyric line. Independent lamps keep a fixed gradient over all countdown slots. A [vector guide](text-and-cues.md) replaces a timed marker in its lyric cell and follows the same wipe. |
 
 See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 [signal preview](../examples/README.md#karaoke-count-ins).
@@ -155,11 +155,11 @@ At Scene zero, an entry is shortened or disabled rather than shifting singing
 clocks. Explicit effect occupancy can require an additional row or cause a layout
 capacity error; reduce the effect duration or adjust the allocator in that case.
 
-Differences from the reference include seeded trajectories, independently drawn
-ornament shapes, seeded particle placement and eased motion. Utopia exit begins after the following character finishes; the final character
-uses the remaining display tail. Its departure lasts 750 ms. Snow's open-center version is an original
-six-branch drawing, not a copy of the reference sprite. Assembly is an illusion
-built from moving squares and a separate glyph opacity curve.
+Utopia exit begins after the following character finishes. The final character
+uses the remaining display tail. Each departure lasts 750 ms. Snow uses a
+six-branch vector with an open center. Assembly combines moving squares with
+a separate glyph fade. Sampled ASS animations hold their state between events,
+which is most visible during fast shears and tracking entrances.
 
 ## Singing and decoration
 
@@ -205,7 +205,7 @@ move independently after birth. They are emitted from body text, not ruby.
 - In the default `color` mode, `scanline_color` sets the band color for both fill and outline (default white). `scanline_softness` sets the inward falloff on each side, default 8 px at 1080p. Zero gives a hard band. For an ordinary single-pass wipe using solid colors or linear gradients on a shared axis and coordinate space, the soft band interpolates both the fill and outline RGB inside the original glyph silhouette. Each channel can combine up to 16 distinct stop positions across the brushes. During Utopia and zoom pulses the adjustment follows the transformed glyph, preserving the original stroke above and below its fill. More stops, mixed-axis or custom materials, overlapping passes and a separate hook feather use clipped color overlays.
 - When a unit gets its timing from its reading, the main text keeps its ordinary color wipe and the bright band follows the kana. Set `ruby_scanline="both"` to also light the main text. Consecutive reading checkpoints divide the main text’s wipe into equal distances. To give each visible kana an equal share of the main wipe, set `ruby_reading_units=True`. For example, with timed parts おおぞ and ら, the main wipe reaches three quarters at their boundary. An empty part holds the main wipe in place. For a horizontal reading shared by two main glyphs, the wipe changes glyphs halfway through the reading’s progress, even when one glyph is wider. A zero-duration checkpoint colors its share of the main text immediately. A zero-duration kana at the very start of the reading stays in its waiting color on the onset frame and switches on the next ASS tick. With `no_wipe`, the whole annotated reading switches together at its end. If the first of two readings lasts 100 ms and the second lasts 400 ms, the main text reaches its midpoint at 100 ms. Within each timed reading, the wipe gives each shaped character an equal share of that interval. Utopia and zoom pulse each kana on its own interval. When a reading spans several main characters, each main character pulses as the wipe crosses it. A combining dakuten stays with its kana. An empty timed reading (`#|`) introduces a rest. The band reaches the previous kana’s edge, disappears during the rest, and returns at the next kana when singing resumes. Custom rules bound to the reading’s singing interval still receive the authored interval.
 - For a second outline that changes color under the sweep, supply both `base_glow` and `glow` with zero blur and a border wider than the main outline. With a single pass, the band crosses this outer stroke during ordinary wipes and during Utopia or zoom pulses. The brightness and follow modes use the outer stroke’s own waiting and sung colors.
-- With Utopia or zoom pulse, each sung kana carries its own scanline across its font advance. The band disappears at the exact handoff and returns on the incoming kana. A hard scanline repaints the reading with the host character’s primary outline width. In color and role modes a matching hard secondary rim on both sides of the wipe contributes its full width too. A feathered adjustment retains the reading’s own coverage. If an opaque reading has a thicker outline than the host, the color or role band leaves the outer ink in its lyric color when the two radii differ by at least 1.5 script pixels.
+- With Utopia or zoom pulse, each sung kana carries its own scanline across its font advance. The band disappears at the exact handoff and returns on the incoming kana. A hard scanline repaints the reading with the host character’s primary outline width. In color and role modes a matching hard secondary rim on both sides of the wipe contributes its full width too. A feathered adjustment retains the reading’s own coverage. If an opaque reading has a thicker outline than the host (including a hard secondary outline present and opaque both before and after singing), the color or role band leaves the outer ink in its lyric color when the two radii differ by at least 1.5 script pixels.
 
 - Set `reverse_wipe=True` to sweep each timed unit from its right edge. Each reading keeps its own start time, and the scanline follows the reversed front. For example, a single timed word sweeps across all its letters from right to left. Two separately timed words still sing in their authored order.
 - Use `Track(right_to_left=True, ...)` to place the first shaped character on the right. Readings follow their hosts, inline cues reserve space on the leading side, and the built-in wipe advances to the left. Source indices and note times stay in input order. Combining this setting with `reverse_timing=True` makes the last unit sing first, sweeping toward the right. This matches Studio’s cell layout for horizontal lyrics.
@@ -220,7 +220,7 @@ move independently after birth. They are emitted from body text, not ruby.
   additional bright stripe. With a feathered hook, set `front_color` to give
   the moving edge a distinct color inside the fill and hard outline. The halo
   retains its softer color transition.
-- `stroke_flash=True`: a 0.24-second white pulse along the measured body outline, beginning at the body note’s onset. The flash stays in place while the glyph pulses. Reading checkpoints do not retrigger it.
+- `stroke_flash=True`: a 0.24-second white pulse along the measured body outline, beginning at the body note’s onset. The flash draws over the scanline and stays in place while the glyph pulses. Reading checkpoints do not retrigger it.
 
 `sung` and `unsung` set the basic fill colors. `material`, `glow` and `base_glow`
 accept the same fields/factories as `LyricHighlights.from_singing`, including
@@ -278,6 +278,11 @@ scene = build(Document.load("L4TS.document.ass"))
 scene.export_compact_ass("L4TS.ass")
 scene.export_hook("L4TS.hook", fps=60)
 ```
+
+To play the full catalog effects in a regular ASS player, use
+`scene.compile(native_tweens=True).document.save("L4TS.full.ass")`.
+This includes the scanline, per-character motion, particles and outline flashes
+in the subtitle file. Complex scenes can generate many more events.
 
 The compact ASS approximates catalog motion, materials and particles with native
 karaoke timing, the recipe's sung/unsung colors and line fades. It keeps inline

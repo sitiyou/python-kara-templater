@@ -56,7 +56,10 @@ def test_gpu_scene_keeps_clocks_and_reuses_coverage_after_seek():
     assert 0 < size < 100_000
     later = frames.at(3.5)
     assert later[0].opacity == scene.evaluator().at(text.id, 3.5).opacity
-    assert frames.cached_bytes == size
+    translucent_size = frames.cached_bytes
+    assert translucent_size > size
+    assert frames.at(3.75)[0].opacity < later[0].opacity
+    assert frames.cached_bytes == translucent_size
     assert frames.at(2) == middle
 
 
@@ -84,8 +87,8 @@ def test_gpu_scene_rejects_unsupported_inverse_clip():
         SceneFrames(Scene(Document.create()).add(text))
 
 
-@pytest.mark.parametrize("alignment", (1, 5, 7))
-def test_gpu_cached_local_coverage_matches_untransformed_native_text(alignment):
+@pytest.mark.parametrize("alignment,opacity", [(1, 1), (5, 1), (7, 1), (7, 0.5)])
+def test_gpu_cached_local_coverage_matches_untransformed_native_text(alignment, opacity):
     from kara_templater._raster import RasterCanvas, rasterize
 
     text = TextObject(
@@ -95,13 +98,15 @@ def test_gpu_cached_local_coverage_matches_untransformed_native_text(alignment):
         italic=True,
         alignment=alignment,
         lifetime=Lifetime(0, 1),
-        state=VisualState(position=Vec2(80, 60), border=2, blur=0.3),
+        state=VisualState(position=Vec2(80, 60), border=2, blur=0.3, opacity=opacity),
     )
     scene = Scene(Document.create(width=200, height=120)).add(text)
     expected = rasterize(scene.compile().document.dumps(), 500, (200, 120))
     (draw,) = SceneFrames(scene).at(0.5)
     canvas = RasterCanvas(200, 120)
     for x, y, width, height, kind, color, data in draw.images:
+        assert color & 255 == 0
+        color |= round(255 * (1 - draw.opacity))
         canvas.over((x + 80, y + 60, width, height, kind, color, data))
     actual = canvas.finish()
     assert actual.rgba == expected.rgba

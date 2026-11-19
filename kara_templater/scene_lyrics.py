@@ -276,18 +276,18 @@ def _studio_cells(layout: DocumentLayout, settings: StudioSpacing) -> DocumentLa
 
 
 def _clear_outlines(
-    layout: DocumentLayout,
+    items: tuple[PositionedText, ...],
     gap: float | None,
     reserved_border: float,
     right_to_left: bool,
-) -> DocumentLayout:
+) -> tuple[PositionedText, ...]:
     if gap is None:
-        return layout
+        return items
     shift = 0.0
     previous_edge: float | None = None
     previous_border = 0.0
     characters = []
-    for item in layout.characters:
+    for item in items:
         ink = item.ink_bounds
         if ink is not None:
             if right_to_left:
@@ -301,11 +301,28 @@ def _clear_outlines(
         characters.append(
             replace(_shift(item, shift), _gap_shift=shift) if shift else item
         )
-    return replace(
-        layout,
-        characters=tuple(characters),
-        bounds=_union(tuple(item.bounds for item in characters)),
-    )
+    return tuple(characters)
+
+
+def _reading_row(
+    readings: list[DocumentLayout], interval: float, gap: float | None,
+    reserved_border: float, right_to_left: bool,
+) -> list[DocumentLayout]:
+    """Apply outline clearance across all timing fragments of a horizontal annotation."""
+    cells: list[PositionedText] = []
+    cursor = 0.0
+    for reading in readings:
+        cells.extend(_shift(c, cursor + i * interval) for i, c in enumerate(reading.characters))
+        cursor += reading.bounds.width + len(reading.characters) * interval
+    cells_with_clearance = _clear_outlines(tuple(cells), gap, reserved_border, right_to_left)
+    result: list[DocumentLayout] = []
+    start = 0
+    for reading in readings:
+        end = start + len(reading.characters)
+        group = cells_with_clearance[start:end]
+        result.append(replace(reading, characters=group, bounds=_union(tuple(c.bounds for c in group))))
+        start = end
+    return result
 
 
 def _move(layout: DocumentLayout, dx: float, dy: float) -> DocumentLayout:
@@ -535,8 +552,9 @@ def layout_lyrics(
         body = _studio_cells(body, cells)
     if guide_symbols and body.characters:
         body = _place_guides(body, guide_symbols)
-    if not vertical:
-        body = _clear_outlines(body, min_outline_gap, reserved_border, right_to_left)
+    if min_outline_gap is not None and not vertical:
+        body_cells = _clear_outlines(body.characters, min_outline_gap, reserved_border, right_to_left)
+        body = replace(body, characters=body_cells, bounds=_union(tuple(c.bounds for c in body_cells)))
     rubies: list[PositionedRuby] = []
     for ui, unit in enumerate(lyrics.units):
         for si, segment in enumerate(unit.segments):
@@ -559,8 +577,6 @@ def layout_lyrics(
             )
             if cells and not vertical:
                 layout = _studio_cells(layout, cells)
-            if not vertical:
-                layout = _clear_outlines(layout, min_outline_gap, reserved_border, right_to_left)
             origin = EventOrigin((SourceRef(body.id, ui, si),), "document ruby")
             layout = replace(
                 layout,
@@ -634,15 +650,17 @@ def layout_lyrics(
         if start == end:
             continue
         box = body.range_bounds(start, end)
-        width = sum(rubies[i].layout.bounds.width for i in indices)
+        readings = [rubies[i].layout for i in indices]
+        width = sum(reading.bounds.width for reading in readings)
         reading_gap = 0.0
-        if studio_spacing and indices and width < box.width:
-            readings = [rubies[i].layout for i in indices]
+        if studio_spacing and readings and width < box.width:
             count = sum(len(reading.characters) for reading in readings)
             if (count > 1 and not _center_reading(body.source.text[start:end])
                     and not _center_reading("".join(r.source.text for r in readings))):
                 reading_gap = (box.width - width) / (count + 1)
-                width += (count - 1) * reading_gap
+        if readings:
+            readings = _reading_row(readings, reading_gap, min_outline_gap, reserved_border, right_to_left)
+            width = _union(tuple(r.bounds for r in readings)).width
         first_ruby = next(
             (
                 s.ruby
@@ -686,25 +704,18 @@ def layout_lyrics(
                 + max(reserved_border, item.object.state.border)
                 - reading.bounds.top
                 - reading.bounds.height
-                for index in indices
-                for reading in (rubies[index].layout,)
+                for reading in readings
                 for item in reading.characters
                 if item.ink_bounds is not None
             ),
             default=0.0,
         )
         row_bottom = body_top - ruby_gap - reading_bottom
-        cursor = left + offset
-        for index in indices:
+        for index, reading in zip(indices, readings, strict=True):
             ruby = rubies[index]
-            reading = ruby.layout
-            if reading_gap:
-                spaced = tuple(_shift(c, j * reading_gap) for j, c in enumerate(reading.characters))
-                reading = replace(reading, characters=spaced, bounds=_union(tuple(c.bounds for c in spaced)))
-            moved = _move(reading, cursor, row_bottom - reading.bounds.top - reading.bounds.height)
+            moved = _move(reading, left + offset, row_bottom - reading.bounds.top - reading.bounds.height)
             rubies[index] = replace(ruby, layout=moved)
-            cursor += reading.bounds.width + reading_gap
-        ruby_right = cursor - reading_gap
+        ruby_right = left + offset + width
     body = replace(
         body,
         characters=tuple(characters),

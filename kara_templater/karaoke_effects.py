@@ -1788,8 +1788,12 @@ class KaraokeEffects:
                         if before == after:
                             # Qt tests nonzero antialiased coverage. Allow half a
                             # pixel of fringe, leaving a full pixel of opaque ink.
+                            reading_border = min(
+                                rim.state.border if rim and rim.state.opacity == 1 else node.state.border
+                                for rim in rims
+                            )
                             inside_reading = (
-                                softness > 0 and node.state.opacity == 1 and before + 1.5 <= node.state.border
+                                softness > 0 and node.state.opacity == 1 and before + 1.5 <= reading_border
                             )
                             if softness == 0 or inside_reading:
                                 border = before + (0.5 if inside_reading else 0)
@@ -1913,7 +1917,8 @@ class KaraokeEffects:
                     id=f"{node.id}/{self.id}:flash:{index}",
                     lifetime=Lifetime(onset, end),
                     origin=node.origin,
-                    layer=node.layer + 1,
+                    # Draw after this glyph's hard scanline and before foreground ornaments.
+                    layer=node.layer + 2,
                     state=replace(node.state, opacity=0, fill=Color(255, 255, 255),
                                   outline=Color(255, 255, 255), border=0, blur=0, shadow=Vec2()),
                     path=path,

@@ -156,7 +156,7 @@ def _texture(
     out.write(b"00" * (rows * stride - len(data)) + b"\n\n")
 
 
-def _motion_record(table: _Table, span: Span, fps: int, origin: int) -> int:
+def _motion_record(table: _Table, span: Span, fps: int, origin: int, opacity_mode: int) -> int:
     motion = span.motion
     if motion is None:
         return -1
@@ -177,6 +177,7 @@ def _motion_record(table: _Table, span: Span, fps: int, origin: int) -> int:
         end,
         span.first - origin if isinstance(motion.curve, tuple) else 0,
         int(motion.fast_reveal),
+        opacity_mode,
     )
 
 
@@ -232,7 +233,6 @@ def _timeline(
                 del active[order]
                 continue
             draw = span.draw
-            motion = _motion_record(table, span, fps, origin)
             transforms = (
                 (draw.transform,)
                 if span.motion is None
@@ -248,10 +248,18 @@ def _timeline(
             batch: dict[int, list[int]] = defaultdict(list)
             clip = frames.leaves[order].node.clip
             edge = clip if isinstance(clip, _FeatheredSingingClip) else None
-            for image in draw.images:
-                record = _draw_record(table, atlas, draw, image, motion, clip_motion, edge)
-                for tile in _tiles(image, transforms, cols, rows):
-                    batch[tile].append(record)
+            variants = [(draw.images, 0)]
+            if span.alternate_masks is not None:
+                # Select the native border bitmap at playback opacity without
+                # sampling an entire fade or exporting a per-frame command list.
+                mode = 1 if round((1 - draw.opacity) * 255) == 0 else -1
+                variants = [(draw.images, mode), (span.alternate_masks, -mode)]
+            for images, mode in variants:
+                motion = _motion_record(table, span, fps, origin, mode)
+                for image in images:
+                    record = _draw_record(table, atlas, draw, image, motion, clip_motion, edge)
+                    for tile in _tiles(image, transforms, cols, rows):
+                        batch[tile].append(record)
             active[order] = batch
         tiles: dict[int, list[int]] = defaultdict(list)
         for order in sorted(active):
@@ -384,6 +392,8 @@ vec4 hook() {
             pos=mix(pos,pairAt(end+4),w);
             float reveal=item(motion+6)>0. ? clamp(4.*(float(index)-item(motion))/item(motion+1),0.,1.) : w;
             alpha=mix(alpha,item(end+6),reveal);
+            int mode=refAt(motion+7);
+            if(mode!=0 && (mode>0)!=(alpha>=1.-0.5/255.)) continue;
         }
         if(alpha<=0. || determinant(basis)==0.) continue;
         vec2 local=inverse(basis)*(screen-pos);

@@ -142,6 +142,24 @@ def test_whole_body_shaping_and_unit_pivot_keep_ruby_relative():
     assert layout.bounds.top < layout.body.bounds.top
 
 
+@pytest.mark.parametrize("rtl", [False, True])
+def test_reading_outline_spacing_is_independent_of_timing_checkpoints(rtl):
+    def measured(text):
+        doc, index = document(text)
+        layout = layout_document_lyrics(
+            doc, index, studio_spacing=True, min_outline_gap=2, reserved_border=6,
+            right_to_left=rtl,
+        )
+        return [c for r in layout.ruby for c in r.layout.characters]
+
+    whole = measured(r"{\k40}A|HH")
+    split = measured(r"{\k20}A|H{\k20}#|H")
+    assert [c.bounds for c in split] == [c.bounds for c in whole]
+    left, right = sorted(split, key=lambda c: c.bounds.left)
+    assert left.ink_bounds and right.ink_bounds
+    assert right.ink_bounds.left - left.ink_bounds.right >= 14 - 1e-8
+
+
 @pytest.mark.parametrize("gap", [0, 3, 6])
 def test_wide_ruby_breaks_reserve_space_without_changing_times(gap):
     doc, index = document(r"{\k20}A|!long{\k20}B|!word")

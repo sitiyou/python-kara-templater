@@ -60,7 +60,13 @@ def _shape_key(node: TextObject | PathObject, state: VisualState) -> tuple[objec
         if isinstance(node, TextObject)
         else (node.path,)
     )
-    return (*shape, node.filled, state.border, state.blur, state.shadow)
+    return (*shape, node.filled, state.border, state.blur, state.shadow, _cutout_border(node, state))
+
+
+def _cutout_border(node: TextObject | PathObject, state: VisualState) -> bool:
+    # libass removes fill coverage from the border when either karaoke fill
+    # color is translucent. Fully opaque text uses a solid backing instead.
+    return node.filled and state.border > 0 and round((1 - state.opacity) * 255) != 0
 
 
 def _coverage(
@@ -85,21 +91,24 @@ def _coverage(
         raise SceneCompileError(
             "GPU glyph raster pixel budget exceeded", object_id=node.id
         )
+    cutout = _cutout_border(node, state)
     neutral = replace(
         state,
         position=Vec2(-left, -top),
         scale=Vec2(1, 1),
         rotation=0,
         skew=Vec2(),
-        opacity=1,
+        opacity=0.5 if cutout else 1,
         fill=_WHITE,
         outline=_WHITE,
     )
     doc = Document.create(width=width, height=height)
     doc.records.append(_event(leaf, neutral, 0, 100, "Default"))
     images = _metrics.rasterize(doc.dumps(), 0, width, height, pixel_budget, 10_000)
+    # The representative opacity selects native geometry only. Each draw
+    # applies its evaluated opacity to the unit-opacity masks.
     return tuple(
-        (x + left, y + top, w, h, kind, color, data)
+        (x + left, y + top, w, h, kind, (color & ~255) if cutout else color, data)
         for x, y, w, h, kind, color, data in images
     )
 

@@ -667,7 +667,7 @@ crossing a shaping cluster are rejected when independent placement is needed.
 vertical stacks cells downward around x=0, with readings on the right.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L416)
+[Source](../../kara_templater/scene_lyrics.py#L433)
 
 ```python
 layout_document_lyrics(
@@ -733,7 +733,7 @@ and reading cells horizontally, in script pixels.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L456)
+[Source](../../kara_templater/scene_lyrics.py#L473)
 
 ```python
 layout_lyrics(
