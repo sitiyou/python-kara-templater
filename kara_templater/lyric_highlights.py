@@ -5,15 +5,17 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from functools import partial
+from math import ceil
+from statistics import NormalDist
 from typing import Literal
 
-from .composition import Color, Glow
+from .composition import _ASS_BLUR_TO_SIGMA, Color, Glow
 from .coverage_animation import Coverage, CoveragePartition, GlowFunction
 from .document_lyrics import LyricUnit
 from .geometry import Vec2, finite
 from .lyric_line import LyricLine, LyricTarget, _line_x
 from .model import Box
-from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField
+from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField, _mix
 from .raster_settings import RasterSettings
 from .scene import (
     ObjectGroup,
@@ -535,6 +537,47 @@ class _Ownership:
         return self.strip(region.left, region.right)
 
 
+def _split_glow(
+    halo: SceneObject, opposite: Color, opposite_opacity: float, ownership: _Ownership, padding: float,
+) -> tuple[SceneObject, ...]:
+    """Approximate a blurred color step by its Gaussian integral across the moving front."""
+    # The step response of a Gaussian is its cumulative distribution. Scale
+    # the radius to the same local coordinates as the existing singing clip.
+    sigma = halo.state.blur * _ASS_BLUR_TO_SIGMA / ownership.scale
+    reach = 2 * sigma
+    keys = ownership.singing_keyframes(padding + reach)
+    suffix = (ownership.owner is None) != ownership.highlights[0].passes[0].reverse
+    edge = int(ownership.local_y) + (0 if suffix else 2)
+
+    def strip(start: float, end: float | None) -> RectangleClip:
+        def bounds(x: float) -> tuple[float, float, float, float]:
+            if suffix:
+                return ownership.strip(x + start, 65536 if end is None else x + end)
+            return ownership.strip(-65536 if end is None else x - end, x - start)
+
+        return RectangleClip(0, 0, 1, 1, space="local", deform=RectangleKeyframes(
+            tuple((t, bounds(rect[edge])) for t, rect in keys.keyframes)
+        ))
+
+    pieces = [replace(halo, clip=strip(reach, None))]
+    count = min(4, max(1, ceil(reach * ownership.scale)))
+    gaussian = NormalDist()
+    # Equal color increments place narrower strips where the transition is steep.
+    step = (gaussian.cdf(2) - 0.5) / count
+    a = 0.0
+    for i in range(count):
+        weight = 0.5 + (i + 0.5) * step
+        b = reach if i + 1 == count else sigma * gaussian.inv_cdf(0.5 + (i + 1) * step)
+        # Studio blurs premultiplied RGBA. Weight RGB by each side's visible ink.
+        own_alpha = weight * halo.state.opacity
+        opacity = own_alpha + (1 - weight) * opposite_opacity
+        ink = _mix(opposite, halo.state.fill, own_alpha / opacity if opacity else 0)
+        pieces.append(replace(halo, id=f"{halo.id}/band:{i}", clip=strip(a, b),
+                              state=replace(halo.state, fill=ink, outline=ink, opacity=opacity)))
+        a = b
+    return tuple(pieces)
+
+
 @dataclass(frozen=True, kw_only=True)
 class LyricHighlights:
     """Build named union/priority/layer highlights with common visual objects.
@@ -782,6 +825,14 @@ class LyricHighlights:
             )
             # One shared spatial margin keeps body/glow ownership disjoint.
             states = (self.base_paint.interpolate(node.state, 1), *(h.paint.interpolate(node.state, 1) for h in chosen))
+            sung_glow = chosen[0].glow
+            before_alpha = states[0].opacity * base_glow.opacity if isinstance(base_glow, Glow) else 0
+            after_alpha = states[1].opacity * sung_glow.opacity if isinstance(sung_glow, Glow) else 0
+            soften_glow = (
+                native_singing and isinstance(base_glow, Glow) and isinstance(sung_glow, Glow)
+                and base_glow.blur == sung_glow.blur > 0 and base_glow.border == sung_glow.border
+                and (before_alpha != after_alpha or (before_alpha > 0 and base_glow.color != sung_glow.color))
+            )
             padding = (
                 max(
                     *(
@@ -910,32 +961,37 @@ class LyricHighlights:
                                 "compose existing paint animations with glow explicitly"
                             )
                         halo = piece.copy(id=f"{piece.id}/glow")
-                        pieces.append(
-                            replace(
-                                halo,
-                                clip=replace(
-                                    piece.clip,
-                                    unsung_fill=base_glow.color,
-                                    unsung_outline=base_glow.color,
-                                    unsung_gradient=None,
-                                    front_color=None,
-                                )
-                                if isinstance(piece.clip, _FeatheredSingingClip)
-                                and isinstance(base_glow, Glow)
-                                else plain_clip,
-                                material=None,
-                                layer=piece.layer - 1,
-                                state=replace(
-                                    piece.state,
-                                    fill=glow.color,
-                                    outline=glow.color,
-                                    border=glow.border,
-                                    blur=glow.blur,
-                                    opacity=piece.state.opacity * glow.opacity,
-                                    shadow=Vec2(),
-                                ),
+                        halo = replace(
+                            halo,
+                            clip=replace(
+                                piece.clip,
+                                unsung_fill=base_glow.color,
+                                unsung_outline=base_glow.color,
+                                unsung_gradient=None,
+                                front_color=None,
                             )
+                            if isinstance(piece.clip, _FeatheredSingingClip)
+                            and isinstance(base_glow, Glow)
+                            else plain_clip,
+                            material=None,
+                            layer=piece.layer - 1,
+                            state=replace(
+                                piece.state,
+                                fill=glow.color,
+                                outline=glow.color,
+                                border=glow.border,
+                                blur=glow.blur,
+                                opacity=piece.state.opacity * glow.opacity,
+                                shadow=Vec2(),
+                            ),
                         )
+                        if soften_glow:
+                            other = sung_glow if highlight is None else base_glow
+                            assert isinstance(other, Glow)
+                            other_alpha = after_alpha if highlight is None else before_alpha
+                            pieces.extend(_split_glow(halo, other.color, other_alpha, ownership, padding))
+                        else:
+                            pieces.append(halo)
             aliases[node.id] = tuple(piece.id for piece in pieces[1:])
             if self.strategy == "coverage":
                 component = ObjectGroup(

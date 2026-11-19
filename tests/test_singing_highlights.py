@@ -133,6 +133,48 @@ def test_single_pass_lowers_at_one_fps_and_matches_static_boundary_pixels():
             assert max(ImageChops.difference(*images).tobytes()) <= 2, time
 
 
+@pytest.mark.parametrize("reverse", [False, True])
+def test_two_color_soft_glow_meets_at_the_singing_front(reverse):
+    doc, line = make_line()
+    painted = LyricHighlights.from_singing(
+        StatePatch(fill=RED), reverse=reverse,
+        glow=Glow.from_studio(RED, radius=4), base_glow=Glow.from_studio(BLUE, radius=4),
+    )(line)
+    nodes = {n.id: n for n in leaves(painted)}
+    char = painted.query("character")[0]
+    halos = [nodes[k] for k in char.aliases if "/glow" in k]
+    strips = []
+    for halo in halos:
+        assert isinstance(halo.clip, RectangleClip) and isinstance(halo.clip.deform, RectangleKeyframes)
+        left, _, right, _ = halo.clip.deform.bounds_at(1.04 - halo.time_origin)
+        strips.append((left, right, halo.state.fill))
+    strips.sort(key=lambda strip: strip[0])
+    assert all(a[1] == b[0] for a, b in zip(strips, strips[1:], strict=False))
+    red = [ink.red for _, _, ink in strips]
+    assert red == sorted(red, reverse=not reverse)
+    assert min(red) == 0 and max(red) == 255
+    assert max(abs(a - b) for a, b in zip(red, red[1:], strict=False)) < 64
+    result = Scene(doc).add(painted).compile(native_tweens=True, budget=SceneBudget(fps=1))
+    assert all(o.strategy == "native-clip" for o in result.objects if "/glow" in o.id)
+
+
+@pytest.mark.parametrize("before_alpha", [0, 0.25])
+def test_soft_glow_blends_premultiplied_color(before_alpha):
+    _, line = make_line()
+    effect = LyricHighlights.from_singing(
+        StatePatch(fill=RED), glow=Glow(RED, blur=4),
+        base_glow=Glow(BLUE, blur=4, opacity=before_alpha),
+    )(line)
+    char = effect.query("character")[0]
+    strips = [node.state for node in leaves(effect) if node.id in char.aliases and "/band:" in node.id]
+    assert strips and all(before_alpha < state.opacity < 1 for state in strips)
+    for state in strips:
+        # Opacity gives the sung fraction independently of strip placement.
+        sung = (state.opacity - before_alpha) / (1 - before_alpha)
+        assert state.fill.red * state.opacity == pytest.approx(255 * sung, abs=0.5)
+        assert state.fill.blue * state.opacity == pytest.approx(255 * before_alpha * (1 - sung), abs=0.5)
+
+
 def test_coverage_uses_body_ownership_without_clip_shoulders():
     _, line = make_line()
     line = replace(line, lifetime=Lifetime(1, 1.23))

@@ -34,6 +34,13 @@ def _line_x(character: PositionedText, left: float, right: float) -> tuple[float
     return (left - origin) / scale, (right - origin) / scale
 
 
+def _cell_left(character: PositionedText, layout: LyricLayout) -> float:
+    if layout._vertical:
+        return 0
+    assert character.layout_scale is not None
+    return (character.bounds.left - character.object.state.position.x) / character.layout_scale.x
+
+
 def _character_center(character: PositionedText) -> Vec2:
     assert character.layout_scale is not None
     return Vec2(
@@ -69,6 +76,12 @@ class LyricTarget:
     source_style: str | None = None
     _line_x: tuple[float, float] | None = field(default=None, repr=False)
     _reading_span: SingingSpan | None = field(default=None, repr=False)
+    _cell_left: float = field(default=0, repr=False)
+
+    @property
+    def _baseline_pivot(self) -> Vec2:
+        """Scale about the horizontal cell edge, including any offset from the font pen."""
+        return self.center if self.baseline is None else Vec2(self._cell_left, self.baseline)
 
     def _visual_singing(self) -> tuple[SingingSpan, ...]:
         return (self._reading_span,) if self._reading_span else self.singing
@@ -392,6 +405,7 @@ class LyricLine(ObjectGroup):
                             source_style=character.source_style,
                             _line_x=_line_x(character, *style_spans.get(character.source_style, fallback)),
                             baseline=character.baseline, em_size=character.em_size,
+                            _cell_left=_cell_left(character, layout),
                         )
                     )
             for ruby in layout.ruby:
@@ -411,6 +425,7 @@ class LyricLine(ObjectGroup):
                                 source_style=style,
                                 _line_x=_line_x(character, *style_spans.get(style, fallback)),
                                 baseline=character.baseline, em_size=character.em_size,
+                                _cell_left=_cell_left(character, layout),
                             )
                         )
         # Untimed/unassigned drawable text is retained as ordinary children.

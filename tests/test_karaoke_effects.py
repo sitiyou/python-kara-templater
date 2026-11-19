@@ -573,13 +573,14 @@ def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
     assert clip.deform.sample(0.5 - fronts[0].time_origin) is None
 
 
-def test_zoom_uses_full_note_then_releases_without_stacking_repeats():
+@pytest.mark.parametrize("singing", ["zoom_pulse", "zoom_pulse_scanline"])
+def test_zoom_uses_full_note_then_releases_without_stacking_repeats(singing):
     scene = subject(
         text=r"{\k100}A{\kt100\k100}#",
         end=3000,
         entry="none",
         exit="none",
-        singing="zoom_pulse",
+        singing=singing, scanline_width=24, scanline_softness=0,
     )
     target = scene.lines[0].query("character")[0]
     evaluator = scene.evaluator()
@@ -589,6 +590,14 @@ def test_zoom_uses_full_note_then_releases_without_stacking_repeats():
     )
     assert evaluator.at(target.node_id, 2.9).scale.x <= base * 1.25 + 1e-7
     assert evaluator.at(target.node_id, 3.30).scale.x == pytest.approx(base)
+    if singing == "zoom_pulse_scanline":
+        nodes = {n.id: n for n in _walk(scene.lines[0])}
+        fronts = [nodes[k] for k in target.aliases if ":front:" in k]
+        for t in (1.99, 2.01, 2.09):
+            widths = [(rect[2] - rect[0]) * evaluator.at(n.id, t).scale.x
+                      for n in fronts if isinstance(n.clip, RectangleClip) and n.clip.deform
+                      and (rect := n.clip.deform.sample(t - n.time_origin))]
+            assert widths == pytest.approx([24], abs=0.5)
     assert scene.compile(native_tweens=True).event_count > 0
 
 
@@ -662,6 +671,24 @@ def test_no_wipe_is_instant_including_zero_length_notes():
     assert isinstance(mask, RectangleClip) and mask.deform is not None
     assert mask.deform.sample(1.99 - after.time_origin) is None
     assert mask.deform.sample(2.00 - after.time_origin) is not None
+
+
+def test_utopia_pulse_fixes_the_measured_cell_edge_for_body_and_reading():
+    from kara_templater import Vec2
+
+    scene = subject(text=r"{\k50}j|j", end=1500, entry="none", exit="none", singing="utopia")
+    line, = scene.lines
+    evaluator = scene.evaluator()
+    for target, glyph, _, _ in line._glyph_regions(automatic=False):
+        assert glyph.layout_scale and glyph.baseline is not None
+        left = (glyph.bounds.left - glyph.object.state.position.x) / glyph.layout_scale.x
+        assert abs(left) > 0.1
+        anchor = Vec2(left, glyph.baseline)
+        rest = evaluator.at(target.node_id, 0.99)
+        peak = evaluator.at(target.node_id, 1.1)
+        assert peak.scale.x > rest.scale.x
+        assert peak.transform.apply(anchor).x == pytest.approx(rest.transform.apply(anchor).x)
+        assert peak.transform.apply(anchor).y == pytest.approx(rest.transform.apply(anchor).y)
 
 
 def test_utopia_exit_follows_next_character_instead_of_waiting_for_line_end():
@@ -907,7 +934,7 @@ def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_
 
 
 @pytest.mark.parametrize("softness", [0, 4])
-@pytest.mark.parametrize("motion, front", [("none", "scanline"), ("utopia", "utopia_scanline")])
+@pytest.mark.parametrize("motion, front", [("none", "scanline"), ("utopia", "utopia_scanline"), ("zoom_pulse", "zoom_pulse_scanline")])
 def test_scanline_colors_the_visible_second_outline(softness, motion, front):
     from kara_templater import Glow
     from kara_templater._raster import rasterize
@@ -925,15 +952,11 @@ def test_scanline_colors_the_visible_second_outline(softness, motion, front):
     outer = [i for i in range(0, len(plain), 4) if plain[i:i + 4] == bytes((182, 50, 86, 255))]
     assert any(band[i:i + 4] == bytes((0, 255, 255, 255)) for i in outer)
     assert any(band[i:i + 4] == plain[i:i + 4] for i in outer)
-    if motion == "utopia":
+    if motion != "none":
         rim_rows = {outer[0] // (640 * 4), outer[-1] // (640 * 4)}
         assert all(band[i:i + 4] == plain[i:i + 4] for i in outer if i // (640 * 4) in rim_rows)
     if softness:
-        if motion == "utopia":
-            # Repainting antialiased edges may raise alpha within the original ink.
-            assert all(before or not after for before, after in zip(plain[3::4], band[3::4], strict=True))
-        else:
-            assert plain[3::4] == band[3::4]
+        assert plain[3::4] == band[3::4]
         assert any(50 < band[i + 1] < 255 for i in outer)
 
 
@@ -1569,14 +1592,15 @@ def test_scanline_width_stays_in_script_pixels_on_stretched_type(stretch):
     assert len(bright) == 10
 
 
-def test_utopia_pulse_keeps_canvas_band_width_at_peak_and_during_release():
+@pytest.mark.parametrize("mode,level", [("utopia_scanline", 1), ("zoom_pulse_scanline", 1), ("zoom_pulse_scanline", 5)])
+def test_pulse_keeps_canvas_band_width_during_the_note(mode, level):
     from kara_templater._raster import rasterize
 
     doc = Document.create(width=640, height=360, styles=(
         Style(fontname="DejaVu Sans", fontsize=160, shadow=0),
     ))
     doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}—"))
-    recipe = KaraokeEffects(entry="none", exit="none", singing="utopia_scanline",
+    recipe = KaraokeEffects(entry="none", exit="none", singing=mode, zoom_pulse_curve_level=level,
                             scanline_width=32, scanline_softness=0, scanline_color=Color(0, 255, 255))
     scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
     ass = scene.compile(native_tweens=True).document.dumps()

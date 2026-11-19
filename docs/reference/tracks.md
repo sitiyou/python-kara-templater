@@ -70,7 +70,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L798)
+[Source](../../kara_templater/karaoke_effects.py#L858)
 
 ```python
 KaraokeEffects(
@@ -489,7 +489,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L77)
+[Source](../../kara_templater/lyric_line.py#L90)
 
 ```python
 LyricAnimationContext(
@@ -604,7 +604,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L262)
+[Source](../../kara_templater/lyric_line.py#L275)
 
 ```python
 LyricLine(
@@ -825,7 +825,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L109)
+[Source](../../kara_templater/lyric_line.py#L122)
 
 ```python
 LyricRule(
@@ -1082,7 +1082,7 @@ Line/syllable centers use body text, so ruby/glow do not shift the pivot.
 source_style is the body cluster's active ASS style, inherited by its readings.
 A factory changing a target's local coordinate origin must update center too.
 
-[Source](../../kara_templater/lyric_line.py#L45)
+[Source](../../kara_templater/lyric_line.py#L52)
 
 ```python
 LyricTarget(

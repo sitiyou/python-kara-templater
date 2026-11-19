@@ -42,6 +42,14 @@ def nodes(node):
             yield from nodes(child)
 
 
+def test_studio_text_glow_converts_pen_radius_and_gaussian_deviation():
+    halo = Glow.from_studio(BLUE, radius=10, outline=3, opacity=0.75)
+    assert halo.border == 8
+    assert halo.blur == pytest.approx(11.7741, abs=0.0001)
+    assert halo.opacity == 0.75
+    assert Glow.from_studio(BLUE, radius=0, outline=3) == Glow(BLUE, opacity=0)
+
+
 @pytest.mark.parametrize("strategy", ("clip", "coverage"))
 def test_base_paint_is_owned_by_unsung_layers_and_their_glow(strategy):
     _, original = subject()

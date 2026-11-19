@@ -170,6 +170,13 @@ def paint_line(line):
     )(line)
 ```
 
+For a single-pass Karaoke Studio text glow, use
+`Glow.from_studio(YELLOW, radius=10, outline=5)`. Supply the Studio glow radius
+and the total outward reach of the hard outline in script pixels. Here a
+10 px Gaussian blurs a pen that extends 10 px beyond the glyph. This models
+Studio's low concentration setting. Medium and high concentrations composite
+two and three blurred images respectively.
+
 Source singing maps onto undecorated measured text bounds, independently of
 outline and glow width. For a single source interval in clip mode, the engine
 reserves 20 ms before and after singing to traverse the decorative margins.
@@ -191,9 +198,14 @@ When ownership reaches a unit's outer edge, it includes the glyph's overhang,
 outline and glow. A completed whole-unit pass therefore owns the entire drawing;
 interior region boundaries remain precise cuts.
 
-Native clipping occurs after a drawing is rendered. A clipped blur does not
-spread newly colored pixels across the clip front. Select an explicit coverage
-or raster exit when color-before-blur or post-composite group alpha is required.
+During an automatic wipe, halos with matching blur and border blend their
+color and opacity across the front. A fully transparent side contributes no
+color, so a fading halo keeps its visible hue. The engine approximates
+the Gaussian color transition with up to eight narrow moving strips between
+the two outer colors. Each strip follows the same singing clock as the text.
+A linear wipe can export these as native ASS clip animations. Differences in
+halo geometry keep the ordinary clipped layers. Use coverage to
+partition actual glyph ink before blurring, including across gaps in a glyph.
 
 GlowFunction.from_animation reuses the common animation evaluator and infers
 spatial bounds for linear Tweens and nested sequences:

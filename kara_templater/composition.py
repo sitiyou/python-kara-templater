@@ -1,10 +1,13 @@
 """Immutable color, paint and glow values in script pixels and RGB."""
 
 from dataclasses import dataclass
+from math import log, sqrt
 from string import hexdigits
 from typing import Self
 
 from .timeline import _finite
+
+_ASS_BLUR_TO_SIGMA = 2 / sqrt(log(256))
 
 
 @dataclass(frozen=True)
@@ -51,6 +54,23 @@ class Glow:
     blur: float = 0
     border: float = 0
     opacity: float = 1
+
+    @classmethod
+    def from_studio(cls, color: Color, *, radius: int, outline: float = 0, opacity: float = 1) -> Self:
+        """Create a single-pass Karaoke Studio text halo in script pixels.
+
+        radius is Studio's Gaussian standard deviation. outline is the distance
+        the full hard outline extends beyond the glyph, including a secondary rim.
+        A zero radius hides the halo.
+        """
+        if type(radius) is not int or radius < 0:
+            raise ValueError("radius must be a nonnegative integer")
+        _appearance_values(color, outline, opacity)
+        if radius == 0:
+            return cls(color, opacity=0)
+        # Studio widens its centered pen by one radius before blurring.
+        return cls(color, blur=radius / _ASS_BLUR_TO_SIGMA, border=outline + radius / 2,
+                   opacity=opacity)
 
     def __post_init__(self) -> None:
         _appearance_values(self.color, self.border, self.opacity)

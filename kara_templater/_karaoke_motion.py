@@ -153,6 +153,7 @@ def transition(
             glyph = context.line.layout.body.characters[index]
             _, drip_edge = _line_x(glyph, glyph.bounds.left, glyph.bounds.right)
 
+    utopia_pivot = center if zoom_pivot else target._baseline_pivot
     converge_distance = 0.0
     if kind == "converge_out":
         body = context.line.layout.body
@@ -189,11 +190,7 @@ def transition(
                     # Vertical shear fixes the entire right edge regardless of pivot y.
                     pivot = Vec2(drip_edge, 0)
             case "utopia":
-                pivot = (
-                    center
-                    if zoom_pivot or target.baseline is None
-                    else Vec2(0, target.baseline)
-                )
+                pivot = utopia_pivot
                 if entering:
                     factor = 1.3 * p / 0.8 if p < 0.8 else 1 + 0.3 * (1 - p) / 0.2
                     opacity = min(1, p / 0.8)
