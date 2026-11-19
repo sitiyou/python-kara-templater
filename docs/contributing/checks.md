@@ -29,6 +29,30 @@ to historical plans, incidental heading text, or implementation snapshots.
 When an interface is removed, migrate useful behavior checks to its replacement
 and remove tests whose only purpose was the discarded declaration syntax.
 
+## Arch package checks
+
+The [AUR package's core check](https://aur.archlinux.org/cgit/aur.git/tree/check-core.sh?h=python-kara-templater)
+installs the built wheel outside the source tree. Its 30-second wall-clock budget
+includes environment setup, pytest startup and both output commands. A timeout
+fails the build. Native compilation runs before this budget starts.
+
+| Test group | What it verifies | Where it runs |
+| --- | --- | --- |
+| Package core | Font selection and native shaping, ASS timing import, structured ruby and cue placement, row allocation, libass raster round trip, seekable GPU draw preparation, installed CLI and standalone hook export | AUR |
+| Rendering regressions | Curve accuracy between frames, pixel coverage of sweeps and outlines, combinations of effects, clocks and fonts, actual hook playback when Vulkan is available | Upstream suite |
+| Developer and release checks | Documentation scripts and links, public typing, native source-cache invalidation, wheel metadata and bundled libraries | Upstream tests and release tooling |
+
+The upstream suite also exercises the core behaviors. AUR selects individual
+test IDs so adding an effect or a parameter combination does not silently
+increase package build time. Keep one representative case per package failure
+mode. For example, the installed CLI smoke checks the entry point once. CLI
+regressions for repeated exports and ownership still belong upstream.
+
+To reassess cost on a new release, run the full installed-package suite with
+`python -m pytest tests --durations=30 --junitxml=timings.xml`. Inspect both
+the slowest cases and the sum of case times per module. The effect catalog can
+be costly in aggregate even when each preset finishes quickly.
+
 ## Reference and links
 
 The API reference is committed Markdown for GitHub reading. Its generator derives
