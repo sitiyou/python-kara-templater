@@ -92,7 +92,7 @@ An ordered ASS record collection with parsed script metadata.
 Load/parse preserve source content without executing code; create builds a new
 script, and save/dumps serialize standard ASS.
 
-[Source](../../kara_templater/ass.py#L232)
+[Source](../../kara_templater/ass.py#L226)
 
 ```python
 Document(
@@ -150,7 +150,7 @@ Document.load(
 
 ### Document.lyrics_at
 
-Read scoped body/ruby and timing without layout or template execution.
+Read scoped body/ruby and timing without layout.
 
 ```python
 Document.lyrics_at(
@@ -160,7 +160,7 @@ Document.lyrics_at(
 
 ### Document.parse
 
-Parse ASS text into ordered records and script metadata without executing templates.
+Parse ASS text into ordered records and script metadata.
 
 ```python
 Document.parse(
@@ -186,7 +186,7 @@ Type: `dict[str, Style]`.
 
 ### Document.text_at
 
-Read typed text semantics without executing templates or changing records.
+Read typed text semantics without changing records.
 
 ```python
 Document.text_at(
@@ -351,7 +351,7 @@ An ASS Dialogue or Comment event with millisecond start/end times and preserved 
 Actor, effect, margins, layer, and source style remain distinct event
 attributes.
 
-[Source](../../kara_templater/ass.py#L154)
+[Source](../../kara_templater/ass.py#L148)
 
 ```python
 Line(
@@ -484,10 +484,7 @@ LyricUnit(
 
 ## Record
 
-An attribute-backed record used by script metadata and template contexts.
-
-Document metadata exposes script resolution and the template aspect-correction
-factor.
+Script metadata with attribute access to keys such as res_x and res_y.
 
 [Source](../../kara_templater/ass.py#L13)
 
@@ -501,7 +498,6 @@ Example: `Record(res_x=1280, res_y=720)`.
 | --- | --- | --- |
 | `res_x` | `int` | `instance attribute` |
 | `res_y` | `int` | `instance attribute` |
-| `video_x_correct_factor` | `float` | `instance attribute` |
 
 ## RubyText
 
@@ -594,7 +590,7 @@ An ASS style with typed font/layout fields and preserved raw style columns.
 Font scales are percentages, alignment uses ASS 1 through 9, and sizes/margins
 use script pixels.
 
-[Source](../../kara_templater/ass.py#L75)
+[Source](../../kara_templater/ass.py#L69)
 
 ```python
 Style(

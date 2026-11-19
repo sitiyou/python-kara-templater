@@ -42,8 +42,7 @@ it is not a substitute for world-space evaluation of an entire hierarchy.
 ## Native ASS and lowering
 
 NativeEvent inserts an already-lowered Dialogue into the same compilation
-pipeline. It preserves its ASS text and timing, including template behavior
-that cannot be represented by a positive visual Lifetime. Source origins remain
+pipeline. It preserves its ASS text and timing, including events with zero duration. Source origins remain
 available on the node and output result.
 
 Rotations, mirroring, and skew can require geometry lowering. Some text

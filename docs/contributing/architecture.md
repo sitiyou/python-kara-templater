@@ -6,10 +6,8 @@ flowchart LR
     P[Python construction] --> D
     D --> L[Document text and lyric binding]
     D --> T[Track configuration]
-    D --> E[Explicit Python templates]
     L --> S[Scene]
     T --> S
-    E --> S
     C[Custom objects and animations] --> S
     S --> O[Standard ASS Document]
     S --> G[Shared evaluation and cached glyph coverage]
@@ -68,11 +66,6 @@ secondary strokes and glow never expand the distance traversed during singing. T
 highlighter reserves decorative edge transitions and lowers eligible linear
 clips internally. Templates declare appearance rather than compensating for
 blur in clip coordinates or source clocks.
-
-engine.py preserves the Python ASS-template frontend and its context helpers.
-Template execution prepares NativeEvents for Scene compilation. Its historical
-preprocessing semantics are intentionally separate from new visual object
-lifetimes. No template code runs from ordinary parsing.
 
 `karaoke_effects.py` exposes the built-in animation catalog as a Track callable.
 It composes existing highlights, semantic rules and ordinary particle/path nodes.

@@ -6,8 +6,7 @@ from itertools import pairwise
 from math import ceil
 from typing import TypeGuard
 
-from ._gpu import GpuClip
-from ._gpu_scene import DrawCommand, SceneFrames, _cutout_border
+from ._gpu_scene import DrawCommand, GpuClip, SceneFrames, _cutout_border
 from ._karaoke_motion import Slide
 from ._native_types import RasterImage
 from .scene import RectangleClip, RectangleKeyframes, VisualNode

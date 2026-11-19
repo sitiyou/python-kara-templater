@@ -41,7 +41,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "scenes": (
         "Scenes and compilation",
-        ("scene", "scene_output", "scene_evaluation", "gpu_render"),
+        ("scene", "scene_output", "scene_evaluation"),
         "Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile returns a new Document under explicit resource limits. See [objects](../guides/objects.md) and [compilation](../guides/compilation.md).",
     ),
     "animation": (
@@ -110,11 +110,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
         ("timeline",),
         "Horizontal regions, normalized progress curves, and millisecond input display windows. HighlightPass and Scene animation clocks use seconds. Output goes through the common Scene compiler.",
     ),
-    "templates": (
-        "Python templates",
-        ("engine", "_legacy_layout"),
-        "The explicit ASS Python-template frontend and preserved millisecond preprocessing contexts. Ordinary Document loading does not execute templates. See [templates](../guides/templates.md).",
-    ),
+
 }
 
 

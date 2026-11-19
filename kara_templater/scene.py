@@ -588,23 +588,6 @@ class Scene:
 
         export_hook(self, Path(path), fps, start, duration)
 
-    def enhance(self, fallback: Document, *, fps: int = 60) -> Document:
-        """Attach sampled GPU effects to an explicit ordinary-ASS fallback.
-
-        Returns a new Document with versioned private Comment records. Ordinary
-        players display fallback unchanged; render_enhanced replaces its visual
-        presentation with this complete Scene. Resolution must match. Existing
-        Python callbacks run at export only; portable data stores reusable glyph
-        masks and numeric draws at integer fps (1..240), not executable code.
-        This initial backend supports text/static paths, affine animation, normal
-        local/screen rectangle clips and continuous LinearGradient. Unsupported
-        materials, native events, coverage groups, inherited/vector/inverse clips
-        and deformed paths raise. Export has bounded frame/mask/payload budgets.
-        """
-        from ._gpu_bundle import encode_scene
-
-        return encode_scene(self, fallback, fps=fps)
-
     def compile(
         self,
         *,

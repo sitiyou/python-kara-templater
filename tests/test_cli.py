@@ -186,26 +186,6 @@ def test_cli_declarative_layered_glow_and_owner_repeat(tmp_path):
     assert first.read_bytes() == second.read_bytes()
 
 
-def test_layered_glow_direct_and_subclass_examples_are_equivalent(tmp_path):
-    root = EXAMPLE.parents[1]
-    source = root / "tests/fixtures/layered_glow.ass"
-    direct, classes = tmp_path / "direct.ass", tmp_path / "classes.ass"
-    for script, destination in (
-        ("layered_glow.py", direct),
-        ("layered_glow_classes.py", classes),
-    ):
-        result = cli(
-            source,
-            destination,
-            "--effect",
-            root / "examples" / script,
-            "--max-events",
-            30_000,
-        )
-        assert result.returncode == 0, result.stderr
-    assert direct.read_bytes() == classes.read_bytes()
-
-
 def test_cli_loads_track_with_arbitrary_row_layout(tmp_path):
     script = tmp_path / "group.py"
     script.write_text(

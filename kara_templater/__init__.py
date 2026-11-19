@@ -1,6 +1,5 @@
-"""Typed standard-ASS animation, lyric authoring, and template frontends."""
+"""Typed karaoke authoring and animation for standard ASS and libplacebo."""
 
-from ._legacy_layout import LegacyLine, LegacySyllable, preprocess, split_karaoke
 from .appearance import PaintPair
 from .ass import Document, Line, Record, Style
 from .characters import (
@@ -64,10 +63,8 @@ from .document_text import (
     read_document_text,
 )
 from .easing import BackRate, ease_in, ease_in_out, ease_out, there_and_back
-from .engine import Engine, TemplateError, apply_templates
 from .fonts import LoadedFont, load_font
 from .geometry import Affine2D, Contour, CubicSegment, LineSegment, Vec2, VectorPath
-from .gpu_render import render_enhanced
 from .group_geometry import merge_geometry
 from .import_ass import (
     AssImportError,
@@ -242,7 +239,6 @@ from .timeline import (
 
 __all__ = [
     "KaraokeEffects", "KaraokeEntry", "KaraokeExit", "KaraokeSinging", "KaraokeDecoration",
-    "render_enhanced",
     "BackRate",
     "ease_in",
     "ease_out",
@@ -312,7 +308,6 @@ __all__ = [
     "DocumentText",
     "DrawableCharacter",
     "Emission",
-    "Engine",
     "EventOrigin",
     "FadeIn",
     "FadeOut",
@@ -337,8 +332,6 @@ __all__ = [
     "LaidOutUnit",
     "Layout",
     "LayoutCapabilityError",
-    "LegacyLine",
-    "LegacySyllable",
     "Lifetime",
     "Line",
     "LineSegment",
@@ -409,7 +402,6 @@ __all__ = [
     "StatePatch",
     "StateReference",
     "Style",
-    "TemplateError",
     "TextAppearance",
     "TextCue",
     "TextIssue",
@@ -432,7 +424,6 @@ __all__ = [
     "WritePath",
     "WritingStroke",
     "YELLOW",
-    "apply_templates",
     "bind_cues",
     "bind_lyric_cues",
     "compile_scene",
@@ -458,14 +449,12 @@ __all__ = [
     "path_boolean",
     "path_bounds",
     "prepare_tracks",
-    "preprocess",
     "rasterize_group",
     "read_document_text",
     "resample_path",
     "select_characters",
     "smooth_rate",
     "smoother_rate",
-    "split_karaoke",
     "split_path",
     "stroke",
     "text_extents",

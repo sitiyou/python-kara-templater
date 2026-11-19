@@ -86,8 +86,7 @@ available to the player. A fallback font can change the result's appearance.
   value is held until another animation writes the same channel.
 - `compile()` enforces event, byte, activity, and geometry budgets. Inspect the
   result before increasing a budget for a complex effect.
-- Existing subtitle files enter through `Document.load("input.ass")`. Loading
-  a file does not execute embedded Python templates.
+- Existing subtitle files enter through `Document.load("input.ass")`.
 
 Repository examples are a separate workflow: their `python -m examples...`
 commands require a source checkout. They are not installed with the wheel.

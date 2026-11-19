@@ -3,7 +3,6 @@
 A Document is the shared input and output model. Use `Document.load(path)` for
 files, `Document.parse(text)` for ASS strings, or `Document.create(...)` for a
 new script. `save(path)` writes ASS; `dumps()` returns the serialized text.
-Ordinary loading never executes template code.
 
 ## Records and source ownership
 
@@ -33,7 +32,6 @@ source; visual view identity is separate from record replacement ownership.
 | Plain text with static colors/style resets and optional cues | `read_document_text`, `layout_document_text` | Decoded text ranges and SingingSpan clocks |
 | Body text, ruby, and repeated singing | `layout_document_lyrics` | Body/ruby source projection and grouped lyric units |
 | Declarative lyric styling and animations | `prepare_tracks`, `LyricSource.from_lyrics` | DocumentLyrics and semantic targets; times in seconds |
-| Existing Python ASS templates | `Engine`, `apply_templates` | Explicit template execution; separate helper context |
 
 These frontends enforce their supported input subsets. Parsing does not evaluate
 arbitrary ASS animation overrides. Track uses the Document lyric projection,

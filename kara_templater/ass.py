@@ -11,16 +11,10 @@ if TYPE_CHECKING:
 
 
 class Record(dict[str, object]):
-    # Standard document metadata, in addition to arbitrary ASS metadata keys.
-    """An attribute-backed record used by script metadata and template contexts.
-
-    Document metadata exposes script resolution and the template aspect-correction
-    factor.
-    """
+    """Script metadata with attribute access to keys such as res_x and res_y."""
 
     res_x: int
     res_y: int
-    video_x_correct_factor: float
 
     def __getattr__(self, name: str) -> object:
         try:
@@ -275,7 +269,7 @@ class Document:
 
     @classmethod
     def parse(cls, text: str) -> Document:
-        """Parse ASS text into ordered records and script metadata without executing templates."""
+        """Parse ASS text into ordered records and script metadata."""
         records = []
         meta = Record()
         section = ""
@@ -321,7 +315,6 @@ class Document:
         elif not y:
             y = 1024 if x == 1280 else x * 3 // 4
         meta.res_x, meta.res_y = x, y
-        meta.video_x_correct_factor = 1.0
         return cls(records, meta)
 
     @classmethod
@@ -351,7 +344,7 @@ class Document:
         Path(path).write_text(self.dumps(), encoding="utf-8-sig")
 
     def lyrics_at(self, record_index: int) -> DocumentLyrics:
-        """Read scoped body/ruby and timing without layout or template execution."""
+        """Read scoped body/ruby and timing without layout."""
         from .document_lyrics import parse_document_lyrics
 
         source = self.text_at(record_index)
@@ -360,7 +353,7 @@ class Document:
         return parse_document_lyrics(source, start=record.start_time / 1000)
 
     def text_at(self, record_index: int) -> DocumentText:
-        """Read typed text semantics without executing templates or changing records."""
+        """Read typed text semantics without changing records."""
         from .document_text import read_document_text
 
         return read_document_text(self, record_index)

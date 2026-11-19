@@ -13,7 +13,7 @@ Use `--check` to verify that committed pages match the current public API.
 | Topic | Symbols |
 | --- | --- |
 | [Documents and lyric input](documents.md) | 27 |
-| [Scenes and compilation](scenes.md) | 22 |
+| [Scenes and compilation](scenes.md) | 21 |
 | [Animation and timing](animation.md) | 26 |
 | [Track authoring](tracks.md) | 26 |
 | [Text measurement and layout](text.md) | 28 |
@@ -23,11 +23,10 @@ Use `--check` to verify that committed pages match the current public API.
 | [Particles and references](particles.md) | 14 |
 | [Coverage and raster output](coverage.md) | 9 |
 | [Regions and progress curves](native.md) | 4 |
-| [Python templates](templates.md) | 7 |
 
 ## Symbol index
 
-235 public exports.
+227 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [AnimationClip](animation.md#animationclip)
@@ -66,7 +65,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [DrawableCharacter](text.md#drawablecharacter)
 - [DriftOut](animation.md#driftout)
 - [Emission](particles.md#emission)
-- [Engine](templates.md#engine)
 - [EventOrigin](documents.md#eventorigin)
 - [FadeIn](animation.md#fadein)
 - [FadeOut](animation.md#fadeout)
@@ -99,8 +97,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [LayoutCapabilityError](text.md#layoutcapabilityerror)
 - [LayoutContext](tracks.md#layoutcontext)
 - [LayoutLine](tracks.md#layoutline)
-- [LegacyLine](templates.md#legacyline)
-- [LegacySyllable](templates.md#legacysyllable)
 - [Lifetime](scenes.md#lifetime)
 - [Line](documents.md#line)
 - [LinePlan](tracks.md#lineplan)
@@ -191,7 +187,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [StateReference](particles.md#statereference)
 - [StudioSpacing](text.md#studiospacing)
 - [Style](documents.md#style)
-- [TemplateError](templates.md#templateerror)
 - [TextAppearance](documents.md#textappearance)
 - [TextCue](cues.md#textcue)
 - [TextIssue](documents.md#textissue)
@@ -218,7 +213,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [WritePath](geometry.md#writepath)
 - [WritingStroke](geometry.md#writingstroke)
 - [YELLOW](paint.md#yellow)
-- [apply_templates](templates.md#apply_templates)
 - [bind_cues](cues.md#bind_cues)
 - [bind_lyric_cues](cues.md#bind_lyric_cues)
 - [compile_scene](scenes.md#compile_scene)
@@ -248,15 +242,12 @@ Use `--check` to verify that committed pages match the current public API.
 - [path_boolean](geometry.md#path_boolean)
 - [path_bounds](geometry.md#path_bounds)
 - [prepare_tracks](tracks.md#prepare_tracks)
-- [preprocess](templates.md#preprocess)
 - [rasterize_group](coverage.md#rasterize_group)
 - [read_document_text](documents.md#read_document_text)
-- [render_enhanced](scenes.md#render_enhanced)
 - [resample_path](geometry.md#resample_path)
 - [select_characters](text.md#select_characters)
 - [smooth_rate](animation.md#smooth_rate)
 - [smoother_rate](animation.md#smoother_rate)
-- [split_karaoke](templates.md#split_karaoke)
 - [split_path](particles.md#split_path)
 - [stroke](geometry.md#stroke)
 - [text_extents](text.md#text_extents)

@@ -10,7 +10,6 @@ from dataclasses import dataclass, replace
 from math import ceil, floor
 
 from . import _metrics
-from ._gpu import CoverageRenderer, GpuClip
 from ._native_types import RasterImage
 from .ass import Document
 from .composition import Color
@@ -26,6 +25,18 @@ _WHITE = Color(255, 255, 255)
 
 
 @dataclass(frozen=True)
+class GpuClip:
+    bounds: tuple[float, float, float, float]
+    local: bool = False
+
+    def __post_init__(self) -> None:
+        finite(*self.bounds)
+        left, top, right, bottom = self.bounds
+        if left > right or top > bottom:
+            raise ValueError("GPU clip bounds cannot be inverted")
+
+
+@dataclass(frozen=True)
 class DrawCommand:
     object_id: str
     images: tuple[RasterImage, ...]
@@ -33,16 +44,6 @@ class DrawCommand:
     opacity: float
     gradient: LinearGradient | None
     clip: GpuClip | None
-
-    def draw(self, renderer: CoverageRenderer) -> None:
-        for image in self.images:
-            renderer.draw(
-                image,
-                transform=self.transform,
-                opacity=self.opacity,
-                gradient=self.gradient,
-                clip=self.clip,
-            )
 
 
 def _shape_key(node: TextObject | PathObject, state: VisualState) -> tuple[object, ...]:

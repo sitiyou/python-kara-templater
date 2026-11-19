@@ -62,19 +62,8 @@ objects. Return the complete Scene to compile. Export either build or tracks,
 not both. Input selection, display timing, and material choices for a builder
 belong in that function; the CLI rejects conflicting import/raster flags.
 Scene builders also choose their owner inside the function; --owner applies to
-preset, Track, and template inputs.
+preset and Track inputs.
 
 --max-events, --max-bytes, and --max-active constrain final Scene output. Budget
 or callback errors report source notes and do not save a partial output file.
 Use `python -m kara_templater` when the console entry point is not on PATH.
-
-## ASS Python templates
-
-```sh
-kara-templater input.ass output.ass --templates
-```
-
-This explicitly runs the preserved template frontend. --video-size WIDTH HEIGHT
-is its aspect correction option and requires --templates. Template execution
-cannot be mixed with effect/preset flags. See [templates](templates.md) for its
-input conventions and Python execution model.

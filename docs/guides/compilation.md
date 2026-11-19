@@ -34,7 +34,7 @@ sampling to 100 samples/s.
 Scene event boundaries round to the nearest centisecond, with exact half steps
 rounding to the even centisecond. `max_time_quantization` reports the largest
 boundary adjustment in seconds. This Scene policy does not change raw ASS
-serialization or the preserved template frontend's millisecond contracts.
+serialization.
 
 `diagnostics` reports sampled animation intervals whose start and end round to
 the same centisecond, including intervals between declared breakpoints. Messages

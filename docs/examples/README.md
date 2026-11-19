@@ -262,15 +262,10 @@ These modules also generate ASS from a checkout. The command shape is
 | `scene_keyframes`, `scene_native_tween` | Keyframes and explicit native interpolation | Fixed |
 | `scene_bilingual` | Multiple lyric rows and scripts | Fixed |
 | `scene_composite`, `scene_coverage` | Explicit RGBA raster and coverage composition | Fixed; intentionally larger budgets |
-| `scene_sweep_strategies` | Banded, layered, raster, and diffused sweep choices | Fixed; optional `--strategy` |
-| `scene_legacy` | ASS-template output combined with Scene objects | Fixed |
 | `scene_whole_song` | 180-second composition of the twelve primary effects | Fixed; intentionally larger budget |
 | `output_layers` | Shared animations with character-arrival, character and syllable bindings | Fixed |
 
-`characters` and `timeline` print measured layout or timeline data rather than
-writing ASS. `layered_glow` and `layered_glow_classes` export `build(document)`;
-the latter demonstrates an ordinary typed Track subclass and has no standalone
-command. Both use the common Scene compiler, with per-layer clipped glow,
+The `layered_glow` example exports `build(document)` with per-layer clipped glow,
 two-stage highlighting, ruby-specific glow widths and syllable attack/release.
 For CLI use, provide an explicit sampling budget:
 

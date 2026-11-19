@@ -11,12 +11,8 @@ license = "MIT"
 license-files = ["LICENSE", "vendor/LICENSE.libass", "vendor/runtime-licenses/**/*"]
 readme = "README.md"
 
-[project.optional-dependencies]
-gpu = ["moderngl>=5.12,<6"]
-
 [project.scripts]
 kara-templater = "kara_templater.__main__:main"
-kara-render = "kara_templater.gpu_render:main"
 
 [tool.setuptools]
 packages = ["kara_templater"]

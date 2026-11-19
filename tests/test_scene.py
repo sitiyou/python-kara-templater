@@ -493,3 +493,34 @@ def test_invalid_state_callback_reports_target_and_sample_time():
     ) as caught:
         scene.compile()
     assert caught.value.object_id == "text"
+
+
+def test_native_empty_negative_intervals_and_budget():
+    scene = Scene(Document.create()).add(
+        NativeEvent("empty", Line(start_time=0, end_time=0, text="empty")),
+        NativeEvent("negative", Line(start_time=-100, end_time=100, text="prelude")),
+    )
+    result = scene.compile()
+    assert result.event_count == 2
+    assert any(line.start_time == -100 for line in result.document.lines)
+    assert all(
+        line.start_time >= 0 for line in Document.parse(result.document.dumps()).lines
+    )
+    with pytest.raises(SceneCompileError, match="budget"):
+        scene.compile(budget=SceneBudget(max_events=1))
+
+
+def test_native_event_with_missing_effect_column():
+    plain = Document.parse(
+        "[V4+ Styles]\nFormat: "
+        + STYLE_FORMAT
+        + "\n"
+        + Style().serialize()
+        + "\n[Events]\nFormat: Start, End, Text\nDialogue: 0:00:00.00,0:00:01.00,kept\n"
+    )
+    compiled = (
+        Scene(plain)
+        .add(NativeEvent("native", Line(text="added", end_time=1000)))
+        .compile()
+    )
+    assert len(Document.parse(compiled.document.dumps()).lines) == 3

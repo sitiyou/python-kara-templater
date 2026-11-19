@@ -259,8 +259,7 @@ Clipping a display window does not restart animation clocks. Geometry references
 can address objects elsewhere in the same Scene. Nested coverage declarations
 and opacity-writing references currently raise explicit ownership errors.
 
-For side-by-side sweep expressions, run scene_sweep_strategies with
-`--strategy bands`, `layers`, `raster`, or `diffused`. Diffused color-before-blur
+Diffused color-before-blur
 has different semantics from a crisp banded front. RGB/full-resolution chroma
 subtitle compositing is required for pixel-level material comparisons; YUV420
 can create rectangle-dependent color edges. See [compilation](compilation.md).

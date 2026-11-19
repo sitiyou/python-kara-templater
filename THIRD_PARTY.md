@@ -1,6 +1,6 @@
 # Third-party sources
 
-The Python effects pipeline and C++ binding are independently written. Karaoke timing and ruby notation were studied in Aegisub; effects requirements were studied in local PyonFX and karaoke-studio references. No reference-project implementation, Lua scripts or Lua runtime is included. The explicit ASS-template frontend evaluates the project's Python template dialect.
+The Python effects pipeline and C++ binding are independently written. Karaoke timing and ruby notation were studied in Aegisub; effects requirements were studied in local PyonFX and karaoke-studio references. No reference-project implementation, Lua scripts or Lua runtime is included.
 
 Text measurement uses libass 0.17.5 under the ISC license. Its original source archive, license, and metrics patches are included in `vendor/`:
 
@@ -62,10 +62,4 @@ Run verification with:
 python -m pytest tests -v
 ```
 
-The optional `gpu` extra installs [ModernGL](https://github.com/moderngl/moderngl)
-and its [glcontext](https://github.com/moderngl/glcontext) dependency, both under
-the MIT license. Their separate Python distributions carry their licenses;
-this project does not vendor their implementation or bundle GPU driver libraries.
-The adapter and GLSL programs here are project code. FFmpeg is an external command
-provided by the user, not a bundled executable. Fixed native dependency notices
-remain manually maintained; enabling the extra does not scan host licenses.
+The standalone shader uses libplacebo in the host FFmpeg or mpv installation.

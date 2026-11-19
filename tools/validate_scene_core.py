@@ -36,7 +36,6 @@ from examples.scene_fragments import build as build_fragments
 from examples.scene_gradient import build as build_gradient
 from examples.scene_group_masks import build as build_group_masks
 from examples.scene_keyframes import build as build_keyframes
-from examples.scene_legacy import build as build_legacy
 from examples.scene_lyric_cues import build as build_lyric_cues
 from examples.scene_lyrics import build as build_lyrics
 from examples.scene_masks import build as build_masks
@@ -129,7 +128,6 @@ def validate(
         "round",
         "gradient",
         "sweep",
-        "legacy",
         "lyrics",
         "lyric-cues",
         "masks",
@@ -161,7 +159,6 @@ def validate(
         "round": build_round,
         "gradient": build_gradient,
         "sweep": build_sweep,
-        "legacy": build_legacy,
         "lyrics": build_lyrics,
         "lyric-cues": build_lyric_cues,
         "masks": build_masks,
@@ -391,7 +388,6 @@ def main() -> None:
             "round",
             "gradient",
             "sweep",
-            "legacy",
             "lyrics",
             "lyric-cues",
             "masks",

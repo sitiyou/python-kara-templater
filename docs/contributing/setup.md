@@ -99,4 +99,3 @@ Provide the same fonts to the metrics renderer and FFmpeg/player. See
 Install FFmpeg with the libplacebo filter and a working Vulkan driver. The hook
 exporter uses the normal project environment. Verify the filter with
 `ffmpeg -hide_banner -h filter=libplacebo`. See [GPU rendering](../guides/gpu-rendering.md).
-The older embedded-ASS renderer uses the optional ModernGL extra.

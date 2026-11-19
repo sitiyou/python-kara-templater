@@ -40,20 +40,13 @@ prepare Scene content; custom Scene objects can be added before compilation.
 Input text, singing clocks, and source records remain separate from appearance.
 The [Track guide](docs/guides/tracks.md) explains this workflow.
 
-The Python-template frontend also takes a Document:
-
-```python
-from kara_templater import Document, apply_templates
-
-apply_templates(Document.load("input.ass")).save("output.ass")
-```
-
-Use `kara-templater input.ass output.ass --templates` to execute templates
-explicitly. See [templates](docs/guides/templates.md) and [CLI usage](docs/guides/cli.md).
+Apply a recipe with `kara-templater input.ass output.ass --effect my_effect.py`.
+See [CLI usage](docs/guides/cli.md).
 
 ## Output and development
 
-The output loads as an ordinary ASS subtitle file. Fonts, renderer support, and
+The ASS output loads as an ordinary subtitle file. For GPU playback or video
+production, export a [standalone libplacebo shader](docs/guides/gpu-rendering.md). Fonts, renderer support, and
 event complexity affect playback; see [ASS and playback](docs/ass-and-playback.md).
 Complex effects expose budgets and explicit output choices.
 

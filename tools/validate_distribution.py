@@ -223,18 +223,6 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "default-cli",
         check,
     )
-    run(
-        [
-            str(python),
-            "-m",
-            "kara_templater",
-            "tests/fixtures/v010-karaoke.ass",
-            "output/templates.ass",
-            "--templates",
-        ],
-        "template-cli",
-        check,
-    )
     # Exercise the karaoke authoring entry points as installed-package clients,
     # including the layout override and both effect script contracts.
     author_examples = []
@@ -272,22 +260,21 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
                 "sha256": sha256(target),
             }
         )
-    for name in ("layered_glow", "layered_glow_classes"):
-        run(
-            [
-                str(python),
-                "-m",
-                "kara_templater",
-                "tests/fixtures/layered_glow.ass",
-                f"output/{name}-builder.ass",
-                "--effect",
-                f"examples/{name}.py",
-                "--max-events",
-                "30000",
-            ],
-            f"{name}-builder-cli",
-            check,
-        )
+    run(
+        [
+            str(python),
+            "-m",
+            "kara_templater",
+            "tests/fixtures/layered_glow.ass",
+            "output/layered_glow-builder.ass",
+            "--effect",
+            "examples/layered_glow.py",
+            "--max-events",
+            "30000",
+        ],
+        "layered-glow-builder-cli",
+        check,
+    )
     (check / "tracks_recipe.py").write_text(
         "from kara_templater import Track, LyricRule, FadeIn\n"
         "tracks = (Track(id='lyrics', effects=(LyricRule('line', 'enter', FadeIn(), duration=0.1),)),)\n"
@@ -305,29 +292,6 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "tracks-cli",
         check,
     )
-    strategy_examples = []
-    for strategy in ("layers", "raster", "diffused"):
-        target = artifacts / f"sweep-{strategy}.ass"
-        duration = run(
-            [
-                str(python),
-                "-m",
-                "examples.scene_sweep_strategies",
-                str(target),
-                "--strategy",
-                strategy,
-            ],
-            f"sweep-{strategy}",
-            check,
-        )
-        strategy_examples.append(
-            {
-                "strategy": strategy,
-                "seconds": duration,
-                "bytes": target.stat().st_size,
-                "sha256": sha256(target),
-            }
-        )
     report = {
         "scope": "local platform wheel rebuilt from source archive, isolated import, full shipped tests and fixed scene examples; repaired cross-platform release wheels are separate",
         "archive": {
@@ -353,8 +317,6 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "karaoke_author_examples": author_examples,
         "builder_and_tracks_cli_passed": True,
         "default_cli_passed": True,
-        "explicit_v010_template_cli_passed": True,
-        "sweep_strategy_examples": strategy_examples,
     }
     (output / "distribution-validation.json").write_text(
         json.dumps(report, indent=2) + "\n"

@@ -58,7 +58,7 @@ The output directory must not already exist. The validator compares wheel source
 files with the archive, checks native and typing assets/tags, installs a fresh
 environment, and copies tests/examples/tools/docs without copying the library
 source directory. It exercises installed-package tests, public typing, examples,
-and both CLI input workflows, recording artifact hashes and logs under build/.
+and the preset, Track and Scene builder CLI workflows, recording artifact hashes and logs under build/.
 
 Windows comparison recognizes only the expected complete delvewheel bootstrap,
 then compares original source bytes. Arbitrary source edits inside repair

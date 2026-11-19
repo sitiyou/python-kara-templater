@@ -14,7 +14,7 @@ then use the task guides and API reference as you work.
 ## Style existing lyrics
 
 1. Read [Documents and lyrics](guides/documents.md) for input selection and timing.
-2. Start with the [recommended main-vocal recipe](guides/karaoke-effects.md#recommended-main-vocal). Compare [wipe, pulse, and instant recolor](guides/karaoke-effects.md#choose-the-singing-motion), or configure [Tracks](guides/tracks.md) or execute [Python templates](guides/templates.md).
+2. Start with the [recommended main-vocal recipe](guides/karaoke-effects.md#recommended-main-vocal). Compare [wipe, pulse, and instant recolor](guides/karaoke-effects.md#choose-the-singing-motion), or configure [Tracks](guides/tracks.md).
    The [lyric highlight tutorial](tutorials/lyric-highlights.md) provides a complete fixed input.
    Choose row geometry and accents in [Design a karaoke layout](tutorials/karaoke-design.md).
 3. Choose the [countdown order](guides/text-and-cues.md#choose-the-countdown-order), or [animate a cursor through a phrase](guides/animation.md#keep-a-cursor-moving-through-a-phrase).
@@ -35,8 +35,7 @@ then use the task guides and API reference as you work.
 | [Particles and references](guides/particles.md) | Emit deterministic particles, make echoes, and follow world-space objects |
 | [Compilation and performance](guides/compilation.md) | Choose output semantics, inspect reports, and control resource budgets |
 | [Fonts and preview](guides/fonts-and-preview.md) | Choose typefaces for main lyrics, harmony and ruby; register fonts and preview the result |
-| [CLI](guides/cli.md) | Export presets, Track configurations, custom Scenes, and templates |
-| [Templates](guides/templates.md) | Use the preserved ASS Python-template frontend explicitly |
+| [CLI](guides/cli.md) | Export presets, Track configurations, and custom Scenes |
 | [Troubleshooting](guides/troubleshooting.md) | Diagnose missing glyphs, input restrictions, animation conflicts, and costs |
 
 ## Reference and maintenance

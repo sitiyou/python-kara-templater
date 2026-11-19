@@ -1,7 +1,7 @@
 # ASS output and playback
 
-All runtime output is standard ASS. Python objects, animation callbacks, input
-cue markers, and template helpers run during generation; the player needs no
+The ASS exporter resolves Python objects, animation callbacks and input cue
+markers during generation; the player needs no
 kara-templater plugin or patched libass. Use a player with ASS support and provide
 the selected fonts.
 

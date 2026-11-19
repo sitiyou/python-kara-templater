@@ -105,6 +105,4 @@ Textures in the mpv hook format use hexadecimal text. Complex or long scenes
 can produce large files; compress the hook for transport and extract it before
 rendering. The command texture uses exact float indices (up to 2²⁴ scalar
 entries). The coverage atlas is 2048 pixels wide and up to 8192 pixels high.
-Split into frame-aligned intervals if a scene reaches a limit. Linux/AMD Vulkan
-has been exercised on L4TS. The older Scene.enhance / kara-render workflow
-remains available for previously authored projects with embedded GPU comments.
+Split into frame-aligned intervals if a scene reaches a limit.
