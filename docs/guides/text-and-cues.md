@@ -69,6 +69,8 @@ fill and outline throughout the countdown. Each column switches from the unsung
 pair to the sung pair as its turn arrives. With source styling alone, the first
 nonblank body run supplies ASS secondary, primary and outline colors. The glyph
 at the marker still determines automatic dimensions.
+For volume columns, `transition=0` makes each flash blink off for the middle half of its cycle.
+Higher values soften the fade. The default is `0.67`. Changing it keeps the final fill on beat.
 With `zoom_pulse` or `zoom_pulse_scanline`, each lamp grows during its own
 countdown step. Each column grows during its fill step and settles over 0.30 s,
 using the same curve level as the sung text.
@@ -86,6 +88,7 @@ For a sung gradient use `KaraokeEffects(material=LyricGradient(colors, axis="x")
 Leading inline volume columns share the first nonblank singer’s horizontal ramp.
 When the line changes styles, the columns extend only to that singer’s last advance.
 Columns switch from `base_material` to `material` on their individual fill steps.
+Set `SignalCue(spacing=8)` for eight extra script pixels between adjacent lamps.
 A separate lamp row uses the sung palette and spans all of its original slots, so the remaining lamps
 keep their colors during countdown. Explicit cue colors take precedence.
 Callback-generated decorations need a custom cue drawing.
@@ -106,6 +109,9 @@ to finish at the first sung syllable. For example, register
 `CuePreset(factory=SignalCue(direction="left_to_right"), lead=5, duration=5)`
 under the input marker's preset key. `steps` always increases in time.
 `slide` moves each fading lamp by a pixel offset independently of the order.
+
+For an early preview, `CuePreset(factory=SignalCue(countdown=2), lead=5, duration=5)` shows
+all lamps for three seconds, then runs the configured steps during the final two seconds.
 
 A leading empty `\k` advances the singing cursor; the default cue trigger uses
 the first timed text. You can also supply an absolute trigger in seconds.

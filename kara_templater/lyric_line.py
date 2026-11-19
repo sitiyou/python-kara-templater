@@ -255,6 +255,7 @@ class _KaraokePaint:
     unsung_outline: Color | None = None
     sung_outline: Color | None = None
     feather: float = 0
+    reverse: bool = False
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -309,11 +310,13 @@ class LyricLine(ObjectGroup):
             if ink is not None and ink.width:
                 left, right = style_spans.get(glyph.source_style, (ink.left, ink.right))
                 style_spans[glyph.source_style] = min(left, ink.left), max(right, ink.right)
-        if body._gradient_left is not None:
+        if body._cue_gradient_edge is not None:
             first = next((g for g in body.characters if g.object.text.strip()), None)
             if first is not None:
                 left, right = style_spans.get(first.source_style, fallback)
-                style_spans[first.source_style] = min(left, body._gradient_left), right
+                style_spans[first.source_style] = (
+                    min(left, body._cue_gradient_edge), max(right, body._cue_gradient_edge),
+                )
         line_interval = (
             ()
             if not body.singing

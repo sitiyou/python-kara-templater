@@ -125,6 +125,23 @@ def test_disjoint_regions_and_repeat_reset_keep_explicit_round_clocks():
         LyricHighlights(highlights=(highlight,), mode="layer", strategy="coverage")
 
 
+@pytest.mark.parametrize("strategy", ("clip", "coverage"))
+def test_reverse_pass_renders_sung_ink_to_the_right_of_waiting_ink(strategy):
+    doc, line = source()
+    red = highlights(line)[0]
+    red = replace(red, passes=(replace(red.passes[0], reverse=True),))
+    painted = LyricHighlights(
+        highlights=(red,), base_paint=StatePatch(fill=BLUE), strategy=strategy
+    )(line)
+    scene = Scene(doc, replace_records={len(doc.records) - 1}).add(painted)
+    script = scene.compile(budget=BUDGET).document.dumps()
+    frame = rasterize(script, 1500, (96, 64)).rgba
+    pixels = [frame[i:i + 4] for i in range(0, len(frame), 4)]
+    sung = [i % 96 for i, (r, _, b, a) in enumerate(pixels) if a > 80 and r > b]
+    waiting = [i % 96 for i, (r, _, b, a) in enumerate(pixels) if a > 80 and b > r]
+    assert max(waiting) <= min(sung)
+
+
 def test_zero_duration_highlight_is_complete_at_its_start():
     span = HighlightPass(TimeSpan(1, 1), Region(10, 30))
     assert span.front(0.99) == 10

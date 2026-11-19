@@ -22,6 +22,7 @@ Font-dependent layout, source clusters, and editable body/ruby binding. Unicode 
 - [PositionedText](#positionedtext)
 - [Segment](#segment)
 - [SingingSpan](#singingspan)
+- [StudioSpacing](#studiospacing)
 - [TextRange](#textrange)
 - [TextUnit](#textunit)
 - [layout_characters](#layout_characters)
@@ -374,7 +375,7 @@ Measured body and positioned readings for projected DocumentLyrics.
 
 unit_group builds editable body/ruby groups using the body center as pivot.
 
-[Source](../../kara_templater/scene_lyrics.py#L32)
+[Source](../../kara_templater/scene_lyrics.py#L50)
 
 ```python
 LyricLayout(
@@ -423,7 +424,7 @@ A reading layout associated with a source unit/segment and decoded body range.
 
 Its own text view retains source mappings and singing timing.
 
-[Source](../../kara_templater/scene_lyrics.py#L18)
+[Source](../../kara_templater/scene_lyrics.py#L36)
 
 ```python
 PositionedRuby(
@@ -540,6 +541,31 @@ SingingSpan(
 | `end` | `float` | `required` |
 | `kind` | `Literal['k', 'K', 'kf', 'ko']` | `required` |
 
+## StudioSpacing
+
+Studio lyric cell metrics for the body and its readings.
+
+space_width_percent sets an ASCII space's width as a percentage of the
+selected font em (10 to 100). allow_biting includes negative side bearings
+when measuring overhanging glyphs. Hard-outline clearance applies afterward.
+
+[Source](../../kara_templater/scene_lyrics.py#L19)
+
+```python
+StudioSpacing(
+    *,
+    space_width_percent: int = 20,
+    allow_biting: bool = False,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `space_width_percent` | `int` | `20` |
+| `allow_biting` | `bool` | `False` |
+
 ## TextRange
 
 Half-open Python string offsets in an immutable source unit.
@@ -616,7 +642,7 @@ Body text is shaped together before ruby spacing is applied. Unit boundaries
 crossing a shaping cluster are rejected when independent placement is needed.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L260)
+[Source](../../kara_templater/scene_lyrics.py#L299)
 
 ```python
 layout_document_lyrics(
@@ -626,7 +652,8 @@ layout_document_lyrics(
     id: str | None = None,
     display: Lifetime | None = None,
     ruby_gap: float = 6,
-    studio_spacing: bool = False,
+    studio_spacing: bool | StudioSpacing = False,
+    right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout
@@ -636,7 +663,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L394)
+[Source](../../kara_templater/scene_text.py#L402)
 
 ```python
 layout_document_text(
@@ -677,7 +704,7 @@ reading group and its body before animation. Negative values allow overlap.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L294)
+[Source](../../kara_templater/scene_lyrics.py#L335)
 
 ```python
 layout_lyrics(
@@ -687,7 +714,8 @@ layout_lyrics(
     id: str,
     display: Lifetime,
     ruby_gap: float = 6,
-    studio_spacing: bool = False,
+    studio_spacing: bool | StudioSpacing = False,
+    right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout

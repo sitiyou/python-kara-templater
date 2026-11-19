@@ -336,6 +336,13 @@ The Studio sweep traverses the ink and the primary hard outline during the
 singing interval. Extra outline clearance, glow and shadow add no travel time. A plain `Layout` uses native font advances. Set
 `Track(studio_spacing=True, ...)` or `False` to choose independently of the rows.
 
+For Studio’s space-width and overhang controls, pass
+`studio_spacing=StudioSpacing(space_width_percent=50, allow_biting=True)`.
+This makes an ASCII space half the selected face’s em and retains negative
+side bearings in the cell calculation, so italic letters can tuck closer
+together. The default space is 20% of an em and negative bearings are clamped.
+Body and ruby use their respective font sizes.
+
 After measurement, Track leaves at least 2 script pixels between neighboring
 horizontal ink bounds with hard outlines. Use `min_outline_gap=4` for more
 separation, zero to allow touching outlines, or `None` to skip this adjustment.

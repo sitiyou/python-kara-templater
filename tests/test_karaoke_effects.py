@@ -450,25 +450,26 @@ def test_compact_ass_preserves_ruby_via_scene_compilation(tmp_path):
     assert [row.serialize() for row in Document.load(path).lines] == expected
 
 
-def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings():
+@pytest.mark.parametrize("rtl", [False, True])
+def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
     from kara_templater import Glow, LyricHighlights, StatePatch
 
     doc = Document.create(styles=(Style(fontname="DejaVu Sans", outline=1),))
-    doc.records.append(Line(text=r"{\k100}AA|aa", start_time=1000, end_time=2000))
+    doc.records.append(Line(text=r"{\k100}jA|ja", start_time=1000, end_time=2000))
     rim = LyricHighlights.from_singing(
         StatePatch(border=6), base_glow=Glow(Color(255, 255, 255), border=20, blur=8)
     )
     tracks = (
-        Track(id="ink", effects=(rim,), min_outline_gap=3),
-        Track(id="face", reserved_border=6, min_outline_gap=3),
-        Track(id="raw", min_outline_gap=None),
+        Track(right_to_left=rtl, id="ink", effects=(rim,), min_outline_gap=3),
+        Track(right_to_left=rtl, id="face", reserved_border=6, min_outline_gap=3),
+        Track(right_to_left=rtl, id="raw", min_outline_gap=None),
     )
     ink, face, raw = prepare_tracks(doc, tracks=tracks).lines
     for painted, aligned, original in (
         (ink.layout.body, face.layout.body, raw.layout.body),
         (ink.layout.ruby[0].layout, face.layout.ruby[0].layout, raw.layout.ruby[0].layout),
     ):
-        a, b = painted.characters
+        a, b = sorted(painted.characters, key=lambda g: g.bounds.left)
         assert a.ink_bounds and b.ink_bounds
         assert b.ink_bounds.left - a.ink_bounds.right == pytest.approx(6 + 3 + 6)
         assert painted.bounds == aligned.bounds
@@ -477,10 +478,11 @@ def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings():
         assert [c.bounds for c in painted.characters] == [c.bounds for c in aligned.characters]
 
 
-def test_duotone_compact_wipes_both_inks_in_one_letter(tmp_path):
+@pytest.mark.parametrize("reverse", (False, True))
+def test_duotone_compact_wipes_both_inks_in_one_letter(tmp_path, reverse):
     from kara_templater._raster import rasterize
 
-    recipe = KaraokeEffects.duotone()
+    recipe = replace(KaraokeEffects.duotone(), reverse_wipe=reverse)
     doc = Document.create(
         width=320,
         height=180,
@@ -509,6 +511,12 @@ def test_duotone_compact_wipes_both_inks_in_one_letter(tmp_path):
         assert color is not None
         rgb = (color.red, color.green, color.blue)
         assert rgb not in before and rgb in middle and rgb in after
+    rgba = rasterize(script, 2000, (320, 180)).rgba
+    def columns(color):
+        ink = bytes((color.red, color.green, color.blue, 255))
+        return [i // 4 % 320 for i in range(0, len(rgba), 4) if rgba[i:i + 4] == ink]
+    left, right = (recipe.unsung, recipe.sung) if reverse else (recipe.sung, recipe.unsung)
+    assert max(columns(left)) < min(columns(right))
     # O has solid horizontal strokes across the front at its top and bottom.
     # A sharp clip yields only endpoint inks there; a wide wipe has interior inks.
     weights = [i / 16 for i in (3, 5, 7, 9, 11, 13)]
@@ -556,15 +564,15 @@ def test_compact_duotone_preserves_separately_timed_readings(tmp_path):
         assert all(rf"\t({start - origin},{end - origin}," in p for p in parts)
 
 
-@pytest.mark.parametrize("gradient", [False, True])
-def test_scanline_retains_the_glyph_outline_and_inward_feather(gradient):
+@pytest.mark.parametrize(("gradient", "reverse"), [(False, False), (True, False), (True, True)])
+def test_scanline_retains_the_glyph_outline_and_inward_feather(gradient, reverse):
     from kara_templater import LyricGradient
     from kara_templater._raster import rasterize
 
     def script(singing):
         return subject(
             text=r"{\k50}H{\k50}Q", entry="none", exit="none", singing=singing,
-            scanline_width=16, scanline_softness=6, scanline_color=Color(16, 100, 232),
+            scanline_width=16, scanline_softness=6, scanline_color=Color(16, 100, 232), reverse_wipe=reverse,
             material=LyricGradient((Color(244, 20, 70), Color(120, 70, 255))) if gradient else None,
         ).compile(native_tweens=True).document.dumps()
 
@@ -856,12 +864,13 @@ def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass(tmp_path,
     (r"{\k25}W|a{\k0}#|a{\k0}#|a{\k25}#|a", 1250),
     (r"{\k50}W|a{\k0}#|a", 1500),
 ])
-def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, jump_ms):
+@pytest.mark.parametrize("reverse", (False, True))
+def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, jump_ms, reverse):
     from kara_templater._raster import rasterize
 
     doc = Document.create(width=640, height=360, styles=(Style(fontname="DejaVu Sans", fontsize=50),))
     doc.records.append(Line(start_time=1000, end_time=1500, text=text))
-    recipe = KaraokeEffects(entry="none", exit="none", singing="none", sung=Color(255, 0, 0),
+    recipe = KaraokeEffects(entry="none", exit="none", singing="none", reverse_wipe=reverse, sung=Color(255, 0, 0),
                             unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
     scene = prepare_tracks(doc, tracks=(Track(id="main", preview=0, tail=1, effects=(recipe,)),))
     compact = tmp_path / "lyric.ass"
@@ -1035,3 +1044,81 @@ def test_scanline_front_reaches_outgoing_stroke_before_entering_next_letter():
             and (mask := node.clip.deform.sample(t - node.time_origin))
         ]
         assert centers == pytest.approx([expected])
+
+
+def test_track_reverses_windows_before_cues_readings_and_rule_binding(tmp_path):
+    from kara_templater import CueMarker, CuePreset, SignalCue
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=40),))
+    prefix = CueMarker("count", "lead", placement="independent").markup()
+    words = r"{\k50}{\k25}A|a{\k50}#|b{\kt150\k75}B"
+    for start, actor in [(1000, "reverse"), (5000, "forward")]:
+        doc.records.append(Line(text=prefix + words, start_time=start,
+                                end_time=start + 2250, actor=actor))
+    recipe = KaraokeEffects(entry="none", exit="none", singing="none")
+    scene = prepare_tracks(doc, tracks=(Track(
+        id="main", reverse_timing=lambda source: source.actor == "reverse",
+        effects=(recipe,), cues={"lead": CuePreset(factory=SignalCue())},
+    ),))
+    reverse, forward = scene.lines
+    for line in (reverse, forward):
+        assert line.layout.body.source.text == "AB"
+    assert not reverse.layout.ruby
+    assert [g.object.text for r in forward.layout.ruby for g in r.layout.characters] == ["a", "b"]
+    def windows(line):
+        return [(s.start, s.end) for target in line.query("character") for s in target.singing]
+    assert windows(reverse) == [(2.5, 3.25), (1.5, 2.25)]
+    assert windows(forward) == [(5.5, 5.75), (5.75, 6.25), (6.5, 7.25)]
+    assert reverse.independent[0].lifetime.end == 1.5
+    assert forward.independent[0].lifetime.end == 5.5
+    assert scene.plans[0].source.lyrics.units[-1].segments[0].singing.start == 2.5
+    assert scene.compile(native_tweens=True).event_count > 0
+    scene.export_compact_ass(tmp_path / "reverse.ass")
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_rtl_cells_keep_glyphs_upright_and_wipe_from_the_first_sung_side(tmp_path, reverse):
+    from kara_templater._raster import rasterize
+
+    doc = Document.create(width=320, height=180, styles=(Style(fontname="DejaVu Sans", fontsize=56),))
+    doc.records.append(Line(text=r"{\k50}H{\k100}O", start_time=1000, end_time=2500))
+    recipe = KaraokeEffects(entry="none", exit="none", singing="none", sung=Color(255, 0, 0))
+    scene = prepare_tracks(doc, tracks=(Track(id="main", right_to_left=True, reverse_timing=reverse,
+                                               effects=(recipe,)),))
+    line, = scene.lines
+    first, second = line.layout.body.characters
+    assert first.object.text == "H" and first.bounds.left > second.bounds.left
+    assert first.object.state.scale.x > 0 and second.object.state.scale.x > 0
+    path = tmp_path / "compact.ass"
+    scene.export_compact_ass(path)
+    for script in (scene.compile(native_tweens=True).document.dumps(), path.read_text(encoding="utf-8-sig")):
+        rgba = rasterize(script, 1250, (320, 180)).rgba
+        pixels = list(zip(rgba[::4], rgba[1::4], rgba[2::4], rgba[3::4], strict=True))
+        red = [i % 320 for i, c in enumerate(pixels) if c == (255, 0, 0, 255)]
+        white = [i % 320 for i, c in enumerate(pixels) if c == (255, 255, 255, 255)]
+        if reverse:
+            assert max(red) < min(white)
+        else:
+            assert max(white) < min(red)
+
+
+@pytest.mark.parametrize(("phase", "time"), [("entry", 0.14), ("exit", 2.66)])
+def test_drip_keeps_measured_cell_edge_stationary(phase, time):
+    from kara_templater import Vec2
+
+    def scene(effect):
+        recipe = KaraokeEffects(**{phase: effect}, singing="none")
+        doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=64, italic=True),))
+        doc.records.append(Line(text=r"{\k100}j", start_time=1000, end_time=2000))
+        return prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=True, preview=1, tail=0.8,
+                                                 effects=(recipe,)),))
+
+    animated, steady = scene("char_drip"), scene("none")
+    glyph, = animated.lines[0].layout.body.characters
+    target, = animated.lines[0].query("character")
+    right = (glyph.bounds.right - glyph.object.state.position.x) / glyph.object.state.scale.x
+    point = Vec2(right, 0)
+    a = animated.evaluator().at(target.node_id, time)
+    b = steady.evaluator().at(target.node_id, time)
+    assert abs(a.transform.b - b.transform.b) > 0.1
+    assert a.transform.apply(point).y == pytest.approx(b.transform.apply(point).y)

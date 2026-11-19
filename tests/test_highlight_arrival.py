@@ -184,3 +184,16 @@ def test_nonlinear_pause_inverse_returns_first_crossing_at_plateau():
     assert span.arrival(60) == pytest.approx(1.8)
     assert span.front(1.4) == pytest.approx(20)
     assert span.front(1.8) == pytest.approx(60)
+
+
+def test_reverse_pass_owns_the_suffix_and_reaches_the_last_character_first():
+    _, line = source()
+    red = highlights(line)[0]
+    span = replace(red.passes[0], reverse=True)
+    reverse = replace(red, passes=(span,))
+    assert reverse.regions(1.5) == (Region(span.region.center, span.region.right),)
+    anchor = HighlightArrival(highlights=(reverse,))
+    left, right = (anchor(line, target)[0] for target in line.query("character"))
+    assert right.start == 1
+    assert right.end == pytest.approx(left.start)
+    assert left.end == 2

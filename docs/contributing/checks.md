@@ -60,3 +60,10 @@ artifacts to an explicit ignored build directory. Include only curated preview
 media in user documentation, not iterative validation histories.
 
 See [release builds](releasing.md) for clean-source and installed-package checks.
+
+
+For Studio frame comparisons, match the measured font em on both renderers
+before registering images at rest. Use one fixed registration for the line.
+For sampled ASS also compare against the reference at the emitted interval’s
+midpoint. A separate comparison at the playback timestamp measures the
+visible sampling error. See [font sizing](../guides/fonts-and-preview.md#match-a-karaoke-studio-font-size).

@@ -399,7 +399,7 @@ vec4 hook() {
                 float t=(float(index)-item(sweep))/(item(sweep+1)-item(sweep));
                 rect=mix(rect,vec4(pairAt(sweep+2),pairAt(sweep+4)),t);
             }
-            edgeDistance=rect.z-pos.x;
+            edgeDistance=min(pos.x-rect.x,rect.z-pos.x);
             if(any(lessThan(pos,rect.xy)) || any(greaterThanEqual(pos,rect.zw))) continue;
         }
         vec2 mask=pairAt(g+4)+clamp(uv,vec2(0.5),size-0.5);

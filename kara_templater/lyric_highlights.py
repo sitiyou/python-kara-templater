@@ -133,7 +133,9 @@ def _resolve_glow(
 
 @dataclass(frozen=True)
 class HighlightPass:
-    """One left-to-right pass, with absolute seconds and measured line-local x.
+    """One horizontal pass, with absolute seconds and measured line-local x.
+
+    reverse starts the front at the right edge and grows ownership to the left.
 
     round identifies repeat groups; reset discards previous rounds. rate receives
     normalized progress. Declared breakpoints are seconds from the pass start.
@@ -146,6 +148,10 @@ class HighlightPass:
     rate: Callable[[float], float] = linear_rate
     breakpoints: tuple[float, ...] = ()
     inverse_rate: Callable[[float], float] | None = None
+    reverse: bool = False
+
+    def _edges(self, region: Region) -> tuple[float, float]:
+        return (region.right, region.left) if self.reverse else (region.left, region.right)
 
     def __post_init__(self) -> None:
         finite(*self.breakpoints)
@@ -158,17 +164,16 @@ class HighlightPass:
 
     def front(self, time: float) -> float:
         """Return the line-local front coordinate at absolute Scene seconds."""
+        start, end = self._edges(self.region)
         if self.time.duration == 0:
-            return self.region.left if time < self.time.start else self.region.right
-        value = (
-            0
-            if time <= self.time.start
-            else 1
-            if time >= self.time.end
-            else self.rate((time - self.time.start) / self.time.duration)
-        )
+            return start if time < self.time.start else end
+        if time <= self.time.start:
+            return start
+        if time >= self.time.end:
+            return end
+        value = self.rate((time - self.time.start) / self.time.duration)
         finite(value)
-        return self.region.left + self.region.width * max(0, min(1, value))
+        return start + (end - start) * max(0, min(1, value))
 
     def arrival(self, x: float) -> float | None:
         """Return an exact crossing clock using a declared monotone inverse.
@@ -180,7 +185,8 @@ class HighlightPass:
             return None
         if self.time.duration == 0:
             return self.time.start
-        progress = (x - self.region.left) / self.region.width
+        start, end = self._edges(self.region)
+        progress = (x - start) / (end - start)
         if self.inverse_rate is not None:
             fraction = self.inverse_rate(progress)
         elif self.rate is linear_rate:
@@ -234,7 +240,9 @@ class Highlight:
         if self.repeat == "reset" and started:
             started = tuple(span for span in started if span.round == started[-1].round)
         return union_regions(
-            Region(span.region.left, span.front(time)) for span in started
+            (Region(span.front(time), span.region.right) if span.reverse
+             else Region(span.region.left, span.front(time)))
+            for span in started
         )
 
 
@@ -244,19 +252,21 @@ class _SingingHighlights:
     glow: LyricGlow
     material: LyricMaterial = None
     wipe: bool = True
+    reverse: bool = False
 
     def interval(self, start: float, end: float) -> TimeSpan:
         return TimeSpan(start if self.wipe else end, end)
 
     def _passes(self, unit: LyricUnit, region: Region) -> tuple[HighlightPass, ...]:
         if self.wipe:
-            return tuple(
-                HighlightPass(self.interval(span.start, span.end),
-                              Region(region.left + region.width * a,
-                                     region.right if b == 1 else region.left + region.width * b),
-                              round=i if a == 0 else 0)
-                for i, (span, a, b) in enumerate(unit._body_parts())
-            )
+            passes = []
+            for i, (span, a, b) in enumerate(unit._body_parts()):
+                start, end = (1 - b, 1 - a) if self.reverse else (a, b)
+                bounds = Region(region.left + region.width * start,
+                                region.right if end == 1 else region.left + region.width * end)
+                passes.append(HighlightPass(self.interval(span.start, span.end), bounds,
+                                            round=i if a == 0 else 0, reverse=self.reverse))
+            return tuple(passes)
         return tuple(HighlightPass(self.interval(span.start, span.end), region, round=i)
                      for i, span in enumerate(unit._body_singing()))
 
@@ -265,7 +275,9 @@ class _SingingHighlights:
             return highlight
         clock = target._reading_span if self.wipe and target._reading_span else target.singing[0]
         interval = self.interval(clock.start, clock.end)
-        return replace(highlight, passes=(HighlightPass(interval, Region(highlight.passes[0].region.left, highlight.passes[-1].region.right)),))
+        region = Region(min(p.region.left for p in highlight.passes),
+                        max(p.region.right for p in highlight.passes))
+        return replace(highlight, passes=(HighlightPass(interval, region, reverse=self.reverse),))
 
     def __call__(self, line: LyricLine) -> tuple[Highlight, ...]:
         return tuple(
@@ -382,12 +394,13 @@ class _Ownership:
 
     @property
     def clip_regions(self) -> int:
-        # A single front starting at the body's left edge always owns a prefix;
-        # its complement is one suffix, including reset and hidden intervals.
-        if len(self.highlights) == 1 and all(
-            span.region.left <= self.body.left for span in self.highlights[0].passes
-        ):
-            return 1
+        # Unions of prefixes (or suffixes) and their complements stay contiguous.
+        if len(self.highlights) == 1:
+            passes = self.highlights[0].passes
+            if all(not p.reverse and p.region.left <= self.body.left for p in passes) or all(
+                p.reverse and p.region.right >= self.body.right for p in passes
+            ):
+                return 1
         return self.max_regions + (self.owner is None)
 
     def local_regions(self, time: float) -> tuple[Region, ...]:
@@ -435,31 +448,34 @@ class _Ownership:
         left = (self.drawing.left - self.glyph_left) / self.scale
         right = (self.drawing.right - self.glyph_left) / self.scale
 
+        origin, finish = (right, left) if span.reverse else (left, right)
+        sign = -1 if span.reverse else 1
         def bounds(edge: float) -> tuple[float, float, float, float]:
             return (
                 (edge, -65536, 65536, 65536)
-                if self.owner is None
+                if (self.owner is None) != span.reverse
                 else (-65536, -65536, edge, 65536)
             )
 
         if start == end:
             return RectangleKeyframes(
-                ((start, bounds(left - padding)), (end, bounds(right + padding)))
+                ((start, bounds(origin - sign * padding)), (end, bounds(finish + sign * padding)))
             )
-        keys = [(start, bounds(left + feather / 2))]
+        keys = [(start, bounds(origin + sign * feather / 2))]
         for part in passes:
-            edge = left + (right - left) * (part.region.right - self.body.left) / self.body.width
+            _, destination = part._edges(part.region)
+            edge = left + (right - left) * (destination - self.body.left) / self.body.width
             t = part.time.end + self.shift - self.birth
-            key = (t, bounds(edge + feather / 2))
+            key = (t, bounds(edge + sign * feather / 2))
             # Consecutive zero-length checkpoints collapse into one visible jump.
             if len(keys) >= 2 and keys[-2][0] == t:
                 keys[-1] = key
             else:
                 keys.append(key)
         approach = max(-self.birth, start - _EDGE_SECONDS)
-        approach_keys = ((approach, bounds(left - padding)),) if approach < start else ()
+        approach_keys = ((approach, bounds(origin - sign * padding)),) if approach < start else ()
         return RectangleKeyframes((*approach_keys, *keys,
-                                   (end + _EDGE_SECONDS, bounds(right + padding))))
+                                   (end + _EDGE_SECONDS, bounds(finish + sign * padding))))
 
     def world_regions(self, state: VisualState, time: float) -> tuple[Region, ...]:
         if state.rotation % 360 or state.skew.x or state.scale.x <= 0:
@@ -546,6 +562,7 @@ class LyricHighlights:
         paint: StatePatch,
         *,
         wipe: bool = True,
+        reverse: bool = False,
         glow: LyricGlow = None,
         base_glow: LyricGlow = None,
         base_paint: StatePatch | None = None,
@@ -558,6 +575,7 @@ class LyricHighlights:
     ) -> LyricHighlights:
         """Sweep source singing across body/ruby without authoring clip geometry.
 
+        With reverse=True, each timed unit fills from its right edge.
         With wipe=False, each timed unit switches paint at completion.
         Singing progress uses undecorated measured text bounds. For a single
         linear interval in clip mode, outline/glow margins are traversed in
@@ -577,7 +595,7 @@ class LyricHighlights:
         to reveal text instead of recoloring an already visible baseline.
         """
         return cls(
-            highlights=_SingingHighlights(paint, glow, material, wipe),
+            highlights=_SingingHighlights(paint, glow, material, wipe, reverse),
             glow=base_glow,
             base_material=base_material,
             hook_feather=hook_feather,
@@ -994,6 +1012,9 @@ class HighlightArrival:
             drawing = ruby.layout.bounds
         if not drawing.width or not box.width:
             return ()
+        start_offset, end_offset = siblings[0].start, siblings[-1].end
+        if parent._right_to_left:
+            siblings = tuple(reversed(siblings))
         index = siblings.index(character)
         left = drawing.left if index == 0 else character.bounds.left
         right = (
@@ -1003,7 +1024,7 @@ class HighlightArrival:
         )
         if isinstance(self.highlights, _SingingHighlights):
             drawing = parent._sweep_bounds(
-                siblings[0].start, siblings[-1].end, character
+                start_offset, end_offset, character
             )
             right = (
                 siblings[index + 1].bounds.left
@@ -1022,9 +1043,6 @@ class HighlightArrival:
             box.left + (left - drawing.left) * box.width / drawing.width,
             box.left + (right - drawing.left) * box.width / drawing.width,
         )
-        x = {"enter": region.left, "center": region.center, "complete": region.right}[
-            self.threshold
-        ]
         highlights = (
             self.highlights
             if isinstance(self.highlights, tuple)
@@ -1038,15 +1056,19 @@ class HighlightArrival:
         candidates: list[tuple[float, str, int, float]] = []
 
         def arrivals(
-            passes: tuple[HighlightPass, ...], point: float, threshold: str
+            passes: tuple[HighlightPass, ...], threshold: str
         ) -> tuple[float, ...]:
-            return tuple(
-                time
-                for span in passes
-                if not (threshold == "enter" and point == span.region.right)
-                and not (threshold == "complete" and point == span.region.left)
-                if (time := span.arrival(point)) is not None
-            )
+            times = []
+            for span in passes:
+                entry, exit = span._edges(region)
+                start, end = span._edges(span.region)
+                point = {"enter": entry, "center": region.center, "complete": exit}[threshold]
+                if (threshold == "enter" and point == end) or (threshold == "complete" and point == start):
+                    continue
+                time = span.arrival(point)
+                if time is not None:
+                    times.append(time)
+            return tuple(times)
 
         for highlight in highlights:
             if highlight.unit != unit_index or (
@@ -1059,11 +1081,11 @@ class HighlightArrival:
                 passes = tuple(
                     span for span in highlight.passes if span.round == round_id
                 )
-                times = arrivals(passes, x, self.threshold)
+                times = arrivals(passes, self.threshold)
                 if not times:
                     continue
-                enters = arrivals(passes, region.left, "enter")
-                exits = arrivals(passes, region.right, "complete")
+                enters = arrivals(passes, "enter")
+                exits = arrivals(passes, "complete")
                 duration = self.duration
                 if duration is None:
                     if not enters or not exits:

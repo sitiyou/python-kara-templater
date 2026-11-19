@@ -11,7 +11,14 @@ from .geometry import Contour, CubicSegment, LineSegment, Vec2, VectorPath, fini
 from .lyric_highlights import LyricGradient
 from .path_geometry import flatten, stroke
 from .scene import Lifetime, ObjectGroup, PathObject, RectangleClip, RectangleKeyframes
-from .scene_animation import AnimationClip, FadeOut, StatePatch, Tween, VisualState
+from .scene_animation import (
+    AnimationClip,
+    FadeOut,
+    StatePatch,
+    Transform,
+    Tween,
+    VisualState,
+)
 
 
 def _rounded(width: float, height: float, radius: float) -> VectorPath:
@@ -123,6 +130,18 @@ def _decorated_shape(
     return backing, replace(shape, state=replace(shape.state, shadow=Vec2()))
 
 
+def _volume_flash(start: float, cycle: float, transition: float) -> tuple[AnimationClip, ...]:
+    if transition == 0:
+        # A hard flash goes dark for the middle half of each cycle.
+        return (AnimationClip(start + cycle / 4, cycle / 2, Transform(opacity=0), hold=False),)
+    # Studio's triangular pulse starts fading one sixth into the cycle.
+    fade = cycle * transition / (6 * 0.67)
+    return (
+        AnimationClip(start + cycle / 6, fade, Tween(StatePatch(opacity=0))),
+        AnimationClip(start + cycle * 5 / 6 - fade, fade, Tween(StatePatch(opacity=1))),
+    )
+
+
 @dataclass(frozen=True, kw_only=True)
 class VolumeCue:
     """Descending inline columns. Flash together, then fill from left to right.
@@ -130,7 +149,8 @@ class VolumeCue:
     The cue ends at its declared lifetime. count sets the column count; flashes
     sets the number of group pulses before the final fill. Each pulse and the
     fill get equal time by default; flash_ratio scales the length of each pulse
-    relative to the fill. ratio is first-to-last column height and spacing is
+    relative to the fill. transition controls the softness of each flash from 0
+    (hard blink) to 1. ratio is first-to-last column height and spacing is
     additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
     and idle before the active portion. height and border use script pixels. Omit height for half the host font’s measured em size.
     An omitted border scales the host outline, capped at a quarter of the column width.
@@ -141,6 +161,7 @@ class VolumeCue:
     border: float | None = None
     flashes: int = 3
     flash_ratio: float = 1
+    transition: float = 0.67
     ratio: float = 3
     spacing: float = 0
     countdown: float | None = None
@@ -149,7 +170,9 @@ class VolumeCue:
     outline: Color | None = None
 
     def __post_init__(self) -> None:
-        finite(self.flash_ratio, self.ratio, self.spacing)
+        finite(self.flash_ratio, self.transition, self.ratio, self.spacing)
+        if not 0 <= self.transition <= 1:
+            raise ValueError("transition must be between 0 and 1")
         for dimension in (self.height, self.border):
             if dimension is not None:
                 finite(dimension)
@@ -182,13 +205,9 @@ class VolumeCue:
         cycle = fill * self.flash_ratio
         idle = duration - active
         flashes = tuple(
-            AnimationClip(
-                idle + cycle * (i + phase),
-                cycle / 6,
-                Tween(StatePatch(opacity=opacity)),
-            )
+            clip
             for i in range(self.flashes if cycle else 0)
-            for phase, opacity in ((1 / 6, 0), (2 / 3, 1))
+            for clip in _volume_flash(idle + cycle * i, cycle, self.transition)
         )
         size = _cue_size(self.height, context)
         width = max(1, floor(size / 4 + 0.5))
@@ -330,7 +349,8 @@ class SignalCue:
 
     size is the side of a lamp in script pixels, defaulting to half the host font’s measured em size. Each lamp fades over the last
     transition fraction of its step. Pass a custom path in the unit square to
-    use a drawn symbol with the same layout and clock.
+    use a drawn symbol with the same layout and clock. spacing adds script pixels between lamps.
+    Set countdown in seconds to keep all lamps lit before the active steps.
     """
 
     shape: (
@@ -339,6 +359,8 @@ class SignalCue:
     ) = "circle"
     direction: Literal["left_to_right", "right_to_left"] = "right_to_left"
     size: float | None = None
+    spacing: float = 0
+    countdown: float | None = None
     transition: float = 0.67
     slide: Vec2 = Vec2()
     color: Color | None = None
@@ -353,7 +375,13 @@ class SignalCue:
             finite(self.size)
         if self.border is not None:
             finite(self.border)
-        finite(self.transition, self.edge_brightness)
+        finite(self.transition, self.edge_brightness, self.spacing)
+        if self.spacing < 0:
+            raise ValueError("spacing must be nonnegative")
+        if self.countdown is not None:
+            finite(self.countdown)
+            if self.countdown <= 0:
+                raise ValueError("countdown must be positive")
         if (
             (self.size is not None and self.size <= 0)
             or not 0 <= self.transition <= 1
@@ -411,13 +439,20 @@ class SignalCue:
         host = context.host
         shadow = host.state.shadow * (size / _host_em(context)) if host else Vec2()
         nodes = []
-        count = len(context.steps) - 1
+        steps = context.steps
+        cue_end = context.lifetime.end
+        duration = cue_end - context.lifetime.start
+        if self.countdown is not None and self.countdown < duration:
+            steps = tuple(cue_end - (cue_end - t) * self.countdown / duration for t in steps)
+        count = len(steps) - 1
+        pitch = size * 1.5 + self.spacing
+        group_width = size + (count - 1) * pitch
         for i, (start, end) in enumerate(
-            zip(context.steps[:-1], context.steps[1:], strict=True)
+            zip(steps[:-1], steps[1:], strict=True)
         ):
             fade = (end - start) * self.transition
             slot = i if self.direction == "left_to_right" else count - 1 - i
-            origin = Vec2(slot * size * 1.5, 0)
+            origin = Vec2(slot * pitch, 0)
             exit_motion = (
                 Tween(StatePatch(position=origin + self.slide, opacity=0))
                 if self.slide != Vec2()
@@ -442,7 +477,7 @@ class SignalCue:
                 # All slots keep their original colors as the countdown shrinks.
                 left, right = (0.0, size)
                 if gradient.axis == "x":
-                    left, right = -origin.x, size * (1 + (count - 1) * 1.5) - origin.x
+                    left, right = -origin.x, group_width - origin.x
                 shape = _gradient_shape(shape, gradient, size, size, left, right)
             children = list(
                 _decorated_shape(shape, context.colors.after, size, size, context)
@@ -488,4 +523,4 @@ class SignalCue:
                     else (),
                 )
             )
-        return CueContent(tuple(nodes), size * (1 + (count - 1) * 1.5), size)
+        return CueContent(tuple(nodes), group_width, size)

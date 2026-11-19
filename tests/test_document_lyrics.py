@@ -256,3 +256,26 @@ def test_studio_ruby_shares_spare_width_by_script(reading, spread):
     assert spare > 0
     assert ruby.layout.bounds.center == pytest.approx(layout.body.bounds.center)
     assert second.bounds.left - first.bounds.right == pytest.approx(spare / 3 if spread else 0)
+
+
+def test_studio_spacing_uses_selected_em_and_preserves_overhanging_ink():
+    from kara_templater import StudioSpacing, Track, prepare_tracks
+
+    doc, _ = document(r"{\k100}j f|j f")
+    doc.styles["Default"].italic = True
+    def measured(settings):
+        scene = prepare_tracks(doc, tracks=(Track(id="main", min_outline_gap=None, studio_spacing=settings),))
+        return scene.lines[0].layout
+
+    default = measured(True)
+    adjusted = measured(StudioSpacing(allow_biting=True, space_width_percent=50))
+    for before, after in ((default.body, adjusted.body),
+                          (default.ruby[0].layout, adjusted.ruby[0].layout)):
+        j, space, f = after.characters
+        assert space.bounds.width == round(space.em_size) // 2
+        assert space.bounds.width > before.characters[1].bounds.width
+        assert j.bounds.width < before.characters[0].bounds.width
+        assert j.ink_bounds and before.characters[0].ink_bounds
+        assert j.ink_bounds.width == before.characters[0].ink_bounds.width
+        assert f.start == before.characters[2].start
+        assert after.singing == before.singing

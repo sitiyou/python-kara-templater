@@ -2,6 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
+from math import floor
 
 from .ass import Document, Line, Style
 from .characters import LayoutCapabilityError
@@ -13,6 +14,23 @@ from .scene import Lifetime, ObjectGroup
 from .scene_animation import VisualState
 from .scene_text import DocumentLayout, PositionedText, _layout_document_view, _union
 from .sources import EventOrigin, SourceRef
+
+
+@dataclass(frozen=True, kw_only=True)
+class StudioSpacing:
+    """Studio lyric cell metrics for the body and its readings.
+
+    space_width_percent sets an ASCII space's width as a percentage of the
+    selected font em (10 to 100). allow_biting includes negative side bearings
+    when measuring overhanging glyphs. Hard-outline clearance applies afterward.
+    """
+
+    space_width_percent: int = 20
+    allow_biting: bool = False
+
+    def __post_init__(self) -> None:
+        if type(self.space_width_percent) is not int or not 10 <= self.space_width_percent <= 100:
+            raise ValueError("space_width_percent must be an integer from 10 to 100")
 
 
 @dataclass(frozen=True)
@@ -99,7 +117,17 @@ def _shift(item: PositionedText, dx: float, dy: float = 0) -> PositionedText:
     )
 
 
-def _studio_cells(layout: DocumentLayout) -> DocumentLayout:
+def _rtl_cells(layout: DocumentLayout, axis: float) -> DocumentLayout:
+    """Reflect cell centers across the line, keeping each shaped glyph upright."""
+    characters = tuple(
+        replace(_shift(item, 2 * (axis - item.bounds.center)), _gap_shift=-item._gap_shift)
+        for item in layout.characters
+    )
+    return replace(layout, characters=characters, _right_to_left=True,
+                   bounds=replace(layout.bounds, left=2 * axis - layout.bounds.right))
+
+
+def _studio_cells(layout: DocumentLayout, settings: StudioSpacing) -> DocumentLayout:
     """Measure N3 character cells around the ink of each already-shaped cluster."""
     x = layout.bounds.left
     characters = []
@@ -110,14 +138,21 @@ def _studio_cells(layout: DocumentLayout) -> DocumentLayout:
         edge = round(2 * item.object.state.border)
         if ink is None:
             em = round(item.em_size * scale)
-            width = em // 5 if item.object.text == " " else em // 2 + edge
+            percent = settings.space_width_percent
+            width = em * percent // 100 if item.object.text == " " else em * percent * 25 // 1000 + edge
             dx = x - item.bounds.left
         else:
             advance = max(1, round(item.bounds.width - spacing))
-            left = max(0, int(ink.left - item.bounds.left))
-            right = max(0, int(item.bounds.right - spacing - ink.right))
-            width = int(ink.width) * (advance + left + right) // advance + edge
-            dx = x + int(ink.width) * left // advance + edge / 2 - ink.left
+            # A single glyph's pixel bearings include any partial overhang.
+            # Studio falls back to truncating path bounds for a shaped cluster.
+            bearing = floor if len(item.object.text) == 1 else int
+            left = bearing(ink.left - item.bounds.left)
+            right = bearing(advance - (ink.right - item.bounds.left))
+            if not settings.allow_biting:
+                left, right = max(left, 0), max(right, 0)
+            ink_width = int(ink.width)
+            width = max(0, int(ink_width * (advance + left + right) / advance)) + edge
+            dx = x + int(ink_width * left / advance) + edge / 2 - ink.left
         placed = _shift(item, dx)
         bounds = replace(item.bounds, left=x, width=width)
         characters.append(replace(placed, bounds=bounds))
@@ -132,6 +167,7 @@ def _clear_outlines(
     layout: DocumentLayout,
     gap: float | None,
     reserved_border: float,
+    right_to_left: bool,
 ) -> DocumentLayout:
     if gap is None:
         return layout
@@ -142,6 +178,9 @@ def _clear_outlines(
     for item in layout.characters:
         ink = item.ink_bounds
         if ink is not None:
+            if right_to_left:
+                # The cell will move across the row but the ink stays upright.
+                ink = replace(ink, left=2 * item.bounds.center - ink.right)
             border = max(reserved_border, item.object.state.border)
             if previous_edge is not None and (border or previous_border):
                 shift = max(shift, previous_edge + gap - (ink.left - border))
@@ -264,7 +303,8 @@ def layout_document_lyrics(
     id: str | None = None,
     display: Lifetime | None = None,
     ruby_gap: float = 6,
-    studio_spacing: bool = False,
+    studio_spacing: bool | StudioSpacing = False,
+    right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout:
@@ -286,6 +326,7 @@ def layout_document_lyrics(
         else display,
         ruby_gap=ruby_gap,
         studio_spacing=studio_spacing,
+        right_to_left=right_to_left,
         min_outline_gap=min_outline_gap,
         reserved_border=reserved_border,
     )
@@ -298,7 +339,8 @@ def layout_lyrics(
     id: str,
     display: Lifetime,
     ruby_gap: float = 6,
-    studio_spacing: bool = False,
+    studio_spacing: bool | StudioSpacing = False,
+    right_to_left: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout:
@@ -362,9 +404,10 @@ def layout_lyrics(
     body = _layout_document_view(
         document, lyrics.body, record_index, id=id, display=display, singing=singing
     )
-    if studio_spacing:
-        body = _studio_cells(body)
-    body = _clear_outlines(body, min_outline_gap, reserved_border)
+    cells = StudioSpacing() if studio_spacing is True else studio_spacing
+    if cells:
+        body = _studio_cells(body, cells)
+    body = _clear_outlines(body, min_outline_gap, reserved_border, right_to_left)
     rubies: list[PositionedRuby] = []
     for ui, unit in enumerate(lyrics.units):
         for si, segment in enumerate(unit.segments):
@@ -385,9 +428,9 @@ def layout_lyrics(
                     ),
                 ),
             )
-            if studio_spacing:
-                layout = _studio_cells(layout)
-            layout = _clear_outlines(layout, min_outline_gap, reserved_border)
+            if cells:
+                layout = _studio_cells(layout, cells)
+            layout = _clear_outlines(layout, min_outline_gap, reserved_border, right_to_left)
             origin = EventOrigin((SourceRef(body.id, ui, si),), "document ruby")
             layout = replace(
                 layout,
@@ -528,6 +571,10 @@ def layout_lyrics(
         characters=tuple(characters),
         bounds=_union(tuple(item.bounds for item in characters)),
     )
+    if right_to_left:
+        axis = body.bounds.center
+        body = _rtl_cells(body, axis)
+        rubies = [replace(r, layout=_rtl_cells(r.layout, axis)) for r in rubies]
     return LyricLayout(
         lyrics,
         body,

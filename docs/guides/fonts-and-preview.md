@@ -24,6 +24,27 @@ same nominal size can occupy different widths and look different in height.
 Apply the choice through [Track.styles](tracks.md#semantic-targets-and-appearance)
 before layout so text, ruby and inline cue positions use its measurements.
 
+## Match a Karaoke Studio font size
+
+Studio specifies the font’s em in pixels. ASS font size depends on the selected
+face’s vertical metrics. At the same script resolution and 100% text scale,
+divide the desired Studio size by the face’s measured `em_ratio`. For example,
+for a representative body character in an existing timed line:
+
+```python
+from kara_templater import layout_document_lyrics
+
+layout = layout_document_lyrics(document, record_index)
+glyph = next(g for g in layout.body.characters if g.fonts and g.object.text.strip())
+ass_size = studio_em_px / glyph.fonts[0].em_ratio
+```
+
+Use the result as the source style’s `fontsize` before laying out the track.
+Measure the ruby face separately if it differs from the body face. For Sarasa
+UI J in the comparison fixture, a 40 px Studio em corresponds to ASS size
+48.36. Other faces can give a different result. Small size differences can
+change an integer cell width by a pixel and accumulate along the line.
+
 ## Pair Japanese lyrics with a Chinese translation
 
 Start with the Japanese face and weight used for the song. Choose a Chinese

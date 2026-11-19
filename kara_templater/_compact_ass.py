@@ -39,6 +39,7 @@ def _wipe_clip(
     ink_right: float,
     wipe: bool,
     knots: _Knots,
+    reverse: bool = False,
 ) -> str:
     """Complementary native rectangular clips, including ink outside the advance."""
 
@@ -49,6 +50,9 @@ def _wipe_clip(
         return rf"\clip({x1},-65536,{x2},65536)"
 
     first, last = floor(min(left, ink_left)), ceil(max(right, ink_right))
+    if reverse:
+        left, right = right, left
+        first, last = last, first
     if not wipe or off == on:
         return rect(last) if on == 0 else rect(first) + rf"\t({on},{on},{rect(last)})"
     travel = (rect(first) + rf"\t({max(0, on - 20)},{on},{rect(round(left))})"
@@ -72,7 +76,7 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
     body = line.layout.body
     curves: dict[int, _Knots] = {}
     if line.layout.ruby:
-        if paint is None or paint.sung_outline is None:
+        if paint is None or (paint.sung_outline is None and not paint.reverse):
             return None
         for unit in line.layout.lyrics.units:
             spans = unit._body_singing()
@@ -123,13 +127,13 @@ def _layout_events(
     offset = 0
     pieces = []
     positioned: list[tuple[str, VisualState]] = []
-    dual = paint.sung_outline is not None
+    dual = paint.sung_outline is not None or paint.reverse or body._right_to_left
     split = dual or body._studio_spacing or any(c._gap_shift for c in body.characters)
     for span in body.singing:
         if span.start_offset == span.end_offset:
             continue
         on, off = round(span.start * 100), round(span.end * 100)
-        if span.start_offset != offset or on < cursor or off > end:
+        if span.start_offset != offset or on < start or (on < cursor and not dual) or off > end:
             return None
         if not paint.wipe:
             on = off
@@ -178,6 +182,7 @@ def _layout_events(
                             max(ink.right + dx + pad, extent.right + dx) + width / 2,
                             paint.wipe,
                             curves.get(offset, ((1, 1),)),
+                            paint.reverse,
                         )
                         fraction = (
                             1.0
@@ -186,6 +191,8 @@ def _layout_events(
                             if j > steps
                             else 1 - (j - 0.5) / steps
                         )
+                        if paint.reverse:
+                            fraction = 1 - fraction
                         weight = fraction * fraction * (3 - 2 * fraction)
                         fill = _mix(paint.unsung, paint.sung, weight)
                         outline = _mix(

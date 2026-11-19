@@ -133,7 +133,10 @@ with their visual clock.
 LyricHighlights binds named HighlightPass regions with union, priority or layered
 ownership. A Highlight carries a StatePatch and optional Glow; body/ruby glow
 factories may return different widths, colors or dynamic GlowFunction values.
-Each pass has explicit measured horizontal bounds and absolute seconds. Split a
+Each pass has explicit measured horizontal bounds and absolute seconds.
+Use `HighlightPass(time, region, reverse=True)` to sweep that region from right to left.
+`HighlightArrival` then triggers when the front reaches the right edge of each
+character. The text keeps its original position and reading order. Split a
 body region across several passes to keep a pause between adjacent portions, or
 reuse the whole region for a repeated traversal. A new `round` with `repeat="reset"`
 discards the previous round's coverage; `repeat="hold"` keeps completed regions.

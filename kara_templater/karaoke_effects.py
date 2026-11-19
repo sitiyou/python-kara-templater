@@ -340,10 +340,7 @@ def _reading_edges(line: LyricLine) -> dict[str, tuple[float, float]]:
     result = {}
     readings = ((r, g) for r in line.layout.ruby for g in r.layout.characters)
     for target, (reading, glyph) in zip(line.query("ruby"), readings, strict=True):
-        left, right = bounds[reading.unit_index]
-        x = glyph.object.state.position.x
-        assert glyph.layout_scale is not None
-        result[target.node_id] = ((left - x) / glyph.layout_scale.x, (right - x) / glyph.layout_scale.x)
+        result[target.node_id] = _line_x(glyph, *bounds[reading.unit_index])
     return result
 
 
@@ -588,6 +585,7 @@ def _sweeps(
     first_note: float | None,
     releases: dict[float, float],
     first_pixel: float = 0.5,
+    reverse: bool = False,
 ) -> tuple[_Sweep, ...]:
     if not bounds.width:
         return ()
@@ -595,6 +593,8 @@ def _sweeps(
     sweeps = []
     for span, a, b in parts:
         left, right = bounds.left + bounds.width * a, bounds.left + bounds.width * b
+        if reverse:
+            left, right = bounds.right - bounds.width * a, bounds.right - bounds.width * b
         start, end = span.start + delay, span.end + delay
         if end <= start:
             # A checkpoint jump has a release position for the next note.
@@ -612,7 +612,7 @@ def _sweeps(
         )
         if first_note == start and a == 0:
             # fill_clip_band is empty until the first rounded pixel of ink.
-            threshold = min(1.0, first_pixel / width)
+            threshold = min(1.0, first_pixel / abs(width))
             ticks = floor(100 * duration * threshold) + 1
             start = min(end, start + ticks / 100)
             left += width * (start - onset) / duration
@@ -759,6 +759,7 @@ class KaraokeEffects:
     entry: KaraokeEntry = "fade"
     exit: KaraokeExit = "fade"
     singing: KaraokeSinging = "utopia"
+    reverse_wipe: bool = False
     decoration: KaraokeDecoration = "none"
     entry_duration: float = 0.3
     exit_duration: float = 0.3
@@ -919,6 +920,7 @@ class KaraokeEffects:
         highlighter = LyricHighlights.from_singing(
             StatePatch(fill=self.sung, outline=self.sung_outline),
             wipe=self.singing != "no_wipe",
+            reverse=self.reverse_wipe,
             base_paint=StatePatch(fill=self.unsung, outline=self.unsung_outline),
             material=self.material,
             base_material=self.base_material,
@@ -1011,6 +1013,7 @@ class KaraokeEffects:
                 self.unsung_outline,
                 self.sung_outline,
                 self.hook_feather,
+                self.reverse_wipe,
             ),
         )
 
@@ -1065,17 +1068,18 @@ class KaraokeEffects:
             and sides[0].state.opacity == sides[1].state.opacity
         )
 
+        left_paint, right_paint = (before, after) if self.reverse_wipe else (after, before)
         def painted_slices() -> Iterator[
             tuple[float, float, float, tuple[Color, Color, PaintField | None]]
         ]:
             for lo, hi, strength in _scanline_slices(band, softness):
                 if lo >= 0 or (after == before and (sides is None or strength == 1 and same_coverage)):
-                    yield lo, hi, strength, before
+                    yield lo, hi, strength, right_paint
                 elif hi <= 0:
-                    yield lo, hi, strength, after
+                    yield lo, hi, strength, left_paint
                 else:
-                    yield lo, 0, strength, after
-                    yield 0, hi, strength, before
+                    yield lo, 0, strength, left_paint
+                    yield 0, hi, strength, right_paint
 
         for strip, (lo, hi, strength, paint) in enumerate(painted_slices()):
             mask = RectangleKeyframes(
@@ -1088,7 +1092,7 @@ class KaraokeEffects:
 
             field = paint[2]
             if sides:
-                base = sides[0] if hi <= 0 else sides[1]
+                base = sides[0] if (hi <= 0) != self.reverse_wipe else sides[1]
                 field = _mix_brush(base, paint[0], paint[1], field, strength)
                 state = StatePatch(fill=paint[0], outline=paint[1]).interpolate(
                     base.state, strength
@@ -1422,12 +1426,12 @@ class KaraokeEffects:
                 group, slot = reading_slots.get(target.node_id, (None, unit))
                 track = edges.setdefault(group, {})
                 body = group is None
-                previous = track.get(slot - 1) if body else None
+                previous = track.get(slot - 1) if body and not self.reverse_wipe else None
                 clock = line.layout.lyrics.units[unit]._body_parts() if body else ((target._reading_span or target.singing[0], 0, 1),)
                 passes = _sweeps(clock, target.delay, box,
                                  previous[1] if previous else (),
                                  *clocks[group],
-                                 first_pixel=0.5 if body else 0.0)
+                                 first_pixel=0.5 if body else 0.0, reverse=self.reverse_wipe)
                 sweeps[target.node_id] = () if body and unit in reading_only else passes
                 first, _ = track.get(slot, (passes, passes))
                 track[slot] = first, passes
@@ -1531,9 +1535,11 @@ class KaraokeEffects:
                 layers.append(_ScanlineLayer(node, material, before_material, sides))
                 for layer in layers:
                     if layer.sides:
+                        sung, waiting = layer.sides
+                        left_piece, right_piece = (waiting, sung) if self.reverse_wipe else (sung, waiting)
                         for piece, offset, left in (
-                            (layer.sides[0], -width / 2, True),
-                            (layer.sides[1], width / 2, False),
+                            (left_piece, -width / 2, True),
+                            (right_piece, width / 2, False),
                         ):
                             replacements[piece.id] = _outside_front(
                                 piece, paths, offset, left=left

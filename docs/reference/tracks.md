@@ -76,6 +76,7 @@ KaraokeEffects(
     entry: KaraokeEntry = 'fade',
     exit: KaraokeExit = 'fade',
     singing: KaraokeSinging = 'utopia',
+    reverse_wipe: bool = False,
     decoration: KaraokeDecoration = 'none',
     entry_duration: float = 0.3,
     exit_duration: float = 0.3,
@@ -115,6 +116,7 @@ KaraokeEffects(
 | `entry` | `KaraokeEntry` | `'fade'` |
 | `exit` | `KaraokeExit` | `'fade'` |
 | `singing` | `KaraokeSinging` | `'utopia'` |
+| `reverse_wipe` | `bool` | `False` |
 | `decoration` | `KaraokeDecoration` | `'none'` |
 | `entry_duration` | `float` | `0.3` |
 | `exit_duration` | `float` | `0.3` |
@@ -436,7 +438,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L153)
+[Source](../../kara_templater/orchestration.py#L158)
 
 ```python
 LinePlan(
@@ -592,7 +594,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L260)
+[Source](../../kara_templater/lyric_line.py#L261)
 
 ```python
 LyricLine(
@@ -859,7 +861,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L164)
+[Source](../../kara_templater/orchestration.py#L169)
 
 ```python
 LyricScene(
@@ -1193,6 +1195,9 @@ Layout uses native advances. reserved_border declares the outer hard radius
 of custom or shared visual layers. Glow and motion do not reserve space.
 ruby_gap sets the visual gap in script pixels between hard outlines of
 the reading group and its body at rest. Negative values allow overlap.
+right_to_left places shaped lyric cells from right to left, including readings.
+reverse_timing assigns the first authored window to the last timed lyric unit
+and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
 [Source](../../kara_templater/orchestration.py#L104)
@@ -1214,7 +1219,9 @@ Track(
     min_outline_gap: float | None = 2,
     reserved_border: float = 0,
     ruby_gap: float = 6,
-    studio_spacing: bool | None = None,
+    studio_spacing: bool | StudioSpacing | None = None,
+    right_to_left: bool = False,
+    reverse_timing: bool | Callable[[LyricSource], bool] = False,
 )
 ```
 
@@ -1236,7 +1243,9 @@ Track(
 | `min_outline_gap` | `float \| None` | `2` |
 | `reserved_border` | `float` | `0` |
 | `ruby_gap` | `float` | `6` |
-| `studio_spacing` | `bool \| None` | `None` |
+| `studio_spacing` | `bool \| StudioSpacing \| None` | `None` |
+| `right_to_left` | `bool` | `False` |
+| `reverse_timing` | `bool \| Callable[[LyricSource], bool]` | `False` |
 
 ## lyric_effects
 
@@ -1264,7 +1273,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L403)
+[Source](../../kara_templater/orchestration.py#L408)
 
 ```python
 prepare_tracks(

@@ -199,8 +199,8 @@ def test_parametric_motion_matches_the_scene_evaluator(
     assert max(abs(x - y) for x, y in zip(actual, expected, strict=True)) <= 4
 
 
-@pytest.mark.parametrize(("core", "gradient"), [(None, False), (Color(255, 255, 0), False), (None, True)])
-def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core, gradient):
+@pytest.mark.parametrize(("core", "gradient", "reverse"), [(None, False, False), (Color(255, 255, 0), False, False), (None, True, False), (None, True, True)])
+def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core, gradient, reverse):
     from kara_templater import ColorRamp, ColorStop, LinearGradient
     from kara_templater.lyric_highlights import _FeatheredSingingClip
 
@@ -223,9 +223,9 @@ def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core, gradien
         state=replace(shape.state, fill=after),
         clip=(
             _FeatheredSingingClip(
+                8 if reverse else -100,
                 -100,
-                -100,
-                24,
+                100 if reverse else 24,
                 100,
                 space="local",
                 width=16,
@@ -265,6 +265,8 @@ def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core, gradien
     )
 
     def rgb(x, y):
+        if reverse:
+            x = 47 - x
         i = (48 * y + x) * 3
         return tuple(data[i : i + 3])
 

@@ -210,6 +210,7 @@ from .scene_evaluation import SceneEvaluator, SceneReferenceError
 from .scene_lyrics import (
     LyricLayout,
     PositionedRuby,
+    StudioSpacing,
     layout_document_lyrics,
     layout_lyrics,
 )
@@ -369,6 +370,7 @@ __all__ = [
     "PathObject",
     "Polyline",
     "PositionedRuby",
+    "StudioSpacing",
     "PositionedText",
     "ProgressCurve",
     "RED",

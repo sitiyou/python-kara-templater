@@ -801,7 +801,7 @@ Syntax is recognized within each explicit karaoke interval. Untimed text is
 preserved, but ruby/continuation syntax requires a karaoke time tag. Body
 and ruby views retain the original tokens for provenance, not serialization.
 
-[Source](../../kara_templater/document_lyrics.py#L114)
+[Source](../../kara_templater/document_lyrics.py#L134)
 
 ```python
 parse_document_lyrics(

@@ -66,7 +66,8 @@ class DocumentLayout:
     characters: tuple[PositionedText, ...]
     singing: tuple[SingingSpan, ...]
     bounds: Box
-    _gradient_left: float | None = None
+    _cue_gradient_edge: float | None = None
+    _right_to_left: bool = False
     _studio_spacing: bool = False
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
@@ -100,12 +101,19 @@ class DocumentLayout:
             if following is not None:
                 # N3 AdjustWipeEnd evaluates overlap in inclusive layout cells,
                 # then applies the fraction to the visible primary stroke.
-                left = selected[0].bounds.left - selected[0]._gap_shift
-                right = selected[-1].bounds.right - selected[-1]._gap_shift
-                next_left = following.bounds.left - following._gap_shift
-                if left <= next_left <= right:
-                    fraction = (next_left - left) / max(1, right - left + 1)
-                    sweep = replace(sweep, width=sweep.width * fraction)
+                if self._right_to_left:
+                    start_x = selected[0].bounds.right - selected[0]._gap_shift
+                    end_x = selected[-1].bounds.left - selected[-1]._gap_shift
+                    next_x = following.bounds.right - following._gap_shift
+                else:
+                    start_x = selected[0].bounds.left - selected[0]._gap_shift
+                    end_x = selected[-1].bounds.right - selected[-1]._gap_shift
+                    next_x = following.bounds.left - following._gap_shift
+                if min(start_x, end_x) <= next_x <= max(start_x, end_x):
+                    fraction = abs(next_x - start_x) / (abs(end_x - start_x) + 1)
+                    width = sweep.width * fraction
+                    left = sweep.right - width if self._right_to_left else sweep.left
+                    sweep = replace(sweep, left=left, width=width)
         return sweep
 
     def range_bounds(self, start: int, end: int, *, time: float | None = None) -> Box:

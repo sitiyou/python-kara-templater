@@ -277,6 +277,7 @@ def bind_cues(
         *(item.start for item in layout.characters),
         *(item.end for item in layout.characters),
     }
+    direction = -1 if layout._right_to_left else 1
     placements: list[CuePlacement] = []
     inline: list[ObjectGroup] = []
     independent: list[ObjectGroup] = []
@@ -298,13 +299,13 @@ def bind_cues(
             )
         preset = presets[marker.preset]
         if preset.trigger is None:
-            trigger = next(
+            trigger = min(
                 (
                     span.start
                     for span in layout.singing
                     if span.end_offset > span.start_offset
                 ),
-                None,
+                default=None,
             )
             if trigger is None:
                 raise ValueError(
@@ -339,11 +340,11 @@ def bind_cues(
         if marker.placement == "inline":
             base_x = next(
                 (
-                    item.bounds.left
+                    item.bounds.right if layout._right_to_left else item.bounds.left
                     for item in layout.characters
                     if item.start == marker.offset
                 ),
-                layout.bounds.right,
+                layout.bounds.left if layout._right_to_left else layout.bounds.right,
             )
             preceding_width = sum(
                 p.content.width + p.preset.gap
@@ -351,7 +352,7 @@ def bind_cues(
                 if p.marker.placement == "inline" and p.marker.offset <= marker.offset
             )
             position = Vec2(
-                base_x + preceding_width, (layout.bounds.height - content.height) / 2
+                base_x + direction * preceding_width - (content.width if layout._right_to_left else 0), (layout.bounds.height - content.height) / 2
             )
         else:
             position = preset.position
@@ -372,9 +373,9 @@ def bind_cues(
             for p in placements
             if p.marker.placement == "inline" and p.marker.offset <= item.start
         ]
-        dx = sum(p.content.width + p.preset.gap for p in reservations)
+        dx = direction * sum(p.content.width + p.preset.gap for p in reservations)
         obj = item.object.copy(id=item.object.id, offset=Vec2(dx, 0))
-        obj = _released(obj, tuple(reservations))
+        obj = _released(obj, tuple(reservations), direction=direction)
         box = replace(item.bounds, left=item.bounds.left + dx)
         ink = (
             None
@@ -385,14 +386,17 @@ def bind_cues(
     body_bounds = _union(tuple(item.bounds for item in characters))
     inline_placements = tuple(p for p in placements if p.marker.placement == "inline")
     shared = {
-        p.marker.id: p.position.x + p.content.ink_left for p in inline_placements
+        p.marker.id: p.position.x + (p.content.width - p.content.ink_left
+                                     if layout._right_to_left else p.content.ink_left)
+        for p in inline_placements
         if p.marker.offset == 0 and isinstance(p.content, _SharedGradientCue) and characters
     }
+    role_boxes = [g.bounds for g in characters if role and g.source_style == role.source_style]
     gradient_left = min(shared.values(), default=body_bounds.left)
-    # The prefix brush ends at the last advance of its associated role.
-    gradient_right = max((g.bounds.right for g in characters
-                          if role is not None and g.source_style == role.source_style),
-                         default=body_bounds.right) if shared else body_bounds.right
+    gradient_right = max((b.right for b in role_boxes), default=body_bounds.right)
+    if layout._right_to_left:
+        gradient_right = max(shared.values(), default=body_bounds.right)
+        gradient_left = min((b.left for b in role_boxes), default=body_bounds.left)
     painted: dict[str, CuePlacement] = {}
     for index, placement in enumerate(inline_placements):
         content = placement.content
@@ -403,14 +407,14 @@ def bind_cues(
             inline[index] = replace(inline[index], children=objects)
     placements = [painted.get(p.marker.id, p) for p in placements]
     inline = [
-        _released(group, inline_placements[:index])
+        _released(group, inline_placements[:index], direction=direction)
         for index, group in enumerate(inline)
     ]
     bound = replace(
         layout,
         characters=tuple(characters),
         bounds=body_bounds,
-        _gradient_left=gradient_left if shared else None,
+        _cue_gradient_edge=(gradient_right if layout._right_to_left else gradient_left) if shared else None,
     )
     return CuedLayout(bound, tuple(placements), tuple(inline), tuple(independent))
 
@@ -420,6 +424,7 @@ def _released[T: VisualNode](
     reservations: tuple[CuePlacement, ...],
     *,
     weights: tuple[float, ...] | None = None,
+    direction: int = 1,
 ) -> T:
     releases: dict[float, float] = {}
     weights = (1.0,) * len(reservations) if weights is None else weights
@@ -431,7 +436,7 @@ def _released[T: VisualNode](
             time = max(0, placement.lifetime.end - node.lifetime.start)
             releases[time] = (
                 releases.get(time, 0)
-                + (placement.content.width + placement.preset.gap) * weight
+                + direction * (placement.content.width + placement.preset.gap) * weight
             )
     animations = list(node.animations)
     times = sorted(releases)
@@ -506,7 +511,8 @@ def bind_lyric_cues(
         weights = tuple(
             1.0 if p.marker.offset <= ruby.body_start else 0.5 for p in reservations
         )
-        dx = sum(
+        direction = -1 if layout.body._right_to_left else 1
+        dx = direction * sum(
             (p.content.width + p.preset.gap) * weight
             for p, weight in zip(reservations, weights, strict=True)
         )
@@ -515,7 +521,7 @@ def bind_lyric_cues(
             moved,
             characters=tuple(
                 replace(
-                    item, object=_released(item.object, reservations, weights=weights)
+                    item, object=_released(item.object, reservations, weights=weights, direction=direction)
                 )
                 for item in moved.characters
             ),

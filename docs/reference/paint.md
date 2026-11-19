@@ -192,7 +192,7 @@ Glow(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L196)
+[Source](../../kara_templater/lyric_highlights.py#L202)
 
 ```python
 Highlight(
@@ -243,7 +243,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L927)
+[Source](../../kara_templater/lyric_highlights.py#L945)
 
 ```python
 HighlightArrival(
@@ -281,7 +281,9 @@ HighlightArrival.__call__(
 
 ## HighlightPass
 
-One left-to-right pass, with absolute seconds and measured line-local x.
+One horizontal pass, with absolute seconds and measured line-local x.
+
+reverse starts the front at the right edge and grows ownership to the left.
 
 round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
@@ -297,6 +299,7 @@ HighlightPass(
     rate: Callable[[float], float] = linear_rate,
     breakpoints: tuple[float, ...] = (),
     inverse_rate: Callable[[float], float] | None = None,
+    reverse: bool = False,
 )
 ```
 
@@ -310,6 +313,7 @@ HighlightPass(
 | `rate` | `Callable[[float], float]` | `linear_rate` |
 | `breakpoints` | `tuple[float, ...]` | `()` |
 | `inverse_rate` | `Callable[[float], float] \| None` | `None` |
+| `reverse` | `bool` | `False` |
 
 ### HighlightPass.arrival
 
@@ -466,7 +470,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L499)
+[Source](../../kara_templater/lyric_highlights.py#L515)
 
 ```python
 LyricHighlights(
@@ -514,6 +518,7 @@ LyricHighlights.__call__(
 
 Sweep source singing across body/ruby without authoring clip geometry.
 
+With reverse=True, each timed unit fills from its right edge.
 With wipe=False, each timed unit switches paint at completion.
 Singing progress uses undecorated measured text bounds. For a single
 linear interval in clip mode, outline/glow margins are traversed in
@@ -537,6 +542,7 @@ LyricHighlights.from_singing(
     paint: StatePatch,
     *,
     wipe: bool = True,
+    reverse: bool = False,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     base_paint: StatePatch | None = None,

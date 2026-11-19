@@ -16,7 +16,7 @@ from kara_templater import (
 )
 
 
-def layout():
+def layout(right_to_left=False):
     doc = Document.create(
         styles=(Style(fontname="DejaVu Sans", fontsize=64, shadow=0),)
     )
@@ -24,12 +24,13 @@ def layout():
         Line(text=r"{\k100}AB|!ab{\k100}CD|!cd", start_time=1000, end_time=3000)
     )
     return doc, layout_document_lyrics(
-        doc, len(doc.records) - 1, display=Lifetime(0, 4)
+        doc, len(doc.records) - 1, display=Lifetime(0, 4), right_to_left=right_to_left
     )
 
 
-def test_ruby_keeps_body_center_offset_during_multiple_reservations_and_releases():
-    _, original = layout()
+@pytest.mark.parametrize("right_to_left", [False, True])
+def test_ruby_keeps_body_center_offset_during_multiple_reservations_and_releases(right_to_left):
+    _, original = layout(right_to_left)
     presets = {
         "lead": CuePreset(factory=BarsCue(width=60), gap=10, keep_space=False),
         "middle": CuePreset(
@@ -68,7 +69,7 @@ def test_ruby_keeps_body_center_offset_during_multiple_reservations_and_releases
     assert (
         bound.lyrics.ruby[0].layout.characters[0].object.state.position.x
         - original.ruby[0].layout.characters[0].object.state.position.x
-        == 95
+        == pytest.approx(-95 if right_to_left else 95)
     )
     scene = Scene(Document.create()).add(bound.group())
     assert scene.compile().document.dumps() == scene.compile().document.dumps()
@@ -161,6 +162,27 @@ def test_volume_flashes_as_a_group_then_fills_and_clears_at_onset():
 
 
 @pytest.mark.parametrize(
+    ("transition", "opacity"),
+    [(0, (1, 0, 0, 1)), (0.67, (0.8, 0.2, 0.2, 0.8)), (1, (0.866, 0.464, 0.464, 0.866))],
+)
+def test_volume_flash_softness_preserves_fill_time(transition, opacity):
+    from kara_templater import ObjectGroup, VolumeCue
+
+    doc, lyrics = layout()
+    cue = VolumeCue(flashes=1, transition=transition)
+    bound = bind_lyric_cues(
+        lyrics, {"lead": CuePreset(factory=cue)}, markers=(CueMarker("intro", "lead"),)
+    )
+    (group,) = bound.inline[0].children
+    assert isinstance(group, ObjectGroup)
+    scene = Scene(doc).add(bound.group())
+    evaluator = scene.evaluator()
+    assert [evaluator.at(group.id, t).opacity for t in (0.1, 0.15, 0.35, 0.4)] == pytest.approx(opacity)
+    assert evaluator.at(group.id, 0.5).opacity == 1
+    assert scene.compile().event_count > 0
+
+
+@pytest.mark.parametrize(
     "shape", ("circle", "square", "rounded", "star", "note8", "note16", "notepair")
 )
 def test_signal_shapes_compile_on_nonuniform_steps(shape):
@@ -189,6 +211,23 @@ def test_signal_countdown_toward_lyric_preserves_step_times():
     left, right = bound.inline[0].children
     assert left.state.position.x < right.state.position.x
     assert (left.lifetime.end, right.lifetime.end) == (0.25, 1)
+
+
+def test_signal_waits_before_nonuniform_countdown_and_keeps_all_slots():
+    from kara_templater import SignalCue
+
+    doc, lyrics = layout()
+    preset = CuePreset(factory=SignalCue(countdown=0.4, size=20, spacing=8), steps=(0, 0.25, 1))
+    bound = bind_lyric_cues(lyrics, {"lamp": preset}, markers=(CueMarker("intro", "lamp"),))
+    right, left = bound.inline[0].children
+    assert right.state.position.x - left.state.position.x == 38
+    assert bound.cues[0].content.width == 58
+    assert right.lifetime.end == pytest.approx(0.7)
+    assert left.lifetime.end == 1
+    scene = Scene(doc).add(bound.group())
+    assert scene.evaluator().at(right.id, 0.59).opacity == 1
+    assert scene.evaluator().at(right.id, 0.6665).opacity == pytest.approx(0.5)
+    assert scene.compile().event_count > 0
 
 
 def test_empty_leading_k_advances_cue_trigger_without_a_dummy_syllable():

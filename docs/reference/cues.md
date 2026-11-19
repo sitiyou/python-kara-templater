@@ -251,7 +251,7 @@ CuedLayout.group(
 
 Body/ruby with shared cue reservations; independent cues remain separate.
 
-[Source](../../kara_templater/cues.py#L460)
+[Source](../../kara_templater/cues.py#L465)
 
 ```python
 CuedLyrics(
@@ -288,9 +288,10 @@ A row of vector lamps extinguishing on cue steps, right to left by default.
 
 size is the side of a lamp in script pixels, defaulting to half the host font’s measured em size. Each lamp fades over the last
 transition fraction of its step. Pass a custom path in the unit square to
-use a drawn symbol with the same layout and clock.
+use a drawn symbol with the same layout and clock. spacing adds script pixels between lamps.
+Set countdown in seconds to keep all lamps lit before the active steps.
 
-[Source](../../kara_templater/karaoke_cues.py#L327)
+[Source](../../kara_templater/karaoke_cues.py#L346)
 
 ```python
 SignalCue(
@@ -298,6 +299,8 @@ SignalCue(
     shape: Literal['circle', 'square', 'rounded', 'star', 'note8', 'note16', 'notepair'] | VectorPath = 'circle',
     direction: Literal['left_to_right', 'right_to_left'] = 'right_to_left',
     size: float | None = None,
+    spacing: float = 0,
+    countdown: float | None = None,
     transition: float = 0.67,
     slide: Vec2 = Vec2(x=0, y=0),
     color: Color | None = None,
@@ -314,6 +317,8 @@ SignalCue(
 | `shape` | `Literal['circle', 'square', 'rounded', 'star', 'note8', 'note16', 'notepair'] \| VectorPath` | `'circle'` |
 | `direction` | `Literal['left_to_right', 'right_to_left']` | `'right_to_left'` |
 | `size` | `float \| None` | `None` |
+| `spacing` | `float` | `0` |
+| `countdown` | `float \| None` | `None` |
 | `transition` | `float` | `0.67` |
 | `slide` | `Vec2` | `Vec2(x=0, y=0)` |
 | `color` | `Color \| None` | `None` |
@@ -375,12 +380,13 @@ Descending inline columns. Flash together, then fill from left to right.
 The cue ends at its declared lifetime. count sets the column count; flashes
 sets the number of group pulses before the final fill. Each pulse and the
 fill get equal time by default; flash_ratio scales the length of each pulse
-relative to the fill. ratio is first-to-last column height and spacing is
+relative to the fill. transition controls the softness of each flash from 0
+(hard blink) to 1. ratio is first-to-last column height and spacing is
 additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
 and idle before the active portion. height and border use script pixels. Omit height for half the host font’s measured em size.
 An omitted border scales the host outline, capped at a quarter of the column width.
 
-[Source](../../kara_templater/karaoke_cues.py#L126)
+[Source](../../kara_templater/karaoke_cues.py#L145)
 
 ```python
 VolumeCue(
@@ -390,6 +396,7 @@ VolumeCue(
     border: float | None = None,
     flashes: int = 3,
     flash_ratio: float = 1,
+    transition: float = 0.67,
     ratio: float = 3,
     spacing: float = 0,
     countdown: float | None = None,
@@ -408,6 +415,7 @@ VolumeCue(
 | `border` | `float \| None` | `None` |
 | `flashes` | `int` | `3` |
 | `flash_ratio` | `float` | `1` |
+| `transition` | `float` | `0.67` |
 | `ratio` | `float` | `3` |
 | `spacing` | `float` | `0` |
 | `countdown` | `float \| None` | `None` |
@@ -452,7 +460,7 @@ Markers use projected body offsets. A reservation inside a body unit moves
 its ruby by half the reserved width, keeping its original center offset from
 the expanded body box; before a unit it moves ruby by the full width.
 
-[Source](../../kara_templater/cues.py#L486)
+[Source](../../kara_templater/cues.py#L491)
 
 ```python
 bind_lyric_cues(

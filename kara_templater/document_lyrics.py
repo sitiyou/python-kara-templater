@@ -95,6 +95,26 @@ class DocumentLyrics:
     mapping: tuple[LyricMapping, ...]
     units: tuple[LyricUnit, ...]
 
+    def _reverse_timing(self) -> "DocumentLyrics":
+        """Assign authored time windows to body units in reverse spatial order."""
+        # Studio's whole-line reverse uses main-text intervals and hides readings.
+        # Collapse contiguous ruby checkpoints to their host note before reversing.
+        clocks = tuple((unit, unit._body_singing()) for unit in self.units)
+        windows = iter(span for unit, spans in clocks
+                       if unit.end > unit.start for span in spans)
+        timed_units = []
+        for unit, spans in reversed(clocks):
+            segments = unit.segments
+            if len(spans) == 1 and len(segments) > 1:
+                segments = (replace(segments[0], source_end=segments[-1].source_end),)
+            timed = []
+            for segment in segments:
+                window = next(windows) if unit.end > unit.start else segment.singing
+                singing = replace(segment.singing, start=window.start, end=window.end)
+                timed.append(replace(segment, singing=singing, ruby=None))
+            timed_units.append(replace(unit, segments=tuple(timed)))
+        return replace(self, units=tuple(reversed(timed_units)))
+
 
 def _slice(
     source: DocumentText, start: int, end: int, offset: int = 0

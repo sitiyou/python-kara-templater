@@ -6,7 +6,7 @@ from math import cos, pi, pow, radians, sin, tan
 
 from .easing import ease_out
 from .geometry import Vec2
-from .lyric_line import LyricAnimationContext, LyricTarget
+from .lyric_line import LyricAnimationContext, LyricTarget, _line_x
 from .scene_animation import (
     Channel,
     StateAnimation,
@@ -136,6 +136,14 @@ def transition(
         return Slide(Vec2(spread * em * 1.6, 0), entering)
     travel, spin = _scatter(index, seed, em) if kind == "scatter_out" else (Vec2(), 0.0)
 
+    drip_edge = center.x
+    if kind == "char_drip":
+        if reading_edges is not None:
+            drip_edge = reading_edges[1]
+        else:
+            glyph = context.line.layout.body.characters[index]
+            _, drip_edge = _line_x(glyph, glyph.bounds.left, glyph.bounds.right)
+
     converge_distance = 0.0
     if kind == "converge_out":
         body = context.line.layout.body
@@ -169,13 +177,8 @@ def transition(
                     opacity = visible
                 else:
                     opacity = float(visible > 0)
-                    baseline = (
-                        target.baseline if target.baseline is not None else center.y * 2
-                    )
-                    pivot = Vec2(
-                        reading_edges[1] if reading_edges else center.x * 2,
-                        baseline if entering else baseline - center.y * 2
-                    )
+                    # Vertical shear fixes the entire right edge regardless of pivot y.
+                    pivot = Vec2(drip_edge, 0)
             case "utopia":
                 pivot = (
                     center

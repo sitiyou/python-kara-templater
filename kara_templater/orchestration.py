@@ -35,7 +35,7 @@ from .lyric_line import LyricLine, LyricRule, _LyricBinding
 from .model import Box
 from .scene import Lifetime, ObjectGroup, Scene, SceneObject
 from .scene_animation import TimeSpan
-from .scene_lyrics import LyricLayout, _ruby_style, layout_lyrics
+from .scene_lyrics import LyricLayout, StudioSpacing, _ruby_style, layout_lyrics
 from .scene_output import SceneBudget, _scene_source_records
 from .scene_text import DocumentLayout, _union
 from .sources import EventOrigin, SourceRef
@@ -119,6 +119,9 @@ class Track:
     of custom or shared visual layers. Glow and motion do not reserve space.
     ruby_gap sets the visual gap in script pixels between hard outlines of
     the reading group and its body at rest. Negative values allow overlap.
+    right_to_left places shaped lyric cells from right to left, including readings.
+    reverse_timing assigns the first authored window to the last timed lyric unit
+    and reverses the built-in wipe. A predicate selects individual source lines.
     All animation evaluation and output belong to Scene.
     """
 
@@ -136,7 +139,9 @@ class Track:
     min_outline_gap: float | None = 2
     reserved_border: float = 0
     ruby_gap: float = 6
-    studio_spacing: bool | None = None
+    studio_spacing: bool | StudioSpacing | None = None
+    right_to_left: bool = False
+    reverse_timing: bool | Callable[[LyricSource], bool] = False
 
     def __post_init__(self) -> None:
         finite(self.preview, self.tail, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
@@ -465,9 +470,11 @@ def prepare_tracks(
         recipe = next((e for e in track.effects if isinstance(e, KaraokeEffects)), None)
         for track_index, source in enumerate(selected):
             identity = f"track:{quote(track.id, safe='')}/{source.id}"
+            reverse = track.reverse_timing(source) if callable(track.reverse_timing) else track.reverse_timing
+            lyrics = source.lyrics._reverse_timing() if reverse else source.lyrics
             spans = tuple(
                 segment.singing
-                for unit in source.lyrics.units
+                for unit in lyrics.units
                 for segment in unit.segments
             )
             if not spans:
@@ -491,13 +498,14 @@ def prepare_tracks(
             )
             bare = layout_lyrics(
                 view,
-                source.lyrics,
+                lyrics,
                 id=identity,
                 display=display,
                 min_outline_gap=track.min_outline_gap,
                 reserved_border=border,
                 ruby_gap=track.ruby_gap,
                 studio_spacing=studio_spacing,
+                right_to_left=track.right_to_left,
             )
             role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)
             local_presets = _cue_presets(track.cues, recipe, role_style)
@@ -541,6 +549,8 @@ def prepare_tracks(
             for effect in track.effects:
                 if isinstance(effect, LyricRule):
                     continue
+                if isinstance(effect, KaraokeEffects) and (reverse or track.right_to_left):
+                    effect = replace(effect, reverse_wipe=track.right_to_left != (reverse or effect.reverse_wipe))
                 line = effect(line)
                 if not isinstance(line, LyricLine) or line.id != identity:
                     raise ValueError(
