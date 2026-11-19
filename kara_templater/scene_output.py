@@ -19,6 +19,7 @@ from ._scene_clipping import (
 from ._scene_clipping import _path as _mask_path
 from .ass import EVENT_FORMAT, STYLE_FORMAT, Document, Line, Style
 from .composition import Color
+from .easing import ease_out
 from .geometry import LineSegment, Vec2, VectorPath, finite
 from .layout import text_extents
 from .paint_fields import LinearGradient, PaintActivity, PaintBand
@@ -35,6 +36,7 @@ from .scene import (
     SceneObject,
     TextObject,
     VectorClip,
+    _CellWipeClip,
 )
 from .scene_animation import (
     AnimationClip,
@@ -365,6 +367,10 @@ def _expanded_clips(clips: tuple[AnimationClip, ...]) -> tuple[AnimationClip, ..
     return tuple(result)
 
 
+def _native_fade_curve(animation: object) -> bool:
+    return (type(animation) is FadeIn or type(animation) is FadeOut) and animation.rate is ease_out
+
+
 def _native_tween(leaf: _Leaf) -> bool:
     """Continuous ASS interpolation is an explicit alternative to midpoint hold."""
     node = leaf.node
@@ -406,7 +412,7 @@ def _native_tween(leaf: _Leaf) -> bool:
         animation = clip.animation
         if (
             not isinstance(animation, (Tween, FadeIn, FadeOut))
-            or animation.rate is not linear_rate
+            or (animation.rate is not linear_rate and not _native_fade_curve(animation))
             or (isinstance(animation, FadeIn) and clip.start != 0)
             or not animation.channels
             or not animation.channels
@@ -470,11 +476,12 @@ def _tween_tag(
         tag for channel, tag in tags.items()
         if channel in clip.animation.channels and not (omit_scale and channel == "scale")
     )
-    return (
-        rf"\t({round((clip.start + start_offset) * 1000)},{round((clip.end + start_offset) * 1000)},{target_tags})"
-        if target_tags
-        else ""
-    )
+    if not target_tags:
+        return ""
+    tag = rf"\t({round((clip.start + start_offset) * 1000)},{round((clip.end + start_offset) * 1000)},{target_tags})"
+    # libass applies transforms in order. Interpolating twice toward the
+    # same alpha leaves (1-p)^2 of the initial difference.
+    return tag * 2 if _native_fade_curve(clip.animation) else tag
 
 
 def _tween_tags(leaf: _Leaf) -> str:
@@ -524,7 +531,7 @@ def _rectangle_animation_known(clips: tuple[AnimationClip, ...]) -> bool:
             assert isinstance(animation, (Tween, FadeIn, FadeOut))
             if type(animation) is Tween and type(animation.target) is not StatePatch:
                 return False
-            if not clip.hold or animation.rate is not linear_rate:
+            if not clip.hold or (animation.rate is not linear_rate and not _native_fade_curve(animation)):
                 return False
             if animation.channels & frozenset(("rotation", "skew")):
                 return False
@@ -830,7 +837,9 @@ def _native_rectangle(leaf: _Leaf) -> bool:
     return all(
         state.skew == Vec2()
         and min(state.scale.x, state.scale.y) > 0
-        and (node.clip.space == "screen" or state.rotation % 360 == 0)
+        and (node.clip.space == "screen" or state.rotation % 360 == 0
+             or (node.material is None and state.rotation % 90 == 0
+                 and all(c.animation.channels == {"opacity"} for _, c in owned)))
         for state in (
             _rectangle_state(leaf, time) for time in _rectangle_geometry_knots(leaf)
         )
@@ -880,7 +889,8 @@ def _rectangle_bounds(
         state = _rectangle_state(leaf, time) if state is None else state
         first = state.transform.apply(Vec2(left, top))
         last = state.transform.apply(Vec2(right, bottom))
-        return first.x, first.y, last.x, last.y
+        # A quarter turn keeps rectangles axis-aligned but can swap their extrema.
+        return min(first.x, last.x), min(first.y, last.y), max(first.x, last.x), max(first.y, last.y)
     return left, top, right, bottom
 
 
@@ -1074,6 +1084,21 @@ def _rectangle_events(
         ),
         default=node.time_origin,
     )
+    # Studio rounds a descending cell front to the nearest pixel. libass
+    # truncates the positive screen coordinate during a native clip tween.
+    # Advance this uniform traverse by half a screen pixel's travel time.
+    phase_ms = 0
+    sweep_start = sweep_end = 0.0
+    if (isinstance(clip, _CellWipeClip) and band is None
+            and all(c.animation.channels == {"opacity"} for _, c in animations)):
+        sweep_start, sweep_end = node.time_origin + clip.start, node.time_origin + clip.end
+        initial = _rectangle_bounds(leaf, sweep_start)
+        final = _rectangle_bounds(leaf, sweep_end)
+        for index in (1, 3):
+            distance = final[index] - initial[index]
+            if initial[index] >= 0 and distance >= 1:
+                phase_ms = round(500 * (clip.end - clip.start) / distance)
+                break
     events: list[Line] = []
     for group in _rectangle_groups(leaf, sections) if groups is None else groups:
         first, last = group[0][0], group[-1][1]
@@ -1109,6 +1134,8 @@ def _rectangle_events(
             if tag(t0) != final:
                 a = round(t0 * 1000) - start * 10
                 b = round(t1 * 1000) - start * 10
+                if phase_ms and sweep_start <= t0 and t1 <= sweep_end and b > phase_ms:
+                    a, b = a - phase_ms, b - phase_ms
                 tags += rf"\t({a},{b},1,{final})"
         state = replace(
             _rectangle_state(leaf, node.time_origin),

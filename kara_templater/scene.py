@@ -165,6 +165,13 @@ class RectangleClip:
             raise ValueError("clip must have positive width and height")
 
 
+@dataclass(frozen=True, kw_only=True)
+class _CellWipeClip(RectangleClip):
+    """Vertical cell traverse. Core times use the same local clock as the rectangle."""
+    start: float
+    end: float
+
+
 @dataclass(frozen=True)
 class VectorClip:
     """A filled mask; deform uses object-local seconds. None is an empty region.

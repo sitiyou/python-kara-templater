@@ -7,6 +7,7 @@ import pytest
 from kara_templater import (
     Document,
     FadeIn,
+    FadeOut,
     Lifetime,
     ObjectGroup,
     PathObject,
@@ -16,6 +17,7 @@ from kara_templater import (
     Vec2,
     VectorPath,
     VisualState,
+    ease_out,
 )
 from kara_templater._raster import rasterize
 
@@ -54,3 +56,22 @@ def test_fade_beginning_after_visibility_still_falls_back():
     result = Scene(Document.create(width=80, height=60)).add(node).compile(native_tweens=True)
     assert result.objects[0].strategy == "sampled"
     assert node.at(1.1).opacity == 1  # Visible before the authored fade resets it.
+
+@pytest.mark.parametrize("clipped", [False, True])
+def test_quadratic_line_fade_tracks_playback_time_in_one_ass_event(clipped):
+    doc = Document.create(width=80, height=60)
+    glyph = PathObject(
+        id="glyph", lifetime=Lifetime(0, 2), path=VectorPath.rectangle(20, 16),
+        state=VisualState(position=Vec2(20, 20)),
+        clip=RectangleClip(0, 0, 20, 16, space="local",
+                           deform=RectangleKeyframes(((0, (0, 0, 20, 16)),))) if clipped else None,
+    )
+    row = ObjectGroup(id="row", lifetime=glyph.lifetime, children=(glyph,)).animate(
+        FadeIn(rate=ease_out), at=0, duration=0.6,
+    ).animate(FadeOut(rate=ease_out), at=1.4, duration=0.6)
+    compiled = Scene(doc).add(row).compile(native_tweens=True)
+    assert compiled.objects[0].strategy == ("native-clip" if clipped else "native-tween")
+    for ms in (0, 60, 180, 300, 590, 1000, 1450, 1700, 1900):
+        expected = 255 * row.at(ms / 1000).opacity
+        actual = rasterize(compiled.document.dumps(), ms, (80, 60)).rgba[(25 * 80 + 25) * 4 + 3]
+        assert abs(actual - expected) <= 2

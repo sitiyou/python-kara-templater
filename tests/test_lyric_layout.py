@@ -228,3 +228,41 @@ def test_bottom_three_row_short_page_uses_physical_lane_for_alignment():
     places = KaraokeRows(rows=3).allocate(lines, context)
     assert [p.row for p in places] == [1, 2]
     assert [p.position.x for p in places] == [1770, 1770]
+
+
+@pytest.mark.parametrize(("anchor", "top"), [("top", 60), ("center", 155), ("bottom", 251)])
+def test_vertical_columns_preserve_page_windows_across_block_anchors(anchor, top):
+    from kara_templater.lyric_layout import KaraokeRows, _ColumnMetrics
+
+    starts = (2, 3.2, 4.8, 6.1, 7.5)
+    lines = tuple(
+        replace(
+            line(str(i), s, s + .9, fade=0),
+            display=Lifetime(s - 1.4, s + 1.9),
+            bounds=Box(-20, 0, 40, 49),
+            _column_metrics=_ColumnMetrics(40, 49, 24),
+        )
+        for i, s in enumerate(starts)
+    )
+    columns = KaraokeRows(rows=3, anchor=anchor)
+    result = columns.allocate(lines, LayoutContext(Box(10, 20, 640, 360), script_height=810))
+    assert [p.position for p in result] == [Vec2(10 + x, 20 + top) for x in (536, 427, 318, 536, 427)]
+    assert [(round(p.display.start * 1000), round(p.display.end * 1000)) for p in result] == [
+        (600, 4400), (600, 5800), (600, 6700), (4700, 9400), (6100, 9400)
+    ]
+
+
+@pytest.mark.parametrize("count", [1, 3])
+def test_vertical_track_rotates_measured_columns_through_the_public_preset(count):
+    from kara_templater import Document, KaraokeRows, Line, Track, prepare_tracks
+
+    doc = Document.create(width=640, height=360)
+    for i in range(5):
+        doc.records.append(Line(start_time=2000 + 2000*i, end_time=2500 + 2000*i,
+                                text=r"{\k50}A|a" if i == 0 else r"{\k50}B"))
+    stream = Track(id="main", vertical=True, layout=KaraokeRows(rows=count, anchor="top"))
+    places = [p.placement for p in prepare_tracks(doc, tracks=(stream,)).plans]
+    assert [p.row for p in places] == [i % count for i in range(5)]
+    assert all(p.position.y == 27 for p in places)
+    assert all(a.position.x > b.position.x for a, b in zip(places[:count-1], places[1:count], strict=True))
+    assert places[count].position == places[0].position

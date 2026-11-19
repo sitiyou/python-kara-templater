@@ -339,3 +339,81 @@ def test_anchored_guides_stay_unsung_on_the_shared_onset():
                    for r, g, a in zip(frame[0::4], frame[1::4], frame[3::4], strict=True))
     assert has_red(1010)
     assert not has_red(1000)
+
+
+def test_vertical_reading_continuation_shares_its_host_and_retains_timing():
+    from kara_templater._vertical_lyrics import _vertical_line
+
+    doc, index = document(r"{\k25}空|そ{\k25}#|ら{\k50}ー{\k50}ゃ{\k50}。")
+    source = layout_document_lyrics(doc, index)
+    vertical = _vertical_line(source, cell_width=40, cell_height=49, ruby_width=20, ruby_gap=4)
+    body = vertical.body.characters
+    assert [g.bounds.top for g in body] == [0, 49, 98, 147]
+    assert [g.object.state.rotation for g in body] == [0, 90, 0, 0]
+    readings = [r.layout.characters[0] for r in vertical.ruby]
+    assert [(g.bounds.center, g.bounds.top) for g in readings] == [(34, 0), (34, 24)]
+    assert [r.layout.singing for r in vertical.ruby] == [r.layout.singing for r in source.ruby]
+    assert vertical.body.singing == source.body.singing
+
+
+def test_vertical_track_catalog_wipes_down_across_two_cells_and_rotated_text():
+    from kara_templater import KaraokeEffects, Track, prepare_tracks
+    from kara_templater._raster import rasterize
+
+    doc, _ = document(r"{\k100}A(B{\k50}C")
+    recipe = KaraokeEffects(entry="none", exit="none", singing="utopia_scanline",
+                           unsung=Color(255, 255, 255), sung=Color(255, 0, 0))
+    scene = prepare_tracks(doc, tracks=(Track(id="main", vertical=True, effects=(recipe,)),))
+    assert scene.plans[0].line.layout.body.characters[1].object.state.rotation == 90
+    ass = scene.compile(native_tweens=True).document.dumps()
+    def last_red_row(ms):
+        raster = rasterize(ass, ms, (doc.meta.res_x, doc.meta.res_y))
+        return max((i // (4 * doc.meta.res_x) for i in range(0, len(raster.rgba), 4)
+                    if raster.rgba[i] > 200 and raster.rgba[i+1] < 64 and raster.rgba[i+3] > 128),
+                   default=-1)
+    assert -1 == last_red_row(900) < last_red_row(1400) < last_red_row(1900)
+
+
+def test_vertical_catalog_uses_line_transitions_and_omits_horizontal_ornaments():
+    from kara_templater import KaraokeEffects, Track, prepare_tracks
+
+    doc, _ = document(r"{\k50}A|a{\k50}B")
+    def plan(recipe):
+        return prepare_tracks(doc, tracks=(Track(id="main", vertical=True, effects=(recipe,)),)).plans[0]
+    plain = KaraokeEffects(entry="none", exit="none", singing="none")
+    baseline = plan(plain)
+    ornamental = plan(replace(plain, entry="assemble_in", exit="petal",
+                              singing="zoom_pulse_scanline", decoration="snow", stroke_flash=True))
+    assert ornamental.line == baseline.line
+    assert ornamental.placement == baseline.placement
+    assert plan(replace(plain, entry="slide_in", exit="rise")).line.animations
+
+
+def test_native_vertical_wipe_rounds_the_front_at_the_half_pixel_crossing():
+    from kara_templater import (
+        KaraokeEffects,
+        Track,
+        Vec2,
+        VectorGuide,
+        VectorPath,
+        prepare_tracks,
+    )
+    from kara_templater._raster import rasterize
+
+    doc, _ = document(r"{\k100}X")
+    path = VectorPath.polygon(Vec2(0, -1), Vec2(.5, -1), Vec2(.5, 0), Vec2(0, 0))
+    track = Track(id="main", vertical=True, guide_symbols={"X": VectorGuide(path)},
+                  effects=(KaraokeEffects(entry="none", exit="none", singing="none",
+                                          sung=Color(255, 0, 0), unsung=Color(255, 255, 255)),))
+    scene = prepare_tracks(doc, tracks=(track,))
+    plan = scene.plans[0]
+    glyph = plan.line.layout.body.characters[0]
+    cell = glyph.bounds
+    x = round(plan.placement.position.x + cell.center)
+    ass = scene.compile(native_tweens=True).document.dumps()
+    for ms in range(1400, 1451, 10):
+        front = round(plan.placement.position.y + cell.top + (ms - 1000) * cell.height / 1000)
+        frame = rasterize(ass, ms, (doc.meta.res_x, doc.meta.res_y))
+        for y, expected in ((front - 1, (255, 0, 0)), (front, (255, 255, 255))):
+            offset = (doc.meta.res_x * y + x) * 4
+            assert tuple(frame.rgba[offset:offset + 3]) == expected

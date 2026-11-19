@@ -75,7 +75,7 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
     line = plan.line
     paint = line._karaoke_paint
     body = line.layout.body
-    if any(isinstance(g.object, _VectorGuideText) for g in body.characters):
+    if line.layout._vertical or any(isinstance(g.object, _VectorGuideText) for g in body.characters):
         return None
     curves: dict[int, _Knots] = {}
     if line.layout.ruby:

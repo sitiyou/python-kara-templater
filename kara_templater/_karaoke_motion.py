@@ -9,6 +9,8 @@ from .geometry import Vec2
 from .lyric_line import LyricAnimationContext, LyricTarget, _line_x
 from .scene_animation import (
     Channel,
+    FadeIn,
+    FadeOut,
     StateAnimation,
     StateFunction,
     Transform,
@@ -117,7 +119,7 @@ def transition(
     if kind == "char_fade":
         return Slide(Vec2(), entering, fast_reveal=False, rate=linear_rate)
     if kind == "fade":
-        return Slide(Vec2(), entering, fast_reveal=False, rate=ease_out)
+        return FadeIn(rate=ease_out) if entering else FadeOut(rate=ease_out)
     if kind in {"slide_in", "slide_out"}:
         return RowSlide(
             Vec2(-max(36, 0.9 * em), 0), entering, fast_reveal=False, rate=ease_out

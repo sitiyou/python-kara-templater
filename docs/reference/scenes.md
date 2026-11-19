@@ -36,7 +36,7 @@ Callback-free coverage work counts, before pixels or ASS rectangles exist.
 frames includes declared breakpoints; target_samples is frames times drawable
 leaves. Neither predicts encoded event count, memory use, or elapsed time.
 
-[Source](../../kara_templater/scene_output.py#L116)
+[Source](../../kara_templater/scene_output.py#L118)
 
 ```python
 CoverageEstimate(
@@ -96,7 +96,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L516)
+[Source](../../kara_templater/scene.py#L523)
 
 ```python
 NativeEvent(
@@ -121,7 +121,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
 
-[Source](../../kara_templater/scene.py#L424)
+[Source](../../kara_templater/scene.py#L431)
 
 ```python
 ObjectGroup(
@@ -214,7 +214,7 @@ Per-object output strategy, event count, source origin, sample interval, and obs
 
 Optional metrics apply only to relevant strategies.
 
-[Source](../../kara_templater/scene_output.py#L143)
+[Source](../../kara_templater/scene_output.py#L145)
 
 ```python
 ObjectReport(
@@ -253,7 +253,7 @@ A visual VectorPath drawing with state, lifetime, and optional geometry deformat
 Coordinates are local to its local origin and parent transforms. Set filled=False
 for an outline-only drawing; border sets the outline radius in script pixels.
 
-[Source](../../kara_templater/scene.py#L387)
+[Source](../../kara_templater/scene.py#L394)
 
 ```python
 PathObject(
@@ -475,7 +475,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L534)
+[Source](../../kara_templater/scene.py#L541)
 
 ```python
 Scene(
@@ -591,7 +591,7 @@ boolean work; exceeding a limit raises instead of reducing quality.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
 
-[Source](../../kara_templater/scene_output.py#L76)
+[Source](../../kara_templater/scene_output.py#L78)
 
 ```python
 SceneBudget(
@@ -626,7 +626,7 @@ An invalid scene or exceeded compilation limit with object_id and optional sourc
 
 Callback causes remain available for diagnosis.
 
-[Source](../../kara_templater/scene_output.py#L60)
+[Source](../../kara_templater/scene_output.py#L62)
 
 ```python
 SceneCompileError(
@@ -645,7 +645,7 @@ estimated_events counts ordinary/native output estimates, excluding coverage
 rectangles whose count is unknown until rendering. coverage reports their
 planned work separately. Final budgets still apply to all output.
 
-[Source](../../kara_templater/scene_output.py#L130)
+[Source](../../kara_templater/scene_output.py#L132)
 
 ```python
 SceneEstimate(
@@ -735,7 +735,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/scene_output.py#L162)
+[Source](../../kara_templater/scene_output.py#L164)
 
 ```python
 SceneResult(
@@ -778,7 +778,7 @@ Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
 
-[Source](../../kara_templater/scene.py#L345)
+[Source](../../kara_templater/scene.py#L352)
 
 ```python
 TextObject(
@@ -888,7 +888,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L168)
+[Source](../../kara_templater/scene.py#L175)
 
 ```python
 VectorClip(
@@ -919,7 +919,7 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L190)
+[Source](../../kara_templater/scene.py#L197)
 
 ```python
 VisualNode(
@@ -1006,7 +1006,7 @@ Type: `float`.
 
 Return a new Document. Source records and caller-owned nodes never mutate.
 
-[Source](../../kara_templater/scene_output.py#L1760)
+[Source](../../kara_templater/scene_output.py#L1787)
 
 ```python
 compile_scene(

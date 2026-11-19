@@ -23,6 +23,13 @@ class _RowMetrics:
     ruby_headroom: float
 
 
+@dataclass(frozen=True)
+class _ColumnMetrics:
+    cell_width: float
+    body_height: float
+    ruby_allowance: float
+
+
 @dataclass(frozen=True, kw_only=True)
 class LayoutLine:
     """Immutable measured input, with original singing and desired visibility.
@@ -46,6 +53,7 @@ class LayoutLine:
     reserved: Lifetime | None = None
     em_size: float | None = None
     _row_metrics: _RowMetrics | None = None
+    _column_metrics: _ColumnMetrics | None = None
 
     def __post_init__(self) -> None:
         finite(
@@ -305,9 +313,11 @@ class Layout:
 
 @dataclass(frozen=True, kw_only=True)
 class KaraokeRows:
-    """Studio horizontal row presets, scaled from 1080p to the script height.
+    """Studio row and vertical-column presets, scaled from 1080p to the script height.
 
-    One row is centered, three use left/center/right, other counts alternate.
+    On a vertical track, rows sets the column count; anchor aligns each column
+    along its height. Columns rotate right to left on every page.
+    One horizontal row is centered, three use left/center/right, other counts alternate.
     Use anchor to place a stream at the top, center or bottom of its region. Row height
     follows the body baseline and hard outlines. Top grids reserve reading space
     even on pages without ruby. Inline cues retain their horizontal reservation.
@@ -366,6 +376,10 @@ class KaraokeRows:
         """Paginate the track, resolve handoffs, and align each measured row."""
         region = context.region
         scale = (context.script_height or region.height) / 1080
+        spacing = (90, 45, 60, 40, 25, 15, 8, 0)[self.rows - 1] * scale
+        margin = (60 if self.rows == 2 else 80) * scale
+        if lines and lines[0]._column_metrics is not None:
+            return self._place_columns(lines, region, round(margin), round(spacing))
         inset = min(50 * scale, region.width / 4)
         metrics = tuple(
             line._row_metrics or _RowMetrics(line.bounds.top, 0, line.bounds.height, 0)
@@ -374,9 +388,7 @@ class KaraokeRows:
         ascent = max((m.ascent for m in metrics), default=0)
         height = ascent + max((m.descent for m in metrics), default=0)
         headroom = max((m.ruby_headroom for m in metrics), default=0)
-        spacing = (90, 45, 60, 40, 25, 15, 8, 0)[self.rows - 1] * scale
         pitch = max(height + spacing, 0.001)
-        margin = (60 if self.rows == 2 else 80) * scale
         grid_height = height + (self.rows - 1) * pitch
         if self.anchor == "top":
             y = region.top + margin + headroom
@@ -399,6 +411,29 @@ class KaraokeRows:
             if self.rows == 3
             else tuple("left" if i % 2 == 0 else "right" for i in range(self.rows))
         )
+        pages, windows = self._timed_pages(lines)
+        adjusted: list[Placement] = []
+        for page in pages:
+            adjusted.extend(
+                self._place_page(
+                    lines,
+                    page,
+                    windows,
+                    area,
+                    alignments,
+                    metrics,
+                    ascent,
+                    y,
+                    pitch,
+                )
+            )
+        validate_placements(lines, tuple(adjusted))
+        return tuple(adjusted)
+
+    def _timed_pages(
+        self, lines: tuple[LayoutLine, ...]
+    ) -> tuple[list[range], list[Lifetime]]:
+        """Resolve page occupancy and display windows independently of geometry."""
         sections: list[list[range]] = []
         page_start = 0
         pages: list[range] = []
@@ -417,12 +452,15 @@ class KaraokeRows:
             sections.append(pages)
 
         windows = [line.display for line in lines]
+        vertical = bool(lines and lines[0]._column_metrics is not None)
         last_in_row: dict[int, int] = {}
         for pages in sections:
-            self._page_windows(lines, pages, windows)
+            self._page_windows(lines, pages, windows, vertical=vertical)
             # Reserved cues and tails may reach across pages or sections.
             for page in pages:
-                for row, i in enumerate(page, start=self._row_offset(len(page))):
+                for row, i in enumerate(
+                    page, start=self._row_offset(len(page), vertical=vertical)
+                ):
                     j = last_in_row.get(row)
                     if (
                         j is not None
@@ -433,7 +471,6 @@ class KaraokeRows:
                         )
                     last_in_row[row] = i
 
-        adjusted: list[Placement] = []
         for pages in sections:
             for page in pages:
                 # Exit in reading order, preserving any authored singing, cue and transition.
@@ -441,23 +478,11 @@ class KaraokeRows:
                     end = max(lines[i].required.end, windows[i + 1].end)
                     if windows[i].end > end:
                         windows[i] = Lifetime(windows[i].start, end)
-                adjusted.extend(
-                    self._place_page(
-                        lines,
-                        page,
-                        windows,
-                        area,
-                        alignments,
-                        metrics,
-                        ascent,
-                        y,
-                        pitch,
-                    )
-                )
-        validate_placements(lines, tuple(adjusted))
-        return tuple(adjusted)
+        return [page for pages in sections for page in pages], windows
 
-    def _row_offset(self, count: int) -> int:
+    def _row_offset(self, count: int, *, vertical: bool = False) -> int:
+        if vertical:
+            return 0
         if self.anchor == "bottom" and count > 1:
             return self.rows - count
         if self.anchor == "center":
@@ -517,13 +542,20 @@ class KaraokeRows:
         return adjusted
 
     def _page_windows(
-        self, lines: tuple[LayoutLine, ...], pages: list[range], windows: list[Lifetime]
+        self,
+        lines: tuple[LayoutLine, ...],
+        pages: list[range],
+        windows: list[Lifetime],
+        *,
+        vertical: bool,
     ) -> None:
         """Resolve adjacent page occupants before synchronizing a section."""
         predecessors: dict[int, int] = {}
         successors: dict[int, int] = {}
         for before, after in zip(pages, pages[1:], strict=False):
-            offset = self._row_offset(len(after)) - self._row_offset(len(before))
+            offset = self._row_offset(len(after), vertical=vertical) - self._row_offset(
+                len(before), vertical=vertical
+            )
             for i in after:
                 j = before.start + offset + i - after.start
                 if j in before:
@@ -580,3 +612,36 @@ class KaraokeRows:
         return Lifetime(before.start, end), Lifetime(
             max(after.start, min(following.required.start, end + gap)), after.end
         )
+
+    def _place_columns(
+        self, lines: tuple[LayoutLine, ...], region: Box, margin: float, spacing: float
+    ) -> tuple[Placement, ...]:
+        metrics = [
+            line._column_metrics for line in lines if line._column_metrics is not None
+        ]
+        if len(metrics) != len(lines):
+            raise ValueError(
+                "a column layout requires vertical measurements for every line"
+            )
+        ruby = max(m.ruby_allowance for m in metrics)
+        pages, windows = self._timed_pages(lines)
+        placements: list[Placement] = []
+        for page in pages:
+            for lane, i in enumerate(page):
+                width = metrics[i].cell_width
+                right_center = region.width - margin - ruby - width / 2
+                pitch = width + ruby + spacing
+                room = region.height - metrics[i].body_height
+                if self.anchor == "top":
+                    top = margin
+                elif self.anchor == "center":
+                    top = max(room // 2, 0)
+                else:
+                    top = room - margin
+                origin = Vec2(
+                    region.left + round(right_center - lane * pitch), region.top + top
+                )
+                placements.append(Placement(lines[i].id, origin, windows[i], lane))
+        result = tuple(placements)
+        validate_placements(lines, result)
+        return result

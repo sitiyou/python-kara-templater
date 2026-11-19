@@ -28,6 +28,7 @@ from .lyric_layout import (
     LayoutContext,
     LayoutLine,
     Placement,
+    _ColumnMetrics,
     _RowMetrics,
     validate_placements,
 )
@@ -125,6 +126,8 @@ class Track:
     of custom or shared visual layers. Glow and motion do not reserve space.
     ruby_gap sets the visual gap in script pixels between hard outlines of
     the reading group and its body at rest. Negative values allow overlap.
+    vertical stacks cells downward with right-side readings. With no layout override,
+    two columns rotate from right to left. Explicit layout allocators place the prepared blocks.
     right_to_left places shaped lyric cells from right to left, including readings.
     reverse_timing assigns the first authored window to the last timed lyric unit
     and reverses the built-in wipe. A predicate selects individual source lines.
@@ -147,6 +150,7 @@ class Track:
     reserved_border: float = 0
     ruby_gap: float = 6
     studio_spacing: bool | StudioSpacing | None = None
+    vertical: bool = False
     right_to_left: bool = False
     reverse_timing: bool | Callable[[LyricSource], bool] = False
 
@@ -448,6 +452,7 @@ def prepare_tracks(
     for declaration in tracks:
         track = deepcopy(declaration)
         layout = KaraokeRows() if track.layout is None else track.layout
+        horizontal_rtl = track.right_to_left and not track.vertical
         studio_spacing = (isinstance(layout, KaraokeRows) if track.studio_spacing is None
                           else track.studio_spacing)
         selected = sorted(
@@ -513,7 +518,7 @@ def prepare_tracks(
                 ruby_gap=track.ruby_gap,
                 studio_spacing=studio_spacing,
                 guide_symbols=track.guide_symbols,
-                right_to_left=track.right_to_left,
+                right_to_left=horizontal_rtl, vertical=track.vertical,
             )
             role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)
             local_presets = _cue_presets(track.cues, recipe, role_style)
@@ -557,8 +562,8 @@ def prepare_tracks(
             for effect in track.effects:
                 if isinstance(effect, LyricRule):
                     continue
-                if isinstance(effect, KaraokeEffects) and (reverse or track.right_to_left):
-                    effect = replace(effect, reverse_wipe=track.right_to_left != (reverse or effect.reverse_wipe))
+                if isinstance(effect, KaraokeEffects) and (reverse or horizontal_rtl):
+                    effect = replace(effect, reverse_wipe=horizontal_rtl != (reverse or effect.reverse_wipe))
                 line = effect(line)
                 if not isinstance(line, LyricLine) or line.id != identity:
                     raise ValueError(
@@ -621,6 +626,11 @@ def prepare_tracks(
                 for cue in cued.cues
                 if cue.marker.placement == "inline"
             )
+            column = None
+            if track.vertical:
+                allowance = max((round(g.object.font_size * g.object.state.scale.y) + track.ruby_gap
+                                 for r in bare.ruby for g in r.layout.characters), default=0)
+                column = _ColumnMetrics(max(1, bare.body.bounds.width), bare.body.bounds.height, max(0, allowance))
             allocation_inputs.append(
                 LayoutLine(
                     id=identity,
@@ -628,7 +638,8 @@ def prepare_tracks(
                     display=display,
                     bounds=_union((line.layout.bounds, *cue_bounds)),
                     em_size=line.query("line")[0].em_size,
-                    _row_metrics=_row_metrics(line.layout, styles, track.ruby_gap, border),
+                    _column_metrics=column,
+                    _row_metrics=None if column else _row_metrics(line.layout, styles, track.ruby_gap, border),
                     entrance=entrance,
                     exit=exit,
                     sources=(SourceRef(source.id),),

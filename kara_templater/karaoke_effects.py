@@ -396,15 +396,13 @@ def _transition_window(kind: str, configured: float, *, entering: bool) -> float
     return min(3, max(0.12, configured))
 
 
-def _utopia(context: LyricAnimationContext) -> ScalePulse:
-    attack_ms = min(round(context.duration * 1000) // 4, 100)
+def _utopia(duration: float, target: LyricTarget) -> ScalePulse:
+    attack_ms = min(round(duration * 1000) // 4, 100)
     return ScalePulse(
         peak=1.15 if attack_ms else 1,
-        peak_at=attack_ms / (1000 * context.duration) if attack_ms else 0.5,
+        peak_at=attack_ms / (1000 * duration) if attack_ms else 0.5,
         rate=linear_rate,
-        pivot=Vec2(0, context.target.baseline)
-        if context.target.baseline is not None
-        else context.target.center,
+        pivot=Vec2(0, target.baseline) if target.baseline is not None else target.center,
     )
 
 
@@ -652,6 +650,33 @@ def _front_paths(movements: list[_Sweep]) -> Iterator[list[tuple[float, float]]]
 type _FrontPath = tuple[tuple[float, float], ...]
 
 
+def _band_path(path: _FrontPath, scale_x: float, origin: float,
+               pulses: tuple[tuple[TimeSpan, ScalePulse], ...]) -> tuple[tuple[float, float, float], ...]:
+    """Keep the mapped front on the glyph, but express strip widths in canvas pixels."""
+    if not pulses:
+        return tuple((t, x, 1 / scale_x) for t, x in path)
+    knots = {t for t, _ in path}
+    for span, pulse in pulses:
+        for t in (span.start, span.start + span.duration * pulse.peak_at, span.end):
+            local = local_seconds(t, origin)
+            if path[0][0] < local < path[-1][0]:
+                knots.add(local)
+    result = []
+    segments = iter(pairwise(path))
+    (a, left), (b, right) = next(segments)
+    for t in sorted(knots):
+        while t > b:
+            (a, left), (b, right) = next(segments)
+        x = left if t == a else left + (right - left) * ((t - a) / (b - a))
+        factor = 1.0
+        for span, pulse in pulses:
+            if span.start < t + origin < span.end:
+                factor = pulse.sample(VisualState(), (t + origin - span.start) / span.duration).scale.x
+                break
+        result.append((t, x, 1 / (factor * scale_x)))
+    return tuple(result)
+
+
 @dataclass(frozen=True)
 class _ScanlineLayer:
     drawing: TextObject
@@ -887,6 +912,19 @@ class KaraokeEffects:
 
     def __call__(self, line: LyricLine) -> LyricLine:
         """Prepare appearance and defer text motion through the common lyric rules."""
+        if line.layout._vertical:
+            # Studio draws the entire column through its line animator. Glyph
+            # transitions, scanlines and particles belong to its horizontal painter.
+            return replace(
+                self,
+                entry=self.entry if self.entry in ("fade", "slide_in", "rise") else "none",
+                exit=self.exit if self.exit in ("fade", "slide_out", "rise") else "none",
+                singing="no_wipe" if self.singing == "no_wipe" else "none",
+                decoration="none", stroke_flash=False,
+            )._apply(line)
+        return self._apply(line)
+
+    def _apply(self, line: LyricLine) -> LyricLine:
         if line.coverage is not None:
             raise ValueError("KaraokeEffects requires ordinary clip-mode lyrics")
         marker = f"/{self.id}:"
@@ -930,9 +968,20 @@ class KaraokeEffects:
             front_color=self.front_color,
         )
         line = highlighter(line)
+        pulse_times: dict[str, tuple[TimeSpan, ...]] = {}
+        if self.singing.startswith(("utopia", "zoom_pulse")):
+            arrival = HighlightArrival(highlights=highlighter.highlights)
+            for target, _, index, _ in line._glyph_regions(automatic=True):
+                unit = line.layout.lyrics.units[index]
+                if target.role == "character" and any(s.ruby for s in unit.segments):
+                    intervals = arrival(line, target)
+                else:
+                    intervals = tuple(TimeSpan(s.start + target.delay, s.end + target.delay)
+                                      for s in target._visual_singing() if s.end > s.start)
+                pulse_times[target.node_id] = intervals
         line = replace(
             self, entry_duration=entry_total, exit_duration=exit_total
-        )._ornaments(line, original)
+        )._ornaments(line, original, pulse_times)
         reading_edges = _reading_edges(line)
         for entering, kind, total in (
             (True, self.entry, entry_total),
@@ -974,16 +1023,10 @@ class KaraokeEffects:
                                  reading_edges=reading_edges.get(target.node_id))
                 rules.append(LyricRule(target, anchor, motion, duration=total - spread, offset=delay))
             line = line.schedule(*rules)
-        if self.singing.startswith(("utopia", "zoom_pulse")):
+        if pulse_times:
             rules = []
-            arrival = HighlightArrival(highlights=highlighter.highlights)
-            for target, _, index, _ in line._glyph_regions(automatic=True):
-                unit = line.layout.lyrics.units[index]
-                if target.role == "character" and any(s.ruby for s in unit.segments):
-                    intervals = arrival(line, target)
-                else:
-                    intervals = tuple(TimeSpan(s.start + target.delay, s.end + target.delay)
-                                      for s in target._visual_singing() if s.end > s.start)
+            for target in line.query("character", "ruby"):
+                intervals = pulse_times[target.node_id]
                 for i, interval in enumerate(intervals):
                     def anchor(
                         _line: LyricLine, _target: LyricTarget, span: TimeSpan = interval,
@@ -991,7 +1034,7 @@ class KaraokeEffects:
                         return (span,)
 
                     if self.singing.startswith("utopia"):
-                        rules.append(LyricRule(target, anchor, _utopia))
+                        rules.append(LyricRule(target, anchor, _utopia(interval.duration, target)))
                     else:
                         release = min(0.30, intervals[i + 1].start - interval.end
                                       ) if i + 1 < len(intervals) else 0.30
@@ -1018,7 +1061,7 @@ class KaraokeEffects:
         )
 
     def _scanline(
-        self, layer: _ScanlineLayer, index: int, path: _FrontPath,
+        self, layer: _ScanlineLayer, index: int, path: tuple[tuple[float, float, float], ...],
         band: float, softness: float, top: float, bottom: float,
     ) -> Iterator[TextObject]:
         node, sides = layer.drawing, layer.sides
@@ -1080,10 +1123,11 @@ class KaraokeEffects:
                     yield 0, hi, strength, right_paint
 
         for strip, (lo, hi, strength, paint) in enumerate(painted_slices()):
+            # Sample the feather in script pixels; clips follow the glyph in local space.
             mask = RectangleKeyframes(
                 (
                     (onset, empty),
-                    *((time, (x + lo, top, x + hi, bottom)) for time, x in path),
+                    *((time, (x + lo * per_px, top, x + hi * per_px, bottom)) for time, x, per_px in path),
                     (finish, empty),
                 )
             )
@@ -1367,7 +1411,8 @@ class KaraokeEffects:
                     additions.setdefault(node.id, []).append(echo)
         return _insert(line, additions, reserve=False, replacements=replacements)
 
-    def _ornaments(self, line: LyricLine, nodes: dict[str, SceneObject]) -> LyricLine:
+    def _ornaments(self, line: LyricLine, nodes: dict[str, SceneObject],
+                   pulse_times: dict[str, tuple[TimeSpan, ...]]) -> LyricLine:
         additions: dict[str, list[SceneObject]] = {}
         line = self._particles(line, nodes, additions, transitions=False)
         transition_kinds = {
@@ -1483,7 +1528,7 @@ class KaraokeEffects:
                 bottom = (ink.top + ink.height - glyph.bounds.top) / scale.y + vertical_pad
                 movements = list(sweeps[target.node_id])
                 group, slot = reading_slots.get(target.node_id, (None, unit))
-                reach = (width / 2 + pad) * scale.x
+                reach = width / 2 + pad * scale.x
                 for other, (first, last) in edges[group].items():
                     if other == slot or (group is None and other in reading_only):
                         continue
@@ -1535,6 +1580,9 @@ class KaraokeEffects:
                                 _ScanlineLayer(sung_rim, brush, None, (sung_rim, waiting_rim))
                             )
                 layers.append(_ScanlineLayer(node, material, before_material, sides))
+                pulses = tuple((s, _utopia(s.duration, target)) for s in pulse_times[target.node_id]
+                               if s.duration > 0) if transformed_band else ()
+                band_paths = tuple(_band_path(p, scale.x, node.time_origin, pulses) for p in paths)
                 for layer in layers:
                     strip_top, strip_bottom = top, bottom
                     if layer.sides and not transformed_band:
@@ -1542,15 +1590,15 @@ class KaraokeEffects:
                         sung, waiting = layer.sides
                         left_piece, right_piece = (waiting, sung) if self.reverse_wipe else (sung, waiting)
                         for piece, offset, left in (
-                            (left_piece, -width / 2, True),
-                            (right_piece, width / 2, False),
+                            (left_piece, -width / (2 * scale.x), True),
+                            (right_piece, width / (2 * scale.x), False),
                         ):
                             replacements[piece.id] = _outside_front(
                                 piece, paths, offset, left=left
                             )
-                    for index, path in enumerate(paths):
+                    for index, band_path in enumerate(band_paths):
                         for front in self._scanline(
-                            layer, index, path, width, softness, strip_top, strip_bottom
+                            layer, index, band_path, width, softness, strip_top, strip_bottom
                         ):
                             additions.setdefault(layer.drawing.id, []).append(front)
                             aliases.setdefault(target.id, []).append(front.id)

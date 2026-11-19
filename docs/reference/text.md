@@ -664,9 +664,10 @@ Bind body/ruby without changing original singing or decoded source ranges.
 
 Body text is shaped together before ruby spacing is applied. Unit boundaries
 crossing a shaping cluster are rejected when independent placement is needed.
+vertical stacks cells downward around x=0, with readings on the right.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L360)
+[Source](../../kara_templater/scene_lyrics.py#L361)
 
 ```python
 layout_document_lyrics(
@@ -679,6 +680,7 @@ layout_document_lyrics(
     studio_spacing: bool | StudioSpacing = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
+    vertical: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout
@@ -726,10 +728,12 @@ studio_spacing measures character cells from ink width, bearings and the primary
 outline before applying minimum outline clearance. The default uses shaped advances.
 ruby_gap sets the vertical clearance between the hard ink bounds of a
 reading group and its body before animation. Negative values allow overlap.
+vertical stacks glyphs in measured font cells. ruby_gap then separates the body
+and reading cells horizontally, in script pixels.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L398)
+[Source](../../kara_templater/scene_lyrics.py#L401)
 
 ```python
 layout_lyrics(
@@ -742,6 +746,7 @@ layout_lyrics(
     studio_spacing: bool | StudioSpacing = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
+    vertical: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout

@@ -10,7 +10,11 @@ compilation preserve caller-owned source objects.
 Static geometry and eligible linear motion use native ASS expressions. General
 animation, references, masks, and materials are evaluated deterministically at
 bounded intervals and declared breakpoints. Adjacent identical output can merge.
-Use native_tweens=True explicitly for supported continuous Tween interpolation.
+Use `native_tweens=True` for continuous interpolation of supported tweens.
+An eligible `FadeIn(rate=ease_out)` or `FadeOut(rate=ease_out)` also follows its
+quadratic opacity curve at playback time, including on lyrics with a moving
+rectangle wipe. Fill and outline still composite separately in libass, so their
+overlap can be more opaque during a fade than a single faded image of the line.
 
 For a top-level coverage group, this option also lowers a continuous linear
 opacity curve from built-in Tween, FadeIn, FadeOut, or held sequences to ASS

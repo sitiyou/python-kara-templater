@@ -1130,3 +1130,40 @@ def test_drip_keeps_measured_cell_edge_stationary(phase, time):
     b = steady.evaluator().at(target.node_id, time)
     assert abs(a.transform.b - b.transform.b) > 0.1
     assert a.transform.apply(point).y == pytest.approx(b.transform.apply(point).y)
+
+
+@pytest.mark.parametrize("stretch", [50, 100, 150, 200])
+def test_scanline_width_stays_in_script_pixels_on_stretched_type(stretch):
+    from kara_templater import Glow
+    from kara_templater._raster import rasterize
+
+    doc = Document.create(width=640, height=360, styles=(
+        Style(fontname="DejaVu Sans", fontsize=96, scale_x=stretch, outline=1, shadow=0),
+    ))
+    doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}H"))
+    rim = Glow(Color(182, 50, 86), border=6)
+    fx = KaraokeEffects(entry="none", exit="none", singing="scanline", glow=rim, base_glow=rim,
+                        scanline_width=12, scanline_softness=2, scanline_color=Color(0, 255, 255))
+    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(fx,)),))
+    frame = rasterize(scene.compile(native_tweens=True).document.dumps(), 1500, (640, 360))
+    bright = {i // 4 % 640 for i in range(0, len(frame.rgba), 4)
+              if frame.rgba[i] < 45 and min(frame.rgba[i+1:i+4]) > 220}
+    assert len(bright) == 10
+
+
+def test_utopia_pulse_keeps_canvas_band_width_at_peak_and_during_release():
+    from kara_templater._raster import rasterize
+
+    doc = Document.create(width=640, height=360, styles=(
+        Style(fontname="DejaVu Sans", fontsize=160, shadow=0),
+    ))
+    doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}—"))
+    recipe = KaraokeEffects(entry="none", exit="none", singing="utopia_scanline",
+                            scanline_width=32, scanline_softness=0, scanline_color=Color(0, 255, 255))
+    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
+    ass = scene.compile(native_tweens=True).document.dumps()
+    for ms in (1250, 1450, 1700):
+        rgba = rasterize(ass, ms, (640, 360)).rgba
+        bright = {i // 4 % 640 for i in range(0, len(rgba), 4)
+                  if rgba[i] < 32 and min(rgba[i+1:i+4]) > 220}
+        assert abs(len(bright) - 32) <= 1

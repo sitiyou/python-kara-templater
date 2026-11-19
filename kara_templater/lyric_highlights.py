@@ -21,6 +21,7 @@ from .scene import (
     RectangleFunction,
     RectangleKeyframes,
     SceneObject,
+    _CellWipeClip,
 )
 from .scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
 from .scene_lyrics import _after_onset
@@ -293,7 +294,7 @@ class _SingingHighlights:
             Highlight(
                 f"singing:{index}",
                 index,
-                self._passes(unit, Region(box.left, box.right)),
+                self._passes(unit, _sweep_axis(box, line.layout._vertical)),
                 self.paint,
                 glow=self.glow,
                 material=self.material,
@@ -305,6 +306,10 @@ class _SingingHighlights:
             for box in (line.layout.body.range_bounds(unit.start, unit.end),)
             if box.width > 0
         )
+
+
+def _sweep_axis(box: Box, vertical: bool) -> Region:
+    return Region(box.top, box.top + box.height) if vertical else Region(box.left, box.right)
 
 
 _EDGE_SECONDS = 0.02
@@ -379,6 +384,12 @@ class _Ownership:
     drawing: Region
     glyph_left: float
     scale: float
+    local_y: bool = False
+
+    def strip(self, left: float, right: float) -> tuple[float, float, float, float]:
+        if self.local_y:
+            return -65536, left, 65536, right
+        return left, -65536, right, 65536
 
     @property
     def breakpoints(self) -> tuple[float, ...]:
@@ -461,9 +472,9 @@ class _Ownership:
         sign = -1 if span.reverse else 1
         def bounds(edge: float) -> tuple[float, float, float, float]:
             return (
-                (edge, -65536, 65536, 65536)
+                self.strip(edge, 65536)
                 if (self.owner is None) != span.reverse
-                else (-65536, -65536, edge, 65536)
+                else self.strip(-65536, edge)
             )
 
         if start == end:
@@ -518,7 +529,7 @@ class _Ownership:
         if index >= len(regions):
             return None
         region = regions[index]
-        return region.left, -65536, region.right, 65536
+        return self.strip(region.left, region.right)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -732,20 +743,26 @@ class LyricHighlights:
                 )
             source = line.layout.lyrics.units[unit]
             body = line.layout.body.range_bounds(source.start, source.end)
-            if not body.width or not box.width:
+            vertical = automatic and line.layout._vertical
+            body_axis, draw_axis = _sweep_axis(body, vertical), _sweep_axis(box, vertical)
+            if not body_axis.width or not draw_axis.width:
                 return
             scale = character.layout_scale
             assert scale is not None
+            if vertical and self.strategy == "coverage":
+                raise ValueError("vertical singing requires clip strategy")
+            local_y = vertical and character.object.state.rotation == 0
+            pen = character.object.state.position
             base = _Ownership(
                 chosen,
                 self.mode,
                 None,
                 node.time_origin,
                 target.delay,
-                Region(body.left, body.right),
-                Region(box.left, box.right),
-                character.object.state.position.x,
-                scale.x,
+                body_axis, draw_axis,
+                pen.y if vertical else pen.x,
+                scale.y if local_y else scale.x,
+                local_y,
             )
             if any(
                 t < -node.time_origin or t > node.lifetime.end - node.time_origin
@@ -800,7 +817,7 @@ class LyricHighlights:
                 if self.strategy == "clip":
                     feather = (
                         self.hook_feather / scale.x
-                        if native_singing
+                        if native_singing and not vertical
                         else 0
                     )
                     drawings = tuple(
@@ -842,11 +859,21 @@ class LyricHighlights:
                     drawings = (piece,)
                 for piece in drawings:
                     plain_clip = piece.clip
+                    if (vertical and target.role == "character" and native_singing
+                            and len(chosen[0].passes) == 1 and not chosen[0].passes[0].reverse
+                            and isinstance(plain_clip, RectangleClip)):
+                        time = chosen[0].passes[0].time
+                        plain_clip = _CellWipeClip(
+                            **vars(plain_clip), start=time.start + target.delay - node.time_origin,
+                            end=time.end + target.delay - node.time_origin,
+                        )
+                        piece = replace(piece, clip=plain_clip)
                     if (
                         self.strategy == "clip"
                         and native_singing
                         and highlight is not None
                         and self.hook_feather
+                        and not vertical
                         and isinstance(plain_clip, RectangleClip)
                     ):
                         unsung = self.base_paint.interpolate(node.state, 1)

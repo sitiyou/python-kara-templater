@@ -101,6 +101,7 @@ class LyricLayout:
     ruby: tuple[PositionedRuby, ...]
     bounds: Box
     script_height: int = 1080
+    _vertical: bool = False
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
         """Combine measured body and positioned ruby objects into an editable group."""
@@ -367,6 +368,7 @@ def layout_document_lyrics(
     studio_spacing: bool | StudioSpacing = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
+    vertical: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout:
@@ -374,6 +376,7 @@ def layout_document_lyrics(
 
     Body text is shaped together before ruby spacing is applied. Unit boundaries
     crossing a shaping cluster are rejected when independent placement is needed.
+    vertical stacks cells downward around x=0, with readings on the right.
     Joined ruby runs share a row; explicit break/spill markers start a new group.
     """
     record = document.records[record_index]
@@ -389,7 +392,7 @@ def layout_document_lyrics(
         ruby_gap=ruby_gap,
         studio_spacing=studio_spacing,
         guide_symbols=guide_symbols,
-        right_to_left=right_to_left,
+        right_to_left=right_to_left, vertical=vertical,
         min_outline_gap=min_outline_gap,
         reserved_border=reserved_border,
     )
@@ -405,6 +408,7 @@ def layout_lyrics(
     studio_spacing: bool | StudioSpacing = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
+    vertical: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout:
@@ -414,6 +418,8 @@ def layout_lyrics(
     outline before applying minimum outline clearance. The default uses shaped advances.
     ruby_gap sets the vertical clearance between the hard ink bounds of a
     reading group and its body before animation. Negative values allow overlap.
+    vertical stacks glyphs in measured font cells. ruby_gap then separates the body
+    and reading cells horizontally, in script pixels.
     No ASS event is required or synthesized. Singing intervals retain their full
     seconds precision; record indices, if present, are provenance only.
     """
@@ -470,11 +476,12 @@ def layout_lyrics(
         guide_markers=guide_symbols or (),
     )
     cells = StudioSpacing() if studio_spacing is True else studio_spacing
-    if cells:
+    if cells and not vertical:
         body = _studio_cells(body, cells)
     if guide_symbols and body.characters:
         body = _place_guides(body, guide_symbols)
-    body = _clear_outlines(body, min_outline_gap, reserved_border, right_to_left)
+    if not vertical:
+        body = _clear_outlines(body, min_outline_gap, reserved_border, right_to_left)
     rubies: list[PositionedRuby] = []
     for ui, unit in enumerate(lyrics.units):
         for si, segment in enumerate(unit.segments):
@@ -495,9 +502,10 @@ def layout_lyrics(
                     ),
                 ),
             )
-            if cells:
+            if cells and not vertical:
                 layout = _studio_cells(layout, cells)
-            layout = _clear_outlines(layout, min_outline_gap, reserved_border, right_to_left)
+            if not vertical:
+                layout = _clear_outlines(layout, min_outline_gap, reserved_border, right_to_left)
             origin = EventOrigin((SourceRef(body.id, ui, si),), "document ruby")
             layout = replace(
                 layout,
@@ -507,6 +515,32 @@ def layout_lyrics(
                 ),
             )
             rubies.append(PositionedRuby(ui, si, unit.start, unit.end, layout))
+
+    characters = [
+        replace(
+            item,
+            object=replace(
+                item.object,
+                origin=EventOrigin(
+                    tuple(
+                        SourceRef(body.id, ui)
+                        for ui, unit in enumerate(lyrics.units)
+                        if unit.start < item.end and unit.end > item.start
+                    ),
+                    "document lyric body",
+                ),
+            ),
+        )
+        for item in body.characters
+    ]
+    if vertical:
+        from ._vertical_lyrics import _vertical_from_font
+
+        measured = LyricLayout(
+            lyrics, replace(body, characters=tuple(characters)), tuple(rubies),
+            body.bounds, document.meta.res_y,
+        )
+        return _vertical_from_font(measured, ruby_gap)
 
     # Consecutive unbroken ruby-bearing units share one run. Continuation ruby
     # stays with its existing body unit, including explicit ruby breaks.
@@ -538,23 +572,6 @@ def layout_lyrics(
         else:
             groups.append([unit])
             group_rubies.append(indices)
-    characters = [
-        replace(
-            item,
-            object=replace(
-                item.object,
-                origin=EventOrigin(
-                    tuple(
-                        SourceRef(body.id, ui)
-                        for ui, unit in enumerate(lyrics.units)
-                        if unit.start < item.end and unit.end > item.start
-                    ),
-                    "document lyric body",
-                ),
-            ),
-        )
-        for item in body.characters
-    ]
     shift = 0.0
     ruby_right: float | None = None
     for units, indices in zip(groups, group_rubies, strict=True):

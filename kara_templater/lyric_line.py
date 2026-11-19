@@ -572,14 +572,18 @@ class LyricLine(ObjectGroup):
                 (i, u) for i, u in enumerate(self.layout.lyrics.units)
                 if u.start <= glyph.start and glyph.end <= u.end
             )
-            bounds = (body._sweep_bounds(unit.start, unit.end, glyph) if automatic
+            bounds = (body._sweep_bounds(unit.start, unit.end, glyph) if automatic and not self.layout._vertical
                       else body.range_bounds(unit.start, unit.end))
             yield target, glyph, index, bounds
         readings = ((glyph, ruby) for ruby in self.layout.ruby for glyph in ruby.layout.characters)
         for target, (glyph, ruby) in zip(self.query("ruby"), readings, strict=True):
             layout = ruby.layout
-            bounds = (layout._sweep_bounds(glyph.start, glyph.end, glyph) if automatic
-                      else layout.bounds)
+            if automatic and self.layout._vertical:
+                bounds = glyph.ink_bounds or glyph.bounds
+            elif automatic:
+                bounds = layout._sweep_bounds(glyph.start, glyph.end, glyph)
+            else:
+                bounds = layout.bounds
             yield target, glyph, ruby.unit_index, bounds
 
     def query(

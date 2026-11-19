@@ -350,3 +350,32 @@ Style outlines and static highlight paint borders contribute to
 clearance. Glow, shadow and temporary animation strokes can overlap. For a
 custom effect or multiple views drawing the same letters, set
 `reserved_border` to the outer hard stroke radius on every view.
+
+### Vertical Japanese lyrics
+
+Use `Track(id="main", vertical=True, effects=(KaraokeEffects(),))` for a
+top-to-bottom wipe. The default layout alternates two columns from right to left.
+For three columns, use `Track(id="main", vertical=True, layout=KaraokeRows(rows=3, anchor="top"))`.
+Use `rows=1` for a single column. The anchor aligns the full column vertically;
+a partial page always starts at the right. The same `break_before` override
+and page timing settings work for horizontal and vertical lyrics.
+Each shaped body character gets a cell measured from the first body font. Long
+vowel marks and brackets rotate around the cell center. Ruby sits to the right
+and each reading sweeps over its own ink during its authored interval.
+`ruby_gap` sets the horizontal distance between the body and reading cells in
+script pixels. A supplied allocator receives the measured vertical blocks.
+
+As in Studio, the vertical singing modes use the ordinary downward wipe.
+`singing="no_wipe"` switches the color at the end of the interval.
+Standard ASS export draws the vertical wipe with complementary clips.
+
+For Studio-style vertical transitions, choose `fade`, `rise`, or
+`slide_in` / `slide_out`. They move or fade the entire column, including ruby.
+Character transitions, singing particles, and stroke flashes have no visual
+effect in Studio's vertical painter. Custom `LyricRule` animations still apply.
+
+Studio's automatic signal lamps and volume columns are horizontal-only. For a
+Studio-style vertical guide, give symbols their own karaoke intervals and map
+the marker through `Track.guide_symbols`. Each symbol occupies one body cell
+and changes color along the same downward front as the lyric. Two zero-duration
+markers at the first note switch on the next ASS centisecond.
