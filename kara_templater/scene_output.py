@@ -6,6 +6,7 @@ from collections import deque
 from collections.abc import Callable
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
+from functools import lru_cache
 from hashlib import sha256
 from math import ceil, floor, hypot
 from urllib.parse import quote
@@ -24,7 +25,7 @@ from .geometry import LineSegment, Vec2, VectorPath, finite
 from .layout import text_extents
 from .paint_fields import LinearGradient, PaintActivity, PaintBand
 from .path_boolean import path_boolean
-from .path_geometry import intersect_convex
+from .path_geometry import intersect_convex, path_bounds
 from .path_motion import MoveAlong
 from .scene import (
     NativeEvent,
@@ -203,7 +204,7 @@ class _Leaf:
     @property
     def animated_pen(self) -> bool:
         """Local border radii can vary with scale even without an explicit border tween."""
-        return isinstance(self.node, TextObject) and self.node.scale_border and any(
+        return self.node.scale_border and any(
             clip.animation.channels & {"border", "scale"}
             for owner in (*self.parents, self.node)
             for clip in owner.animations
@@ -1396,6 +1397,16 @@ def _tags(state: VisualState, pen_scale: Vec2 | None = None, *, filled: bool = T
     )
 
 
+@lru_cache(maxsize=64)
+def _object_drawing(path: VectorPath) -> tuple[int, str]:
+    # libass rounds input coordinates to 1/64 before applying the object
+    # transform. Keep thin features of unit-sized artwork at higher precision.
+    bounds = path_bounds(path)
+    if max(abs(bounds.left), abs(bounds.right), abs(bounds.top), abs(bounds.top + bounds.height)) <= 1:
+        return 5, path.map(lambda point: point * 16).drawing()
+    return 1, path.drawing()
+
+
 def _event(
     leaf: _Leaf,
     state: VisualState,
@@ -1450,10 +1461,13 @@ def _event(
         assert path is not None or isinstance(node, PathObject)
         drawing = node.path if isinstance(node, PathObject) and path is None else path
         assert drawing is not None
-        content = drawing.drawing()
-        geometry = r"\an7\p1\pbo0"
+        if isinstance(node, PathObject) and node.deform is None and drawing is node.path:
+            mode, content = _object_drawing(drawing)
+        else:
+            mode, content = 1, drawing.drawing()
+        geometry = rf"\an7\p{mode}\pbo0"
     pen_scale = None
-    if isinstance(node, TextObject) and node.scale_border:
+    if node.scale_border:
         pen_scale = leaf.affine_pen_scale or state.scale
     return Line(
         text="{"
@@ -1544,6 +1558,17 @@ def _painted_events(
         or state.skew != Vec2()
         or min(state.scale.x, state.scale.y) <= 0
     )
+    # With a top-left pen origin, ASS fay shears a glyph and its border
+    # together. Baking only the fill outline would stroke it after the shear.
+    if (
+        affine and material is None and isinstance(leaf.node, TextObject)
+        and leaf.node.scale_border and leaf.node.alignment == 7 and len(leaf.node.text) == 1
+    ):
+        matrix = state.transform
+        if abs(matrix.c) < 1e-9 and matrix.a > 0 and matrix.d > 0:
+            state = replace(state, scale=Vec2(matrix.a, matrix.d), rotation=0,
+                            skew=Vec2(0, matrix.b / matrix.d))
+            affine = False
     path_points = 0
     if affine:
         if isinstance(leaf.node, TextObject):
@@ -1563,7 +1588,7 @@ def _painted_events(
             raise ValueError("affine geometry point budget exceeded")
         linear = replace(state.transform, tx=0, ty=0)
         path = path.map(linear.apply)
-        if isinstance(leaf.node, TextObject) and leaf.node.scale_border:
+        if leaf.node.scale_border:
             # The transformed path is already in screen axes. Preserve the
             # elliptical pen extents when resetting the ASS glyph transform.
             leaf = replace(leaf, affine_pen_scale=Vec2(

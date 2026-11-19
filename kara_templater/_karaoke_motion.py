@@ -15,7 +15,6 @@ from .scene_animation import (
     StateFunction,
     Transform,
     VisualState,
-    linear_rate,
     smooth_rate,
 )
 from .scene_evaluation import compose_states
@@ -32,7 +31,7 @@ class Slide:
 
     @property
     def channels(self) -> frozenset[Channel]:
-        return frozenset(("position", "scale", "rotation", "skew", "opacity"))
+        return frozenset(("position", "opacity"))
 
     def sample(self, base: VisualState, progress: float) -> VisualState:
         q = self.rate(progress)
@@ -117,7 +116,7 @@ def transition(
     if kind in {"stretch_in", "stretch_out"}:
         return stretch(entering, center)
     if kind == "char_fade":
-        return Slide(Vec2(), entering, fast_reveal=False, rate=linear_rate)
+        return FadeIn() if entering else FadeOut()
     if kind == "fade":
         return FadeIn(rate=ease_out) if entering else FadeOut(rate=ease_out)
     if kind in {"slide_in", "slide_out"}:

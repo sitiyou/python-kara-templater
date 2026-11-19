@@ -8,8 +8,8 @@ from math import ceil, floor, pi, sin, sqrt
 from typing import Literal, get_args
 
 from ._karaoke_motion import glow_scale, stretch, transition, zoom_pulse
-from ._karaoke_sprites import ornament, star_burst
-from .composition import Color
+from ._karaoke_sprites import ornament, painted_particle, star_burst
+from .composition import Color, Glow, Paint
 from .document_text import SingingSpan
 from .geometry import Vec2, VectorPath, finite
 from .lyric_highlights import (
@@ -286,31 +286,42 @@ def _transition_burst(
     count: int,
 ) -> tuple[float, float]:
     """Absolute particle birth and full motion duration, prior to display clipping."""
-    scale = total / 0.60
+    # Studio schedules particle births in integer milliseconds, quantizing
+    # the inter-character step before scaling it to the configured duration.
+    window = max(1, round(total * 1000))
+    scale = window / 600
+    start, end = round(display.start * 1000), round(display.end * 1000)
+    done = round(sung_end * 1000)
     if kind == "sparkle":
         if entering:
-            return display.start, 0.70 * scale
-        start = min(display.end - 0.12, max(sung_end, display.end - total))
-        return start, display.end - start
+            return start / 1000, int(700 * scale) / 1000
+        birth = min(end - 120, max(done, end - window))
+        return birth / 1000, (end - birth) / 1000
     if kind in {"snow", "snow_solid"}:
         if entering:
-            return display.start - 0.20 * scale, total + 0.45 * scale
-        start = max(sung_end, display.end - total)
-        return start, display.end - start + 0.30 * scale
-    spread = total * stagger
-    duration = {
-        "petal": 0.90,
-        "note": 0.80,
-        "ripple": 0.60,
-        "assemble_in": 0.32,
-        "dissolve_out": 0.32,
-    }.get(kind)
-    travel = duration * scale if duration is not None else total - spread
-    start = display.start
+            birth = start - int(200 * scale)
+            finish = start + window + int(250 * scale)
+        else:
+            birth = max(done, end - window)
+            finish = end + int(300 * scale)
+        return birth / 1000, (finish - birth) / 1000
+
+    spread = 600 * stagger
+    gaps = max(1, count - 1)
+    step = int((spread // gaps) * scale)
+    life = {
+        "petal": 900, "note": 800, "ripple": 600, "assemble_in": 320, "dissolve_out": 320,
+    }[kind]
+    travel = max(1, int(life * scale))
     if not entering:
-        start = min(display.end - 0.12, max(sung_end, display.end - spread - travel))
-        spread = min(spread, max(0, display.end - start - travel))
-    return start + spread * index / max(1, count - 1), travel
+        start = max(done, end - int((spread + life) * scale))
+        if kind != "dissolve_out":
+            start = min(start, end - 120)
+        step = min(step, max(0, end - start - travel) // gaps)
+        if kind == "ripple":
+            # Studio's exit ring emitter scales the compressed step once more.
+            step = int(step * scale)
+    return (start + index * step) / 1000, travel / 1000
 
 
 _CHAR_TRANSITIONS = {"char_fade", "char_drip", "spin_flip"}
@@ -384,6 +395,10 @@ def _utopia_exit_anchor(line: LyricLine, duration: float, release: float) -> Cal
     return anchor
 
 
+def _display_start(line: LyricLine, _target: LyricTarget) -> tuple[TimeSpan, ...]:
+    return (TimeSpan(line.lifetime.start, line.lifetime.start),)
+
+
 def _transition_window(kind: str, configured: float, *, entering: bool) -> float:
     if kind == "none" or configured == 0:
         return 0
@@ -409,6 +424,39 @@ def _utopia(duration: float, target: LyricTarget) -> ScalePulse:
 def _zoom(context: LyricAnimationContext, *, level: int) -> Transform:
     note = context.interval.duration if context.interval is not None else context.duration
     return zoom_pulse(max(note, 0.001), context.duration, level, context.target.center)
+
+
+@dataclass(frozen=True)
+class _ParticlePaint(Paint):
+    gradient: LinearGradient | None = None
+
+
+def _particle_ink(
+    source: LyricMaterial, target: LyricTarget, painted: SceneObject | None, fallback: Color,
+) -> _ParticlePaint:
+    """Retain the source ramp and Studio's unweighted mean for solid silhouettes."""
+    declared = _style_material(source, target.source_style)
+    if isinstance(declared, LyricGradient):
+        colors = declared.colors
+        ramp = ColorRamp(tuple(ColorStop(i / (len(colors) - 1), c) for i, c in enumerate(colors)))
+        axis = declared.axis
+    else:
+        field = painted.material if painted is not None else None
+        if not isinstance(field, LinearGradient) or field.fill is None:
+            return _ParticlePaint(fill=fallback)
+        stops = field.fill.stops
+        start, end = stops[0].position, stops[-1].position
+        ramp = ColorRamp(tuple(ColorStop((s.position - start) / (end - start), s.color) for s in stops))
+        colors = tuple(s.color for s in stops)
+        axis = field.axis
+    mean = Color(sum(c.red for c in colors) // len(colors),
+                 sum(c.green for c in colors) // len(colors),
+                 sum(c.blue for c in colors) // len(colors))
+    return _ParticlePaint(fill=mean, gradient=LinearGradient(axis=axis, fill=ramp))
+
+
+def _particle_x_color(ramp: ColorRamp, left: float, width: float, x: float) -> Color:
+    return ramp.at(round(32 * (x - left) / width) / 32)
 
 
 def _brighten(color: Color, strength: float) -> Color:
@@ -773,8 +821,10 @@ class KaraokeEffects:
     Use ordinary LyricRule/custom effects alongside it. Apply once per line, before
     another highlight factory; this recipe owns the base/sung appearance and masks.
     Decorations use seeded glyph-local trajectories; ruby receives text transitions
-    and sweeps but not particles or outline flash. max_particles bounds the total
-    generated ornament objects per line, including entry and exit.
+    and sweeps but not particles or outline flash. max_particles bounds the number
+    of particles planned per line, including entry and exit. With particle_layers="stroke",
+    following particles inherit the glyph's hard outline radii relative to its em;
+    a second hard rim is a separate drawing of the same moving particle.
 
     Standard ASS is supported (complex motion is sampled). GPU enhancement uses
     the same Scene; dynamic blur can require additional cached native coverage.
@@ -795,7 +845,8 @@ class KaraokeEffects:
     base_material: LyricMaterial = None
     glow: LyricGlow = None
     base_glow: LyricGlow = None
-    particle_color: Color | None = None
+    particle_color: Color | tuple[Color, Color] | Literal["follow_before", "follow_after", "follow_mix"] | None = None
+    particle_layers: Literal["solid", "stroke"] = "solid"
     particle_size: float = 0.40
     particle_rate: float | None = None
     max_particles: int = 512
@@ -905,10 +956,13 @@ class KaraokeEffects:
             or not isinstance(self.unsung, Color)
         ):
             raise ValueError("effects need an id and Color paints")
-        if self.particle_color is not None and not isinstance(
-            self.particle_color, Color
+        if self.particle_layers not in ("solid", "stroke"):
+            raise ValueError("unknown particle paint layers")
+        palette = self.particle_color
+        if palette is not None and palette not in ("follow_before", "follow_after", "follow_mix") and not isinstance(palette, Color) and not (
+            isinstance(palette, tuple) and len(palette) == 2 and all(isinstance(c, Color) for c in palette)
         ):
-            raise TypeError("particle_color must be a Color or None")
+            raise TypeError("particle_color must be a Color, a pair of colors, a follow mode, or None")
 
     def __call__(self, line: LyricLine) -> LyricLine:
         """Prepare appearance and defer text motion through the common lyric rules."""
@@ -935,9 +989,12 @@ class KaraokeEffects:
         last = max((s.end for s in spans), default=line.lifetime.end)
         delay = line.query("line")[0].delay
         first, last = first + delay, last + delay
-        entry_total = min(
-            _transition_window(self.entry, self.entry_duration, entering=True), first
-        )
+        entry_window = _transition_window(self.entry, self.entry_duration, entering=True)
+        # A character fade can continue across the first sung note. Keep its
+        # opacity timeline clear of the following exit on exceptionally short lines.
+        entry_total = min(first, entry_window)
+        if self.entry == "char_fade":
+            entry_total = min(last, entry_window) if self.exit != "none" and self.exit_duration else entry_window
         release = 0.30 if self.singing.startswith("zoom_pulse") else 0
         exit_total = _transition_window(self.exit, self.exit_duration, entering=False)
         line = line.with_display(
@@ -989,7 +1046,11 @@ class KaraokeEffects:
         ):
             if kind == "none" or total == 0:
                 continue
+            # A line at the start of the song can begin singing during its
+            # entrance. Reserve that actual span without asking for negative preroll.
             anchor = "enter" if entering else "exit"
+            if entering and first < total:
+                anchor = _display_start
             if not entering and kind == "utopia":
                 line = line.schedule(LyricRule(
                     line.query("character", "ruby"), _utopia_exit_anchor(line, total, release),
@@ -1017,7 +1078,7 @@ class KaraokeEffects:
                 if not entering and not count_back:
                     delay -= spread
                 if entering and delay > 0:
-                    rules.append(LyricRule(target, "enter", Transform(opacity=0),
+                    rules.append(LyricRule(target, anchor, Transform(opacity=0),
                                            duration=delay, hold=False))
                 motion = partial(animate, host=hosts[target.node_id] if host_motion else None,
                                  reading_edges=reading_edges.get(target.node_id))
@@ -1170,10 +1231,9 @@ class KaraokeEffects:
             (span.end + target.delay for target in targets for span in target.singing),
             default=line.lifetime.start,
         )
-        first_host = True
         for index, target in enumerate(targets):
             node = nodes[target.node_id]
-            if not isinstance(node, TextObject) or not node.text.strip():
+            if not isinstance(node, TextObject):
                 continue
             for entering, kind, total in (
                 (True, self.entry, self.entry_duration),
@@ -1183,7 +1243,7 @@ class KaraokeEffects:
                 if (
                     total <= 0
                     or count is None
-                    or (kind == "sparkle" and not first_host)
+                    or (kind == "sparkle" and index != 0)
                 ):
                     continue
                 birth, duration = _transition_burst(
@@ -1206,7 +1266,8 @@ class KaraokeEffects:
                     count,
                     "entry" if entering else "exit",
                 )
-            first_host = False
+            if not node.text.strip():
+                continue
             for segment in target.singing:
                 length = segment.end - segment.start
                 if length <= 0 or self.decoration == "none":
@@ -1225,6 +1286,52 @@ class KaraokeEffects:
                     "singing",
                 )
 
+    def _follow_particle_ink(
+        self, line: LyricLine,
+    ) -> tuple[dict[str, tuple[_ParticlePaint, ...]], Callable[[float], Color] | None]:
+        """Resolve solid character palettes and the line sparkle's position-dependent color."""
+        followed: dict[str, tuple[_ParticlePaint, ...]] = {}
+        color_at_x = None
+        if not isinstance(self.particle_color, str):
+            return followed, color_at_x
+        painted = {n.id: n for n in _walk(line)}
+        centers: list[tuple[float, Color]] = []
+        for target, glyph, unit, _ in line._glyph_regions(automatic=False):
+            if target.role != "character":
+                continue
+            inks: list[_ParticlePaint] = []
+            for mode, source, identity, fallback in (
+                ("follow_before", self.base_material, target.node_id, self.unsung),
+                ("follow_after", self.material, f"{target.node_id}/highlight:singing:{unit}", self.sung),
+            ):
+                if self.particle_color not in (mode, "follow_mix"):
+                    continue
+                piece = painted.get(identity)
+                ink = _particle_ink(source, target, piece, fallback)
+                if self.particle_layers == "solid" or piece is None:
+                    inks.append(ink)
+                    continue
+                em = target.em_size or max(1, target.center.y * 2)
+                border = min(0.25, piece.state.border / em)
+                halo = painted.get(identity + "/glow")
+                rim = None
+                if halo and not halo.state.blur and halo.state.border > piece.state.border:
+                    extra = min(0.25, (halo.state.border - piece.state.border) / em)
+                    rim = Glow(halo.state.outline, border=border + extra, opacity=halo.state.opacity)
+                inks.append(replace(ink, outline=piece.state.outline, border=border, glow=rim))
+            followed[target.node_id] = tuple(inks)
+            centers.append((glyph.bounds.center, inks[0].fill))
+        if self.particle_color != "follow_mix" and len({ink for _, ink in centers}) > 1:
+            def role_at(x: float) -> Color:
+                ink = centers[0][1]
+                for center, candidate in centers:
+                    if x < center:
+                        break
+                    ink = candidate
+                return ink
+            color_at_x = role_at
+        return followed, color_at_x
+
     def _particles(
         self,
         line: LyricLine,
@@ -1236,22 +1343,33 @@ class KaraokeEffects:
         plans = tuple(self._burst_plans(line, nodes))
         if sum(plan.count for plan in plans) > self.max_particles:
             raise ValueError("karaoke particle budget exceeded before construction")
+        active = [(i, p) for i, p in enumerate(plans) if (p.phase != "singing") == transitions]
+        if not active:
+            return line
+        followed, color_at_x = self._follow_particle_ink(line)
         line_particles: list[SceneObject] = []
-        for plan_index, plan in enumerate(plans):
-            if (plan.phase != "singing") != transitions:
-                continue
+        for plan_index, plan in active:
             target, node, kind = plan.target, plan.node, plan.kind
             entering, exiting = plan.phase == "entry", plan.phase == "exit"
             em = target.em_size or max(1, target.center.y * 2)
             seed = self.seed + (line.track_index & 0xFFFF) * 0x9E37
-            colors = (self.particle_color or Color(255, 255, 255),)
             display = line.lifetime if entering or exiting else None
-            if display is not None and self.particle_color is None:
-                colors = (
-                    (Color(242, 248, 255), Color(191, 223, 255))
-                    if kind.startswith("snow")
-                    else (Color(255, 183, 197), Color(255, 215, 224))
-                )
+            palette = self.particle_color
+            pens: tuple[Paint, ...] = ()
+            if isinstance(palette, str):
+                paints = followed[target.node_id]
+                colors = tuple(paint.fill for paint in paints)
+                if (self.particle_layers == "stroke" and kind != "ripple"
+                        and (kind != "sparkle" or palette == "follow_mix")):
+                    pens = paints
+            elif isinstance(palette, tuple):
+                colors = (palette[0],) if palette[0] == palette[1] else palette
+            elif palette is not None or display is None:
+                colors = (palette or Color(255, 255, 255),)
+            elif kind.startswith("snow"):
+                colors = (Color(242, 248, 255), Color(191, 223, 255))
+            else:
+                colors = (Color(255, 183, 197), Color(255, 215, 224))
             if kind == "sparkle":
                 bounds = line.layout.body.bounds
                 center, box = (
@@ -1274,6 +1392,21 @@ class KaraokeEffects:
                 center,
                 line.origin,
             )
+            fields: tuple[Callable[[float], Color] | None, ...] = ()
+            if kind == "sparkle" and palette in ("follow_before", "follow_after"):
+                fields = (color_at_x,)
+            elif isinstance(palette, str) and self.particle_layers == "stroke":
+                bounds = line.layout.body.bounds
+                # Character ornaments move in their parent's local coordinates;
+                # sparkle already uses the whole line's coordinate system.
+                left = bounds.left
+                if kind != "sparkle":
+                    left += center.x - line.layout.body.characters[plan.glyph_index].bounds.center
+                fields = tuple(
+                    partial(_particle_x_color, g.fill, left, max(1, bounds.width))
+                    if (g := paint.gradient) and g.axis == "x" and g.fill else None
+                    for paint in followed[target.node_id]
+                )
             if kind in {"sparkle", "twinkle", "twinkle_classic"}:
                 destination.extend(
                     star_burst(
@@ -1283,33 +1416,43 @@ class KaraokeEffects:
                         size=em * self.particle_size,
                         duration=plan.duration,
                         count=plan.count,
-                        colors=colors,
+                        colors=colors, pens=pens,
+                        fields=fields,
                         exiting=exiting,
                         display=display,
                     )
                 )
                 continue
-            for index in range(plan.count):
-                stream, sample = index % len(colors), index // len(colors)
-                particle = ornament(
-                    replace(
-                        context,
-                        id=f"{context.id}:{index}",
-                        seed=seed + sample + stream * 0x9E37,
-                    ),
-                    kind,
-                    box=box,
-                    em=em,
-                    size=em * self.particle_size,
-                    index=sample,
-                    duration=plan.duration,
-                    color=colors[stream],
-                    entering=entering,
-                    exiting=exiting,
-                    display=display,
-                )
-                if particle is not None:
-                    destination.append(particle)
+            # Studio draws the entire first colour burst before the second.
+            for stream, color in enumerate(colors):
+                radial = None
+                if kind == "ripple" and self.particle_layers == "stroke" and isinstance(palette, str):
+                    gradient = followed[target.node_id][stream].gradient
+                    if gradient is not None and gradient.axis == "y":
+                        radial = gradient.fill
+                for sample, index in enumerate(range(stream, plan.count, len(colors))):
+                    particle = ornament(
+                        replace(
+                            context,
+                            id=f"{context.id}:{index}",
+                            seed=seed + sample + stream * 0x9E37,
+                        ),
+                        kind,
+                        box=box,
+                        em=em,
+                        size=em * self.particle_size,
+                        index=sample,
+                        radial=radial,
+                        duration=plan.duration,
+                        color=color,
+                        entering=entering,
+                        exiting=exiting,
+                        display=display,
+                    )
+                    if particle is not None:
+                        destination.extend(painted_particle(
+                            particle, pens[stream] if pens else None, fields[stream] if fields else None,
+                        ))
         return replace(line, children=(*line.children, *line_particles))
 
     def _display_ornaments(self, line: LyricLine) -> LyricLine:
@@ -1331,6 +1474,11 @@ class KaraokeEffects:
             ):
                 if total <= 0:
                     continue
+                if kind in {"stretch_in", "stretch_out", "char_drip", "spin_flip"}:
+                    for alias in (target.node_id, *target.aliases):
+                        ink = nodes[alias]
+                        if isinstance(ink, TextObject):
+                            replacements[alias] = replace(ink, scale_border=True)
                 if not entering and kind in {"char_fade", "spin_flip"}:
                     start = line.lifetime.end - total * (1 - self.stagger) + fade_offsets[target.node_id]
                     for ink in (node, nodes.get(node.id + "/glow")):
@@ -1338,10 +1486,6 @@ class KaraokeEffects:
                             replacements[ink.id] = _fade_underpaint(replacements.get(ink.id, ink), start)
                     continue
                 if kind in {"stretch_in", "stretch_out"}:
-                    for alias in (target.node_id, *target.aliases):
-                        ink = nodes[alias]
-                        if isinstance(ink, TextObject):
-                            replacements[alias] = replace(ink, scale_border=True)
                     if target.role == "ruby":
                         continue
                     peers = line.query(target.role)
@@ -1416,13 +1560,14 @@ class KaraokeEffects:
         additions: dict[str, list[SceneObject]] = {}
         line = self._particles(line, nodes, additions, transitions=False)
         transition_kinds = {
+            "char_drip", "spin_flip",
             "glow_in",
             "glow_out",
             "stretch_in",
             "stretch_out",
             *_TRANSITION_COUNTS,
         }
-        if self.entry in transition_kinds or self.exit in transition_kinds | {"char_fade", "spin_flip"}:
+        if self.entry in transition_kinds or self.exit in transition_kinds | {"char_fade"}:
             if line._at_placement is None:
                 line = self._display_ornaments(line)
             else:

@@ -396,12 +396,14 @@ class PathObject(VisualNode):
     """A visual VectorPath drawing with state, lifetime, and optional geometry deformation.
 
     Coordinates are local to its local origin and parent transforms. Set filled=False
-    for an outline-only drawing; border sets the outline radius in script pixels.
+    for an outline-only drawing. The border radius uses script pixels by default.
+    With scale_border=True the radius is measured in local path coordinates.
     """
 
     path: VectorPath
     deform: GeometryAnimation | None = None
     filled: bool = True
+    scale_border: bool = False
 
     def __post_init__(self) -> None:
         super().__post_init__()

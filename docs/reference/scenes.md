@@ -36,7 +36,7 @@ Callback-free coverage work counts, before pixels or ASS rectangles exist.
 frames includes declared breakpoints; target_samples is frames times drawable
 leaves. Neither predicts encoded event count, memory use, or elapsed time.
 
-[Source](../../kara_templater/scene_output.py#L118)
+[Source](../../kara_templater/scene_output.py#L119)
 
 ```python
 CoverageEstimate(
@@ -96,7 +96,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L523)
+[Source](../../kara_templater/scene.py#L525)
 
 ```python
 NativeEvent(
@@ -121,7 +121,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
 
-[Source](../../kara_templater/scene.py#L431)
+[Source](../../kara_templater/scene.py#L433)
 
 ```python
 ObjectGroup(
@@ -214,7 +214,7 @@ Per-object output strategy, event count, source origin, sample interval, and obs
 
 Optional metrics apply only to relevant strategies.
 
-[Source](../../kara_templater/scene_output.py#L145)
+[Source](../../kara_templater/scene_output.py#L146)
 
 ```python
 ObjectReport(
@@ -251,7 +251,8 @@ ObjectReport(
 A visual VectorPath drawing with state, lifetime, and optional geometry deformation.
 
 Coordinates are local to its local origin and parent transforms. Set filled=False
-for an outline-only drawing; border sets the outline radius in script pixels.
+for an outline-only drawing. The border radius uses script pixels by default.
+With scale_border=True the radius is measured in local path coordinates.
 
 [Source](../../kara_templater/scene.py#L394)
 
@@ -271,6 +272,7 @@ PathObject(
     path: VectorPath,
     deform: GeometryAnimation | None = None,
     filled: bool = True,
+    scale_border: bool = False,
 )
 ```
 
@@ -291,6 +293,7 @@ PathObject(
 | `path` | `VectorPath` | `required` |
 | `deform` | `GeometryAnimation \| None` | `None` |
 | `filled` | `bool` | `True` |
+| `scale_border` | `bool` | `False` |
 
 ### PathObject.animate
 
@@ -475,7 +478,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L541)
+[Source](../../kara_templater/scene.py#L543)
 
 ```python
 Scene(
@@ -591,7 +594,7 @@ boolean work; exceeding a limit raises instead of reducing quality.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
 
-[Source](../../kara_templater/scene_output.py#L78)
+[Source](../../kara_templater/scene_output.py#L79)
 
 ```python
 SceneBudget(
@@ -626,7 +629,7 @@ An invalid scene or exceeded compilation limit with object_id and optional sourc
 
 Callback causes remain available for diagnosis.
 
-[Source](../../kara_templater/scene_output.py#L62)
+[Source](../../kara_templater/scene_output.py#L63)
 
 ```python
 SceneCompileError(
@@ -645,7 +648,7 @@ estimated_events counts ordinary/native output estimates, excluding coverage
 rectangles whose count is unknown until rendering. coverage reports their
 planned work separately. Final budgets still apply to all output.
 
-[Source](../../kara_templater/scene_output.py#L132)
+[Source](../../kara_templater/scene_output.py#L133)
 
 ```python
 SceneEstimate(
@@ -735,7 +738,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/scene_output.py#L164)
+[Source](../../kara_templater/scene_output.py#L165)
 
 ```python
 SceneResult(
@@ -1006,7 +1009,7 @@ Type: `float`.
 
 Return a new Document. Source records and caller-owned nodes never mutate.
 
-[Source](../../kara_templater/scene_output.py#L1787)
+[Source](../../kara_templater/scene_output.py#L1812)
 
 ```python
 compile_scene(

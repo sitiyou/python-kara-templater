@@ -97,6 +97,56 @@ def test_zero_preview_and_ruby_have_no_overlapping_animations():
     assert not any(":flash:" in n.id for n in nodes if "/ruby" in n.id)
 
 
+@pytest.mark.parametrize("start", [0, 100])
+def test_char_fade_at_video_start_keeps_its_attack_across_the_first_note(start):
+    scene = subject(text=r"{\k10}H{\k10}I", start=start, end=start + 200,
+                    entry="char_fade", exit="none", singing="none", entry_duration=0.6)
+    line, = scene.lines
+    first, second = line.query("character")
+    evaluator = scene.evaluator()
+    assert first.singing[0].start == pytest.approx(start / 1000)
+    assert evaluator.at(first.node_id, 0.125).opacity == pytest.approx(0.5)
+    assert evaluator.at(second.node_id, 0.25).opacity == 0
+    assert evaluator.at(second.node_id, 0.475).opacity == pytest.approx(0.5)
+
+
+@pytest.mark.parametrize("phase", ["entry", "exit"])
+def test_char_drip_shears_the_painted_outline_with_the_face(phase):
+    from kara_templater._raster import rasterize
+
+    doc = Document.create(width=640, height=360, styles=(
+        Style(fontname="DejaVu Sans", fontsize=48, outline=6, shadow=0),
+    ))
+    doc.records.append(Line(start_time=1500, end_time=3500, text=r"{\k200}H"))
+    recipe = replace(KaraokeEffects(entry="none", exit="none", singing="none"),
+                     **{phase: "char_drip"})
+    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
+    script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
+    lifetime = scene.lines[0].lifetime
+    ms = round((lifetime.start + 0.06 if phase == "entry" else lifetime.end - 0.06) * 1000)
+    def area(at):
+        return sum(rasterize(script, at, (640, 360)).rgba[3::4]) / 255
+
+    # A vertical shear preserves area, including the thick border on the uprights.
+    assert area(ms) == pytest.approx(area(2000), rel=0.04)
+
+
+def test_char_fade_changes_with_playback_time_inside_one_sampling_interval():
+    from kara_templater._raster import rasterize
+
+    scene = subject(text=r"{\k50}H", end=1500, entry="char_fade", exit="char_fade",
+                    singing="none", entry_duration=0.6, exit_duration=0.6)
+    line, = scene.lines
+    script = scene.compile(native_tweens=True, budget=SceneBudget(fps=25)).document.dumps()
+
+    def coverage(ms):
+        return sum(rasterize(script, ms, (640, 360)).rgba[3::4])
+
+    start, end = round(line.lifetime.start * 1000), round(line.lifetime.end * 1000)
+    assert 0 < coverage(start + 5) < coverage(start + 15)
+    assert coverage(end - 15) > coverage(end - 5) > 0
+
+
 @pytest.mark.parametrize("kind", ["char_fade", "char_drip", "spin_flip"])
 def test_single_character_exit_finishes_at_display_end(kind):
     scene = subject(text=r"{\k50}H", start=1000, end=1500,
@@ -139,6 +189,139 @@ def test_readings_enter_with_the_hosts_translation_and_reveal(kind):
         expected = displacement(host.node_id, dt)
         for target in line.query("ruby"):
             assert displacement(target.node_id, dt) == pytest.approx(expected)
+
+
+def test_two_color_particle_bursts_share_the_budget_and_preserve_painter_order():
+    first, second = Color(0, 255, 0), Color(0, 0, 255)
+    def particles(palette):
+        line, = subject(text=r"{\k50}A", end=1500, entry="none", exit="none", singing="none",
+                        decoration="petal", particle_color=palette, max_particles=4).lines
+        return [n for n in _walk(line) if ":particle:" in n.id]
+
+    def snapshots(nodes):
+        return [(n.lifetime, n.at((n.lifetime.start + n.lifetime.end) / 2)) for n in nodes]
+
+    assert snapshots(particles((first, first))) == snapshots(particles(first))
+    pair = particles((first, second))
+    assert [p.state.fill for p in pair] == [first, first, second, second]
+    swapped = particles((second, first))
+    assert [p.lifetime for p in pair] == [p.lifetime for p in swapped]
+    for a, b in zip(pair, swapped, strict=True):
+        time = (a.lifetime.start + a.lifetime.end) / 2
+        assert a.at(time).transform == b.at(time).transform
+
+
+def test_follow_mix_particles_take_each_characters_waiting_and_sung_inks():
+    from kara_templater import LyricGradient
+
+    doc = Document.create(styles=(Style(), Style(name="Harmony")))
+    doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k50}A{\rHarmony\k50}B"))
+    warm = LyricGradient((Color(240, 0, 30), Color(180, 30, 60), Color(90, 60, 90)))
+    cool = LyricGradient((Color(0, 180, 255), Color(90, 240, 75)), axis="x")
+    recipe = KaraokeEffects(entry="none", exit="none", singing="none", decoration="petal",
+                            base_material={"Default": warm}, material={"Harmony": cool},
+                            particle_color="follow_mix")
+    line, = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
+    for target, (before, after) in zip(line.query("character"), (
+        (Color(170, 30, 60), recipe.sung), (recipe.unsung, Color(45, 210, 165)),
+    ), strict=True):
+        inks = [n.state.fill for n in _walk(line)
+                if n.id.startswith(target.node_id + "/") and ":particle:" in n.id]
+        assert inks == [before, before, after, after]
+
+
+@pytest.mark.parametrize("mode", ["follow_before", "follow_after"])
+def test_line_sparkles_change_ink_as_they_cross_a_role_center(mode):
+    from kara_templater import LyricGradient
+
+    doc = Document.create(width=640, height=360, styles=tuple(
+        Style(name=n, fontname="DejaVu Sans", fontsize=40) for n in ("Default", "Harmony")
+    ))
+    doc.records.append(Line(start_time=2000, end_time=4000, text=r"{\k100}A{\rHarmony\k100}B"))
+    red, blue = Color(240, 20, 20), Color(10, 30, 250)
+    roles = {"Default": LyricGradient((red, red)), "Harmony": LyricGradient((blue, blue))}
+    recipe = KaraokeEffects(entry="sparkle", exit="none", singing="none", entry_duration=1.2,
+                            seed=4, particle_color=mode, material=roles if mode == "follow_after" else None,
+                            base_material=roles if mode == "follow_before" else None)
+    line, = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
+    boundary = line.layout.body.characters[1].bounds.center
+    crossings = 0
+    for star in line.children:
+        if ":particle:" not in star.id:
+            continue
+        end = star.at(star.lifetime.end - 0.002)
+        start = star.at(star.lifetime.start + 0.002)
+        for state in (start, end):
+            assert state.fill == (red if state.position.x < boundary else blue)
+        crossings += start.fill != end.fill
+    assert crossings
+
+
+def test_particle_pens_follow_size_and_leave_rings_without_outlines():
+    from kara_templater import Glow
+
+    blue, orange = Color(0, 96, 255), Color(255, 128, 0)
+    def drawings(kind):
+        doc = Document.create(width=640, height=360, styles=(Style(fontsize=48, outline=4),))
+        doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}H"))
+        recipe = KaraokeEffects(entry="none", exit="none", singing="none", decoration=kind,
+                                sung_outline=blue, glow=Glow(orange, border=10),
+                                particle_color="follow_after", particle_layers="stroke")
+        scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
+        line, = scene.lines
+        return scene, line, [p for p in _walk(line) if ":particle:" in p.id]
+
+    scene, line, petals = drawings("petal")
+    rim, face = petals[:2]
+    assert rim.state.outline == orange and face.state.outline == blue
+    em = line.query("character")[0].em_size
+    assert face.state.border * face.state.scale.x == pytest.approx(4 / em)
+    assert rim.state.border * rim.state.scale.x == pytest.approx(10 / em)
+    assert scene.compile(native_tweens=True).event_count > 0
+
+    scene, _, rings = drawings("ripple")
+    assert len(rings) == 3 and all(p.state.border == 0 for p in rings)
+    draw = next(d for d in SceneFrames(scene).at(1.32) if d.object_id == rings[0].id)
+    assert any(max(image[-1]) > 160 for image in draw.images)
+
+
+def test_each_ripple_samples_the_gradient_at_its_own_expansion():
+    from kara_templater import LyricGradient
+
+    red, green, blue = Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255)
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none",
+                    decoration="ripple", particle_color="follow_after", particle_layers="stroke",
+                    material=LyricGradient((red, green, blue)))
+    rings = [p for p in _walk(scene.lines[0]) if ":particle:" in p.id]
+    # At 1.30s the 600/450/300ms ring lifetimes are half, one third, and zero elapsed.
+    # Quadratic expansion snapped to 1/32 gives positions 24/32, 18/32 and 0.
+    assert [p.at(1.30).fill for p in rings] == [Color(0, 128, 128), Color(0, 223, 32), red]
+    assert all(p.state.border == 0 for p in rings)
+    assert scene.compile(native_tweens=True).event_count > 0
+
+
+def test_horizontal_ripple_ink_uses_the_host_position_in_the_whole_line():
+    from kara_templater import LyricGradient
+
+    black, white = Color(0, 0, 0), Color(255, 255, 255)
+    line, = subject(text=r"{\k25}H{\k25}H{\k25}H{\k25}H", entry="none", exit="none", singing="none",
+                    decoration="ripple", particle_color="follow_after", particle_layers="stroke",
+                    material=LyricGradient((black, white), axis="x")).lines
+    for target, level in zip(line.query("character"), (32, 96, 159, 223), strict=True):
+        rings = [n for n in _walk(line) if n.id.startswith(target.node_id + "/") and ":particle:" in n.id]
+        assert [n.at(n.lifetime.start + 0.02).fill for n in rings] == [Color(level, level, level)] * 3
+
+
+def test_timed_space_emits_transition_petals_only():
+    scene = subject(text=r"{\k20}A{\k20}　{\k20}B", end=1600, entry="petal", exit="petal",
+                    decoration="petal", singing="none")
+    line, = scene.lines
+    space = line.query("character")[1]
+    petals = [n.lifetime for n in _walk(line)
+              if n.id.startswith(space.node_id + "/") and ":particle:" in n.id]
+    assert sum(p.end < 1.0 for p in petals) == 3
+    assert sum(p.start > 1.6 for p in petals) == 3
+    assert len(petals) == 6
 
 
 @pytest.mark.parametrize(("entry", "exit"), [("petal", "snow"), ("assemble_in", "dissolve_out")])
@@ -673,6 +856,17 @@ def test_stretch_has_sharp_core_and_five_fading_white_halos():
         a.border < b.border and a.opacity > b.opacity
         for a, b in zip(states, states[1:], strict=False)
     )
+
+
+def test_long_ripple_exit_uses_the_scaled_step_for_each_character():
+    doc = Document.create()
+    doc.records.append(Line(start_time=1500, end_time=3500, text=r"{\k50}空{\k50}を{\k50}歌{\k50}う"))
+    recipe = KaraokeEffects(entry="none", exit="ripple", singing="none", exit_duration=1.2)
+    line, = prepare_tracks(doc, tracks=(Track(id="main", tail=3, effects=(recipe,)),)).lines
+    births = [min(n.lifetime.start for n in _walk(line)
+                  if n.id.startswith(t.node_id + "/") and ":particle:" in n.id)
+              for t in line.query("character")]
+    assert births == pytest.approx([4.600, 5.064, 5.528, 5.992])
 
 
 def test_line_sparkle_burst_and_petal_exit_respect_the_text_window():

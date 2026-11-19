@@ -125,6 +125,7 @@ def text_to_path(
         clock_start=node.clock_start,
         path=path,
         filled=node.filled,
+        scale_border=node.scale_border,
         state=node.state,
         animations=node.animations,
         layer=node.layer,

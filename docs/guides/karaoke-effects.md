@@ -122,8 +122,8 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `slide_in` | `slide_out` | Whole-line horizontal movement and opacity |
 | `rise` | `rise` | Whole-line upward movement |
 | `char_fade` | `char_fade` | Staggered character opacity. On exit the waiting and sung colors fade together. |
-| `char_drip` | `char_drip` | Corner-pivot shear, like a hanging letter |
-| `spin_flip` | `spin_flip` | Centered scale and shear |
+| `char_drip` | `char_drip` | Vertical shear about the character’s right edge. The outline tilts with the face. |
+| `spin_flip` | `spin_flip` | Scale and shear the face and outline around the character center. |
 | `utopia` | `utopia` | Overshooting entrance; rotating, flipping, shrinking exit |
 | `tracking_in` | `converge_out` | Spread letters settle; letters converge toward the measured line center |
 | `wave_in` | `scatter_out` | Staggered upward arrival; seeded radial scatter |
@@ -136,6 +136,8 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `petal` | `petal` | Petals sway and turn while entering/leaving |
 | `snow` | `snow` | Six-branched snowflakes with an open center |
 | `snow_solid` | `snow_solid` | Six-branched snowflakes with a filled center |
+
+A timed space still occupies a character slot. Petals, snow and other per-character transition particles can appear there during entry and exit. Singing decorations skip spaces.
 
 For `char_fade`, `char_drip` and `spin_flip`, all kana in one annotation enter and leave with its first main character. A single-character line finishes its exit at the display end. For `tracking_in` and `wave_in`, kana share that main character’s translation and reveal time throughout entry. Stretch, glow, spin-flip, scatter and converge transform the reading around a shared center. The stretch halos and glow echoes belong to the main text. With particle transitions the reading follows its host’s reveal or fade. A Utopia exit waits for the next visible main character to finish. A reading and the main characters it covers share this departure time.
 
@@ -182,9 +184,11 @@ breathes in size/opacity. Ornaments attach to the original glyph's parent and
 move independently after birth. They are emitted from body text, not ruby.
 
 - `particle_size`: fraction of the shaped font’s em size, default 0.40.
-- Snow enters across the full line and is already falling when the line appears. Petals arrive glyph by glyph. The line’s exit clips the remaining transition particles.
+- Snow enters across the full line and is already falling when the line appears. Petals arrive glyph by glyph. A longer ripple exit increases the delay between characters as well as each ring’s lifetime. Later rings can reach the end of the line’s display window before they finish expanding.
 - Singing emits one burst per glyph onset. The defaults are three ripple rings, four petals or snowflakes, seven moving stars, or three classic stars or notes. Set `particle_rate` to choose a density per second of singing. Ripple keeps its three-ring timing.
-- `particle_color` overrides the built-in palette. Singing particles default to white. Entry and exit particles alternate two cherry pinks, or two icy whites for snow.
+- `particle_color` accepts a single color or a pair, for example `(Color.hex("#FFB7C5"), Color.hex("#FFD7E0"))`. Two different colors split each burst between two seeded patterns. The first receives the extra particle for odd counts and the second draws on top where particles overlap. Equal colors use the single-color pattern. By default singing particles are white, and transitions use two cherry pinks or, for snow, two icy whites.
+- Use `"follow_before"` for the character’s waiting fill, `"follow_after"` for its sung fill, or `"follow_mix"` for both. Each gradient contributes the RGB average of its color stops. Line-wide sparkles in a single follow mode take their color from their current horizontal position as they move across roles. In mixed mode they use the first character’s pair. This setting applies to both singing and transition particles.
+- Set `particle_layers="stroke"` with a follow color mode to inherit the character’s primary outline and hard secondary rim. Both radii scale with the moving sprite. Ripple rings keep their thin contour. Line-wide sparkles in `"follow_before"` and `"follow_after"` use only the color at their horizontal position. With a vertical fill gradient, each ripple ring changes color as it expands. With a horizontal fill gradient, each particle samples the gradient at its current position across the line. Other shapes with a vertical fill gradient use the stop average.
 - `max_particles`: total entry/exit/singing particle budget per line, default 512;
   exceeding it raises before particle factories execute.
 - `seed`: deterministic variation, independent of rendering or seeking order.

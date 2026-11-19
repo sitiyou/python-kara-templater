@@ -1,18 +1,19 @@
 """Original vector ornaments and deterministic trajectories for built-in karaoke."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import replace
 from functools import lru_cache
-from math import cos, pi, sin, sqrt
+from math import ceil, cos, pi, sin, sqrt
 
 from ._karaoke_motion import unit_hash
-from .composition import Color
+from .composition import Color, Paint
 from .easing import ease_out
 from .geometry import Contour, CubicSegment, Vec2, VectorPath
 from .karaoke_cues import _note
+from .paint_fields import ColorRamp
 from .particles import ParticleContext
 from .scene import Lifetime, PathObject
-from .scene_animation import StateFunction, Transform, VisualState, smooth_rate
+from .scene_animation import Channel, StateFunction, Transform, VisualState, smooth_rate
 
 
 @lru_cache(maxsize=16)
@@ -194,6 +195,7 @@ def ornament(
     box: Vec2,
     duration: float,
     color: Color,
+    radial: ColorRamp | None = None,
     entering: bool = False,
     exiting: bool = False,
     display: Lifetime | None = None,
@@ -246,15 +248,26 @@ def ornament(
         )
     if delay >= duration:
         return None
+    animation: Transform | StateFunction = motion
+    if radial is not None:
+        def ring_color(base: VisualState, p: float) -> VisualState:
+            ink = radial.at(round(32 * ease_out(p)) / 32)
+            return replace(motion.sample(base, p), fill=ink)
+        animation = StateFunction(ring_color, motion.channels | frozenset[Channel](("fill",)))
     return _draw(
         replace(context, birth=context.birth + delay, position=position),
         kind,
         duration - delay,
         color,
-        motion,
+        animation,
         display,
-        angle=rotation,
+        angle=rotation, raster_size=size * (4 if kind == "ripple" else 1),
     )
+
+
+@lru_cache(maxsize=128)
+def _sized_sprite(kind: str, pixels: int) -> VectorPath:
+    return sprite(kind).map(lambda point: point * pixels)
 
 
 def _draw(
@@ -262,9 +275,10 @@ def _draw(
     kind: str,
     duration: float,
     color: Color,
-    motion: Transform,
+    motion: Transform | StateFunction,
     display: Lifetime | None,
     *,
+    raster_size: float,
     angle: float = 0,
 ) -> PathObject | None:
     start, end = context.birth, context.birth + duration
@@ -280,20 +294,48 @@ def _draw(
             lambda base, p: motion.sample(base, min(1, phase + p * span)),
             motion.channels,
         )
+    # GPU coverage is cached before motion. Store the contour at its display
+    # size so a unit-wide petal or thin ring survives rasterization.
+    pixels = max(1, ceil(raster_size))
     return PathObject(
         id=context.id,
         origin=context.origin,
         lifetime=Lifetime(start, end),
-        path=sprite(kind),
+        path=_sized_sprite(kind, pixels),
         layer=-1 if kind == "ripple" else 2,
         state=VisualState(
             position=context.position,
+            scale=Vec2(1 / pixels, 1 / pixels),
             fill=color,
             outline=color,
             blur=0,
             rotation=angle,
         ),
     ).animate(animation, duration=end - start)
+
+
+def painted_particle(
+    node: PathObject, pen: Paint | None, color_at_x: Callable[[float], Color] | None,
+) -> Iterator[PathObject]:
+    """Paint the moving face and its independent rim in source order."""
+    if pen is not None:
+        unit = 1 / node.state.scale.x
+        if pen.glow is not None:
+            rim = pen.glow
+            yield replace(node, id=node.id + "/rim", scale_border=True, state=replace(
+                node.state, fill=rim.color, outline=rim.color, border=rim.border * unit,
+                opacity=node.state.opacity * rim.opacity,
+            ))
+        node = replace(node, scale_border=True, state=replace(node.state, outline=pen.outline, border=pen.border * unit))
+    if color_at_x is not None:
+        clip, = node.animations
+        motion = clip.animation
+        def tint(base: VisualState, p: float) -> VisualState:
+            state = motion.sample(base, p)
+            return replace(state, fill=color_at_x(state.position.x))
+        animation = StateFunction(tint, motion.channels | frozenset[Channel](("fill",)))
+        node = replace(node, animations=(replace(clip, animation=animation),))
+    yield node
 
 
 def star_burst(
@@ -305,8 +347,10 @@ def star_burst(
     duration: float,
     count: int,
     colors: tuple[Color, ...],
+    pens: tuple[Paint, ...] = (),
     exiting: bool,
     display: Lifetime | None,
+    fields: tuple[Callable[[float], Color] | None, ...] = (),
 ) -> Iterator[PathObject]:
     """Emit one deterministic star pattern per palette colour around the box centre."""
     for variant, color in enumerate(colors):
@@ -362,7 +406,7 @@ def star_burst(
                 color,
                 motion,
                 display,
-                angle=rotation,
+                angle=rotation, raster_size=size,
             )
             if star is not None:
-                yield star
+                yield from painted_particle(star, pens[variant] if pens else None, fields[variant] if fields else None)

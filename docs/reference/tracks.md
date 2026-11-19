@@ -61,14 +61,16 @@ this engine. It is a visual recipe, not an importer or pixel-identical renderer.
 Use ordinary LyricRule/custom effects alongside it. Apply once per line, before
 another highlight factory; this recipe owns the base/sung appearance and masks.
 Decorations use seeded glyph-local trajectories; ruby receives text transitions
-and sweeps but not particles or outline flash. max_particles bounds the total
-generated ornament objects per line, including entry and exit.
+and sweeps but not particles or outline flash. max_particles bounds the number
+of particles planned per line, including entry and exit. With particle_layers="stroke",
+following particles inherit the glyph's hard outline radii relative to its em;
+a second hard rim is a separate drawing of the same moving particle.
 
 Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L756)
+[Source](../../kara_templater/karaoke_effects.py#L804)
 
 ```python
 KaraokeEffects(
@@ -87,7 +89,8 @@ KaraokeEffects(
     base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
-    particle_color: Color | None = None,
+    particle_color: Color | tuple[Color, Color] | Literal['follow_before', 'follow_after', 'follow_mix'] | None = None,
+    particle_layers: Literal['solid', 'stroke'] = 'solid',
     particle_size: float = 0.4,
     particle_rate: float | None = None,
     max_particles: int = 512,
@@ -127,7 +130,8 @@ KaraokeEffects(
 | `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `glow` | `LyricGlow` | `None` |
 | `base_glow` | `LyricGlow` | `None` |
-| `particle_color` | `Color \| None` | `None` |
+| `particle_color` | `Color \| tuple[Color, Color] \| Literal['follow_before', 'follow_after', 'follow_mix'] \| None` | `None` |
+| `particle_layers` | `Literal['solid', 'stroke']` | `'solid'` |
 | `particle_size` | `float` | `0.4` |
 | `particle_rate` | `float \| None` | `None` |
 | `max_particles` | `int` | `512` |

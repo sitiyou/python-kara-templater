@@ -357,3 +357,31 @@ def test_text_outline_scales_with_the_glyph_only_when_requested():
     assert rasterize(script, 550, (320, 240)).rgba != rasterize(
         fixed_border, 550, (320, 240)
     ).rgba
+
+
+def test_subpixel_detail_of_enlarged_unit_drawing():
+    doc = Document.create(width=160, height=120)
+    # A narrow column magnified 80 times. Equivalent screen-space geometry
+    # independently specifies where the two edges should land.
+    glyph = PathObject(id="stroke", lifetime=Lifetime(0, 1),
+                       path=VectorPath.rectangle(0.028, 0.75),
+                       state=VisualState(position=Vec2(60, 20), scale=Vec2(80, 80)))
+    reference = replace(glyph, path=VectorPath.rectangle(2.24, 60),
+                        state=replace(glyph.state, scale=Vec2(1, 1)))
+    def coverage(node):
+        script = Scene(doc).add(node).compile().document.dumps()
+        return sum(rasterize(script, 100, (160, 120)).rgba[3::4]) / 255
+    assert coverage(glyph) == pytest.approx(coverage(reference), rel=0.025)
+
+
+def test_local_path_pen_enlarges_with_the_drawing():
+    doc = Document.create(width=120, height=90)
+    glyph = PathObject(id="stroke", lifetime=Lifetime(0, 1), path=VectorPath.rectangle(12, 10),
+                       scale_border=True, state=VisualState(position=Vec2(30, 25),
+                                                            scale=Vec2(3, 3), border=2))
+    reference = replace(glyph, path=VectorPath.rectangle(36, 30), scale_border=False,
+                        state=replace(glyph.state, scale=Vec2(1, 1), border=6))
+    def mask(node):
+        script = Scene(doc).add(node).compile().document.dumps()
+        return rasterize(script, 100, (120, 90)).rgba[3::4]
+    assert mask(glyph) == mask(reference)
