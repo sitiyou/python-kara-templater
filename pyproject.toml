@@ -40,7 +40,7 @@ repair-wheel-command = """auditwheel repair --plat manylinux_2_28_x86_64 --only-
   --exclude 'libpng16.so.*' --exclude 'libbrotlidec.so.*' \\
   --exclude 'libbrotlicommon.so.*' --exclude 'libpcre2-8.so.*' \\
   -w {dest_dir} {wheel}"""
-before-all = "dnf install -y epel-release && dnf install -y autoconf automake libtool nasm pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts google-noto-sans-cjk-ttc-fonts"
+before-all = "dnf install -y epel-release && dnf install -y autoconf automake libtool nasm pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts dejavu-sans-mono-fonts google-noto-sans-cjk-ttc-fonts"
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
