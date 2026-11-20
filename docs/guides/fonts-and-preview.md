@@ -70,6 +70,27 @@ size with the intended outline. Check the actual simplified or traditional
 lyrics for missing glyphs, especially when using a face marked 简繁扩充 in
 the workbooks.
 
+### Fontworks choices for a karaoke template
+
+The [karaoke designs example](../../examples/karaoke_designs.py) accepts these names
+through `--font-preset`. Each selects the listed Japanese face and its own weight
+for body and ruby. The Chinese column gives a suggested translation style from
+*Fontworks 日文字体 中日字体匹配推荐表 v1.05*, Sheet1.
+
+| Preset | Japanese face | Simplified Chinese companion | Where to try it | Rows |
+| --- | --- | --- | --- | --- |
+| `seurat` | FOT-Seurat Pro DB | 方正兰亭圆 GBK, matching weight | Rounded main lyrics. The demi-bold weight keeps the short strokes visible on animated footage. | 359–361 |
+| `telop-min` | FOT-TelopMin ProN D | 方正屏显雅宋 GBK | Ballads and held phrases. The heavier horizontal strokes give this Mincho a firmer outline on screen. | 65–69 |
+| `humming` | FOT-Humming Std D | 汉仪润圆-55W | A gentler verse or answering voice. Compare its kana rhythm with Seurat on the same phrase. | 443 |
+| `pop-joy` | FOT-PopJoy Std B | 方正少儿 GBK | Playful refrains and short calls. Check small voiced kana before using it for dense ruby. | 477 |
+
+![Four Fontworks faces rendering the same Japanese lyric and ruby at the same size](../examples/assets/fontworks-lyric-faces.jpg)
+
+For example, run `uv run python -m examples.karaoke_designs build/seurat.ass --japanese --font-preset seurat`.
+Install the face before compiling. On a fontconfig system, inspect the file and weight
+with `fc-match -f '%{file} %{style}\n' ':family=FOT-Seurat Pro DB'`. The family
+selector preserves the hyphen in Fontworks names. Check the actual rendered line as well.
+
 ## Register and select a font
 
 `load_font(path)` makes that font's bytes available to the current interpreter's

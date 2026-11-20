@@ -1,7 +1,7 @@
 """Reference-informed karaoke styles on one original, shared lyric fixture.
 
 uv run python -m examples.karaoke_designs build/broadcast.ass --style broadcast
-Styles reproduce visual principles, not the original songs or exact fonts.
+See docs/tutorials/karaoke-design.md for layout and docs/guides/fonts-and-preview.md for typefaces.
 """
 
 import argparse
@@ -79,6 +79,15 @@ class Palette:
     bold: bool
 
 
+# Installed Japanese faces with explicit weights from the Fontworks pairing guide.
+FONT_PRESETS = {
+    "seurat": "FOT-Seurat Pro DB",
+    "telop-min": "FOT-TelopMin ProN D",
+    "humming": "FOT-Humming Std D",
+    "pop-joy": "FOT-PopJoy Std B",
+}
+
+
 PALETTES: dict[Design, Palette] = {
     "broadcast": Palette(
         "#FFFFFF",
@@ -137,7 +146,7 @@ def song(
             name=name,
             fontname=family,
             fontsize=size,
-            bold=palette.bold,
+            bold=palette.bold and family not in FONT_PRESETS.values(),
             shadow=0,
             outline=border,
         )
@@ -286,7 +295,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--style", choices=tuple(PALETTES), default="broadcast")
-    parser.add_argument("--font", help="Installed font family; overrides body and ruby")
+    fonts = parser.add_mutually_exclusive_group()
+    fonts.add_argument(
+        "--font-preset",
+        choices=tuple(FONT_PRESETS),
+        help="Installed Fontworks face and weight",
+    )
+    fonts.add_argument("--font", help="Installed font family; overrides body and ruby")
     parser.add_argument(
         "--japanese",
         action="store_true",
@@ -303,7 +318,11 @@ def main() -> None:
             design = "candy"
         case _:
             raise ValueError("unknown design")
-    result = build(design, font=args.font, japanese=args.japanese).compile(
+    result = build(
+        design,
+        font=FONT_PRESETS[args.font_preset] if args.font_preset else args.font,
+        japanese=args.japanese,
+    ).compile(
         native_tweens=True,
         budget=SceneBudget(fps=60, max_events=40_000, max_bytes=20 * 1024 * 1024),
     )
