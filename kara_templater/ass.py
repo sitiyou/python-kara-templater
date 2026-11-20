@@ -91,16 +91,6 @@ class Style:
     shadow: float = 2
     fields: dict[str, str] = field(default_factory=dict, repr=False)
 
-    @property
-    def margin_t(self) -> int:
-        """Template-facing top-margin alias using the style vertical margin."""
-        return self.margin_v
-
-    @property
-    def margin_b(self) -> int:
-        """Template-facing bottom-margin alias using the style vertical margin."""
-        return self.margin_v
-
     def serialize(self) -> str:
         """Serialize this ASS style while preserving extra fields and updating typed values."""
         defaults = dict(
@@ -165,16 +155,6 @@ class Line:
     effect: str = ""
     comment: bool = False
     fields: dict[str, str] = field(default_factory=dict, repr=False)
-
-    @property
-    def margin_t(self) -> int:
-        """Template-facing top-margin alias using the event vertical margin."""
-        return self.margin_v
-
-    @property
-    def margin_b(self) -> int:
-        """Template-facing bottom-margin alias using the event vertical margin."""
-        return self.margin_v
 
     def serialize(self) -> str:
         """Serialize this Dialogue or Comment in its preserved event field order."""

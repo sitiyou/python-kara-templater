@@ -12,7 +12,7 @@ from tools.check_docs import check
 @pytest.mark.parametrize(
     ("page", "filename", "start", "duration"),
     (
-        ("README.md", "hello.ass", 0, 3000),
+        ("README.md", "chorus.ass", 0, 4000),
         ("docs/guides/karaoke-effects.md", "karaoke.ass", 0, 5600),
         ("docs/guides/gpu-rendering.md", "song.ass", 0, 3000),
         ("docs/getting-started.md", "first-effect.ass", 0, 3000),
@@ -29,6 +29,9 @@ def test_complete_author_script_runs_as_written(
     assert scripts
     monkeypatch.chdir(tmp_path)
     exec(compile(scripts[0], page, "exec"), {"__name__": "__main__"})
+    if page in {"README.md", "docs/getting-started.md", "docs/guides/gpu-rendering.md"}:
+        hook = (tmp_path / filename).with_suffix(".hook")
+        assert "//!HOOK MAIN" in hook.read_text(encoding="utf-8")
     output = Document.load(tmp_path / filename)
     assert (output.meta.res_x, output.meta.res_y) == (640, 360)
     events = [line for line in output.lines if not line.comment]

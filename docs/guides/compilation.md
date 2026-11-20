@@ -1,4 +1,7 @@
-# Compilation, reports, and performance
+# ASS compilation, reports, and performance
+
+These reports describe standard ASS event generation. For standalone shaders
+or compact lyric delivery, see [Choose an output](choosing-output.md).
 
 Scene.compile returns a SceneResult containing the output Document, per-object
 reports, event_count, peak_active, byte_count, estimated_events,

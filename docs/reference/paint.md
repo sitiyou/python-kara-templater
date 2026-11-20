@@ -18,6 +18,7 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 - [Highlight](#highlight)
 - [HighlightArrival](#highlightarrival)
 - [HighlightPass](#highlightpass)
+- [KaraokeTheme](#karaoketheme)
 - [LinearGradient](#lineargradient)
 - [LyricGlow](#lyricglow)
 - [LyricGradient](#lyricgradient)
@@ -210,7 +211,7 @@ Glow.from_studio(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L212)
+[Source](../../kara_templater/lyric_highlights.py#L213)
 
 ```python
 Highlight(
@@ -261,7 +262,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L1164)
+[Source](../../kara_templater/lyric_highlights.py#L1173)
 
 ```python
 HighlightArrival(
@@ -307,7 +308,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L144)
+[Source](../../kara_templater/lyric_highlights.py#L145)
 
 ```python
 HighlightPass(
@@ -354,6 +355,47 @@ Return the line-local front coordinate at absolute Scene seconds.
 HighlightPass.front(
     time: float,
 ) -> float
+```
+
+## KaraokeTheme
+
+Color role overrides shared by catalog effects and their inherited cues.
+
+An omitted role inherits from the outer theme. Ordinary catalog effects
+retain source outlines until an outline role is supplied. Duotone supplies
+contrasting outlines for both singing states. Explicit effect colors win.
+
+[Source](../../kara_templater/appearance.py#L19)
+
+```python
+KaraokeTheme(
+    *,
+    sung: Color | None = None,
+    unsung: Color | None = None,
+    sung_outline: Color | None = None,
+    unsung_outline: Color | None = None,
+    shine: Color | None = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `sung` | `Color \| None` | `None` |
+| `unsung` | `Color \| None` | `None` |
+| `sung_outline` | `Color \| None` | `None` |
+| `unsung_outline` | `Color \| None` | `None` |
+| `shine` | `Color \| None` | `None` |
+
+### KaraokeTheme.overlay
+
+Override only roles supplied by the inner theme.
+
+```python
+KaraokeTheme.overlay(
+    inner: KaraokeTheme,
+) -> KaraokeTheme
 ```
 
 ## LinearGradient
@@ -442,7 +484,7 @@ from undecorated glyph bounds, independent of glow/outline;
 step is color-band width in local script pixels. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyric_highlights.py#L84)
+[Source](../../kara_templater/lyric_highlights.py#L85)
 
 ```python
 LyricGradient(
@@ -490,7 +532,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L681)
+[Source](../../kara_templater/lyric_highlights.py#L682)
 
 ```python
 LyricHighlights(
@@ -502,7 +544,7 @@ LyricHighlights(
     settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
     base_paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
     base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
-    hook_feather: float = 0,
+    hook_feather: float | LengthExpr = 0,
     edge_duration: float = 0.02,
     blend_glow: bool = True,
     ass_feather_bands: int = 0,
@@ -521,7 +563,7 @@ LyricHighlights(
 | `settings` | `RasterSettings` | `RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128)` |
 | `base_paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
 | `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
-| `hook_feather` | `float` | `0` |
+| `hook_feather` | `float \| LengthExpr` | `0` |
 | `edge_duration` | `float` | `0.02` |
 | `blend_glow` | `bool` | `True` |
 | `ass_feather_bands` | `int` | `0` |
@@ -584,7 +626,7 @@ LyricHighlights.from_singing(
     base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     strategy: Literal['clip', 'coverage'] = 'clip',
-    hook_feather: float = 0,
+    hook_feather: float | LengthExpr = 0,
     segment_colors: Mapping[tuple[int, int], Color] | None = None,
     ruby_fill: Color | None = None,
     edge_duration: float = 0.02,

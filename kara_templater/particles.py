@@ -7,6 +7,7 @@ from dataclasses import dataclass, replace
 from hashlib import sha256
 from typing import Protocol
 
+from .composition import Color
 from .geometry import Vec2, finite
 from .object_references import (
     FollowObject,
@@ -47,7 +48,7 @@ class ParticleContext:
     """Particle factory input with birth, seed, source position, optional origin, and named random channels.
 
     position_at samples an emitter explicitly; it does not imply continuous
-    following.
+    following. color is the optional captured lyric ink for a particle factory.
     """
 
     id: str
@@ -56,6 +57,7 @@ class ParticleContext:
     position: Vec2
     origin: EventOrigin | None
     emitter: Callable[[float], Vec2] | None = None
+    color: Color | None = None
 
     def uniform(self, key: str, minimum: float = 0, maximum: float = 1) -> float:
         """Stable keyed random value, independent of access and generation order."""

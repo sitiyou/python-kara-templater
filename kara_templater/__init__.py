@@ -1,6 +1,6 @@
 """Typed karaoke authoring and animation for standard ASS and libplacebo."""
 
-from .appearance import PaintPair
+from .appearance import KaraokeTheme, PaintPair
 from .ass import Document, Line, Record, Style
 from .characters import (
     CharacterTarget,
@@ -136,6 +136,7 @@ from .paint_fields import (
     PaintField,
     SoftSweep,
 )
+from .parameters import Animation, Canvas, Glyph, LengthExpr, Note, TimeExpr
 from .particles import (
     Emission,
     ParticleContext,
@@ -238,7 +239,8 @@ from .timeline import (
 )
 
 __all__ = [
-    "KaraokeEffects", "KaraokeEntry", "KaraokeExit", "KaraokeSinging", "KaraokeDecoration",
+    "Animation", "Canvas", "Glyph", "LengthExpr", "Note", "TimeExpr",
+    "KaraokeTheme", "KaraokeEffects", "KaraokeEntry", "KaraokeExit", "KaraokeSinging", "KaraokeDecoration",
     "BackRate",
     "ease_in",
     "ease_out",

@@ -1,6 +1,8 @@
 # Effect gallery
 
-These previews are rendered from the ASS exported by the linked Python examples.
+The animated previews on this page show **ASS rendered with libass**. For a
+shader preview and a comparison of the same lyric frame across all three export
+paths, see [Choose an output](../guides/choosing-output.md#one-singing-position-three-renders).
 Each primary example uses fixed content and accepts an output path. From a source
 checkout with the library installed, create `build/` and run the command shown.
 The wheel does not install the `examples` package.

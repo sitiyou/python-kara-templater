@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 CASES = (
+    "from kara_templater import KaraokeEffects, Note\nKaraokeEffects.duotone(feather=Note.duration)\n",
+    'from kara_templater import FadeOut, Glyph, LyricRule\nLyricRule("line", "exit", FadeOut(), duration=Glyph.font_size)\n',
     'from kara_templater import KaraokeEffects\nKaraokeEffects(entry="scatter_out")\n',
     'from kara_templater import KaraokeEffects\nKaraokeEffects(singing="fade")\n',
     'from kara_templater import KaraokeEffects\nKaraokeEffects(decoration="glitter")\n',

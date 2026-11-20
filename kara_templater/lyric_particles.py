@@ -4,6 +4,7 @@ from dataclasses import dataclass, replace
 from math import ceil, cos, pi, sin
 from typing import Literal
 
+from .appearance import _DEFAULT_SUNG
 from .composition import Color
 from .geometry import Contour, CubicSegment, Vec2, VectorPath, finite
 from .lyric_line import LyricLine
@@ -29,7 +30,7 @@ class Sparkle:
     channels. The ordinary linear Tween can compile to one ASS event per spark.
     """
 
-    color: Color = Color(255, 245, 210)
+    color: Color | None = None
     size: float = 3
     duration: float = 0.45
     travel: Vec2 = Vec2(12, -24)
@@ -56,7 +57,7 @@ class Sparkle:
         return PathObject(
             id=context.id, lifetime=Lifetime(context.birth, context.birth + self.duration),
             path=path, origin=context.origin, layer=1,
-            state=VisualState(position=position, fill=self.color, border=0, opacity=0.9),
+            state=VisualState(position=position, fill=self.color or context.color or _DEFAULT_SUNG, border=0, opacity=0.9),
         ).animate(Tween(StatePatch(position=destination, opacity=0)), duration=self.duration)
 
 
@@ -68,7 +69,7 @@ class Petal:
     a sampled custom Transform for flutter, so inspect compilation cost.
     """
 
-    color: Color = Color(255, 155, 195)
+    color: Color | None = None
     size: float = 4
     duration: float = 0.9
     fall: float = 40
@@ -91,7 +92,7 @@ class Petal:
         return PathObject(
             id=context.id, lifetime=Lifetime(context.birth, context.birth + self.duration),
             path=path, origin=context.origin, layer=1,
-            state=VisualState(position=context.position, fill=self.color, border=0,
+            state=VisualState(position=context.position, fill=self.color or context.color or _DEFAULT_SUNG, border=0,
                               rotation=context.uniform("angle", 0, 360)),
         ).animate(Transform(
             offset=lambda p: Vec2(wind * p + 10 * sin(pi * p), self.fall * p),
@@ -111,7 +112,7 @@ class Ribbon:
     ASS samples the changing stroke, so inspect output costs at high rates.
     """
 
-    color: Color = Color(255, 170, 220)
+    color: Color | None = None
     width: float = 1.5
     duration: float = 0.55
     lag: float = 0.18
@@ -136,8 +137,8 @@ class Ribbon:
             id=context.id,
             lifetime=Lifetime(context.birth, context.birth + self.duration + self.lag),
             path=trail.full_path, deform=trail, origin=context.origin, layer=1,
-            state=VisualState(position=context.position, fill=self.color,
-                              outline=self.color, border=0.5, blur=0.6),
+            state=VisualState(position=context.position, fill=self.color or context.color or _DEFAULT_SUNG,
+                              outline=self.color or context.color or _DEFAULT_SUNG, border=0.5, blur=0.6),
         )
 
 
@@ -152,6 +153,8 @@ class LyricParticles:
     Copy delays shift both schedules; later visual tails never extend emission.
     Line placement uses stable named random channels and captures a fixed point.
 
+    color overrides the emission tint. Catalog or Track ink supplies the default;
+    without one the emitter reads the source run. A factory color overrides it.
     rate is particles per second per singing segment in front mode; duration comes from the
     particle factory. Repeated segments restart the front. Zero-length segments
     emit nothing. Particle births are rounded to the ASS 10 ms grid; source
@@ -167,6 +170,7 @@ class LyricParticles:
     id: str = "particles"
     max_particles: int = 256
     placement: Literal["front", "line"] = "front"
+    color: Color | None = None
 
     def __post_init__(self) -> None:
         finite(self.rate)
@@ -224,15 +228,19 @@ class LyricParticles:
                         middle: float = box.middle) -> Vec2:
                 return Vec2(left + width * min(1, max(0, (time - start) / duration)), middle)
 
+            offset = 0 if self.placement == "line" else line.layout.lyrics.units[unit].start
+            source_color = next((r.appearance.primary for r in line.layout.body.source.runs
+                                 if r.start <= offset < r.end), _DEFAULT_SUNG)
+
             def factory(context: ParticleContext, left: float = box.left,
                         right: float = box.right, top: float = box.top,
-                        bottom: float = box.top + box.height) -> SceneObject:
+                        bottom: float = box.top + box.height, source_color: Color = source_color) -> SceneObject:
                 if self.placement == "line":
                     context = replace(context, position=Vec2(
                         context.uniform("placement:x", left, right),
                         context.uniform("placement:y", top, bottom),
                     ), emitter=None)
-                return self.factory(context)
+                return self.factory(replace(context, color=self.color or source_color))
 
             generated.extend(emit_particles(
                 (Emission(str(index), round(start + index / self.rate, 2)) for index in range(count)),

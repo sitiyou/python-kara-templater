@@ -251,7 +251,7 @@ def test_follow_mix_particles_take_each_characters_waiting_and_sung_inks():
     cool = LyricGradient((Color(0, 180, 255), Color(90, 240, 75)), axis="x")
     recipe = KaraokeEffects(entry="none", exit="none", singing="none", decoration="petal",
                             base_material={"Default": warm}, material={"Harmony": cool},
-                            particle_color="follow_mix")
+                            particle_color="follow_mix").with_theme()
     line, = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
     for target, (before, after) in zip(line.query("character"), (
         (Color(170, 30, 60), recipe.sung), (recipe.unsung, Color(45, 210, 165)),
@@ -865,7 +865,7 @@ def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
 def test_duotone_compact_wipes_both_inks_in_one_letter(tmp_path, reverse):
     from kara_templater._raster import rasterize
 
-    recipe = replace(KaraokeEffects.duotone(), reverse_wipe=reverse)
+    recipe = replace(KaraokeEffects.duotone(feather=24), reverse_wipe=reverse).with_theme()
     doc = Document.create(
         width=320,
         height=180,
@@ -903,7 +903,7 @@ def test_duotone_compact_wipes_both_inks_in_one_letter(tmp_path, reverse):
     # O has solid horizontal strokes across the front at its top and bottom.
     # A sharp clip yields only endpoint inks there; a wide wipe has interior inks.
     weights = [i / 16 for i in (3, 5, 7, 9, 11, 13)]
-    assert recipe.unsung_outline and recipe.sung_outline
+    assert recipe.unsung and recipe.sung and recipe.unsung_outline and recipe.sung_outline
     for a, b in (
         (recipe.unsung, recipe.sung),
         (recipe.unsung_outline, recipe.sung_outline),
@@ -1022,7 +1022,7 @@ def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
     assert any(d.gradient is not None for d in SceneFrames(scene).at(1.3))
 
 
-def test_stretch_has_sharp_core_and_five_fading_white_halos():
+def test_stretch_has_sharp_core_and_five_fading_themed_halos():
     from kara_templater import TextObject
 
     scene = subject(
@@ -1045,7 +1045,7 @@ def test_stretch_has_sharp_core_and_five_fading_white_halos():
     states = [evaluator.at(node.id, t) for node in halos]
     assert all(
         state.scale.x == pytest.approx(core.scale.x)
-        and state.outline == Color(255, 255, 255)
+        and state.outline == KaraokeEffects().with_theme().shine
         for state in states
     )
     assert all(

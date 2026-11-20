@@ -8,7 +8,7 @@ reproduces it. Keep the traceback and exception cause when debugging callbacks.
 | Unknown public import | Ensure the installed package matches these current-checkout docs; use the final API reference rather than old implementation plans |
 | `No module named examples` or `tools` | These are checkout utilities; standalone tutorial scripts use only kara_templater |
 | Native extension fails to load | Install the matching Python/platform wheel and required native runtime libraries; see development setup |
-| Missing or substituted glyph | Check the actual font family, fallback faces, and load_font registration; supply the same font to playback |
+| Missing or substituted glyph | Check the actual font family, fallback faces, and load_font registration; supply the same font to the ASS player. A hook carries coverage from the export machine |
 | A text range or cue splits a cluster | Select complete independently drawable clusters, not arbitrary Python character boundaries |
 | Unsupported ASS override | Use the frontend that supports the needed input semantics, or declare the appearance in Python; loading ASS does not imply every override is understood by a lyric binder |
 | Unknown cue preset/invalid marker | Match preset names, marker keys, quoting, offsets, and cluster boundaries to the input marker contract |
@@ -18,6 +18,7 @@ reproduces it. Keep the traceback and exception cause when debugging callbacks.
 | Object follows the wrong position | Distinguish local object evaluation from world-space SceneEvaluator references |
 | PlayRes mismatch | Check Document script dimensions and the resolution used by the renderer or preview |
 | Editable Track rejects source style | Use native mode for unsupported underline/strikeout/angle/BorderStyle, or author the desired geometry explicitly |
+| A pulse disappears or a soft wipe looks sharper after export | Check which ASS path produced the file. [Compare the three renders](choosing-output.md#one-singing-position-three-renders) before changing the timing or colors. |
 | Glow is cut off at a color front | Native clipping is post-render; use explicit coverage/raster material semantics for color-before-blur |
 | Group alpha looks too dense | Ordinary groups apply alpha per drawing layer; choose explicit offscreen/coverage composition when required |
 | Event, byte, active, path, band, or boolean budget fails | Inspect SceneResult/ObjectReport, simplify the effect, or deliberately raise the relevant SceneBudget/RasterSettings limit |

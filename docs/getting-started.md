@@ -1,8 +1,8 @@
 # Getting started
 
-kara-templater is a Python library for custom effects that compile to standard
-ASS subtitles. You create a Document, add objects to a Scene, animate them, and
-save the compiled Document. A video renderer is not required to generate ASS.
+Create a scene in Python, animate a caption, then export it as an ASS subtitle or a
+standalone libplacebo hook. This first example uses a fade and a rise that both
+exporters support. The [karaoke recipe](../README.md) adds timed lyrics and readings.
 
 ## Install the library
 
@@ -50,7 +50,7 @@ from kara_templater import (
 document = Document.create(width=640, height=360)
 caption = TextObject(
     id="caption",
-    text="Hello, ASS!",
+    text="Sing with me",
     font="DejaVu Sans",
     font_size=48,
     alignment=5,
@@ -61,9 +61,9 @@ caption = TextObject(
         AnimationClip(2.5, 0.5, Tween(StatePatch(opacity=0))),
     ),
 )
-result = Scene(document).add(caption).compile()
-result.document.save("first-effect.ass")
-print(f"{result.event_count} events, {result.byte_count} bytes")
+scene = Scene(document).add(caption)
+scene.compile().document.save("first-effect.ass")
+scene.export_hook("first-effect.hook", fps=30)
 ```
 
 Run it with:
@@ -72,10 +72,17 @@ Run it with:
 python first_effect.py
 ```
 
-The result is a three-second caption that rises while fading in, then fades out.
-Load `first-effect.ass` as a subtitle track in an ASS-capable player. Use a video
-lasting at least three seconds and ensure the requested font is installed or
-available to the player. A fallback font can change the result's appearance.
+Play either export over a video lasting at least three seconds. The caption
+rises as it fades in, then fades out. For ASS, make DejaVu Sans available to
+the player. The hook includes the shaped glyphs and requires a compatible GPU.
+
+```sh
+mpv --sub-auto=no --sub-file=first-effect.ass video.mp4
+mpv --vo=gpu-next --gpu-api=vulkan --sub-auto=no --glsl-shader=first-effect.hook video.mp4
+```
+
+For timed lyrics, you can also export a compact playback ASS.
+[Choose an output](guides/choosing-output.md) shows how the three paths handle a singing effect.
 
 ## Change the effect
 

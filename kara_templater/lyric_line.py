@@ -11,6 +11,7 @@ from .composition import Color
 from .document_text import SingingSpan
 from .geometry import Vec2, finite
 from .model import Box
+from .parameters import LengthExpr, TimeExpr
 from .scene import Lifetime, ObjectGroup, SceneObject
 from .scene_animation import (
     AnimationClip,
@@ -74,6 +75,7 @@ class LyricTarget:
     baseline: float | None = None
     em_size: float | None = None
     source_style: str | None = None
+    font_size: float | None = None
     _line_x: tuple[float, float] | None = field(default=None, repr=False)
     _reading_span: SingingSpan | None = field(default=None, repr=False)
     _cell_left: float = field(default=0, repr=False)
@@ -103,6 +105,16 @@ class LyricAnimationContext:
     target: LyricTarget
     interval: TimeSpan | None
     requested_duration: float | None = None
+    note_duration: float | None = None
+
+    def resolve(self, expression: LengthExpr | TimeExpr) -> float:
+        """Read a relative parameter from the same facts used for declarative binding."""
+        if isinstance(expression, LengthExpr):
+            return expression._pixels(self.target.font_size, self.line.layout.script_height, self.target.id)
+        seconds = self.requested_duration if self.requested_duration is not None else (
+            self.interval.duration if self.interval is not None else None
+        )
+        return expression._seconds(self.note_duration, seconds, self.target.id)
 
     @property
     def duration(self) -> float:
@@ -132,6 +144,9 @@ class LyricRule:
     A factory receives a LyricAnimationContext once per resolved interval,
     before layout, and returns the same animation protocol as direct authoring.
     Repeated singing intervals can therefore choose different amplitudes/curves.
+    duration and offset accept relative time expressions. Note.duration uses the
+    selected note (the final note for after_singing); Animation.duration can
+    supply an offset once the animation length is bound.
     offset is relative seconds; display-anchor factories must return a sequence
     when duration is omitted.
     stagger adds nonnegative seconds between targets in selection order. For
@@ -156,14 +171,16 @@ class LyricRule:
         | Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]]
     )
     animation: StateAnimation | Callable[[LyricAnimationContext], StateAnimation]
-    duration: float | None = None
-    offset: float = 0
+    duration: float | TimeExpr | None = None
+    offset: float | TimeExpr = 0
     hold: bool = True
     tags: frozenset[str] = frozenset()
     stagger: float = 0
 
     def __post_init__(self) -> None:
-        finite(self.offset, self.stagger)
+        finite(self.stagger)
+        if not isinstance(self.offset, TimeExpr):
+            finite(self.offset)
         if self.stagger < 0:
             raise ValueError("lyric stagger must be nonnegative seconds")
         if isinstance(self.target, str):
@@ -193,7 +210,7 @@ class LyricRule:
                 and not isinstance(self.animation, AnimationSequence)
             ):
                 raise ValueError("display/after_singing anchors require an explicit duration")
-        else:
+        elif not isinstance(self.duration, TimeExpr):
             finite(self.duration)
             if self.duration <= 0:
                 raise ValueError("lyric animation duration must be positive")
@@ -267,7 +284,7 @@ class _KaraokePaint:
     wipe: bool
     unsung_outline: Color | None = None
     sung_outline: Color | None = None
-    feather: float = 0
+    feather_by_size: Mapping[float, float] = field(default_factory=dict)
     reverse: bool = False
     ruby_reading_units: bool = False
 
@@ -402,7 +419,7 @@ class LyricLine(ObjectGroup):
                             spans,
                             tags,
                             center=_character_center(character),
-                            source_style=character.source_style,
+                            source_style=character.source_style, font_size=character.object.font_size,
                             _line_x=_line_x(character, *style_spans.get(character.source_style, fallback)),
                             baseline=character.baseline, em_size=character.em_size,
                             _cell_left=_cell_left(character, layout),
@@ -422,7 +439,7 @@ class LyricLine(ObjectGroup):
                                 tags,
                                 _reading_span=span,
                                 center=_character_center(character),
-                                source_style=style,
+                                source_style=style, font_size=character.object.font_size,
                                 _line_x=_line_x(character, *style_spans.get(style, fallback)),
                                 baseline=character.baseline, em_size=character.em_size,
                                 _cell_left=_cell_left(character, layout),
@@ -678,7 +695,7 @@ class LyricLine(ObjectGroup):
         selections = tuple((rule, self._rule_targets(rule)) for rule in rules)
         for rule, targets in selections:
             for index, target in enumerate(targets):
-                offset = rule.offset + rule.stagger * (
+                stagger = rule.stagger * (
                     index - len(targets) + 1 if rule.anchor == "exit" else index
                 )
                 display_anchor = rule.anchor in ("enter", "exit")
@@ -690,15 +707,23 @@ class LyricLine(ObjectGroup):
                     else rule.anchor(self, target)
                 )
                 for span in intervals:
+                    note = None
+                    if span is not None and (rule.anchor == "singing" or isinstance(rule.anchor, LyricTarget)):
+                        note = span.duration
+                    elif rule.anchor == "after_singing" and target.singing:
+                        last = max(target.singing, key=lambda s: s.end)
+                        note = last.end - last.start
+                    duration = rule.duration
+                    if isinstance(duration, TimeExpr):
+                        duration = duration._seconds(note, None, f"{target.id}: LyricRule.duration")
+                        if duration < 0:
+                            raise ValueError(f"{target.id}: negative lyric duration")
                     animation = (
                         rule.animation
                         if isinstance(rule.animation, StateAnimation)
-                        else rule.animation(LyricAnimationContext(
-                            self, target, span, rule.duration,
-                        ))
+                        else rule.animation(LyricAnimationContext(self, target, span, duration, note))
                     )
                     animation = _resolve_pivot(animation, target.center)
-                    duration = rule.duration
                     if duration is None and isinstance(animation, AnimationSequence):
                         duration = animation.duration
                     if duration is None:
@@ -708,12 +733,15 @@ class LyricLine(ObjectGroup):
                                 "duration or animation sequence"
                             )
                         duration = span.duration
+                    offset = rule.offset
+                    if isinstance(offset, TimeExpr):
+                        offset = offset._seconds(note, duration, f"{target.id}: LyricRule.offset")
                     if duration > 0:
                         bindings.append(_LyricBinding(
                             target, animation,
                             span.start if span is not None
                             else "enter" if rule.anchor == "enter" else "exit",
-                            duration, offset, rule.hold,
+                            duration, offset + stagger, rule.hold,
                         ))
         return tuple(bindings)
 

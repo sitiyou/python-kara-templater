@@ -307,3 +307,30 @@ choose it explicitly rather than silently changing a requested eased path.
 For eligible native text, the compiler proves linear output-anchor motion over
 all geometry knots and can combine it into one ASS move with scale/alpha
 transforms. Arbitrary travel callbacks retain sampling.
+
+## Size and time relative to the lyric
+
+A glyph has its own authored font size after reading style selection. A note
+has a duration for each singing interval, including separate repeats of a
+single character. Expressions use script pixels or seconds according to
+their field. Reuse an expression as a Python value across tracks.
+
+```python
+from kara_templater import FadeOut, Glyph, KaraokeEffects, LyricRule, Note, ScalePulse
+
+ink = KaraokeEffects.duotone(feather=Glyph.font_size / 8)
+attack = LyricRule("character", "singing", ScalePulse(), duration=Note.duration / 2)
+release = LyricRule("character", "after_singing", FadeOut(),
+                    offset=(Note.duration / 4).clamp(0.06, 0.20), duration=0.18)
+```
+
+The attack uses half of each note. The release uses the target's final note
+to set its hold time. Literal lengths and seconds stay fixed. A display anchor
+or arbitrary callback interval has no identified note; using `Note.duration`
+there raises an error during preparation. In a factory, `context.duration` is
+the requested animation duration, and `context.resolve(Note.duration)` gives
+the underlying note length. Use `Animation.duration` in an offset to refer to the resolved length (for
+example, `offset=Animation.duration / 2`). Using that field to define the
+duration itself raises a binding error. A glyph-target factory can also resolve
+`Glyph.font_size`, and `Canvas.height` is available for resolution-relative lengths. Dimensions and note lengths are bound before layout
+allocation, so seeking or exporting never re-evaluates author expressions.

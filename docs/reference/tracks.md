@@ -60,6 +60,7 @@ Includes the Studio animation-menu families, independently implemented on
 this engine. It is a visual recipe, not an importer or pixel-identical renderer.
 Use ordinary LyricRule/custom effects alongside it. Apply once per line, before
 another highlight factory; this recipe owns the base/sung appearance and masks.
+dual_outline derives contrasting outlines for unspecified roles.
 Decorations use seeded glyph-local trajectories; ruby receives text transitions
 and sweeps but not particles or outline flash. max_particles bounds the number
 of particles planned per line, including entry and exit. With particle_layers="stroke",
@@ -70,7 +71,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L891)
+[Source](../../kara_templater/karaoke_effects.py#L901)
 
 ```python
 KaraokeEffects(
@@ -83,13 +84,13 @@ KaraokeEffects(
     entry_duration: float = 0.3,
     exit_duration: float = 0.3,
     stagger: float = 0.5833333333333334,
-    sung: Color = Color(red=255, green=90, blue=111),
-    unsung: Color = Color(red=255, green=255, blue=255),
+    sung: Color | None = None,
+    unsung: Color | None = None,
     material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
-    particle_color: Color | tuple[Color, Color] | Literal['follow_before', 'follow_after', 'follow_mix'] | None = None,
+    particle_color: Color | tuple[Color, Color] | Literal['follow_before', 'follow_after', 'follow_mix', 'illustrated'] | None = None,
     particle_layers: Literal['solid', 'stroke', 'decor', 'all'] = 'solid',
     particle_glow_concentration: int = 0,
     particle_size: float = 0.4,
@@ -97,18 +98,20 @@ KaraokeEffects(
     max_particles: int = 512,
     seed: int = 0,
     zoom_pulse_curve_level: int = 1,
-    scanline_width: float | None = None,
-    scanline_softness: float | None = None,
+    scanline_width: float | LengthExpr | None = None,
+    scanline_softness: float | LengthExpr | None = None,
     scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after', 'role'] = 'color',
     ruby_reading_units: bool = False,
     ruby_scanline: Literal['reading', 'both'] = 'reading',
     scanline_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     scanline_brightness: float = 0.6,
-    scanline_color: Color = Color(red=255, green=255, blue=255),
-    hook_feather: float = 0,
+    shine: Color | None = None,
+    scanline_color: Color | None = None,
+    hook_feather: float | LengthExpr = 0,
     front_color: Color | None = None,
     unsung_outline: Color | None = None,
     sung_outline: Color | None = None,
+    dual_outline: bool = False,
     stroke_flash: bool = False,
     id: str = 'karaoke',
 )
@@ -126,13 +129,13 @@ KaraokeEffects(
 | `entry_duration` | `float` | `0.3` |
 | `exit_duration` | `float` | `0.3` |
 | `stagger` | `float` | `0.5833333333333334` |
-| `sung` | `Color` | `Color(red=255, green=90, blue=111)` |
-| `unsung` | `Color` | `Color(red=255, green=255, blue=255)` |
+| `sung` | `Color \| None` | `None` |
+| `unsung` | `Color \| None` | `None` |
 | `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `glow` | `LyricGlow` | `None` |
 | `base_glow` | `LyricGlow` | `None` |
-| `particle_color` | `Color \| tuple[Color, Color] \| Literal['follow_before', 'follow_after', 'follow_mix'] \| None` | `None` |
+| `particle_color` | `Color \| tuple[Color, Color] \| Literal['follow_before', 'follow_after', 'follow_mix', 'illustrated'] \| None` | `None` |
 | `particle_layers` | `Literal['solid', 'stroke', 'decor', 'all']` | `'solid'` |
 | `particle_glow_concentration` | `int` | `0` |
 | `particle_size` | `float` | `0.4` |
@@ -140,18 +143,20 @@ KaraokeEffects(
 | `max_particles` | `int` | `512` |
 | `seed` | `int` | `0` |
 | `zoom_pulse_curve_level` | `int` | `1` |
-| `scanline_width` | `float \| None` | `None` |
-| `scanline_softness` | `float \| None` | `None` |
+| `scanline_width` | `float \| LengthExpr \| None` | `None` |
+| `scanline_softness` | `float \| LengthExpr \| None` | `None` |
 | `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after', 'role']` | `'color'` |
 | `ruby_reading_units` | `bool` | `False` |
 | `ruby_scanline` | `Literal['reading', 'both']` | `'reading'` |
 | `scanline_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `scanline_brightness` | `float` | `0.6` |
-| `scanline_color` | `Color` | `Color(red=255, green=255, blue=255)` |
-| `hook_feather` | `float` | `0` |
+| `shine` | `Color \| None` | `None` |
+| `scanline_color` | `Color \| None` | `None` |
+| `hook_feather` | `float \| LengthExpr` | `0` |
 | `front_color` | `Color \| None` | `None` |
 | `unsung_outline` | `Color \| None` | `None` |
 | `sung_outline` | `Color \| None` | `None` |
+| `dual_outline` | `bool` | `False` |
 | `stroke_flash` | `bool` | `False` |
 | `id` | `str` | `'karaoke'` |
 
@@ -172,11 +177,21 @@ Wipe between two fill/outline pairs. The moving boundary carries no separate ink
 ```python
 KaraokeEffects.duotone(
     *,
-    unsung: Color = Color(red=40, green=28, blue=38),
-    unsung_outline: Color = Color(red=255, green=247, blue=232),
-    sung: Color = Color(red=255, green=232, blue=169),
-    sung_outline: Color = Color(red=173, green=66, blue=26),
-    feather: float = 24,
+    unsung: Color | None = None,
+    unsung_outline: Color | None = None,
+    sung: Color | None = None,
+    sung_outline: Color | None = None,
+    feather: float | LengthExpr = Glyph.font_size / 6,
+) -> KaraokeEffects
+```
+
+### KaraokeEffects.with_theme
+
+Resolve effective color roles, leaving explicit materials and colors in place.
+
+```python
+KaraokeEffects.with_theme(
+    theme: KaraokeTheme = KaraokeTheme(sung=None, unsung=None, sung_outline=None, unsung_outline=None, shine=None),
 ) -> KaraokeEffects
 ```
 
@@ -200,9 +215,8 @@ type KaraokeExit = Literal['none', 'fade', 'slide_out', 'rise', 'char_fade', 'ch
 
 Structured lyrics with a stable identity and a millisecond display window.
 
-``style`` names a Document style. ``ruby_style`` selects an explicit reading
-style; otherwise the frontend uses or creates ``style + '-ruby'``. Positive
-``margins`` override left, right, and vertical source margins respectively.
+style names the source Document style. margins preserves the event
+overrides in left, right and vertical order.
 
 [Source](../../kara_templater/karaoke.py#L9)
 
@@ -212,7 +226,6 @@ KaraokeItem(
     source: KaraokeLine,
     style: str,
     window: DisplayWindow,
-    ruby_style: str | None = None,
     margins: tuple[int, int, int] | None = None,
 )
 ```
@@ -225,7 +238,6 @@ KaraokeItem(
 | `source` | `KaraokeLine` | `required` |
 | `style` | `str` | `required` |
 | `window` | `DisplayWindow` | `required` |
-| `ruby_style` | `str \| None` | `None` |
 | `margins` | `tuple[int, int, int] \| None` | `None` |
 
 ## KaraokeRows
@@ -453,7 +465,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L169)
+[Source](../../kara_templater/orchestration.py#L171)
 
 ```python
 LinePlan(
@@ -494,7 +506,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L90)
+[Source](../../kara_templater/lyric_line.py#L92)
 
 ```python
 LyricAnimationContext(
@@ -502,6 +514,7 @@ LyricAnimationContext(
     target: LyricTarget,
     interval: TimeSpan | None,
     requested_duration: float | None = None,
+    note_duration: float | None = None,
 )
 ```
 
@@ -513,6 +526,7 @@ LyricAnimationContext(
 | `target` | `LyricTarget` | `required` |
 | `interval` | `TimeSpan \| None` | `required` |
 | `requested_duration` | `float \| None` | `None` |
+| `note_duration` | `float \| None` | `None` |
 
 ### LyricAnimationContext.duration
 
@@ -523,6 +537,16 @@ Such a factory can return an authored sequence without reading duration.
 This value excludes gaps between repeated singing intervals.
 
 Type: `float`.
+
+### LyricAnimationContext.resolve
+
+Read a relative parameter from the same facts used for declarative binding.
+
+```python
+LyricAnimationContext.resolve(
+    expression: LengthExpr | TimeExpr,
+) -> float
+```
 
 ## LyricEcho
 
@@ -609,7 +633,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L275)
+[Source](../../kara_templater/lyric_line.py#L292)
 
 ```python
 LyricLine(
@@ -814,6 +838,9 @@ character to trigger only after that character's final singing interval.
 A factory receives a LyricAnimationContext once per resolved interval,
 before layout, and returns the same animation protocol as direct authoring.
 Repeated singing intervals can therefore choose different amplitudes/curves.
+duration and offset accept relative time expressions. Note.duration uses the
+selected note (the final note for after_singing); Animation.duration can
+supply an offset once the animation length is bound.
 offset is relative seconds; display-anchor factories must return a sequence
 when duration is omitted.
 stagger adds nonnegative seconds between targets in selection order. For
@@ -830,15 +857,15 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L122)
+[Source](../../kara_templater/lyric_line.py#L134)
 
 ```python
 LyricRule(
     target: LyricRole | LyricTarget | tuple[LyricTarget, ...],
     anchor: LyricAnchor | LyricTarget | Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]],
     animation: StateAnimation | Callable[[LyricAnimationContext], StateAnimation],
-    duration: float | None = None,
-    offset: float = 0,
+    duration: float | TimeExpr | None = None,
+    offset: float | TimeExpr = 0,
     hold: bool = True,
     tags: frozenset[str] = frozenset({}),
     stagger: float = 0,
@@ -852,8 +879,8 @@ LyricRule(
 | `target` | `LyricRole \| LyricTarget \| tuple[LyricTarget, ...]` | `required` |
 | `anchor` | `LyricAnchor \| LyricTarget \| Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]]` | `required` |
 | `animation` | `StateAnimation \| Callable[[LyricAnimationContext], StateAnimation]` | `required` |
-| `duration` | `float \| None` | `None` |
-| `offset` | `float` | `0` |
+| `duration` | `float \| TimeExpr \| None` | `None` |
+| `offset` | `float \| TimeExpr` | `0` |
 | `hold` | `bool` | `True` |
 | `tags` | `frozenset[str]` | `frozenset({})` |
 | `stagger` | `float` | `0` |
@@ -876,7 +903,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L180)
+[Source](../../kara_templater/orchestration.py#L182)
 
 ```python
 LyricScene(
@@ -993,7 +1020,7 @@ An immutable source view used by Track predicates and metadata functions.
 id identifies source content independently of its track/view. Original
 singing intervals remain in lyrics; display is the original ASS visibility.
 
-[Source](../../kara_templater/orchestration.py#L51)
+[Source](../../kara_templater/orchestration.py#L52)
 
 ```python
 LyricSource(
@@ -1065,7 +1092,7 @@ Line/syllable centers use body text, so ruby/glow do not shift the pivot.
 source_style is the body cluster's active ASS style, inherited by its readings.
 A factory changing a target's local coordinate origin must update center too.
 
-[Source](../../kara_templater/lyric_line.py#L52)
+[Source](../../kara_templater/lyric_line.py#L53)
 
 ```python
 LyricTarget(
@@ -1080,6 +1107,7 @@ LyricTarget(
     baseline: float | None = None,
     em_size: float | None = None,
     source_style: str | None = None,
+    font_size: float | None = None,
 )
 ```
 
@@ -1098,6 +1126,7 @@ LyricTarget(
 | `baseline` | `float \| None` | `None` |
 | `em_size` | `float \| None` | `None` |
 | `source_style` | `str \| None` | `None` |
+| `font_size` | `float \| None` | `None` |
 
 ## Placement
 
@@ -1195,7 +1224,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L111)
+[Source](../../kara_templater/orchestration.py#L112)
 
 ```python
 Track(
@@ -1207,6 +1236,7 @@ Track(
     preview: float = 1.8,
     tail: float = 1.0,
     effects: tuple[LyricEffect, ...] = (),
+    theme: KaraokeTheme = _HAS_DEFAULT_FACTORY_CLASS(),
     cues: Mapping[str, CuePreset] = _HAS_DEFAULT_FACTORY_CLASS(),
     guide_symbols: Mapping[str, VectorGuide] = _HAS_DEFAULT_FACTORY_CLASS(),
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset({}),
@@ -1233,6 +1263,7 @@ Track(
 | `preview` | `float` | `1.8` |
 | `tail` | `float` | `1.0` |
 | `effects` | `tuple[LyricEffect, ...]` | `()` |
+| `theme` | `KaraokeTheme` | `KaraokeTheme()` |
 | `cues` | `Mapping[str, CuePreset]` | `dict()` |
 | `guide_symbols` | `Mapping[str, VectorGuide]` | `dict()` |
 | `tags` | `frozenset[str] \| Callable[[LyricSource], frozenset[str]]` | `frozenset({})` |
@@ -1268,11 +1299,13 @@ Measure, allocate and bind independent tracks into one ordinary Scene.
 Same-source views are allowed and have distinct visual identities. Original
 records are retained once as owner-marked comments. Re-preparing owned output
 removes only that owner's generated events and regenerates from its sources.
+theme supplies shared catalog and cue colors. Track roles override only their
+declared channels, and explicit effect colors take precedence.
 inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L419)
+[Source](../../kara_templater/orchestration.py#L429)
 
 ```python
 prepare_tracks(
@@ -1281,5 +1314,6 @@ prepare_tracks(
     tracks: tuple[Track, ...],
     owner: str = 'karaoke',
     inputs: tuple[LyricSource, ...] = (),
+    theme: KaraokeTheme = KaraokeTheme(sung=None, unsung=None, sung_outline=None, unsung_outline=None, shine=None),
 ) -> LyricScene
 ```

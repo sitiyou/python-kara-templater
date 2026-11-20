@@ -6,9 +6,8 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Literal, Protocol
 
-from .appearance import PaintPair
+from .appearance import _DEFAULT_SUNG, _DEFAULT_UNSUNG, PaintPair
 from .ass import Style
-from .colors import CYAN, WHITE
 from .composition import Color, Paint
 from .document_text import CueMarker
 from .geometry import Vec2, VectorPath, finite
@@ -28,7 +27,7 @@ from .scene_text import DocumentLayout, PositionedText, _union
 from .sources import EventOrigin, SourceRef
 
 _DEFAULT_COLORS = PaintPair(
-    Paint(WHITE, Color(34, 34, 34)), Paint(Color(255, 90, 111), Color(34, 34, 34))
+    Paint(_DEFAULT_UNSUNG, Color(34, 34, 34)), Paint(_DEFAULT_SUNG, Color(34, 34, 34))
 )
 
 
@@ -138,9 +137,9 @@ class BarsCue:
 
     width: float = 72
     height: float = 48
-    color: Color = CYAN
+    color: Color | None = None
     border: float = 2
-    outline: Color = WHITE
+    outline: Color | None = None
 
     direction: Literal["left_to_right", "right_to_left"] = "left_to_right"
 
@@ -159,8 +158,9 @@ class BarsCue:
                     path=VectorPath.rectangle(cell * 0.45, height),
                     state=VisualState(
                         position=Vec2(index * cell, (self.height - height) / 2),
-                        fill=self.color,
-                        outline=self.outline,
+                        fill=self.color or context.colors.after.fill,
+                        opacity=context.colors.after.opacity,
+                        outline=self.outline or context.colors.after.outline,
                         border=self.border,
                     ),
                     origin=context.origin,
@@ -180,7 +180,7 @@ class TextCue:
     labels: tuple[str, ...] = ("3", "2", "1")
     font: str = "DejaVu Sans"
     font_size: float = 48
-    color: Color = CYAN
+    color: Color | None = None
 
     def __call__(self, context: CueContext) -> CueContent:
         """Create the configured step text objects and measured reserved dimensions for this cue."""
@@ -202,7 +202,9 @@ class TextCue:
                 font_size=self.font_size,
                 lifetime=Lifetime(context.steps[index], context.steps[index + 1]),
                 state=VisualState(
-                    position=Vec2((width - metrics[index][0]) / 2, 0), fill=self.color
+                    position=Vec2((width - metrics[index][0]) / 2, 0),
+                    fill=self.color or context.colors.after.fill, outline=context.colors.after.outline,
+                    opacity=context.colors.after.opacity,
                 ),
                 origin=context.origin,
             )

@@ -1,26 +1,41 @@
 # kara-templater
 
-A typed Python library for highly customizable karaoke and animation effects,
-compiled to **standard ASS subtitles**. Create text, paths, groups, gradients,
-particles, and lyric cues using ordinary Python objects and functions.
+Design karaoke in Python from timed lyrics. A Track can lay out readings above
+the words, sweep color through a held note, and animate each syllable on its
+own clock. Export the prepared scene as a standard ASS subtitle or a standalone
+libplacebo hook for mpv and FFmpeg.
+
+## Sweep color through a lyric and its readings
+
+![Gold sweeps through 星に届け and its readings as each note is sung](docs/examples/assets/chorus-hook.gif)
+
+This hook preview follows three notes in *星に届け*. The fill and outline
+change together as the singer moves across each glyph. The example includes
+its own lyrics. For an existing song, load its timed ASS with `Document.load`.
 
 ```python
 from kara_templater import (
-    CYAN, AnimationClip, Document, Lifetime, Scene, StatePatch,
-    TextObject, Tween, Vec2, VisualState,
+    Color, Document, KaraokeEffects, Layout, Line, Style, Track, Vec2, prepare_tracks,
 )
 
-caption = TextObject(
-    id="hello",
-    text="Hello, ASS!",
-    alignment=5,
-    lifetime=Lifetime(0, 3),
-    state=VisualState(position=Vec2(320, 180), fill=CYAN, opacity=0),
-    animations=(AnimationClip(0, 0.5, Tween(StatePatch(opacity=1))),),
-)
-result = Scene(Document.create(width=640, height=360)).add(caption).compile()
-result.document.save("hello.ass")
+vocal = Style(fontname="Sarasa UI J", fontsize=72, bold=True, outline=3, shadow=0)
+song = Document.create(width=640, height=360, styles=(vocal,))
+song.records.append(Line(
+    start_time=0, end_time=3000, text=r"{\k90}星|ほし{\k45}に{\k165}届け|とどけ",
+))
+
+ink = KaraokeEffects.duotone(unsung=Color.hex("#281C26"), sung=Color.hex("#FFE09A"))
+scene = prepare_tracks(song, tracks=(
+    Track(id="vocal", layout=Layout(rows=1, position=Vec2(80, 180)), effects=(ink,)),
+))
+scene.export_compact_ass("chorus.ass")
+scene.export_hook("chorus.hook", fps=30)
 ```
+
+The note lengths are 90, 45 and 165 centiseconds. The text after each `|` is
+the reading to place above that unit. To change the look, adjust the sung
+color. The soft boundary follows the font size of each lyric and reading. To see what survives each export,
+[compare the same frame in compact ASS, compiled ASS and hook](docs/guides/choosing-output.md#one-singing-position-three-renders).
 
 Python 3.12 or later is required. These docs describe the current checkout.
 Install a matching wheel or follow the [installation instructions](docs/getting-started.md).

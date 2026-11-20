@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import quote, unquote
 
 from ._karaoke_motion import RowSlide
-from .appearance import PaintPair
+from .appearance import _EMPTY_THEME, KaraokeTheme, PaintPair
 from .ass import Document, Line, Style
 from .composition import Glow
 from .coverage_animation import GlowFunction
@@ -33,6 +33,7 @@ from .lyric_layout import (
     validate_placements,
 )
 from .lyric_line import LyricLine, LyricRule, _LyricBinding
+from .lyric_particles import LyricParticles
 from .model import Box
 from .scene import Lifetime, ObjectGroup, Scene, SceneObject
 from .scene_animation import TimeSpan
@@ -141,6 +142,7 @@ class Track:
     preview: float = 1.8
     tail: float = 1.0
     effects: tuple[LyricEffect, ...] = ()
+    theme: KaraokeTheme = field(default_factory=KaraokeTheme)
     cues: Mapping[str, CuePreset] = field(default_factory=dict)
     guide_symbols: Mapping[str, VectorGuide] = field(default_factory=dict)
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset()
@@ -330,7 +332,8 @@ def _stamp(node: SceneObject, source: str, track: str) -> SceneObject:
 
 
 def _cue_presets(
-    presets: Mapping[str, CuePreset], recipe: KaraokeEffects | None, role_style: str | None
+    presets: Mapping[str, CuePreset], recipe: KaraokeEffects | None, role_style: str | None,
+    theme: KaraokeTheme,
 ) -> dict[str, CuePreset]:
     """Measure and bind each cue from the same factory result within one line."""
     result: dict[str, CuePreset] = {}
@@ -343,6 +346,7 @@ def _cue_presets(
             inherit: bool = preset.colors is None,
         ) -> CueContent:
             if inherit and recipe is not None:
+                assert recipe.sung is not None and recipe.unsung is not None
                 before, after = context.colors.before, context.colors.after
                 colors = PaintPair(
                     replace(before, fill=recipe.unsung, outline=recipe.unsung_outline or before.outline,
@@ -355,6 +359,12 @@ def _cue_presets(
                 base = _style_material(recipe.base_material, role_style)
                 context = replace(context, colors=colors, gradient=gradient,
                                   base_gradient=base if isinstance(base, LyricGradient) else None)
+            elif inherit:
+                before, after = context.colors.before, context.colors.after
+                context = replace(context, colors=PaintPair(
+                    replace(before, fill=theme.unsung or before.fill, outline=theme.unsung_outline or before.outline),
+                    replace(after, fill=theme.sung or after.fill, outline=theme.sung_outline or after.outline),
+                ))
             if recipe is not None and recipe.singing.startswith("zoom_pulse"):
                 context = replace(context, zoom_pulse_curve_level=recipe.zoom_pulse_curve_level)
             return original(context)
@@ -422,12 +432,15 @@ def prepare_tracks(
     tracks: tuple[Track, ...],
     owner: str = "karaoke",
     inputs: tuple[LyricSource, ...] = (),
+    theme: KaraokeTheme = _EMPTY_THEME,
 ) -> LyricScene:
     """Measure, allocate and bind independent tracks into one ordinary Scene.
 
     Same-source views are allowed and have distinct visual identities. Original
     records are retained once as owner-marked comments. Re-preparing owned output
     removes only that owner's generated events and regenerates from its sources.
+    theme supplies shared catalog and cue colors. Track roles override only their
+    declared channels, and explicit effect colors take precedence.
     inputs adds structured LyricSource values alongside parsed ASS sources.
     These have no ASS record ownership and must be supplied again to regenerate
     them. The caller's Document and reusable declarations are not mutated.
@@ -451,6 +464,11 @@ def prepare_tracks(
     plans: list[LinePlan] = []
     for declaration in tracks:
         track = deepcopy(declaration)
+        palette = theme.overlay(track.theme)
+        track = replace(track, effects=tuple(
+            effect.with_theme(palette) if isinstance(effect, KaraokeEffects) else effect
+            for effect in track.effects
+        ))
         layout = KaraokeRows() if track.layout is None else track.layout
         horizontal_rtl = track.right_to_left and not track.vertical
         studio_spacing = (isinstance(layout, KaraokeRows) if track.studio_spacing is None
@@ -522,7 +540,7 @@ def prepare_tracks(
                 right_to_left=horizontal_rtl, vertical=track.vertical,
             )
             role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)
-            local_presets = _cue_presets(track.cues, recipe, role_style)
+            local_presets = _cue_presets(track.cues, recipe, role_style, palette)
             cued = bind_lyric_cues(bare, local_presets)
             bindings = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
@@ -566,7 +584,12 @@ def prepare_tracks(
                     continue
                 if isinstance(effect, KaraokeEffects) and (reverse or horizontal_rtl):
                     effect = replace(effect, reverse_wipe=horizontal_rtl != (reverse or effect.reverse_wipe))
-                line = effect(line)
+                if isinstance(effect, LyricParticles) and effect.color is None:
+                    effect = replace(effect, color=recipe.sung if recipe else palette.sung)
+                # Catalog colors were bound once for the Track and its cues.
+                # Subclasses and custom callables keep their own entry point.
+                apply = effect._decorate if type(effect) is KaraokeEffects else effect
+                line = apply(line)
                 if not isinstance(line, LyricLine) or line.id != identity:
                     raise ValueError(
                         f"{identity}: visual factory must preserve lyric identity"

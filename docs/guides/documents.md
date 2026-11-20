@@ -1,6 +1,8 @@
 # Documents and lyrics
 
-A Document is the shared input and output model. Use `Document.load(path)` for
+A Document holds script dimensions, styles and ASS records. Both exporters use
+its scene context. The ASS compiler also returns a Document; the hook exporter
+writes a shader directly. Use `Document.load(path)` for
 files, `Document.parse(text)` for ASS strings, or `Document.create(...)` for a
 new script. `save(path)` writes ASS; `dumps()` returns the serialized text.
 
@@ -14,7 +16,7 @@ Keep the Document's PlayRes and output settings consistent.
 
 A Scene retains its Document and adds visual objects. Call
 `scene.replace_source(record_index)` when generated content replaces that event;
-the original becomes a retained Comment. Scene compilation returns a new Document.
+the original becomes a retained Comment. ASS compilation returns a new Document.
 Keep a stable `owner` to replace that owner's output on regeneration. Other
 owners and unselected records remain available. Generated ownership markers are
 reserved for the library; editing those markers can invalidate regeneration.

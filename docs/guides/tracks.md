@@ -3,7 +3,7 @@
 Track declares an independent lyric stream: source selection, layout, display
 padding, cue content and effects. `prepare_tracks`
 returns a LyricScene containing ordinary objects. Add decorations with
-`scene.add(...)` and compile with the same Scene compiler used for direct authoring.
+`scene.add(...)` before you [choose a subtitle or shader output](choosing-output.md).
 All authoring times below are seconds.
 
 With layout omitted, Track alternates two bottom rows, upper left then lower

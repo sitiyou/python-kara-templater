@@ -17,6 +17,7 @@ from .geometry import Vec2, finite
 from .lyric_line import LyricLine, LyricTarget, _line_x
 from .model import Box
 from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField, _mix
+from .parameters import LengthExpr, _width
 from .raster_settings import RasterSettings
 from .scene import (
     NativeEvent,
@@ -705,7 +706,7 @@ class LyricHighlights:
     settings: RasterSettings = RasterSettings()
     base_paint: StatePatch = StatePatch()
     base_material: LyricMaterial = None
-    hook_feather: float = 0
+    hook_feather: float | LengthExpr = 0
     edge_duration: float = _EDGE_SECONDS
     blend_glow: bool = True
     ass_feather_bands: int = 0
@@ -739,7 +740,7 @@ class LyricHighlights:
         base_material: LyricMaterial = None,
         material: LyricMaterial = None,
         strategy: Literal["clip", "coverage"] = "clip",
-        hook_feather: float = 0,
+        hook_feather: float | LengthExpr = 0,
         segment_colors: Mapping[tuple[int, int], Color] | None = None,
         ruby_fill: Color | None = None,
         edge_duration: float = _EDGE_SECONDS,
@@ -790,13 +791,13 @@ class LyricHighlights:
         )
 
     def __post_init__(self) -> None:
-        finite(self.hook_feather, self.edge_duration)
+        finite(self.edge_duration)
         if type(self.ass_feather_bands) is not int or not 0 <= self.ass_feather_bands <= 16:
             raise ValueError("ASS sweep band count must be in 0..16")
         if self.edge_duration < 0:
             raise ValueError("sweep edge duration must be nonnegative")
-        if self.hook_feather < 0:
-            raise ValueError("hook feather must be nonnegative")
+        if not isinstance(self.hook_feather, LengthExpr):
+            _width(self.hook_feather, 0, 0, "hook feather")
         if self.base_paint.channels - {"fill", "outline", "opacity", "border", "blur", "shadow"}:
             raise ValueError("highlight base paint cannot change geometry")
         if self.mode not in ("union", "priority", "layer") or self.strategy not in (
@@ -815,6 +816,14 @@ class LyricHighlights:
         Pass times use original source seconds. A copied target's delay shifts
         both rendering and required_display; source singing spans stay unchanged.
         """
+        return self._bind(line, self._widths(line))
+
+    def _widths(self, line: LyricLine) -> dict[float, float]:
+        layouts = (line.layout.body, *(reading.layout for reading in line.layout.ruby))
+        sizes = {c.object.font_size for layout in layouts for c in layout.characters}
+        return {s: _width(self.hook_feather, s, line.layout.script_height, f"{line.id}: hook_feather") for s in sizes}
+
+    def _bind(self, line: LyricLine, widths: dict[float, float]) -> LyricLine:
         highlights = (
             self.highlights
             if isinstance(self.highlights, tuple)
@@ -994,7 +1003,7 @@ class LyricHighlights:
                     )
                 if self.strategy == "clip":
                     feather = (
-                        self.hook_feather / scale.x
+                        widths[character.object.font_size] / scale.x
                         if native_singing and not vertical
                         else 0
                     )
@@ -1050,7 +1059,7 @@ class LyricHighlights:
                         self.strategy == "clip"
                         and native_singing
                         and highlight is not None
-                        and self.hook_feather
+                        and widths[character.object.font_size]
                         and not vertical
                         and isinstance(plain_clip, RectangleClip)
                     ):
@@ -1064,7 +1073,7 @@ class LyricHighlights:
                                 plain_clip.bottom,
                                 space=plain_clip.space,
                                 deform=plain_clip.deform,
-                                width=self.hook_feather / scale.x, ass_bands=self.ass_feather_bands,
+                                width=widths[character.object.font_size] / scale.x, ass_bands=self.ass_feather_bands,
                                 unsung_fill=unsung.fill,
                                 unsung_outline=unsung.outline,
                                 unsung_gradient=before_material if isinstance(before_material, LinearGradient) else None,

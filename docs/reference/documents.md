@@ -92,7 +92,7 @@ An ordered ASS record collection with parsed script metadata.
 Load/parse preserve source content without executing code; create builds a new
 script, and save/dumps serialize standard ASS.
 
-[Source](../../kara_templater/ass.py#L226)
+[Source](../../kara_templater/ass.py#L206)
 
 ```python
 Document(
@@ -351,7 +351,7 @@ An ASS Dialogue or Comment event with millisecond start/end times and preserved 
 Actor, effect, margins, layer, and source style remain distinct event
 attributes.
 
-[Source](../../kara_templater/ass.py#L148)
+[Source](../../kara_templater/ass.py#L138)
 
 ```python
 Line(
@@ -386,18 +386,6 @@ Line(
 | `effect` | `str` | `''` |
 | `comment` | `bool` | `False` |
 | `fields` | `dict[str, str]` | `dict()` |
-
-### Line.margin_b
-
-Template-facing bottom-margin alias using the event vertical margin.
-
-Type: `int`.
-
-### Line.margin_t
-
-Template-facing top-margin alias using the event vertical margin.
-
-Type: `int`.
 
 ### Line.serialize
 
@@ -633,18 +621,6 @@ Style(
 | `outline` | `float` | `2` |
 | `shadow` | `float` | `2` |
 | `fields` | `dict[str, str]` | `dict()` |
-
-### Style.margin_b
-
-Template-facing bottom-margin alias using the style vertical margin.
-
-Type: `int`.
-
-### Style.margin_t
-
-Template-facing top-margin alias using the style vertical margin.
-
-Type: `int`.
 
 ### Style.serialize
 

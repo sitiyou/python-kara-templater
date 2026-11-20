@@ -27,7 +27,7 @@ A stable particle emission ID and nonnegative absolute birth time in seconds.
 
 Reordering a schedule does not change keyed random values for an existing ID.
 
-[Source](../../kara_templater/particles.py#L29)
+[Source](../../kara_templater/particles.py#L30)
 
 ```python
 Emission(
@@ -138,6 +138,8 @@ whole line, not per character or segment. Empty/zero-only lines emit nothing.
 Copy delays shift both schedules; later visual tails never extend emission.
 Line placement uses stable named random channels and captures a fixed point.
 
+color overrides the emission tint. Catalog or Track ink supplies the default;
+without one the emitter reads the source run. A factory color overrides it.
 rate is particles per second per singing segment in front mode; duration comes from the
 particle factory. Repeated segments restart the front. Zero-length segments
 emit nothing. Particle births are rounded to the ASS 10 ms grid; source
@@ -146,17 +148,18 @@ line transforms apply to particles, independent character motion does not
 retarget already emitted particles. Use a custom factory for different paths,
 shapes, animation and lifetimes through the existing ParticleContext protocol.
 
-[Source](../../kara_templater/lyric_particles.py#L144)
+[Source](../../kara_templater/lyric_particles.py#L145)
 
 ```python
 LyricParticles(
     *,
-    factory: ParticleFactory = Sparkle(color=Color(red=255, green=245, blue=210), size=3, duration=0.45, travel=Vec2(x=12, y=-24)),
+    factory: ParticleFactory = Sparkle(color=None, size=3, duration=0.45, travel=Vec2(x=12, y=-24)),
     rate: float = 12,
     seed: int = 0,
     id: str = 'particles',
     max_particles: int = 256,
     placement: Literal['front', 'line'] = 'front',
+    color: Color | None = None,
 )
 ```
 
@@ -164,12 +167,13 @@ LyricParticles(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `factory` | `ParticleFactory` | `Sparkle(color=Color(red=255, green=245, blue=210), size=3, duration=0.45, travel=Vec2(x=12, y=-24))` |
+| `factory` | `ParticleFactory` | `Sparkle(color=None, size=3, duration=0.45, travel=Vec2(x=12, y=-24))` |
 | `rate` | `float` | `12` |
 | `seed` | `int` | `0` |
 | `id` | `str` | `'particles'` |
 | `max_particles` | `int` | `256` |
 | `placement` | `Literal['front', 'line']` | `'front'` |
+| `color` | `Color \| None` | `None` |
 
 ### LyricParticles.__call__
 
@@ -186,9 +190,9 @@ LyricParticles.__call__(
 Particle factory input with birth, seed, source position, optional origin, and named random channels.
 
 position_at samples an emitter explicitly; it does not imply continuous
-following.
+following. color is the optional captured lyric ink for a particle factory.
 
-[Source](../../kara_templater/particles.py#L45)
+[Source](../../kara_templater/particles.py#L46)
 
 ```python
 ParticleContext(
@@ -198,6 +202,7 @@ ParticleContext(
     position: Vec2,
     origin: EventOrigin | None,
     emitter: Callable[[float], Vec2] | None = None,
+    color: Color | None = None,
 )
 ```
 
@@ -211,6 +216,7 @@ ParticleContext(
 | `position` | `Vec2` | `required` |
 | `origin` | `EventOrigin \| None` | `required` |
 | `emitter` | `Callable[[float], Vec2] \| None` | `None` |
+| `color` | `Color \| None` | `None` |
 
 ### ParticleContext.choose
 
@@ -251,7 +257,7 @@ A callable producing a normal Scene object or group from ParticleContext.
 
 The factory controls its own geometry, animation, and lifetime.
 
-[Source](../../kara_templater/particles.py#L85)
+[Source](../../kara_templater/particles.py#L87)
 
 ### ParticleFactory.__call__
 
@@ -271,12 +277,12 @@ A seeded falling petal with curved drift, rotation and projected flutter.
 size/fall are script pixels, duration is seconds. Unlike Sparkle this uses
 a sampled custom Transform for flutter, so inspect compilation cost.
 
-[Source](../../kara_templater/lyric_particles.py#L63)
+[Source](../../kara_templater/lyric_particles.py#L64)
 
 ```python
 Petal(
     *,
-    color: Color = Color(red=255, green=155, blue=195),
+    color: Color | None = None,
     size: float = 4,
     duration: float = 0.9,
     fall: float = 40,
@@ -287,7 +293,7 @@ Petal(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `color` | `Color` | `Color(red=255, green=155, blue=195)` |
+| `color` | `Color \| None` | `None` |
 | `size` | `float` | `4` |
 | `duration` | `float` | `0.9` |
 | `fall` | `float` | `40` |
@@ -380,12 +386,12 @@ and bend use local script pixels. Keyed variation changes travel/bend once
 at birth; geometry then uses the same TrailPath available to custom authors.
 ASS samples the changing stroke, so inspect output costs at high rates.
 
-[Source](../../kara_templater/lyric_particles.py#L104)
+[Source](../../kara_templater/lyric_particles.py#L105)
 
 ```python
 Ribbon(
     *,
-    color: Color = Color(red=255, green=170, blue=220),
+    color: Color | None = None,
     width: float = 1.5,
     duration: float = 0.55,
     lag: float = 0.18,
@@ -398,7 +404,7 @@ Ribbon(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `color` | `Color` | `Color(red=255, green=170, blue=220)` |
+| `color` | `Color \| None` | `None` |
 | `width` | `float` | `1.5` |
 | `duration` | `float` | `0.55` |
 | `lag` | `float` | `0.18` |
@@ -423,12 +429,12 @@ A ParticleFactory usable with LyricParticles or emit_particles. size and
 travel are script pixels, duration is seconds; variation uses keyed seed
 channels. The ordinary linear Tween can compile to one ASS event per spark.
 
-[Source](../../kara_templater/lyric_particles.py#L23)
+[Source](../../kara_templater/lyric_particles.py#L24)
 
 ```python
 Sparkle(
     *,
-    color: Color = Color(red=255, green=245, blue=210),
+    color: Color | None = None,
     size: float = 3,
     duration: float = 0.45,
     travel: Vec2 = Vec2(x=12, y=-24),
@@ -439,7 +445,7 @@ Sparkle(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `color` | `Color` | `Color(red=255, green=245, blue=210)` |
+| `color` | `Color \| None` | `None` |
 | `size` | `float` | `3` |
 | `duration` | `float` | `0.45` |
 | `travel` | `Vec2` | `Vec2(x=12, y=-24)` |
@@ -539,7 +545,7 @@ Historical copies of complete animation/geometry, each with independent life.
 Group copies delay their descendants and parent transforms together. Opacity
 remains the library's per-child inherited opacity, not offscreen compositing.
 
-[Source](../../kara_templater/particles.py#L161)
+[Source](../../kara_templater/particles.py#L163)
 
 ```python
 echoes(
@@ -562,7 +568,7 @@ A stable emission id owns its random stream. Reordering or adding unrelated
 emissions doesn't change existing particles. Each factory controls geometry,
 state, animation and lifespan through the same normal scene object interface.
 
-[Source](../../kara_templater/particles.py#L106)
+[Source](../../kara_templater/particles.py#L108)
 
 ```python
 emit_particles(
@@ -585,7 +591,7 @@ Pieces move with their own geometry, not fixed screen-space clips. Appearance
 is preserved, so borders will also outline newly cut edges. Separate raster
 edges can show seams; use the uncut object for the final assembled hold.
 
-[Source](../../kara_templater/particles.py#L291)
+[Source](../../kara_templater/particles.py#L293)
 
 ```python
 split_path(

@@ -46,7 +46,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "animation": (
         "Animation and timing",
-        ("scene_animation", "easing"),
+        ("scene_animation", "easing", "parameters"),
         "Pure state/property animation and typed composition. Scene, semantic lyric rules, and animation sequences use seconds. See the [time-unit table](../guides/animation.md).",
     ),
     "tracks": (
@@ -133,6 +133,8 @@ def exports() -> dict[str, str]:
 
 def stable(value: object) -> str:
     """Display a default without invoking a factory or embedding memory addresses."""
+    if isinstance(value, (api.LengthExpr, api.TimeExpr)):
+        return repr(value)
     if value is Ellipsis:
         return "..."
     if isinstance(value, Enum):

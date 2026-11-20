@@ -2,7 +2,8 @@
 
 ![Shader gradient and eased motion](../examples/assets/gpu-gradient.gif)
 
-Export the ordinary subtitle for players and the shader for video production.
+Use a standalone hook for shader playback in mpv or video rendering in FFmpeg.
+[Compare the export paths](choosing-output.md) to choose a delivery format.
 The hook includes glyph coverage, timing, gradients, clips and motion. The
 rendering machine needs FFmpeg with libplacebo and a working Vulkan device.
 The fonts and the Python authoring environment are needed at export time.

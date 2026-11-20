@@ -27,15 +27,15 @@ A CueFactory producing a stepwise bar countdown from vector objects.
 Width, height, border, and colors are explicit and the returned content reserves
 its own layout dimensions.
 
-[Source](../../kara_templater/cues.py#L131)
+[Source](../../kara_templater/cues.py#L130)
 
 ```python
 BarsCue(
     width: float = 72,
     height: float = 48,
-    color: Color = Color(red=0, green=255, blue=255),
+    color: Color | None = None,
     border: float = 2,
-    outline: Color = Color(red=255, green=255, blue=255),
+    outline: Color | None = None,
     direction: Literal['left_to_right', 'right_to_left'] = 'left_to_right',
 )
 ```
@@ -46,9 +46,9 @@ BarsCue(
 | --- | --- | --- |
 | `width` | `float` | `72` |
 | `height` | `float` | `48` |
-| `color` | `Color` | `Color(red=0, green=255, blue=255)` |
+| `color` | `Color \| None` | `None` |
 | `border` | `float` | `2` |
-| `outline` | `Color` | `Color(red=255, green=255, blue=255)` |
+| `outline` | `Color \| None` | `None` |
 | `direction` | `Literal['left_to_right', 'right_to_left']` | `'left_to_right'` |
 
 ### BarsCue.__call__
@@ -65,7 +65,7 @@ BarsCue.__call__(
 
 Local objects plus the explicit layout space the author wants to reserve.
 
-[Source](../../kara_templater/cues.py#L58)
+[Source](../../kara_templater/cues.py#L57)
 
 ```python
 CueContent(
@@ -92,7 +92,7 @@ cluster at the marker (the final cluster for an end marker), when available. col
 role_em is that role’s measured em in script pixels. base_gradient and gradient supply its unsung and sung fill ramps.
 zoom_pulse_curve_level selects the lyric zoom curve for cue steps, or None for steady size.
 
-[Source](../../kara_templater/cues.py#L35)
+[Source](../../kara_templater/cues.py#L34)
 
 ```python
 CueContext(
@@ -133,7 +133,7 @@ A typed callable that maps CueContext to local CueContent.
 Implement it with an ordinary function or callable object to customize cue text,
 geometry, and animation.
 
-[Source](../../kara_templater/cues.py#L80)
+[Source](../../kara_templater/cues.py#L79)
 
 ### CueFactory.__call__
 
@@ -152,7 +152,7 @@ A bound marker, preset, content, and trigger placement in the lyric layout.
 
 It retains the data needed to reserve or release inline space.
 
-[Source](../../kara_templater/cues.py#L214)
+[Source](../../kara_templater/cues.py#L216)
 
 ```python
 CuePlacement(
@@ -184,7 +184,7 @@ With no line_edge, independent cues use absolute position.
 An explicit trigger overrides the relevant singing interval default. colors fixes
 the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
 
-[Source](../../kara_templater/cues.py#L92)
+[Source](../../kara_templater/cues.py#L91)
 
 ```python
 CuePreset(
@@ -223,7 +223,7 @@ A plain-text layout after cue binding, with inline and independent cue groups.
 
 Its group combines the adjusted text and reserved-space behavior.
 
-[Source](../../kara_templater/cues.py#L228)
+[Source](../../kara_templater/cues.py#L230)
 
 ```python
 CuedLayout(
@@ -258,7 +258,7 @@ CuedLayout.group(
 
 Body/ruby with shared cue reservations; independent cues remain separate.
 
-[Source](../../kara_templater/cues.py#L474)
+[Source](../../kara_templater/cues.py#L476)
 
 ```python
 CuedLyrics(
@@ -359,7 +359,7 @@ TextCue(
     labels: tuple[str, ...] = ('3', '2', '1'),
     font: str = 'DejaVu Sans',
     font_size: float = 48,
-    color: Color = Color(red=0, green=255, blue=255),
+    color: Color | None = None,
 )
 ```
 
@@ -370,7 +370,7 @@ TextCue(
 | `labels` | `tuple[str, ...]` | `('3', '2', '1')` |
 | `font` | `str` | `'DejaVu Sans'` |
 | `font_size` | `float` | `48` |
-| `color` | `Color` | `Color(red=0, green=255, blue=255)` |
+| `color` | `Color \| None` | `None` |
 
 ### TextCue.__call__
 
@@ -457,7 +457,7 @@ Defaults trigger at the first singing interval; there is no inferred beat.
 A preset can supply an absolute trigger. Inline reservations are included in
 range/background measurements and optionally released after the cue ends.
 
-[Source](../../kara_templater/cues.py#L268)
+[Source](../../kara_templater/cues.py#L270)
 
 ```python
 bind_cues(
@@ -476,7 +476,7 @@ Markers use projected body offsets. A reservation inside a body unit moves
 its ruby by half the reserved width, keeping its original center offset from
 the expanded body box; before a unit it moves ruby by the full width.
 
-[Source](../../kara_templater/cues.py#L500)
+[Source](../../kara_templater/cues.py#L502)
 
 ```python
 bind_lyric_cues(

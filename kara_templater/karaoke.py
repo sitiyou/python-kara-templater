@@ -1,4 +1,4 @@
-"""Structured lyric input shared by parsing and Track frontends."""
+"""Structured lyric items returned by the ASS importer."""
 
 from dataclasses import dataclass
 
@@ -10,16 +10,14 @@ from .timeline import DisplayWindow
 class KaraokeItem:
     """Structured lyrics with a stable identity and a millisecond display window.
 
-    ``style`` names a Document style. ``ruby_style`` selects an explicit reading
-    style; otherwise the frontend uses or creates ``style + '-ruby'``. Positive
-    ``margins`` override left, right, and vertical source margins respectively.
+    style names the source Document style. margins preserves the event
+    overrides in left, right and vertical order.
     """
 
     id: str
     source: KaraokeLine
     style: str
     window: DisplayWindow
-    ruby_style: str | None = None
     margins: tuple[int, int, int] | None = None
 
     def __post_init__(self) -> None:

@@ -6,20 +6,26 @@ Pure state/property animation and typed composition. Scene, semantic lyric rules
 
 ## Contents
 
+- [Animation](#animation)
 - [AnimationClip](#animationclip)
 - [AnimationSequence](#animationsequence)
 - [BackRate](#backrate)
+- [Canvas](#canvas)
 - [Channel](#channel)
 - [CurveIn](#curvein)
 - [DriftOut](#driftout)
 - [FadeIn](#fadein)
 - [FadeOut](#fadeout)
+- [Glyph](#glyph)
 - [Jump](#jump)
+- [LengthExpr](#lengthexpr)
+- [Note](#note)
 - [ScalePulse](#scalepulse)
 - [StateAnimation](#stateanimation)
 - [StateFunction](#statefunction)
 - [StateKeyframe](#statekeyframe)
 - [StatePatch](#statepatch)
+- [TimeExpr](#timeexpr)
 - [TimeSpan](#timespan)
 - [Timeline](#timeline)
 - [Transform](#transform)
@@ -32,6 +38,16 @@ Pure state/property animation and typed composition. Scene, semantic lyric rules
 - [smooth_rate](#smooth_rate)
 - [smoother_rate](#smoother_rate)
 - [there_and_back](#there_and_back)
+
+## Animation
+
+Animation.duration reads the requested animation duration or its bound interval.
+
+[Source](../../kara_templater/parameters.py#L111)
+
+```python
+Animation()
+```
 
 ## AnimationClip
 
@@ -149,6 +165,16 @@ Evaluate the configured rise, hold or fall without advancing state.
 BackRate.__call__(
     progress: float,
 ) -> float
+```
+
+## Canvas
+
+Canvas.height reads the document's vertical script resolution.
+
+[Source](../../kara_templater/parameters.py#L99)
+
+```python
+Canvas()
 ```
 
 ## Channel
@@ -332,6 +358,16 @@ FadeOut.sample(
 ) -> VisualState
 ```
 
+## Glyph
+
+Glyph.font_size reads the current body or reading's authored font size.
+
+[Source](../../kara_templater/parameters.py#L93)
+
+```python
+Glyph()
+```
+
 ## Jump
 
 Move up and return to the captured position over normalized progress.
@@ -368,6 +404,37 @@ Jump.sample(
     base: VisualState,
     progress: float,
 ) -> VisualState
+```
+
+## LengthExpr
+
+A script-pixel length measured from a glyph or canvas at preparation.
+
+[Source](../../kara_templater/parameters.py#L71)
+
+```python
+LengthExpr()
+```
+
+### LengthExpr.clamp
+
+Limit the resolved value to inclusive bounds in the parameter's units.
+
+```python
+LengthExpr.clamp(
+    minimum: float,
+    maximum: float,
+) -> Self
+```
+
+## Note
+
+Note.duration reads the source singing interval, including each repeat.
+
+[Source](../../kara_templater/parameters.py#L105)
+
+```python
+Note()
 ```
 
 ## ScalePulse
@@ -555,6 +622,27 @@ StatePatch.interpolate(
     base: VisualState,
     progress: float,
 ) -> VisualState
+```
+
+## TimeExpr
+
+Seconds measured from a singing interval or its bound animation.
+
+[Source](../../kara_templater/parameters.py#L82)
+
+```python
+TimeExpr()
+```
+
+### TimeExpr.clamp
+
+Limit the resolved value to inclusive bounds in the parameter's units.
+
+```python
+TimeExpr.clamp(
+    minimum: float,
+    maximum: float,
+) -> Self
 ```
 
 ## TimeSpan

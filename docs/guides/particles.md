@@ -5,6 +5,12 @@ and birth time; emit_particles calls a ParticleFactory with ParticleContext.
 The factory chooses geometry, lifetime, appearance, and animation and returns
 an object or group. See the sakura example for a complete editable petal factory.
 
+The built-in lyric particle factories use an explicit factory color first,
+then the emitter ink. `LyricParticles` takes that ink from its `color`, the
+catalog or track sung role, or the source run. A standalone emitter with
+no lyric context uses the catalog accent. Custom factories can read
+`ParticleContext.color` at birth.
+
 ## Singing-onset echoes
 
 `LyricEcho` is a built-in lyric factory. It emits full-glyph copies at each

@@ -166,7 +166,7 @@ def _layout_events(
                     ink = c.ink_bounds or c.bounds
                     dx = line.state.position.x
                     pad = c.object.state.border + abs(c.object.state.shadow.x) + 2
-                    width = paint.feather if paint.wipe and off > on else 0
+                    width = paint.feather_by_size[c.object.font_size] if paint.wipe and off > on else 0
                     steps = min(8, ceil(width / 3))
                     boundaries = (
                         [width * (j / steps - 0.5) for j in range(steps + 1)]
