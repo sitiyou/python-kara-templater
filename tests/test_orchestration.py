@@ -58,6 +58,8 @@ def main(**changes):
             id="main",
             source=lambda source: source.style == "Main",
             layout=Layout(rows=2, position=Vec2(50, 200), gap=70),
+            # These overlapping fixtures need the full tail to be reducible.
+            tail=1.0,
             effects=(
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
                 LyricRule("line", "exit", FadeOut(), duration=0.2),
@@ -113,13 +115,27 @@ def test_default_track_alternates_bottom_rows_and_scales_margins():
     upper_body = upper.line.layout.body.bounds
     lower_body = lower.line.layout.body.bounds
     assert lower.placement.position.y + (lower_body.top + lower_body.height) + pad == pytest.approx(340)
-    assert lower.placement.position.y + lower_body.top - (
+    assert lower.placement.position.y + lower.input.bounds.top - (
         upper.placement.position.y + (upper_body.top + upper_body.height)
-    ) == pytest.approx(15 + 2 * pad)
+    ) == pytest.approx(15 + pad + lower.line.layout.ruby[0].layout.characters[0].object.state.border)
     assert again.placement.position.x + again.input.bounds.center == pytest.approx(320)
 
 
-def test_top_grid_keeps_body_baseline_across_readings_and_reserves_blank_header():
+@pytest.mark.parametrize("placement", ["inline", "independent"])
+def test_default_track_starts_a_new_page_at_a_count_in(placement):
+    doc = document()
+    _, second, third, _ = doc.lines
+    second.start_time, second.end_time = 4000, 5000
+    third.start_time, third.end_time = 5000, 6000
+    second.text = CueMarker("entrance", "bars", placement=placement).markup() + second.text
+    track = Track(id="main", source=lambda s: s.style == "Main",
+                  cues={"bars": CuePreset(factory=BarsCue(), lead=1, duration=1)})
+    plans = prepare_tracks(doc, tracks=(track,)).plans
+    assert [p.placement.row for p in plans] == [0, 0, 1]
+    assert plans[0].placement.display.end <= plans[1].placement.display.start
+
+
+def test_top_grid_only_reserves_headroom_for_present_readings():
     doc = document()
     first, second, *_ = doc.lines
     second.text = r"{\k100}ABCD"
@@ -127,11 +143,11 @@ def test_top_grid_keeps_body_baseline_across_readings_and_reserves_blank_header(
                  source=lambda s: s.style == "Main" and s.display.start <= 2)
     annotated, plain = prepare_tracks(doc, tracks=(track,)).plans
     assert annotated.line.layout.ruby and not plain.line.layout.ruby
-    assert annotated.placement.position.y == pytest.approx(plain.placement.position.y)
+    assert annotated.placement.position.y > plain.placement.position.y
     first.text = second.text
     without_readings = prepare_tracks(doc, tracks=(track,)).plans[0]
     larger_gap = prepare_tracks(doc, tracks=(replace(track, ruby_gap=16),)).plans[0]
-    assert larger_gap.placement.position.y - without_readings.placement.position.y == pytest.approx(10)
+    assert larger_gap.placement.position.y == without_readings.placement.position.y
 
 
 def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerates():
@@ -153,6 +169,18 @@ def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerate
         tracks=(track, replace(track, id="copy", layout=Layout(position=Vec2(80, 20)))),
     )
     assert again.compile().document.dumps() == output.document.dumps()
+
+
+def test_track_tempo_reserves_the_same_interval_that_the_cue_factory_draws():
+    doc = document()
+    record = next(line for line in doc.lines if line.style == "Main")
+    record.text = CueMarker("intro", "bars").markup() + record.text
+    preset = CuePreset(factory=BarsCue(), steps=(0, 1))
+    scene = prepare_tracks(doc, tracks=(main(cues={"bars": preset}, preview=0),), bpm=300)
+    plan = scene.plans[0]
+    cue, = (child for child in plan.line.children if "/cue:" in child.id)
+    assert plan.placement.display.start == cue.lifetime.start == pytest.approx(.2)
+    assert cue.lifetime.end == plan.input.singing.start == 1
 
 
 def test_inline_cue_is_reserved_independent_cue_keeps_own_lifetime_and_position():
@@ -583,14 +611,14 @@ def test_track_style_overrides_are_measured_before_allocation_and_leave_source_i
 
 
 @pytest.mark.parametrize("rows", [1, 2])
-def test_center_anchor_uses_reading_headroom_only_for_a_single_row(rows: int):
+def test_center_anchor_balances_visible_reading_and_body_extents(rows: int):
     track = main(layout=KaraokeRows(rows=rows, anchor="center"), effects=(),
                  source=lambda s: s.style == "Main" and s.display.start <= 2)
     scene = prepare_tracks(document(), tracks=(track,))
     more_space = prepare_tracks(document(), tracks=(replace(track, ruby_gap=46),))
     offsets = [b.placement.position.y - a.placement.position.y
                for a, b in zip(scene.plans, more_space.plans, strict=True)]
-    assert offsets == pytest.approx([20 if rows == 1 else 0] * len(offsets))
+    assert offsets == pytest.approx([20, 20] if rows == 1 else [0, 40])
 
 
 def test_inline_lead_only_affects_its_hosts_equal_margin_placement():
@@ -603,3 +631,16 @@ def test_inline_lead_only_affects_its_hosts_equal_margin_placement():
     host, peer, *_ = prepare_tracks(doc, tracks=(track,)).plans
     assert peer.placement.position == second.placement.position
     assert host.placement.position.x != first.placement.position.x
+
+
+@pytest.mark.parametrize("ruby_near_guide", [True, False])
+def test_independent_guide_clears_only_readings_under_its_footprint(ruby_near_guide):
+    doc = document()
+    first, *_ = doc.lines
+    marker = CueMarker("intro", "bars", placement="independent").markup()
+    first.text = marker + (r"{\k50}A|a{\k50}WWWWW" if ruby_near_guide else r"{\k50}WWWWW{\k50}A|a")
+    track = main(effects=(), cues={"bars": CuePreset(factory=BarsCue(width=8, height=16), gap=10, line_edge="above")})
+    plan = prepare_tracks(doc, tracks=(track,)).plans[0]
+    group, = plan.line.independent
+    clearance_edge = plan.line.layout.bounds.top if ruby_near_guide else plan.line.layout.body.bounds.top
+    assert group.state.position.y + 16 + 10 == pytest.approx(plan.line.state.position.y + clearance_edge)

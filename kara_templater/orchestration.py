@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
@@ -15,7 +16,14 @@ from .appearance import _EMPTY_THEME, KaraokeTheme, PaintPair
 from .ass import Document, Line, Style
 from .composition import Glow
 from .coverage_animation import GlowFunction
-from .cues import CueContent, CueContext, CueFactory, CuePreset, bind_lyric_cues
+from .cues import (
+    CueContent,
+    CueContext,
+    CueFactory,
+    CuePreset,
+    _validate_bpm,
+    bind_lyric_cues,
+)
 from .document_lyrics import DocumentLyrics, parse_document_lyrics
 from .document_text import DocumentText
 from .geometry import Vec2, finite
@@ -28,7 +36,6 @@ from .lyric_layout import (
     LayoutContext,
     LayoutLine,
     Placement,
-    _ColumnMetrics,
     _RowMetrics,
     validate_placements,
 )
@@ -36,12 +43,11 @@ from .lyric_line import LyricLine, LyricRule, _LyricBinding
 from .lyric_particles import LyricParticles
 from .model import Box
 from .scene import Lifetime, ObjectGroup, Scene, SceneObject
-from .scene_animation import TimeSpan
+from .scene_animation import StateAnimation, StateFunction, TimeSpan
 from .scene_lyrics import (
     LyricLayout,
     StudioSpacing,
     VectorGuide,
-    _ruby_style,
     layout_lyrics,
 )
 from .scene_output import SceneBudget, _scene_source_records
@@ -115,7 +121,10 @@ class Track:
 
     With layout omitted, two bottom rows alternate left and right in the region.
     All times use seconds. preview/tail are desired, reducible display padding;
-    rule durations and inline cue visibility are mandatory occupancy. The visual
+    automatic tail (None) targets one second after singing, including the exit,
+    and prefers at least 0.2 seconds of hold. On a shared row, trim excess preview,
+    then hold, then scale display-anchored transitions to fit. An explicit tail
+    retains rigid animation durations. Singing and authored cue times stay fixed. The visual
     effects receive the measured, unpositioned line once before allocation.
     LyricRule entries declare timing; callable entries decorate the line in order.
     Rule factories resolve once before decoration and bind to final target aliases.
@@ -123,7 +132,8 @@ class Track:
     min_outline_gap is the minimum script-pixel clearance between hard strokes;
     None disables extra clearance. studio_spacing selects Studio ink-based cells
     for both body and readings. By default KaraokeRows uses Studio cells and
-    Layout uses native advances. reserved_border declares the outer hard radius
+    Layout uses native advances. Horizontal palt selects the font’s proportional
+    alternate widths for body and ruby and uses native advances by default. reserved_border declares the outer hard radius
     of custom or shared visual layers. Glow and motion do not reserve space.
     ruby_gap sets the visual gap in script pixels between hard outlines of
     the reading group and its body at rest. Negative values allow overlap.
@@ -140,7 +150,7 @@ class Track:
     layout: Layout | KaraokeRows | None = None
     region: Box | None = None
     preview: float = 1.8
-    tail: float = 1.0
+    tail: float | None = None
     effects: tuple[LyricEffect, ...] = ()
     theme: KaraokeTheme = field(default_factory=KaraokeTheme)
     cues: Mapping[str, CuePreset] = field(default_factory=dict)
@@ -155,16 +165,17 @@ class Track:
     vertical: bool = False
     right_to_left: bool = False
     reverse_timing: bool | Callable[[LyricSource], bool] = False
+    palt: bool = False
 
     def __post_init__(self) -> None:
-        finite(self.preview, self.tail, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
+        finite(self.preview, self.tail or 0, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
         if self.reserved_border < 0 or (
             self.min_outline_gap is not None and self.min_outline_gap < 0
         ):
             raise ValueError("outline clearance must be nonnegative")
         if not self.id:
             raise ValueError("Track needs a stable id")
-        if self.preview < 0 or self.tail < 0:
+        if self.preview < 0 or (self.tail is not None and self.tail < 0):
             raise ValueError("preview/tail must be nonnegative seconds")
 
 
@@ -333,7 +344,7 @@ def _stamp(node: SceneObject, source: str, track: str) -> SceneObject:
 
 def _cue_presets(
     presets: Mapping[str, CuePreset], recipe: KaraokeEffects | None, role_style: str | None,
-    theme: KaraokeTheme,
+    theme: KaraokeTheme, bpm: float | None,
 ) -> dict[str, CuePreset]:
     """Measure and bind each cue from the same factory result within one line."""
     result: dict[str, CuePreset] = {}
@@ -369,8 +380,13 @@ def _cue_presets(
                 context = replace(context, zoom_pulse_curve_level=recipe.zoom_pulse_curve_level)
             return original(context)
 
-        result[name] = replace(preset, factory=factory)
+        lead, duration = preset.resolve_timing(bpm=bpm)
+        result[name] = replace(preset, factory=factory, lead=lead, duration=duration)
     return result
+
+
+def _animation_prefix(animation: StateAnimation, fraction: float) -> StateAnimation:
+    return StateFunction(lambda base, t: animation.sample(base, t * fraction), animation.channels)
 
 
 def _padding(bindings: tuple[_LyricBinding, ...]) -> tuple[float, float]:
@@ -402,28 +418,20 @@ def _reserved_animations(bindings: tuple[_LyricBinding, ...]) -> Lifetime | None
     )
 
 
-def _row_metrics(
-    layout: LyricLayout, styles: Mapping[str, Style], gap: float, border: float
-) -> _RowMetrics | None:
+def _row_metrics(layout: LyricLayout, bounds: Box, border: float) -> _RowMetrics | None:
     body = layout.body
     if not body.characters:
         return None
     glyph = body.characters[0]
     baseline = glyph.bounds.top + (glyph.baseline or 0) * glyph.object.state.scale.y
     pad = max(border, *(c.object.state.border for c in body.characters))
-    headroom = 0.0
-    by_start = {c.start: c for c in body.characters}
-    for run in body.source.runs:
-        reading = _ruby_style(styles, run.appearance.style)
-        host = by_start.get(run.start, glyph)
-        ratio = host.fonts[0].em_ratio if host.fonts else 1.0
-        em = reading.fontsize * ratio * reading.scale_y / 100
-        headroom = max(headroom, gap + em + 2 * max(border, reading.outline))
-    return _RowMetrics(
-        baseline, baseline - body.bounds.top + pad,
-        body.bounds.top + body.bounds.height - baseline + pad,
-        max(headroom, body.bounds.top - layout.bounds.top),
-    )
+    body_top = body.bounds.top - pad
+    top = min(body_top, bounds.top)
+    for ruby in layout.ruby:
+        for reading in ruby.layout.characters:
+            top = min(top, reading.bounds.top - max(border, reading.object.state.border))
+    bottom = max(body.bounds.top + body.bounds.height + pad, bounds.top + bounds.height)
+    return _RowMetrics(baseline, baseline - body_top, bottom - baseline, body_top - top)
 
 
 def prepare_tracks(
@@ -433,6 +441,7 @@ def prepare_tracks(
     owner: str = "karaoke",
     inputs: tuple[LyricSource, ...] = (),
     theme: KaraokeTheme = _EMPTY_THEME,
+    bpm: float | None = None,
 ) -> LyricScene:
     """Measure, allocate and bind independent tracks into one ordinary Scene.
 
@@ -441,10 +450,12 @@ def prepare_tracks(
     removes only that owner's generated events and regenerates from its sources.
     theme supplies shared catalog and cue colors. Track roles override only their
     declared channels, and explicit effect colors take precedence.
+    bpm supplies a fixed song tempo for automatic cue timing.
     inputs adds structured LyricSource values alongside parsed ASS sources.
     These have no ASS record ownership and must be supplied again to regenerate
     them. The caller's Document and reusable declarations are not mutated.
     """
+    _validate_bpm(bpm)
     if not owner:
         raise ValueError("lyric scene owner cannot be empty")
     if len({track.id for track in tracks}) != len(tracks):
@@ -471,7 +482,7 @@ def prepare_tracks(
         ))
         layout = KaraokeRows() if track.layout is None else track.layout
         horizontal_rtl = track.right_to_left and not track.vertical
-        studio_spacing = (isinstance(layout, KaraokeRows) if track.studio_spacing is None
+        studio_spacing = (isinstance(layout, KaraokeRows) and not track.palt if track.studio_spacing is None
                           else track.studio_spacing)
         selected = sorted(
             (source for source in sources if track.source(source)),
@@ -485,7 +496,6 @@ def prepare_tracks(
             ),
         )
         view = Document([*source_document.records, *track.styles], source_document.meta)
-        styles = view.styles
         allocation_inputs: list[LayoutLine] = []
         prepared: dict[str, LyricLine] = {}
         row_cues: dict[str, Vec2] = {}
@@ -518,14 +528,15 @@ def prepare_tracks(
             tags = (
                 track.tags if isinstance(track.tags, frozenset) else track.tags(source)
             )
-            entrance = exit = 0.0
+            minimum_hold = 0.2 if track.tail is None else 0.0
             display = Lifetime(
                 max(
                     0,
                     min(source.display.start, singing.start)
-                    - max(track.preview, entrance),
+                    - track.preview,
                 ),
-                max(source.display.end, singing.end) + max(track.tail, exit),
+                max(source.display.end, singing.end + 1.0) if track.tail is None
+                else max(source.display.end, singing.end) + track.tail,
             )
             bare = layout_lyrics(
                 view,
@@ -536,12 +547,13 @@ def prepare_tracks(
                 reserved_border=border,
                 ruby_gap=track.ruby_gap,
                 studio_spacing=studio_spacing,
+                palt=track.palt,
                 guide_symbols=track.guide_symbols,
                 right_to_left=horizontal_rtl, vertical=track.vertical,
             )
             role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)
-            local_presets = _cue_presets(track.cues, recipe, role_style, palette)
-            cued = bind_lyric_cues(bare, local_presets)
+            local_presets = _cue_presets(track.cues, recipe, role_style, palette, bpm)
+            cued = bind_lyric_cues(bare, local_presets, bpm=bpm)
             bindings = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
                 track_index=track_index,
@@ -554,7 +566,7 @@ def prepare_tracks(
             entrance, exit = _padding(bindings)
             display = Lifetime(
                 max(0, min(display.start, singing.start - entrance)),
-                max(display.end, singing.end + exit),
+                max(display.end, singing.end + (minimum_hold + exit)),
             )
             reserved = _reserved_animations(bindings)
             timed_cues = [cue for cue in cued.cues if cue.marker.placement == "inline" or cue.preset.line_edge]
@@ -573,12 +585,17 @@ def prepare_tracks(
                 display = Lifetime(
                     min(display.start, reserved.start), max(display.end, reserved.end)
                 )
-            cued = bind_lyric_cues(_retime(bare, display), local_presets)
+            cued = bind_lyric_cues(_retime(bare, display), local_presets, bpm=bpm)
             line = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
                 track_index=track_index,
             )
             line = replace(line, _at_placement=())
+            # Catalog paint, singing releases and particle tails may be clipped
+            # with their host. Keep independently authored effects and cues fixed.
+            soft_visual: Counter[TimeSpan] = Counter()
+            fixed_scheduled: list[_LyricBinding] = []
+            soft_end = 0.0
             for effect in track.effects:
                 if isinstance(effect, LyricRule):
                     continue
@@ -589,20 +606,38 @@ def prepare_tracks(
                 # Catalog colors were bound once for the Track and its cues.
                 # Subclasses and custom callables keep their own entry point.
                 apply = effect._decorate if type(effect) is KaraokeEffects else effect
+                before_effect = line
                 line = apply(line)
                 if not isinstance(line, LyricLine) or line.id != identity:
                     raise ValueError(
                         f"{identity}: visual factory must preserve lyric identity"
                     )
+                if track.tail is None and type(effect) is KaraokeEffects:
+                    soft_visual.update(Counter(_visual_spans(line)) - Counter(_visual_spans(before_effect)))
+                    # Utopia releases earlier characters at note boundaries. Only
+                    # the trailing group follows the final display edge.
+                    if effect.exit == "utopia":
+                        line = replace(line, _scheduled=tuple(
+                            replace(b, at="exit") if b.catalog_exit and isinstance(b.at, float)
+                            and abs(b.at + b.duration - line.lifetime.end) < 1e-8 else b
+                            for b in line._scheduled
+                        ))
+                    if line.lifetime.end > before_effect.lifetime.end:
+                        soft_end = line.lifetime.end
+                else:
+                    fixed_scheduled.extend(line._scheduled[len(before_effect._scheduled):])
             if line._scheduled:
                 bindings = (*bindings, *line._scheduled)
                 resolved[identity] = bindings
                 entrance, exit = _padding(bindings)
                 display = Lifetime(
                     max(0, min(display.start, singing.start - entrance)),
-                    max(display.end, singing.end + exit),
+                    max(display.end, singing.end + (minimum_hold + exit)),
                 )
-                scheduled = _reserved_animations(line._scheduled)
+                scheduled = _reserved_animations(tuple(fixed_scheduled))
+                requested = _reserved_animations(line._scheduled)
+                if requested is not None:
+                    display = Lifetime(min(display.start, requested.start), max(display.end, requested.end))
                 if scheduled is not None:
                     reserved = (
                         scheduled
@@ -618,7 +653,11 @@ def prepare_tracks(
                     )
                 line = replace(line, _scheduled=())
             visual = _visual_spans(line)
-            if line.lifetime.end > display.end:
+            if soft_visual:
+                display = Lifetime(min(display.start, min(s.start for s in soft_visual)),
+                                   max(display.end, max(s.end for s in soft_visual)))
+                visual = tuple((Counter(visual) - soft_visual).elements())
+            if line.lifetime.end > max(display.end, soft_end):
                 visual = (*visual, TimeSpan(display.end, line.lifetime.end))
             if visual:
                 required = Lifetime(
@@ -652,7 +691,8 @@ def prepare_tracks(
                 if cue.marker.placement == "inline"
             )
             bounds = _union((line.layout.bounds, *cue_bounds))
-            lyric_bounds = bounds
+            obstacles = [*cue_bounds, *(c.bounds for c in line.layout.body.characters),
+                         *(c.bounds for r in line.layout.ruby for c in r.layout.characters)]
             for marker, group in zip(
                 (cue for cue in cued.cues if cue.marker.placement == "independent"), cued.independent, strict=True
             ):
@@ -660,16 +700,18 @@ def prepare_tracks(
                 if edge is None:
                     continue
                 width, height = marker.content.width, marker.content.height
-                x = min(bounds.left, bounds.center - width / 2)
-                y = (bounds.top - marker.preset.gap - height if edge == "above"
-                     else bounds.top + bounds.height + marker.preset.gap)
+                row = line.layout.bounds
+                x = (max(row.right - width, row.center - width / 2) if horizontal_rtl
+                     else min(row.left, row.center - width / 2))
+                under = [box for box in obstacles if box.left < x + width and x < box.right]
+                if edge == "above":
+                    y = min((box.top for box in under), default=row.top) - marker.gap - height
+                else:
+                    y = max((box.top + box.height for box in under), default=row.top + row.height) + marker.gap
                 row_cues[group.id] = Vec2(x, y)
-                bounds = _union((bounds, Box(x, y, width, height)))
-            column = None
-            if track.vertical:
-                allowance = max((round(g.object.font_size * g.object.state.scale.y) + track.ruby_gap
-                                 for r in bare.ruby for g in r.layout.characters), default=0)
-                column = _ColumnMetrics(max(1, bare.body.bounds.width), bare.body.bounds.height, max(0, allowance))
+                occupied = Box(x, y, width, height)
+                obstacles.append(occupied)
+                bounds = _union((bounds, occupied))
             allocation_inputs.append(
                 LayoutLine(
                     id=identity,
@@ -677,10 +719,12 @@ def prepare_tracks(
                     display=display,
                     bounds=bounds,
                     body_bounds=line.layout.body.bounds,
+                    body_font_size=max((g.object.font_size for g in bare.body.characters), default=None),
                     em_size=line.query("line")[0].em_size,
-                    _column_metrics=column,
+                    _vertical=track.vertical,
                     _lyric_width=bare.bounds.width if cue_bounds else None,
-                    _row_metrics=None if column or bounds != lyric_bounds else _row_metrics(line.layout, styles, track.ruby_gap, border),
+                    _row_metrics=None if track.vertical else _row_metrics(line.layout, bounds, border),
+                    _adaptive_handoff=track.tail is None,
                     entrance=entrance,
                     exit=exit,
                     sources=(SourceRef(source.id),),
@@ -702,8 +746,17 @@ def prepare_tracks(
         for source, item in zip(selected, batch, strict=True):
             placement = by_id[item.id]
             line = prepared[item.id].with_display(placement.display)
+            entry_scale = exit_scale = 1.0
+            if item._adaptive_handoff:
+                if item.entrance:
+                    entry_scale = min(1.0, max(0.0, item.singing.start - placement.display.start) / item.entrance)
+                if item.exit:
+                    exit_scale = min(1.0, max(0.0, placement.display.end - item.singing.end) / item.exit)
+            paint = line._karaoke_paint
+            if paint is not None:
+                line = replace(line, _karaoke_paint=replace(paint, entry=paint.entry * entry_scale, exit=paint.exit * exit_scale))
             for decorate in line._at_placement or ():
-                line = decorate(line)
+                line = decorate(line, entry_scale, exit_scale)
             line = replace(line, _at_placement=None)
             line = replace(
                 line,
@@ -727,17 +780,32 @@ def prepare_tracks(
                 ),
             )
             current = {target.id: target for target in line.targets}
-            line = line._bind(
-                tuple(
-                    replace(
-                        binding,
-                        target=current[binding.target.id],
-                        animation=binding.animation.for_row(placement.row)
-                        if isinstance(binding.animation, RowSlide) else binding.animation,
-                    )
-                    for binding in resolved[item.id]
-                )
-            )
+            fitted = []
+            for binding in resolved[item.id]:
+                scale = 1.0
+                if binding.target.role != "cue":
+                    if binding.at == "enter":
+                        scale = entry_scale
+                    elif binding.at == "exit":
+                        scale = exit_scale
+                motion = binding.animation
+                hold = binding.hold
+                duration = binding.duration * scale
+                if item._adaptive_handoff and binding.singing_release and isinstance(binding.at, (int, float)):
+                    release_end = placement.display.end - item.exit * exit_scale
+                    room = max(item.singing.end, release_end) - binding.at - binding.offset
+                    if room < duration:
+                        motion = _animation_prefix(motion, max(0.0, room) / duration)
+                        duration, hold = room, False
+                if binding.catalog_exit and isinstance(binding.at, (int, float)) and item._adaptive_handoff:
+                    duration = min(duration, placement.display.end - binding.at - binding.offset)
+                if duration <= 0:
+                    continue
+                if isinstance(motion, RowSlide):
+                    motion = motion.for_row(placement.row)
+                fitted.append(replace(binding, target=current[binding.target.id], animation=motion,
+                                      duration=duration, offset=binding.offset * scale, hold=hold))
+            line = line._bind(tuple(fitted))
             scene.add(*line.objects)
             if source.record_index is not None:
                 scene.replace_source(source.record_index)

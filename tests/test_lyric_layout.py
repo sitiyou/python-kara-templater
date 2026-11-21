@@ -4,7 +4,7 @@ from dataclasses import replace
 
 import pytest
 
-from kara_templater import Layout, LayoutContext, LayoutLine, Placement
+from kara_templater import KaraokeRows, Layout, LayoutContext, LayoutLine, Placement
 from kara_templater.geometry import Vec2
 from kara_templater.lyric_layout import validate_placements
 from kara_templater.model import Box
@@ -44,6 +44,19 @@ def test_two_rows_trim_optional_windows_without_moving_singing():
     assert [p.display for p in three] == [item.display for item in lines]
 
 
+@pytest.mark.parametrize(("sizes", "gap", "pitch"), [
+    ((80, 104, 60), None, 70.8),
+    ((None, 60, 48), None, 62),
+    ((None, None, None), None, 60),
+    ((80, 104, 60), 90, 90),
+])
+def test_row_pitch_is_stable_for_the_batch(sizes, gap, pitch):
+    lines = tuple(replace(line(str(i), i + 1, i + 2), body_font_size=size)
+                  for i, size in enumerate(sizes))
+    placements = Layout(rows=3, gap=gap).allocate(lines, CONTEXT)
+    assert [p.position.y for p in placements] == pytest.approx([410, 410 + pitch, 410 + 2 * pitch])
+
+
 def test_capacity_policy_and_pause_reset_are_explicit():
     lines = (line("long", 1, 5), line("short", 2, 3), line("next", 3.5, 4.5))
     with pytest.raises(ValueError, match="next: row 0 occupied by long"):
@@ -55,6 +68,18 @@ def test_capacity_policy_and_pause_reset_are_explicit():
     reset = Layout(rows=2, reset_after=5)
     assert [p.row for p in reset.allocate(spaced, CONTEXT)] == [0, 0]
     assert reset.allocate(spaced, CONTEXT) == reset.allocate(spaced, CONTEXT)
+
+
+@pytest.mark.parametrize("studio", [True, False])
+def test_lead_restarts_rotation_even_on_a_final_single_line(studio):
+    lines = (line("first", 1, 2), replace(line("restart", 3, 4), lead=True))
+    layout = KaraokeRows() if studio else Layout(rows=2, alignment="alternating")
+    first, restart = layout.allocate(lines, CONTEXT)
+    assert [first.row, restart.row] == [0, 0]
+    assert restart.position.x < CONTEXT.region.center - lines[1].bounds.width / 2
+    assert first.display.end <= restart.display.start
+    continued = replace(layout, reset_on_lead=False).allocate(lines, CONTEXT)
+    assert [p.row for p in continued] == [0, 1]
 
 
 def test_zero_equal_starts_short_lines_and_empty_input():
@@ -153,8 +178,8 @@ def test_studio_three_rows_and_per_row_offsets():
     ).allocate(lines, context)
     assert [p.position for p in custom] == [
         Vec2(1820, 12),
-        Vec2(3, 130),
-        Vec2(911, 251),
+        Vec2(3, 70),
+        Vec2(911, 131),
     ]
 
 
@@ -232,15 +257,15 @@ def test_bottom_three_row_short_page_uses_physical_lane_for_alignment():
 
 @pytest.mark.parametrize(("anchor", "top"), [("top", 60), ("center", 155), ("bottom", 251)])
 def test_vertical_columns_preserve_page_windows_across_block_anchors(anchor, top):
-    from kara_templater.lyric_layout import KaraokeRows, _ColumnMetrics
+    from kara_templater.lyric_layout import KaraokeRows
 
     starts = (2, 3.2, 4.8, 6.1, 7.5)
     lines = tuple(
         replace(
             line(str(i), s, s + .9, fade=0),
             display=Lifetime(s - 1.4, s + 1.9),
-            bounds=Box(-20, 0, 40, 49),
-            _column_metrics=_ColumnMetrics(40, 49, 24),
+            bounds=Box(-20, 0, 64, 49), body_bounds=Box(-20, 0, 40, 49),
+            _vertical=True,
         )
         for i, s in enumerate(starts)
     )
@@ -265,4 +290,4 @@ def test_vertical_track_rotates_measured_columns_through_the_public_preset(count
     assert [p.row for p in places] == [i % count for i in range(5)]
     assert all(p.position.y == 27 for p in places)
     assert all(a.position.x > b.position.x for a, b in zip(places[:count-1], places[1:count], strict=True))
-    assert places[count].position == places[0].position
+    assert places[count].position.x > places[0].position.x

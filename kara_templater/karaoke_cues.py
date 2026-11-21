@@ -38,16 +38,14 @@ def _rounded(width: float, height: float) -> VectorPath:
     return VectorPath.polygon(*points)
 
 
-def _host_em(context: CueContext) -> float:
-    return context.host_em or (context.host.font_size if context.host else 100)
+def _font_size(context: CueContext) -> float:
+    return context.host.font_size if context.host is not None else 100.0
 
 
 def _cue_size(explicit: float | None, ratio: float, context: CueContext) -> float:
     if explicit is not None:
         return explicit
-    host = context.host
-    font_size = _host_em(context) * (host.state.scale.y if host else 1)
-    return max(4, floor(font_size * ratio + 0.5))
+    return max(4, floor(_font_size(context) * ratio + 0.5))
 
 
 def _scaled_radius(radius: float, scale: float, width: float) -> float:
@@ -65,10 +63,10 @@ def _cue_border(
     if explicit is not None:
         return explicit
     host = context.host
-    if paint is not None and context.role_em is not None:
-        return _scaled_radius(paint.border, size / context.role_em, width)
+    if paint is not None and (context.role_font_size is not None or context.role_em is not None or host is not None):
+        return _scaled_radius(paint.border, size / (context.role_font_size or _font_size(context)), width)
     if host is not None:
-        return _scaled_radius(host.state.border, size / _host_em(context), width)
+        return _scaled_radius(host.state.border, size / _font_size(context), width)
     return min(8, width // 2) / 2
 
 
@@ -91,7 +89,7 @@ def _decorated_shape(
     glow = paint.glow
     if glow is None or glow.opacity == 0:
         return (shape,)
-    scale = size / (context.role_em or _host_em(context))
+    scale = size / (context.role_font_size or _font_size(context))
     extra = max(0, glow.border - paint.border)
     extra_radius = _scaled_radius(extra, scale, width)
     blur = floor(glow.blur * scale + 0.5)
@@ -154,7 +152,7 @@ class VolumeCue:
     relative to the fill. transition controls the softness of each flash from 0
     (hard blink) to 1. ratio is first-to-last column height and spacing is
     additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
-    and idle before the active portion. height and border use script pixels. Omit height to use size_ratio times the host em. column_width_ratio sets the width relative to height.
+    and idle before the active portion. height and border use script pixels. Omit height to use size_ratio times the authored font size at the marker. column_width_ratio sets the width relative to height.
     align aligns the column tops, centers or bottoms.
     An omitted border scales the host outline, capped at a quarter of the column width.
     """
@@ -266,7 +264,7 @@ class VolumeCue:
                         opacity=paint.opacity,
                         border=_cue_border(self.border, size, width, context, paint),
                         shadow=(
-                            host.state.shadow * (size / _host_em(context))
+                            host.state.shadow * (size / _font_size(context))
                             if host
                             else Vec2(3, 3)
                         ),
@@ -360,7 +358,7 @@ def _note(shape: str, size: float) -> VectorPath:
 class SignalCue:
     """A row of vector lamps extinguishing on cue steps, right to left by default.
 
-    size is the side of a lamp in script pixels, defaulting to size_ratio times the host font’s measured em size. Each lamp fades over the last
+    size is the side of a lamp in script pixels, defaulting to size_ratio times the authored font size at the marker. Each lamp fades over the last
     transition fraction of its step. Pass a custom path in the unit square to
     use a drawn symbol with the same layout and clock. spacing adds script pixels between lamps.
     Set countdown in seconds to keep all lamps lit before the active steps.
@@ -453,7 +451,7 @@ class SignalCue:
                 lambda p: p + Vec2(x, y) * size
             )
         host = context.host
-        shadow = host.state.shadow * (size / _host_em(context)) if host else Vec2()
+        shadow = host.state.shadow * (size / _font_size(context)) if host else Vec2()
         nodes = []
         steps = context.steps
         cue_end = context.lifetime.end

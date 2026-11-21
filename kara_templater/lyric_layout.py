@@ -4,6 +4,7 @@ An override receives the entire ordered sequence and returns placements. Local
 variables are sufficient for custom rotation, lead resets and exceptional lines.
 """
 
+from bisect import bisect_right
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -23,18 +24,11 @@ class _RowMetrics:
     ruby_headroom: float
 
 
-@dataclass(frozen=True)
-class _ColumnMetrics:
-    cell_width: float
-    body_height: float
-    ruby_allowance: float
-
-
 @dataclass(frozen=True, kw_only=True)
 class LayoutLine:
     """Immutable measured input, with original singing and desired visibility.
 
-    entrance/exit are required animation durations in seconds, outside singing.
+    entrance/exit are requested animation durations in seconds, outside singing.
     display includes optional preview/tail and any explicitly reserved cue time.
     tags and cue markers carry source data; their layout meaning is user-defined.
     bounds includes body, ruby and reserved decorations in local pixels.
@@ -54,9 +48,11 @@ class LayoutLine:
     lead: bool = False
     reserved: Lifetime | None = None
     em_size: float | None = None
+    _adaptive_handoff: bool = False
     _row_metrics: _RowMetrics | None = None
-    _column_metrics: _ColumnMetrics | None = None
+    _vertical: bool = False
     _lyric_width: float | None = None
+    body_font_size: float | None = None
 
     def __post_init__(self) -> None:
         finite(
@@ -71,13 +67,17 @@ class LayoutLine:
             finite(self.em_size)
             if self.em_size <= 0:
                 raise ValueError("em_size must be positive")
+        if self.body_font_size is not None:
+            finite(self.body_font_size)
+            if self.body_font_size <= 0:
+                raise ValueError("body_font_size must be positive")
         if not self.id:
             raise ValueError("layout line needs a stable id")
         if self.entrance < 0 or self.exit < 0:
             raise ValueError(f"{self.id}: entrance/exit durations cannot be negative")
         if self.bounds.width < 0 or self.bounds.height < 0:
             raise ValueError(f"{self.id}: measured dimensions cannot be negative")
-        if self.singing.start < self.entrance:
+        if not self._adaptive_handoff and self.singing.start < self.entrance:
             raise ValueError(f"{self.id}: entrance animation would start before zero")
         if (
             self.display.start > self.required.start
@@ -89,17 +89,39 @@ class LayoutLine:
 
     @property
     def required(self) -> TimeSpan:
-        """The minimum interval containing singing and entrance/exit animation."""
+        """Fixed occupancy, including cues, authored intervals and rigid transitions."""
+        start = self.singing.start if self._adaptive_handoff else self.singing.start - self.entrance
+        end = self.singing.end if self._adaptive_handoff else self.singing.end + self.exit
         return TimeSpan(
-            min(
-                self.singing.start - self.entrance,
-                self.reserved.start if self.reserved else self.singing.start,
-            ),
-            max(
-                self.singing.end + self.exit,
-                self.reserved.end if self.reserved else self.singing.end,
-            ),
+            min(start, self.reserved.start) if self.reserved else start,
+            max(end, self.reserved.end) if self.reserved else end,
         )
+
+
+def _adaptive_windows(
+    old: LayoutLine, before: Lifetime, new: LayoutLine, after: Lifetime, lane_gap: float = 0,
+) -> tuple[Lifetime, Lifetime]:
+    left, right = old.required.end, new.required.start
+    if left > right:
+        cues = ", ".join(cue.id for line in (old, new) for cue in line.cues)
+        detail = f"; cues: {cues}" if cues else ""
+        raise ValueError(f"{new.id}: required window overlaps {old.id} on the same row "
+                         f"({left:.3f}s > {right:.3f}s{detail})")
+    if before.end + lane_gap <= after.start:
+        return before, after
+    available = new.singing.start - old.singing.end
+    motion = old.exit + new.entrance
+    if available < motion:
+        desired = old.singing.end + available * old.exit / motion
+    else:
+        desired = min(before.end, new.singing.start - new.entrance)
+    # A real cue or an independently timed effect can constrain either side.
+    boundary = max(left, min(right, desired))
+    end = min(before.end, boundary)
+    start = max(after.start, boundary)
+    # Preserve an optional lane gap only from spare preview before the entry.
+    start = max(start, min(right, new.singing.start - new.entrance, end + lane_gap))
+    return Lifetime(before.start, end), Lifetime(start, after.end)
 
 
 @dataclass(frozen=True)
@@ -176,6 +198,36 @@ def validate_placements(
         raise ValueError(f"missing placements: {', '.join(sorted(missing))}")
 
 
+def _lane_distances(
+    placements: tuple[Placement, ...], extents: dict[str, float], rows: int,
+    body: float, clearance: float, *, from_bottom: bool = False,
+) -> dict[str, float]:
+    """Pack co-visible measured boxes outward from one edge, across page handoffs."""
+    lanes: dict[int, list[Placement]] = {}
+    for placement in placements:
+        if placement.row is not None:
+            lanes.setdefault(placement.row, []).append(placement)
+    offsets: dict[str, float] = {}
+    earlier: list[tuple[int, list[Placement], list[float]]] = []
+    for slot in range(max(rows, max(lanes, default=-1) + 1)):
+        row = rows - 1 - slot if from_bottom and slot < rows else slot
+        current = sorted(lanes.get(row, ()), key=lambda p: p.display.start)
+        for item in current:
+            distances: list[float] = []
+            for prior_slot, peers, ends in earlier:
+                skipped = slot - prior_slot - 1
+                index = bisect_right(ends, item.display.start)
+                while index < len(peers) and peers[index].display.start < item.display.end:
+                    peer = peers[index]
+                    distances.append(offsets[peer.id] + extents[peer.id]
+                                     + clearance + skipped * (body + clearance))
+                    index += 1
+            offsets[item.id] = max(distances, default=slot * (body + clearance))
+        if current:
+            earlier.append((slot, current, [p.display.end for p in current]))
+    return offsets
+
+
 type _Alignment = Literal["left", "center", "right"]
 
 
@@ -186,7 +238,8 @@ class Layout:
     Strict rotation is the default. 'available' searches from the next row for
     capacity. Optional preview/tail is shortened before required singing or
     animation could overlap. reset_after resets rotation after a singing gap;
-    None preserves rotation across pauses. Lead and tags have no built-in meaning.
+    None preserves rotation across pauses. A lead starts a new rotation by default.
+    Set reset_on_lead to False to continue the sequence across leads.
 
     position is the first row's top-left, defaulting to the context region.
     Alignment and offsets can be supplied per row.
@@ -196,15 +249,17 @@ class Layout:
 
     rows: int = 1
     position: Vec2 | None = None
-    gap: float = 120
+    gap: float | None = None
     alignment: _Alignment | Literal["alternating"] | tuple[_Alignment, ...] = "left"
     offsets: tuple[Vec2, ...] = ()
     policy: Literal["strict", "available"] = "strict"
     reset_after: float | None = None
+    reset_on_lead: bool = True
 
     def __post_init__(self) -> None:
-        finite(self.gap)
-        if type(self.rows) is not int or self.rows < 1 or self.gap <= 0:
+        if self.gap is not None:
+            finite(self.gap)
+        if type(self.rows) is not int or self.rows < 1 or (self.gap is not None and self.gap <= 0):
             raise ValueError("layout needs positive rows and gap")
         if isinstance(self.alignment, tuple):
             if len(self.alignment) != self.rows or any(
@@ -222,14 +277,38 @@ class Layout:
             if self.reset_after <= 0:
                 raise ValueError("reset interval must be positive")
 
+    def row_offsets(
+        self,
+        lines: tuple[LayoutLine, ...],
+        placements: tuple[Placement, ...],
+        *,
+        from_bottom: bool = False,
+    ) -> dict[str, float]:
+        """Distance of each numbered row from the anchor edge, in script pixels.
+
+        Supply placements with final display intervals and non-overlapping occupants
+        per row. Automatic spacing fits the measured boxes visible together and adds
+        20% of the track's body font size between boxes. An empty lane reserves body
+        height only. Each line stays at one position throughout its display.
+        """
+        if self.gap is not None:
+            return {p.id: self.gap * (self.rows - 1 - p.row if from_bottom and p.row < self.rows else p.row)
+                    for p in placements if p.row is not None}
+        sizes = (line.body_font_size for line in lines if line.body_font_size is not None)
+        body = max(sizes, default=max(
+            ((line.body_bounds or line.bounds).height for line in lines), default=0
+        ))
+        return _lane_distances(placements, {line.id: line.bounds.height for line in lines},
+                               self.rows, body, body * 0.2, from_bottom=from_bottom)
+
     def allocate(
         self, lines: tuple[LayoutLine, ...], context: LayoutContext
     ) -> tuple[Placement, ...]:
         """Plan the complete batch once, without modifying singing or input order.
 
         Chronological input is required; equal starts retain input order. For a
-        handoff, shorten the prior tail first, then the next preview. Required
-        intervals that cannot fit raise with both line identities and the row.
+        handoff with automatic timing, trim extra preview, hold, then transitions.
+        Overlapping fixed windows raise with both line identities.
         """
         if len({line.id for line in lines}) != len(lines):
             raise ValueError("duplicate layout input ids")
@@ -244,7 +323,7 @@ class Layout:
         latest_end: float | None = None
         origin = self.position or Vec2(context.region.left, context.region.top)
         for line in lines:
-            if (
+            if (self.reset_on_lead and line.lead) or (
                 self.reset_after is not None
                 and latest_end is not None
                 and line.singing.start - latest_end >= self.reset_after
@@ -270,12 +349,20 @@ class Layout:
             reasons: tuple[str, ...] = ()
             if previous is not None:
                 prior_line, prior = lines[previous], result[previous]
-                if prior_line.required.end > line.required.start:
+                if line._adaptive_handoff:
+                    old_display, display = _adaptive_windows(prior_line, prior.display, line, display)
+                    if old_display != prior.display:
+                        result[previous] = replace(prior, display=old_display, adjustments=(
+                            *prior.adjustments, f"tail shortened for {line.id}",
+                        ))
+                    if display != line.display:
+                        reasons = (f"preview shortened after {prior.id}",)
+                elif prior_line.required.end > line.required.start:
                     raise ValueError(
                         f"{line.id}: row {row} occupied by {prior_line.id}; "
                         "required singing/animation intervals overlap"
                     )
-                if prior.display.end > display.start:
+                elif prior.display.end > display.start:
                     boundary = max(prior_line.required.end, display.start)
                     if prior.display.end > boundary:
                         result[previous] = replace(
@@ -301,7 +388,7 @@ class Layout:
                 origin.x
                 + (context.region.width - line.bounds.width) * fraction
                 - line.bounds.left,
-                origin.y + row * self.gap - line.bounds.top,
+                origin.y - line.bounds.top,
             )
             if self.offsets:
                 position += self.offsets[row]
@@ -309,7 +396,8 @@ class Layout:
             occupied[row] = len(result) - 1
             next_row = (row + 1) % self.rows
             latest_end = max(line.singing.end, latest_end or line.singing.end)
-        placements = tuple(result)
+        offsets = self.row_offsets(lines, tuple(result))
+        placements = tuple(replace(p, position=p.position + Vec2(0, offsets[p.id])) for p in result)
         validate_placements(lines, placements)
         return placements
 
@@ -322,13 +410,14 @@ class KaraokeRows:
     along its height. Columns rotate right to left on every page.
     One horizontal row is centered, three use left/center/right, other counts alternate.
     Use anchor to place a stream at the top, center or bottom of its region. Row height
-    follows the body baseline and hard outlines. Top grids reserve reading space
-    even on pages without ruby. Inline cues retain their horizontal reservation.
+    follows measured body, reading and cue bounds for co-visible lines. Inline cues retain their horizontal reservation.
     smart_horizontal defaults to equal_margins, moving the left and right rows
     inward by half the page's spare width. An inline cue contributes its width
     when positioning its host row. Peers measure that row by its lyrics and ruby.
     center_position treats each row
     independently. none keeps the preset alignments against the region margins.
+    A lead starts a section on the first lane by default, including on partial pages.
+    Set reset_on_lead to False to keep ordinary paging across leads.
     section_gap starts a new rotation after a longer singing silence (0 disables
     splitting). lane_gap reserves seconds between occupants when available.
     sync_entry and sync_ending align the first and last pages respectively;
@@ -348,6 +437,7 @@ class KaraokeRows:
     sync_ending: bool = False
     sync_each_page: bool = False
     fill_section: bool = True
+    reset_on_lead: bool = True
 
     def __post_init__(self) -> None:
         finite(self.section_gap, self.lane_gap)
@@ -368,7 +458,7 @@ class KaraokeRows:
         A page restarts the row sequence. A section also restarts first/last-page
         timing. Returning "none" retains automatic paging at row capacity.
         """
-        if (
+        if (self.reset_on_lead and line.lead) or (
             self.section_gap
             and line.singing.start - previous.singing.end > self.section_gap
         ):
@@ -383,29 +473,13 @@ class KaraokeRows:
         scale = (context.script_height or region.height) / 1080
         spacing = (90, 45, 60, 40, 25, 15, 8, 0)[self.rows - 1] * scale
         margin = (60 if self.rows == 2 else 80) * scale
-        if lines and lines[0]._column_metrics is not None:
+        if lines and lines[0]._vertical:
             return self._place_columns(lines, region, round(margin), round(spacing))
         inset = min(50 * scale, region.width / 4)
         metrics = tuple(
             line._row_metrics or _RowMetrics(line.bounds.top, 0, line.bounds.height, 0)
             for line in lines
         )
-        ascent = max((m.ascent for m in metrics), default=0)
-        height = ascent + max((m.descent for m in metrics), default=0)
-        headroom = max((m.ruby_headroom for m in metrics), default=0)
-        pitch = max(height + spacing, 0.001)
-        grid_height = height + (self.rows - 1) * pitch
-        if self.anchor == "top":
-            y = region.top + margin + headroom
-        elif self.anchor == "center":
-            # Studio centers a single reading/body pair, or a multi-row body grid.
-            y = (
-                region.middle
-                - grid_height / 2
-                + (headroom / 2 if self.rows == 1 else 0)
-            )
-        else:
-            y = region.top + region.height - margin - grid_height
         area = Box(
             region.left + inset, region.top, region.width - 2 * inset, region.height
         )
@@ -426,12 +500,19 @@ class KaraokeRows:
                     windows,
                     area,
                     alignments,
-                    metrics,
-                    ascent,
-                    y,
-                    pitch,
                 )
             )
+        placements = tuple(adjusted)
+        extents = {line.id: m.ascent + m.descent + m.ruby_headroom
+                   for line, m in zip(lines, metrics, strict=True)}
+        body_height = max((m.ascent + m.descent for m in metrics), default=0)
+        above = _lane_distances(placements, extents, self.rows, body_height, spacing)
+        below = _lane_distances(placements, extents, self.rows, body_height, spacing, from_bottom=True)
+        for i, (p, m) in enumerate(zip(placements, metrics, strict=True)):
+            top = region.top + margin + above[p.id]
+            bottom = region.top + region.height - margin - below[p.id] - extents[p.id]
+            y = top if self.anchor == "top" else bottom if self.anchor == "bottom" else (top + bottom) / 2
+            adjusted[i] = replace(p, position=Vec2(p.position.x, y + m.ruby_headroom + m.ascent - m.baseline))
         validate_placements(lines, tuple(adjusted))
         return tuple(adjusted)
 
@@ -457,14 +538,14 @@ class KaraokeRows:
             sections.append(pages)
 
         windows = [line.display for line in lines]
-        vertical = bool(lines and lines[0]._column_metrics is not None)
+        vertical = bool(lines and lines[0]._vertical)
         last_in_row: dict[int, int] = {}
         for pages in sections:
             self._page_windows(lines, pages, windows, vertical=vertical)
             # Reserved cues and tails may reach across pages or sections.
             for page in pages:
                 for row, i in enumerate(
-                    page, start=self._row_offset(len(page), vertical=vertical)
+                    page, start=self._row_offset(len(page), lines[page.start], vertical=vertical)
                 ):
                     j = last_in_row.get(row)
                     if (
@@ -485,8 +566,8 @@ class KaraokeRows:
                         windows[i] = Lifetime(windows[i].start, end)
         return [page for pages in sections for page in pages], windows
 
-    def _row_offset(self, count: int, *, vertical: bool = False) -> int:
-        if vertical:
+    def _row_offset(self, count: int, first: LayoutLine, *, vertical: bool = False) -> int:
+        if vertical or (self.reset_on_lead and first.lead):
             return 0
         if self.anchor == "bottom" and count > 1:
             return self.rows - count
@@ -501,17 +582,14 @@ class KaraokeRows:
         windows: list[Lifetime],
         area: Box,
         alignments: tuple[str, ...],
-        metrics: tuple[_RowMetrics, ...],
-        ascent: float,
-        y: float,
-        pitch: float,
     ) -> list[Placement]:
         adjusted: list[Placement] = []
         page = lines[indices.start : indices.stop]
-        offset = self._row_offset(len(page))
+        lead_page = self.reset_on_lead and page[0].lead
+        offset = self._row_offset(len(page), page[0])
         # Studio measures page widths using page-local lanes. At draw time the
         # same alignment lookup receives the physical lane of the placed line.
-        slot_offset = self.rows - len(page) if self.anchor == "bottom" else 0
+        slot_offset = self.rows - len(page) if self.anchor == "bottom" and not lead_page else 0
         widths = {"left": 0.0, "center": 0.0, "right": 0.0}
         for lane, line in enumerate(page):
             slot = alignments[slot_offset + lane]
@@ -523,7 +601,7 @@ class KaraokeRows:
             slot = alignments[min(slot_offset + row, self.rows - 1)]
             width = line.bounds.width
             room = area.width - width
-            if slot == "center" or (len(page) == 1 and self.smart_horizontal != "none"):
+            if slot == "center" or (len(page) == 1 and self.smart_horizontal != "none" and not lead_page):
                 x = room / 2
             else:
                 inset_x = 0.0
@@ -542,7 +620,7 @@ class KaraokeRows:
                 x = inset_x if slot == "left" else room - inset_x
             position = Vec2(
                 area.left + x - line.bounds.left,
-                y + row * pitch + ascent - metrics[i].baseline,
+                0,
             )
             adjusted.append(Placement(line.id, position, windows[i], row))
         return adjusted
@@ -559,8 +637,8 @@ class KaraokeRows:
         predecessors: dict[int, int] = {}
         successors: dict[int, int] = {}
         for before, after in zip(pages, pages[1:], strict=False):
-            offset = self._row_offset(len(after), vertical=vertical) - self._row_offset(
-                len(before), vertical=vertical
+            offset = self._row_offset(len(after), lines[after.start], vertical=vertical) - self._row_offset(
+                len(before), lines[before.start], vertical=vertical
             )
             for i in after:
                 j = before.start + offset + i - after.start
@@ -608,6 +686,8 @@ class KaraokeRows:
         following: LayoutLine,
         after: Lifetime,
     ) -> tuple[Lifetime, Lifetime]:
+        if following._adaptive_handoff:
+            return _adaptive_windows(previous, before, following, after, self.lane_gap)
         room = following.required.start - previous.required.end
         if room < 0:
             raise ValueError(
@@ -622,32 +702,21 @@ class KaraokeRows:
     def _place_columns(
         self, lines: tuple[LayoutLine, ...], region: Box, margin: float, spacing: float
     ) -> tuple[Placement, ...]:
-        metrics = [
-            line._column_metrics for line in lines if line._column_metrics is not None
-        ]
-        if len(metrics) != len(lines):
-            raise ValueError(
-                "a column layout requires vertical measurements for every line"
-            )
-        ruby = max(m.ruby_allowance for m in metrics)
+        if not all(line._vertical for line in lines):
+            raise ValueError("a column layout requires vertical measurements for every line")
         pages, windows = self._timed_pages(lines)
+        lanes = tuple(Placement(lines[i].id, Vec2(), windows[i], lane)
+                      for page in pages for lane, i in enumerate(page))
+        widths = {line.id: line.bounds.width for line in lines}
+        body = max((line.body_bounds or line.bounds).width for line in lines)
+        distances = _lane_distances(lanes, widths, self.rows, body, spacing)
         placements: list[Placement] = []
-        for page in pages:
-            for lane, i in enumerate(page):
-                width = metrics[i].cell_width
-                right_center = region.width - margin - ruby - width / 2
-                pitch = width + ruby + spacing
-                room = region.height - metrics[i].body_height
-                if self.anchor == "top":
-                    top = margin
-                elif self.anchor == "center":
-                    top = max(room // 2, 0)
-                else:
-                    top = room - margin
-                origin = Vec2(
-                    region.left + round(right_center - lane * pitch), region.top + top
-                )
-                placements.append(Placement(lines[i].id, origin, windows[i], lane))
+        for line, lane in zip(lines, lanes, strict=True):
+            room = region.height - line.bounds.height
+            top = margin if self.anchor == "top" else max(room // 2, 0) if self.anchor == "center" else room - margin
+            x = region.width - margin - distances[line.id] - line.bounds.right
+            origin = Vec2(region.left + round(x), region.top + top - line.bounds.top)
+            placements.append(replace(lane, position=origin))
         result = tuple(placements)
         validate_placements(lines, result)
         return result

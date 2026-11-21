@@ -245,9 +245,9 @@ def test_empty_leading_k_advances_cue_trigger_without_a_dummy_syllable():
 
 
 @pytest.mark.parametrize(("align", "tops"), [
-    ("top", [0, 0, 0]), ("center", [0, 8, 16]), ("bottom", [0, 16, 32]),
+    ("top", [0, 0, 0]), ("center", [0, 12.5, 25]), ("bottom", [0, 25, 50]),
 ])
-def test_volume_alignment_and_em_ratios(align, tops):
+def test_volume_alignment_and_size_ratios(align, tops):
     from kara_templater import (
         CueContext,
         EventOrigin,
@@ -262,21 +262,21 @@ def test_volume_alignment_and_em_ratios(align, tops):
     cue = VolumeCue(count=3, flashes=0, border=0, ratio=3, align=align,
                     size_ratio=0.75, column_width_ratio=1/3)
     content = cue(context)
-    assert (content.width, content.height) == (48, 48)
+    assert (content.width, content.height) == (75, 75)
     group, = content.objects
     assert isinstance(group, ObjectGroup)
     bars = [bar for bar in group.children if bar.lifetime.contains(1.9)]
-    assert [bar.state.position for bar in bars] == [Vec2(i * 16, y) for i, y in enumerate(tops)]
-    assert SignalCue(size_ratio=0.75)(context).height == 48
+    assert [bar.state.position for bar in bars] == [Vec2(i * 25, y) for i, y in enumerate(tops)]
+    assert SignalCue(size_ratio=0.75)(context).height == 75
     assert SignalCue(size=12, size_ratio=0.75)(context).height == 12
 
 
-def test_auto_sized_signals_use_font_at_marker_and_explicit_sizes_win():
+def test_default_signals_follow_authored_font_sizes_and_explicit_sizes_win():
     from kara_templater import SignalCue, VolumeCue
 
     doc = Document.create(styles=(
         Style(name="Main", fontname="DejaVu Sans", fontsize=80),
-        Style(name="Harmony", fontname="DejaVu Sans", fontsize=40),
+        Style(name="Harmony", fontname="DejaVu Serif", fontsize=40),
     ))
     doc.records.append(Line(style="Main", text=r"{\k50}A{\rHarmony\k50}B", start_time=1000, end_time=2000))
     lyrics = layout_document_lyrics(doc, len(doc.records) - 1)
@@ -286,10 +286,10 @@ def test_auto_sized_signals_use_font_at_marker_and_explicit_sizes_win():
          "fixed": CuePreset(factory=SignalCue(size=24))},
         markers=(CueMarker("a", "lead", 0), CueMarker("b", "lamp", 1), CueMarker("c", "fixed", 2)),
     )
-    assert [cue.content.height for cue in cues.cues] == [34, 17, 24]
+    assert [cue.content.height for cue in cues.cues] == [40, 20, 24]
 
 
-def test_cues_share_first_visible_role_colors_but_measure_the_marker_host():
+def test_cues_share_first_visible_role_colors_at_marker_font_size():
     from kara_templater import (
         Color,
         ObjectGroup,
@@ -317,7 +317,7 @@ def test_cues_share_first_visible_role_colors_but_measure_the_marker_host():
         CueMarker("bar", "bar", 2), CueMarker("lamp", "lamp", 2),
     ))
     bar, lamp = bound.cues
-    assert bar.content.height == 34
+    assert bar.content.height == 40
     bar_group, lamp_group = bar.content.objects[0], lamp.content.objects[0]
     assert isinstance(bar_group, ObjectGroup) and isinstance(lamp_group, ObjectGroup)
     assert {(p.state.fill, p.state.outline) for p in bar_group.children} == {
@@ -342,14 +342,14 @@ def test_role_zoom_tracks_each_step_and_releases_completed_volume_column():
     lamps = SignalCue(edge_brightness=0)(context).objects
     first, second = lamps
     assert isinstance(first, ObjectGroup) and isinstance(second, ObjectGroup)
-    assert first.children[0].at(0.25).scale.x == pytest.approx(1.21875)
+    assert first.children[0].at(0.25).scale.x == pytest.approx(1.0875)
     assert second.children[0].at(0.25).scale.x == 1
-    assert second.children[0].at(1.25).scale.x == pytest.approx(1.21875)
+    assert second.children[0].at(1.25).scale.x == pytest.approx(1.0875)
     (volume,) = VolumeCue(count=2, flashes=0)(context).objects
     assert isinstance(volume, ObjectGroup)
     bar = volume.children[0]
-    assert bar.at(1).scale.x == pytest.approx(1.25)
-    assert bar.at(1.15).scale.x == pytest.approx(1.21875)
+    assert bar.at(1).scale.x == pytest.approx(1.10)
+    assert bar.at(1.15).scale.x == pytest.approx(1.0875)
     assert bar.at(1.3).scale.x == pytest.approx(1)
 
 
@@ -415,7 +415,7 @@ def test_strokeless_signal_renders_a_soft_glow_outside_the_body():
     red, blue = Color(255, 0, 0), Color(0, 0, 255)
     palette = PaintPair(Paint(), Paint(fill=red, border=0, glow=Glow(blue, blur=6)))
     context = CueContext("cue", Lifetime(0, 2), (0, 2), EventOrigin((SourceRef("voice"),), "cue"),
-                         colors=palette, role_em=40)
+                         colors=palette, role_font_size=40)
     lamp, = SignalCue(shape="square", size=40, border=0, edge_brightness=0)(context).objects
     assert isinstance(lamp, ObjectGroup)
     lamp = replace(lamp, state=VisualState(position=Vec2(16, 16)))
@@ -426,3 +426,49 @@ def test_strokeless_signal_renders_a_soft_glow_outside_the_body():
     # Six-pixel-wide pen convolved with a sigma-6 Gaussian, 3.5 px outside.
     assert rgba[outer + 2] > 0 and 77 <= rgba[outer + 3] <= 89
     assert tuple(rgba[center:center + 4]) == (255, 0, 0, 255)
+
+
+def test_vertical_inline_cue_reserves_and_releases_height_for_body_and_ruby():
+    doc, _ = layout()
+    original = layout_document_lyrics(doc, len(doc.records) - 1, display=Lifetime(0, 4), vertical=True)
+    bound = bind_lyric_cues(original, {"bars": CuePreset(factory=BarsCue(width=90, height=20), gap=7,
+                                                       keep_space=False)}, markers=(CueMarker("intro", "bars"),))
+    cue, = bound.cues
+    assert cue.position.x + cue.content.width / 2 == original.body.characters[0].bounds.center
+    for before, after in ((original.body, bound.lyrics.body), (original.ruby[0].layout, bound.lyrics.ruby[0].layout)):
+        a, b = before.characters[0].object, after.characters[0].object
+        assert b.at(0.5).position - a.at(0.5).position == Vec2(0, 27)
+        assert b.at(1.5).position == a.at(1.5).position
+
+
+@pytest.mark.parametrize("kind", ["circle", "square", "rounded", "star", "note8", "note16",
+                                  "notepair", "bars", "volume", "text"])
+def test_cue_render_is_independent_of_the_lyric_font(kind):
+    from kara_templater import (
+        CueContext,
+        EventOrigin,
+        ObjectGroup,
+        SignalCue,
+        SourceRef,
+        TextObject,
+        VolumeCue,
+    )
+    from kara_templater._raster import rasterize
+
+    factory = {"bars": BarsCue(), "volume": VolumeCue(flashes=0), "text": TextCue()}.get(kind)
+    if factory is None:
+        factory = SignalCue(shape=kind)
+    life = Lifetime(0, 3)
+    frames = []
+    heights = []
+    for font, size, measured_em in (("DejaVu Sans", 48, 40), ("DejaVu Serif", 48, 45), ("DejaVu Sans", 96, 80)):
+        host = TextObject(id="host", text="A", font=font, font_size=size, lifetime=life)
+        content = factory(CueContext("cue", life, (0, 1, 2, 3), EventOrigin((SourceRef("lyric"),), "test"),
+                                     host=host, host_height=measured_em, host_em=measured_em, role_font_size=size))
+        heights.append(content.height)
+        scene = Scene(Document.create(width=240, height=100)).add(
+            ObjectGroup(id="row", lifetime=life, children=content.objects))
+        frames.append(rasterize(scene.compile().document.dumps(), 2250, (240, 100)).rgba)
+    assert any(frames[0][3::4])
+    assert frames[0] == frames[1]
+    assert heights[2] == pytest.approx(2 * heights[0], abs=1)

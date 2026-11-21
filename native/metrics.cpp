@@ -55,9 +55,9 @@ static Context *get_context(PyObject *module) {
 static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
     const char *font, *text;
     double size, sx, sy, spacing, placement_x = 0;
-    int bold, italic, encoding;
-    if (!PyArg_ParseTuple(args, "sdiidddis|d", &font, &size, &bold, &italic,
-                          &sx, &sy, &spacing, &encoding, &text, &placement_x)) return nullptr;
+    int bold, italic, encoding, palt = 0;
+    if (!PyArg_ParseTuple(args, "sdiidddis|dp", &font, &size, &bold, &italic,
+                          &sx, &sy, &spacing, &encoding, &text, &placement_x, &palt)) return nullptr;
     if (!std::isfinite(size) || !std::isfinite(sx) || !std::isfinite(sy) ||
         !std::isfinite(spacing) || !std::isfinite(placement_x) || size <= 0 || sx <= 0 || sy <= 0) {
         PyErr_SetString(PyExc_ValueError, "Font size and scales must be finite and positive");
@@ -79,6 +79,7 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
         PyErr_SetString(PyExc_RuntimeError, "Could not create metrics track");
         return nullptr;
     }
+    track->metrics_palt = palt;
     auto &style = track->styles[track->events[0].Style];
     auto &event = track->events[0];
     std::string literal;
@@ -140,7 +141,8 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
     // the event's first baseline; unlike bitmap extents these retain spaces.
     PyObject *outlines = PyList_New(0);
     if (!outlines) return nullptr;
-    const double origin_x = metrics->runs ? metrics->runs->pos.x : 0;
+    // palt may move even the first glyph relative to the requested pen.
+    const double origin_x = palt ? placement_x : (metrics->runs ? metrics->runs->pos.x : 0);
     const double baseline = metrics->runs ? metrics->runs->pos.y : 0;
     for (auto *ev = metrics; ev; ev = ev->next) {
         for (auto *run = ev->runs; run; run = run->next) {

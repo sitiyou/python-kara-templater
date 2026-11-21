@@ -84,8 +84,10 @@ def zoom_pulse(note: float, duration: float, level: int, pivot: Vec2) -> Transfo
     def scale(progress: float) -> float:
         t = progress * duration
         if t <= note:
-            return 1.25 - 0.25 * pow(1 - min(1, t / note), exponent)
-        return 1.25 - 0.25 * pow(min(1, (t - note) / 0.30), exponent)
+            distance_from_peak = 1 - min(1, t / note)
+        else:
+            distance_from_peak = min(1, (t - note) / 0.30)
+        return 1 + 0.10 * (1 - pow(distance_from_peak, exponent))
 
     return Transform(scale=scale, pivot=pivot)
 

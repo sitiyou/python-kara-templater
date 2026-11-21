@@ -69,7 +69,6 @@ class SongLayout(Layout):
             placement = replace(
                 placement,
                 row=row,
-                position=placement.position + Vec2(0, row * self.gap),
             )
             if row in occupied:
                 previous = occupied[row]
@@ -96,7 +95,8 @@ class SongLayout(Layout):
             occupied[row] = len(placements)
             placements.append(placement)
             cursor += 1
-        return tuple(placements)
+        offsets = self.row_offsets(lines, tuple(placements))
+        return tuple(replace(p, position=p.position + Vec2(0, offsets.get(p.id, 0))) for p in placements)
 
 
 def song(*, dense: bool = False) -> Document:
@@ -155,6 +155,7 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
     fade = FadeIn()
     main = Track(
         id="main",
+        tail=1.0,  # This example compares layouts with fixed-duration animation rules.
         source=lambda source: source.style == "Main",
         layout=layout or Layout(rows=2, position=Vec2(100, 290), gap=80),
         tags=lambda source: frozenset((source.actor,)) if source.actor else frozenset(),

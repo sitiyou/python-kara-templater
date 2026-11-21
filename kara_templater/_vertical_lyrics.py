@@ -158,7 +158,7 @@ def _vertical_line(
             )
     return replace(
         layout,
-        body=replace(layout.body, characters=body, bounds=body_bounds),
+        body=replace(layout.body, characters=body, bounds=body_bounds, _vertical=True),
         ruby=tuple(readings),
         _vertical=True,
         bounds=_union((body_bounds, *(r.layout.bounds for r in readings))),

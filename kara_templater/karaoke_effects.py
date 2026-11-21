@@ -907,10 +907,10 @@ class KaraokeEffects:
     full stagger span. Zero disables that transition. `none` singing retains
     ordinary wipe; `no_wipe` recolors the whole timed unit at completion. Utopia pulses
     within each note; zoom_pulse grows throughout the note and releases over .30 s.
-    Ornament tails reserve display without altering source singing intervals.
+    Ornament tails request display time and follow the host on a dense automatic track.
     material/glow/base_glow use the same factories as LyricHighlights.
-    Entry is shortened only when Scene zero leaves insufficient preview time.
-    Exit starts after singing (including zoom release), reserving needed tail.
+    Display-anchored transitions share the time available at a dense row handoff.
+    A zoom release can finish early to make room for the exit.
     Overlapping repeats truncate the preceding zoom release and restart its pulse.
 
     Includes the Studio animation-menu families, independently implemented on
@@ -1182,12 +1182,13 @@ class KaraokeEffects:
             if entering and first < total:
                 anchor = _display_start
             if not entering and kind == "utopia":
-                line = line.schedule(LyricRule(
+                departures = line._resolve((LyricRule(
                     line.query("character", "ruby"), _utopia_exit_anchor(line, total, release),
                     partial(transition, kind=kind, entering=False, seed=self.seed,
                             zoom_pivot=self.singing.startswith("zoom_pulse")),
                     duration=total,
-                ))
+                ),))
+                line = replace(line, _scheduled=(*line._scheduled, *(replace(b, catalog_exit=True) for b in departures)))
                 continue
             animate = partial(transition, kind=kind, entering=entering, seed=self.seed,
                               zoom_pivot=self.singing.startswith("zoom_pulse"))
@@ -1221,7 +1222,8 @@ class KaraokeEffects:
                     rule = pulse.rule(target, singing_resume)
                     if rule is not None:
                         rules.append(rule)
-            line = line.schedule(*rules)
+            pulses = line._resolve(tuple(rules))
+            line = replace(line, _scheduled=(*line._scheduled, *(replace(b, singing_release=True) for b in pulses)))
         assert self.sung is not None and self.unsung is not None
         return replace(
             line,
@@ -1703,9 +1705,12 @@ class KaraokeEffects:
             if line._at_placement is None:
                 line = self._display_ornaments(line)
             else:
-                line = replace(
-                    line, _at_placement=(*line._at_placement, self._display_ornaments)
-                )
+                def decorate(placed: LyricLine, entry_scale: float, exit_scale: float) -> LyricLine:
+                    return replace(
+                        self, entry_duration=self.entry_duration * entry_scale,
+                        exit_duration=self.exit_duration * exit_scale,
+                    )._display_ornaments(placed)
+                line = replace(line, _at_placement=(*line._at_placement, decorate))
         if "scanline" not in self.singing and not self.stroke_flash:
             return _insert(line, additions)
         # The front follows glyph motion. Studio flashes the original measured outline.

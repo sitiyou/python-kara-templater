@@ -15,6 +15,7 @@ def text_extents(
     encoding: int,
     text: str,
     placement_x: float = 0,
+    palt: bool = False,
     /,
 ) -> tuple[float, float, float, float]: ...
 def text_shape(
@@ -28,6 +29,7 @@ def text_shape(
     encoding: int,
     text: str,
     placement_x: float = 0,
+    palt: bool = False,
     /,
 ) -> tuple[float, float, float, float, list[Outline]]: ...
 def add_font(name: str, data: bytes, /) -> str: ...

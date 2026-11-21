@@ -450,7 +450,8 @@ LyricSegment(
 A decoded body range and its ordered singing segments.
 
 Ranges count Unicode code points and must later respect shaped cluster
-boundaries.
+boundaries. Timed ruby segments describe successive parts of one reading.
+Set repeat=True when each segment sings the entire body again.
 
 [Source](../../kara_templater/document_lyrics.py#L44)
 
@@ -459,6 +460,7 @@ LyricUnit(
     start: int,
     end: int,
     segments: tuple[LyricSegment, ...] = (),
+    repeat: bool = False,
 )
 ```
 
@@ -469,6 +471,7 @@ LyricUnit(
 | `start` | `int` | `required` |
 | `end` | `int` | `required` |
 | `segments` | `tuple[LyricSegment, ...]` | `()` |
+| `repeat` | `bool` | `False` |
 
 ## Record
 

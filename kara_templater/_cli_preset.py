@@ -143,7 +143,7 @@ def preset_scene(
     fade_in: float,
     fade_out: float,
     preview: float,
-    tail: float,
+    tail: float | None,
     styles: tuple[str, ...] | None,
     raster: RasterSettings | None,
 ) -> LyricScene:

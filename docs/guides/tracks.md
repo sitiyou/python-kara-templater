@@ -7,15 +7,13 @@ returns a LyricScene containing ordinary objects. Add decorations with
 All authoring times below are seconds.
 
 With layout omitted, Track alternates two bottom rows, upper left then lower
-right. Studio’s default `equal_margins` draws short rows toward the center as a page. A lone line is centered. Use `KaraokeRows(smart_horizontal="none")` to keep rows at their margins, or `"center_position"` to shift each row independently. It requests 1.8 s preview and 1.0 s tail. To place lyrics at a fixed
+right. Studio’s default `equal_margins` draws short rows toward the center as a page. A lone line is centered. Use `KaraokeRows(smart_horizontal="none")` to keep rows at their margins, or `"center_position"` to shift each row independently. Track requests 1.8 s of preview. Its automatic tail targets 1.0 s from the last sung unit to disappearance, including the resolved exit animation. It prefers at least 0.2 s before exit. On a crowded row, the incoming line gives up extra preview first, then the outgoing hold can shrink to zero. If the animations alone exceed the available gap, both run faster in proportion to their resolved spans, including character stagger. A zero gap cuts directly between lines. Singing and explicit cue windows keep their clocks. A 0.42 s exit normally leaves 0.58 s of hold, while a 0.9 s exit needs 1.1 s in total. Explicit numeric `tail` values override this policy. To place lyrics at a fixed
 origin or use another row count, pass an explicit `Layout`. See the
 [karaoke layout tutorial](../tutorials/karaoke-design.md) for margins and spacing.
 
 Use `KaraokeRows(rows=3)` for a measured left/center/right rotation or
 `KaraokeRows(rows=2, anchor="top")` for upper harmony. The one-to-eight-row
-presets scale margins and inter-row space to script height. They align body
-baselines across pages. Top-anchored rows leave space for readings even on
-lines without ruby. Body height and hard outlines set the row pitch. For explicit lanes,
+presets scale margins and inter-row space to script height. They measure each visible row or column with its actual readings and reserved cues. A plain line needs only its body height and outline. For explicit lanes,
 `Layout(rows=2, alignment=("center", "right"), offsets=(Vec2(), Vec2(-20, 8)))`
 adjusts each row inside the track region. Source singing clocks remain the same.
 
@@ -188,10 +186,11 @@ use a world-space reference to inherit its motion.
 
 ## Allocation is the layout extension point
 
-`Layout(rows=1)`, `Layout(rows=2)` and `Layout(rows=3)` use the same allocator.
-The default is strict rotation; `policy="available"` chooses a free row.
-Optional preview and tail may shrink to fit, while singing and required animation
-occupancy are preserved. Insufficient capacity raises an error.
+`Layout(rows=1)`, `Layout(rows=2)` and `Layout(rows=3)` use the same allocator. Automatic row spacing fits the measured boxes of rows visible together, including their actual readings, and leaves an additional 20% of the largest body font size between them. Each line keeps its position throughout its display. An explicit `gap` retains its historical meaning of fixed row-origin pitch in script pixels.
+Both the default Track allocator (`KaraokeRows`) and `Layout` restart rotation at a lead cue. In a horizontal two-row layout the lead begins the left row, even on a one-line page. Set `reset_on_lead=False` on the allocator to continue rotating across cues. Silence-based resets are controlled separately.
+
+The default for `Layout` is strict rotation; `policy="available"` chooses a free row.
+Automatic tracks share the gap between successive occupants of each row. Singing, inline countdowns and explicitly reserved effect intervals remain fixed. Overlapping fixed windows raise an error identifying both lines.
 
 For a custom policy, override one batch function. This example places lead cues
 on their own row, resets rotation, and puts a tagged exception at a fixed point:
@@ -238,8 +237,7 @@ uv run python -m examples.lyric_orchestration build/layout-continue.ass --custom
 ```
 
 Its `SongLayout.allocate` keeps the cursor and occupancy in ordinary local
-variables. `reset_on_lead` and `advance_solo` are choices made by that example's
-function, with no engine hooks. The separate harmony Track stays at the top.
+variables. Its override implements its own lead and solo policies. The separate harmony Track stays at the top.
 In Python, pass your allocator to `build(layout=...)`; the lyric rules remain
 unchanged. Add `--dense` to demonstrate overlapping singing: one row reports
 insufficient capacity, while two or three rows can accommodate it.

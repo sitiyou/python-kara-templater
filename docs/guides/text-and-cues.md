@@ -59,20 +59,18 @@ keep reserved space. Choose a factory by its clock and appearance.
 | `BarsCue` | A descending bar countdown drops individual bars at the supplied steps. | The last bar clears. |
 | `TextCue` | Each step displays its configured label. | The last label clears. |
 
-By default the volume columns and shape lamps measure half the selected font’s measured em size at the
-marker. Use `size_ratio=0.75` to follow the marker font at three quarters of its em.
+Volume columns and shape lamps default to half the authored font size at the marker. A size of 100 gives a 50 px lamp, and a size of 80 gives a 40 px lamp in any font family. Adjust `size_ratio` to choose another proportion. Bars and text countdowns follow the full authored size by default. Text countdowns draw their labels in their own font.
 For columns, `column_width_ratio` sets each column’s width as a fraction of the group height
 (default 0.25). `VolumeCue(align="bottom")` puts the shorter bars on the same baseline as the
 tallest one. Choose `"top"` or `"center"` (default) to align their tops or centers.
-Their outlines scale with the host font too. Set `height` on `VolumeCue`
+Set `height` on `VolumeCue`
 or `size` on `SignalCue` for a fixed size in script pixels. Built-in lamps have a
 small reflection that fades with the lamp. Set `edge_brightness=0` to remove it.
 
 Set a track's solid lyric colors once with `KaraokeEffects`. Lamps use the sung
 fill and outline throughout the countdown. Each column switches from the unsung
 pair to the sung pair as its turn arrives. With source styling alone, the first
-nonblank body run supplies ASS secondary, primary and outline colors. The glyph
-at the marker still determines automatic dimensions.
+nonblank body run supplies ASS secondary, primary and outline colors. The marker anchors the cue to the lyric layout.
 For volume columns, `transition=0` makes each flash blink off for the middle half of its cycle.
 Higher values soften the fade. The default is `0.67`. Changing it keeps the final fill on beat.
 With `zoom_pulse` or `zoom_pulse_scanline`, each lamp grows during its own
@@ -114,7 +112,7 @@ track = Track(
 )
 ```
 
-The coordinates and advance are fractions of the local font em. Zero y is the
+The path coordinates and advance are multiples of the authored font size at the marker, or the guide’s explicit `size` in script pixels. Zero y is the
 baseline and negative y extends above it. The mapping applies to every matching
 body character on that track. Existing timed placeholder characters can use
 their original intervals. The column advance positions the next lyric, while
@@ -143,6 +141,16 @@ under the input marker's preset key. `steps` always increases in time.
 
 For an early preview, `CuePreset(factory=SignalCue(countdown=2), lead=5, duration=5)` shows
 all lamps for three seconds, then runs the configured steps during the final two seconds.
+
+Pass a fixed song tempo with `prepare_tracks(document, tracks=tracks, bpm=180)`,
+or pass `bpm` to `bind_cues` or `bind_lyric_cues`. A preset with automatic timing
+ends at the first sung syllable. A volume countdown reserves one beat for the final fill and `flash_ratio` beats per flash. With the default three flashes, the four stages last two seconds at 120 BPM. The column count divides the final beat. For other cues each step budgets four beats rounded to the
+nearest millisecond. At 1800 ms or longer the budget is halved (whole milliseconds).
+Three steps at 180 BPM span 3.999 seconds. Nonuniform `steps` divide the total in
+the declared proportions. With BPM, an explicit `duration` overrides that
+budget and an omitted `lead` follows the duration. Without BPM each omitted
+field independently defaults to one second. Use `preset.resolve_timing(bpm=bpm)`
+to check the required pre-roll before adding a marker.
 
 A leading empty `\k` advances the singing cursor; the default cue trigger uses
 the first timed text. You can also supply an absolute trigger in seconds.
@@ -198,3 +206,5 @@ the original Text string, including preceding tags. This differs from the marker
 decoded body offset. Compilation preserves the original as a source comment and
 consumes the marker; generated Dialogue uses standard ASS tags. Use standard ASS
 color/reset tags for input colors rather than inventing player-side extensions.
+
+An inline cue centers on the measured body cell at its marker. An end marker uses the last cell. The automatic guide gap is one eighth of the authored font size. Supply `CuePreset(gap=...)` to set a pixel distance, including zero. An inline cue in a vertical column advances the lyrics and readings by its measured height plus clearance. Independent cues with `line_edge` clear body cells, readings and other row cues that intersect their horizontal span.

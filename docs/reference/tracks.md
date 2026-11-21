@@ -50,10 +50,10 @@ fraction of the shaped font’s em size. Entry/exit duration includes the
 full stagger span. Zero disables that transition. `none` singing retains
 ordinary wipe; `no_wipe` recolors the whole timed unit at completion. Utopia pulses
 within each note; zoom_pulse grows throughout the note and releases over .30 s.
-Ornament tails reserve display without altering source singing intervals.
+Ornament tails request display time and follow the host on a dense automatic track.
 material/glow/base_glow use the same factories as LyricHighlights.
-Entry is shortened only when Scene zero leaves insufficient preview time.
-Exit starts after singing (including zoom release), reserving needed tail.
+Display-anchored transitions share the time available at a dense row handoff.
+A zoom release can finish early to make room for the exit.
 Overlapping repeats truncate the preceding zoom release and restart its pulse.
 
 Includes the Studio animation-menu families, independently implemented on
@@ -248,20 +248,21 @@ On a vertical track, rows sets the column count; anchor aligns each column
 along its height. Columns rotate right to left on every page.
 One horizontal row is centered, three use left/center/right, other counts alternate.
 Use anchor to place a stream at the top, center or bottom of its region. Row height
-follows the body baseline and hard outlines. Top grids reserve reading space
-even on pages without ruby. Inline cues retain their horizontal reservation.
+follows measured body, reading and cue bounds for co-visible lines. Inline cues retain their horizontal reservation.
 smart_horizontal defaults to equal_margins, moving the left and right rows
 inward by half the page's spare width. An inline cue contributes its width
 when positioning its host row. Peers measure that row by its lyrics and ruby.
 center_position treats each row
 independently. none keeps the preset alignments against the region margins.
+A lead starts a section on the first lane by default, including on partial pages.
+Set reset_on_lead to False to keep ordinary paging across leads.
 section_gap starts a new rotation after a longer singing silence (0 disables
 splitting). lane_gap reserves seconds between occupants when available.
 sync_entry and sync_ending align the first and last pages respectively;
 sync_each_page applies enabled synchronization to every page. fill_section
 holds each row toward the next same-row preview and aligns final page tails.
 
-[Source](../../kara_templater/lyric_layout.py#L317)
+[Source](../../kara_templater/lyric_layout.py#L405)
 
 ```python
 KaraokeRows(
@@ -275,6 +276,7 @@ KaraokeRows(
     sync_ending: bool = False,
     sync_each_page: bool = False,
     fill_section: bool = True,
+    reset_on_lead: bool = True,
 )
 ```
 
@@ -291,6 +293,7 @@ KaraokeRows(
 | `sync_ending` | `bool` | `False` |
 | `sync_each_page` | `bool` | `False` |
 | `fill_section` | `bool` | `True` |
+| `reset_on_lead` | `bool` | `True` |
 
 ### KaraokeRows.allocate
 
@@ -332,25 +335,27 @@ Allocate any positive number of rows, or override allocate entirely.
 Strict rotation is the default. 'available' searches from the next row for
 capacity. Optional preview/tail is shortened before required singing or
 animation could overlap. reset_after resets rotation after a singing gap;
-None preserves rotation across pauses. Lead and tags have no built-in meaning.
+None preserves rotation across pauses. A lead starts a new rotation by default.
+Set reset_on_lead to False to continue the sequence across leads.
 
 position is the first row's top-left, defaulting to the context region.
 Alignment and offsets can be supplied per row.
 Alternating alignment places even rows on the left and odd rows on the right. Bounds already
 include ruby and inline cue reservations. gap is row-origin spacing in pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L182)
+[Source](../../kara_templater/lyric_layout.py#L234)
 
 ```python
 Layout(
     *,
     rows: int = 1,
     position: Vec2 | None = None,
-    gap: float = 120,
+    gap: float | None = None,
     alignment: Literal['left', 'center', 'right'] | Literal['alternating'] | tuple[Literal['left', 'center', 'right'], ...] = 'left',
     offsets: tuple[Vec2, ...] = (),
     policy: Literal['strict', 'available'] = 'strict',
     reset_after: float | None = None,
+    reset_on_lead: bool = True,
 )
 ```
 
@@ -360,25 +365,44 @@ Layout(
 | --- | --- | --- |
 | `rows` | `int` | `1` |
 | `position` | `Vec2 \| None` | `None` |
-| `gap` | `float` | `120` |
+| `gap` | `float \| None` | `None` |
 | `alignment` | `Literal['left', 'center', 'right'] \| Literal['alternating'] \| tuple[Literal['left', 'center', 'right'], ...]` | `'left'` |
 | `offsets` | `tuple[Vec2, ...]` | `()` |
 | `policy` | `Literal['strict', 'available']` | `'strict'` |
 | `reset_after` | `float \| None` | `None` |
+| `reset_on_lead` | `bool` | `True` |
 
 ### Layout.allocate
 
 Plan the complete batch once, without modifying singing or input order.
 
 Chronological input is required; equal starts retain input order. For a
-handoff, shorten the prior tail first, then the next preview. Required
-intervals that cannot fit raise with both line identities and the row.
+handoff with automatic timing, trim extra preview, hold, then transitions.
+Overlapping fixed windows raise with both line identities.
 
 ```python
 Layout.allocate(
     lines: tuple[LayoutLine, ...],
     context: LayoutContext,
 ) -> tuple[Placement, ...]
+```
+
+### Layout.row_offsets
+
+Distance of each numbered row from the anchor edge, in script pixels.
+
+Supply placements with final display intervals and non-overlapping occupants
+per row. Automatic spacing fits the measured boxes visible together and adds
+20% of the track's body font size between boxes. An empty lane reserves body
+height only. Each line stays at one position throughout its display.
+
+```python
+Layout.row_offsets(
+    lines: tuple[LayoutLine, ...],
+    placements: tuple[Placement, ...],
+    *,
+    from_bottom: bool = False,
+) -> dict[str, float]
 ```
 
 ## LayoutContext
@@ -388,7 +412,7 @@ Read-only placement region and explicitly supplied cross-track references.
 Other tracks are information for overrides, never implicitly allocated by the
 built-in algorithm. Coordinates and measurements use script pixels.
 
-[Source](../../kara_templater/lyric_layout.py#L105)
+[Source](../../kara_templater/lyric_layout.py#L127)
 
 ```python
 LayoutContext(
@@ -410,13 +434,13 @@ LayoutContext(
 
 Immutable measured input, with original singing and desired visibility.
 
-entrance/exit are required animation durations in seconds, outside singing.
+entrance/exit are requested animation durations in seconds, outside singing.
 display includes optional preview/tail and any explicitly reserved cue time.
 tags and cue markers carry source data; their layout meaning is user-defined.
 bounds includes body, ruby and reserved decorations in local pixels.
 body_bounds gives the measured body alone for ASS style alignment.
 
-[Source](../../kara_templater/lyric_layout.py#L33)
+[Source](../../kara_templater/lyric_layout.py#L27)
 
 ```python
 LayoutLine(
@@ -434,6 +458,7 @@ LayoutLine(
     lead: bool = False,
     reserved: Lifetime | None = None,
     em_size: float | None = None,
+    body_font_size: float | None = None,
 )
 ```
 
@@ -454,10 +479,11 @@ LayoutLine(
 | `lead` | `bool` | `False` |
 | `reserved` | `Lifetime \| None` | `None` |
 | `em_size` | `float \| None` | `None` |
+| `body_font_size` | `float \| None` | `None` |
 
 ### LayoutLine.required
 
-The minimum interval containing singing and entrance/exit animation.
+Fixed occupancy, including cues, authored intervals and rigid transitions.
 
 Type: `TimeSpan`.
 
@@ -465,7 +491,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L171)
+[Source](../../kara_templater/orchestration.py#L182)
 
 ```python
 LinePlan(
@@ -633,7 +659,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L292)
+[Source](../../kara_templater/lyric_line.py#L295)
 
 ```python
 LyricLine(
@@ -903,7 +929,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L182)
+[Source](../../kara_templater/orchestration.py#L193)
 
 ```python
 LyricScene(
@@ -1020,7 +1046,7 @@ An immutable source view used by Track predicates and metadata functions.
 id identifies source content independently of its track/view. Original
 singing intervals remain in lyrics; display is the original ASS visibility.
 
-[Source](../../kara_templater/orchestration.py#L52)
+[Source](../../kara_templater/orchestration.py#L58)
 
 ```python
 LyricSource(
@@ -1135,7 +1161,7 @@ A visual origin and absolute display interval for one stable line id.
 row is optional metadata; free-form layouts do not need numbered slots.
 adjustments explains deliberate changes to desired visibility.
 
-[Source](../../kara_templater/lyric_layout.py#L127)
+[Source](../../kara_templater/lyric_layout.py#L149)
 
 ```python
 Placement(
@@ -1205,7 +1231,10 @@ An independent lyric stream with selection, placement and composable effects.
 
 With layout omitted, two bottom rows alternate left and right in the region.
 All times use seconds. preview/tail are desired, reducible display padding;
-rule durations and inline cue visibility are mandatory occupancy. The visual
+automatic tail (None) targets one second after singing, including the exit,
+and prefers at least 0.2 seconds of hold. On a shared row, trim excess preview,
+then hold, then scale display-anchored transitions to fit. An explicit tail
+retains rigid animation durations. Singing and authored cue times stay fixed. The visual
 effects receive the measured, unpositioned line once before allocation.
 LyricRule entries declare timing; callable entries decorate the line in order.
 Rule factories resolve once before decoration and bind to final target aliases.
@@ -1213,7 +1242,8 @@ Authored visual intervals join occupancy; rule binding follows allocation.
 min_outline_gap is the minimum script-pixel clearance between hard strokes;
 None disables extra clearance. studio_spacing selects Studio ink-based cells
 for both body and readings. By default KaraokeRows uses Studio cells and
-Layout uses native advances. reserved_border declares the outer hard radius
+Layout uses native advances. Horizontal palt selects the font’s proportional
+alternate widths for body and ruby and uses native advances by default. reserved_border declares the outer hard radius
 of custom or shared visual layers. Glow and motion do not reserve space.
 ruby_gap sets the visual gap in script pixels between hard outlines of
 the reading group and its body at rest. Negative values allow overlap.
@@ -1224,7 +1254,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L112)
+[Source](../../kara_templater/orchestration.py#L118)
 
 ```python
 Track(
@@ -1234,7 +1264,7 @@ Track(
     layout: Layout | KaraokeRows | None = None,
     region: Box | None = None,
     preview: float = 1.8,
-    tail: float = 1.0,
+    tail: float | None = None,
     effects: tuple[LyricEffect, ...] = (),
     theme: KaraokeTheme = _HAS_DEFAULT_FACTORY_CLASS(),
     cues: Mapping[str, CuePreset] = _HAS_DEFAULT_FACTORY_CLASS(),
@@ -1249,6 +1279,7 @@ Track(
     vertical: bool = False,
     right_to_left: bool = False,
     reverse_timing: bool | Callable[[LyricSource], bool] = False,
+    palt: bool = False,
 )
 ```
 
@@ -1261,7 +1292,7 @@ Track(
 | `layout` | `Layout \| KaraokeRows \| None` | `None` |
 | `region` | `Box \| None` | `None` |
 | `preview` | `float` | `1.8` |
-| `tail` | `float` | `1.0` |
+| `tail` | `float \| None` | `None` |
 | `effects` | `tuple[LyricEffect, ...]` | `()` |
 | `theme` | `KaraokeTheme` | `KaraokeTheme()` |
 | `cues` | `Mapping[str, CuePreset]` | `dict()` |
@@ -1276,6 +1307,7 @@ Track(
 | `vertical` | `bool` | `False` |
 | `right_to_left` | `bool` | `False` |
 | `reverse_timing` | `bool \| Callable[[LyricSource], bool]` | `False` |
+| `palt` | `bool` | `False` |
 
 ## lyric_effects
 
@@ -1301,11 +1333,12 @@ records are retained once as owner-marked comments. Re-preparing owned output
 removes only that owner's generated events and regenerates from its sources.
 theme supplies shared catalog and cue colors. Track roles override only their
 declared channels, and explicit effect colors take precedence.
+bpm supplies a fixed song tempo for automatic cue timing.
 inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L429)
+[Source](../../kara_templater/orchestration.py#L437)
 
 ```python
 prepare_tracks(
@@ -1315,5 +1348,6 @@ prepare_tracks(
     owner: str = 'karaoke',
     inputs: tuple[LyricSource, ...] = (),
     theme: KaraokeTheme = KaraokeTheme(sung=None, unsung=None, sung_outline=None, unsung_outline=None, shine=None),
+    bpm: float | None = None,
 ) -> LyricScene
 ```

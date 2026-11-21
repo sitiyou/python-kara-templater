@@ -205,6 +205,13 @@ def test_unicode_spacing_retains_advance_without_a_pulse_target(space):
     assert chars[-1].timing_region.right == layout.box.right
 
 
+def test_printed_lyric_star_has_its_own_visible_source_range():
+    _, chars = measured("ABC☆")
+    assert chars[-1].text == "☆"
+    assert chars[-1].source == TextRange(0, 3, 4)
+    assert chars[-1].target.drawable
+
+
 def test_ligature_is_preserved_as_one_verified_drawable_cluster():
     _, chars = measured("office")
     assert [c.text for c in chars] == ["o", "ffi", "c", "e"]

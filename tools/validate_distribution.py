@@ -129,6 +129,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         raise AssertionError("wheel is missing the native metrics extension")
     for relative in (
         "vendor/006-libass-coverage-blur.patch",
+        "vendor/007-libass-proportional-metrics.patch",
         "native/metrics.cpp",
         "tests/fonts/KaraTestCJK.ttf",
         "tests/fonts/KaraTestMultiscript.ttf",
@@ -161,6 +162,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
             "pytest>=8",
             "setuptools>=77",
             "Pillow>=10",
+            next(pin for pin in pins if pin.lower().startswith("fonttools")),
             checker,
         ],
         "install",

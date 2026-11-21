@@ -53,7 +53,8 @@ def test_custom_choices_preserve_author_rules_and_do_not_leak_state(
 def test_same_song_and_animation_rules_support_any_builtin_row_count(rows):
     scene = build(layout=Layout(rows=rows, position=Vec2(100, 290), gap=80))
     main = [plan for plan in scene.plans if plan.track_id == "main"]
-    assert [plan.placement.row for plan in main] == [i % rows for i in range(6)]
+    # The fourth lyric opens the second three-line section with a count-in.
+    assert [plan.placement.row for plan in main] == [i % rows for i in range(3)] * 2
     assert all(plan.line.animations for plan in main)
     # Layout may trim optional visibility, so exit binding times can change;
     # the authored animation definitions and source singing stay identical.

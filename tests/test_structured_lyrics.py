@@ -54,6 +54,16 @@ def structured():
     )
 
 
+@pytest.mark.parametrize("gap", [0, 0.02, 0.1])
+def test_one_reading_holds_body_progress_across_a_rest(gap):
+    (unit,) = structured().lyrics.units
+    first, second = unit.segments
+    second = replace(second, singing=replace(second.singing, start=first.singing.end + gap))
+    unit = replace(unit, segments=(first, second))
+    assert unit._body_parts() == ((first.singing, 0, 0.5), (second.singing, 0.5, 1))
+    assert replace(unit, repeat=True)._body_parts() == ((first.singing, 0, 1), (second.singing, 0, 1))
+
+
 def document():
     return Document.create(
         width=320,

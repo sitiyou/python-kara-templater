@@ -180,7 +180,7 @@ Studio’s character fade, drip and flip use a 600 ms window. Utopia uses 700 ms
 turns off that transition.
 
 The entry fades to full opacity early enough that its movement stays visible.
-Exit reserves time after the last singing interval, including a zoom release.
+Exit normally follows the last singing interval and zoom release. On a dense automatic track, the host can cut the zoom release short and run its transitions and their decorations faster.
 At Scene zero, an entry is shortened or disabled rather than shifting singing
 clocks. Explicit effect occupancy can require an additional row or cause a layout
 capacity error; reduce the effect duration or adjust the allocator in that case.
@@ -200,7 +200,7 @@ which is most visible during fast shears and tracking entrances.
 | `utopia` | Linear rise to 1.15× over the first quarter of the note (up to 100 ms), then linear release. Horizontal glyphs scale about the left edge of their cell on the baseline |
 | `scanline` | Ordinary wipe with a narrow luminous leading edge |
 | `utopia_scanline` | Pulse plus leading edge |
-| `zoom_pulse` | Grow to 1.25× throughout singing, then return to normal over 0.30 seconds |
+| `zoom_pulse` | Grow to 1.10× throughout singing, then return to normal over 0.30 seconds |
 | `zoom_pulse_scanline` | Sustained growth plus leading edge |
 
 A repeated interval restarts the pulse; its release is shortened if the next

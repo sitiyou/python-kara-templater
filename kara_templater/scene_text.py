@@ -72,6 +72,8 @@ class DocumentLayout:
     _cue_gradient_edge: float | None = None
     _right_to_left: bool = False
     _studio_spacing: bool = False
+    _palt: bool = False
+    _vertical: bool = False
 
     def group(self, *, position: Vec2 | None = None) -> ObjectGroup:
         """Collect measured text objects into an editable group with the layout lifetime."""
@@ -303,6 +305,7 @@ def _layout_document_view(
     display: Lifetime | None = None,
     singing: tuple[SingingSpan, ...] | None = None,
     guide_markers: Collection[str] = (),
+    palt: bool = False,
 ) -> DocumentLayout:
     """Measure an event into verified drawable clusters without changing its times.
 
@@ -342,10 +345,10 @@ def _layout_document_view(
         try:
             for run in group:
                 _style_supported(styles[run.appearance.style])
-            width, height, descent, _ = text_extents(style, text)
+            width, height, descent, _ = text_extents(style, text, palt=palt)
             box = Box(x, 0, width, height)
             measured = layout_characters(
-                LaidOutLine(box, (LaidOutUnit(TextUnit(text), box, ()),)), style=style
+                LaidOutLine(box, (LaidOutUnit(TextUnit(text), box, ()),)), style=style, palt=palt
             )
         except LayoutCapabilityError as error:
             raise LayoutCapabilityError(
@@ -384,7 +387,7 @@ def _layout_document_view(
                 spacing=style.spacing,
                 encoding=style.encoding,
                 state=VisualState(
-                    position=Vec2(character.box.left, character.box.top),
+                    position=Vec2(character.box.left, character.box.top) + character.pen_offset,
                     scale=Vec2(style.scale_x / 100, style.scale_y / 100),
                     fill=appearance.primary,
                     outline=appearance.outline,
@@ -414,6 +417,7 @@ def _layout_document_view(
         tuple(items),
         singing,
         _union(tuple(item.bounds for item in items)),
+        _palt=palt,
     )
 
 

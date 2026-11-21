@@ -402,3 +402,129 @@ def test_signed_glow_requirement_reserves_early_window_before_sampling():
     assert scene.lines[0].time_origin == 1
     scene.compile(budget=SceneBudget(fps=10, max_events=100_000))
     assert any(time < 0 for time in samples)
+
+
+@pytest.mark.parametrize(
+    ("tail", "duration", "stagger", "expected", "minimum"),
+    [
+        (None, 0, 0, 1.0, 0.2),
+        (None, 0.42, 0, 1.0, 0.62),
+        (None, 0.9, 0, 1.1, 1.1),
+        (None, 0.5, 0.25, 1.2, 1.2),
+        (0, 0.42, 0, 0.42, 0.42),
+    ],
+)
+def test_exit_span_and_hold_include_stagger_and_parallel_rules(tail, duration, stagger, expected, minimum):
+    from kara_templater import FadeOut, LyricRule
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
+    doc.records.append(Line(text=r"{\k100}ABC", start_time=1000, end_time=2000))
+    rules = (
+        LyricRule("character", "exit", FadeOut(), duration=duration, stagger=stagger),
+        LyricRule("line", "exit", FadeOut(), duration=duration / 2),
+    ) if duration else ()
+    plan, = prepare_tracks(doc, tracks=(Track(id="main", tail=tail, effects=rules),)).plans
+    assert plan.input.required.end == pytest.approx(2 if tail is None else 2 + minimum)
+    assert plan.placement.display.end == pytest.approx(2 + expected)
+
+
+def test_row_handoff_keeps_the_hold_until_preview_is_exhausted():
+    from kara_templater import KaraokeEffects
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
+    doc.records.extend((
+        Line(text=r"{\k100}A", start_time=1000, end_time=2000),
+        Line(text=r"{\k100}B", start_time=2700, end_time=3700),
+    ))
+    fade = KaraokeEffects(entry="none", exit="fade", singing="none", exit_duration=0.42)
+    track = Track(id="main", layout=Layout(rows=1), effects=(fade,))
+    first, second = prepare_tracks(doc, tracks=(track,)).plans
+    assert first.placement.display.end == pytest.approx(second.input.required.start)
+    assert second.placement.display.start >= first.placement.display.end
+
+
+@pytest.mark.parametrize("layout_type", ["rotating", "paged"])
+@pytest.mark.parametrize(("gap_ms", "tail", "lead"), [
+    (2700, 1, 1.7), (2000, 1, 1), (1200, .63, .57), (990, .42, .57),
+    (500, .5 * .42 / .99, .5 * .57 / .99), (0, 0, 0),
+])
+def test_dense_row_handoff_retimes_animations_without_moving_notes(layout_type, gap_ms, tail, lead):
+    from kara_templater import FadeIn, FadeOut, KaraokeRows, LyricRule
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
+    doc.records.extend((
+        Line(text=r"{\k100}AB", start_time=2000, end_time=3000),
+        Line(text=r"{\k100}CD", start_time=3000 + gap_ms, end_time=4000 + gap_ms),
+    ))
+    layout = Layout(rows=1) if layout_type == "rotating" else KaraokeRows(
+        rows=1, lane_gap=0, fill_section=False,
+    )
+    track = Track(id="main", layout=layout, preview=1.7, effects=(
+        LyricRule("line", "enter", FadeIn(), duration=.57),
+        LyricRule("character", "exit", FadeOut(), duration=.32, stagger=.10),
+    ))
+    scene = prepare_tracks(doc, tracks=(track,))
+    old, new = scene.plans
+    assert old.placement.display.end == pytest.approx(3 + tail)
+    assert new.placement.display.start == pytest.approx(3 + gap_ms / 1000 - lead)
+    assert old.placement.display.end <= new.placement.display.start + 1e-9
+    assert old.input.singing.end == 3
+    assert new.input.singing.start == pytest.approx(3 + gap_ms / 1000)
+    assert [clip.duration for clip in new.line.animations] == pytest.approx([min(.57, lead)] if lead else [])
+    evaluator = scene.evaluator()
+    for index, target in enumerate(old.line.query("character")):
+        if not tail:
+            assert evaluator.at(target.node_id, 2.99).opacity == 1
+            continue
+        scale = min(1, tail / .42)
+        midpoint = old.placement.display.end - (.26 - index * .10) * scale
+        assert evaluator.at(target.node_id, midpoint).opacity == pytest.approx(.5)
+
+
+@pytest.mark.parametrize("exit_kind", ["fade", "char_fade", "utopia", "dissolve_out"])
+@pytest.mark.parametrize("gap_ms", [0, 500])
+def test_catalog_decorations_follow_dense_handoffs(exit_kind, gap_ms):
+    from kara_templater import KaraokeEffects
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
+    for start in (2000, 3000 + gap_ms):
+        doc.records.append(Line(text=r"{\k50}A{\k50}B", start_time=start, end_time=start + 1000))
+    recipe = KaraokeEffects(entry="fade", exit=exit_kind, singing="zoom_pulse",
+                            decoration="twinkle_classic", entry_duration=.57, exit_duration=.42)
+    old, new = prepare_tracks(doc, tracks=(Track(id="main", layout=Layout(rows=1), effects=(recipe,)),)).plans
+    outgoing = old.input.exit
+    assert outgoing > 0
+    boundary = 3 + gap_ms / 1000 * outgoing / (.57 + outgoing)
+    assert old.placement.display.end == pytest.approx(boundary)
+    assert new.placement.display.start == pytest.approx(boundary)
+
+
+def test_inline_countdown_keeps_its_clock_when_the_previous_line_cannot_yield():
+    from kara_templater import BarsCue, CueMarker, CuePreset
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
+    doc.records.extend((
+        Line(text=r"{\k100}A", start_time=2000, end_time=3000),
+        Line(text=CueMarker("countdown", "bars").markup() + r"{\k100}B", start_time=3500, end_time=4500),
+    ))
+    track = Track(id="main", layout=Layout(rows=1), cues={"bars": CuePreset(factory=BarsCue(), lead=1, duration=1)})
+    with pytest.raises(ValueError, match="countdown"):
+        prepare_tracks(doc, tracks=(track,))
+
+
+@pytest.mark.parametrize("paged", [True, False])
+def test_two_rows_share_only_the_reused_lane_budget(paged):
+    from kara_templater import FadeIn, FadeOut, KaraokeRows, LyricRule
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
+    for start, end, text in [(2000, 3000, "A"), (3000, 3500, "B"), (3500, 4500, "C")]:
+        doc.records.append(Line(text=rf"{{\k{(end - start) // 10}}}{text}", start_time=start, end_time=end))
+    layout = KaraokeRows(rows=2) if paged else Layout(rows=2, alignment="alternating")
+    effects = (LyricRule("line", "enter", FadeIn(), duration=.57),
+               LyricRule("line", "exit", FadeOut(), duration=.42))
+    plans = prepare_tracks(doc, tracks=(Track(id="main", layout=layout, effects=effects),)).plans
+    a, b, c = plans
+    assert [p.placement.row for p in plans] == [0, 1, 0]
+    assert a.placement.display.end == c.placement.display.start == pytest.approx(3 + .5 * .42 / .99)
+    assert b.input.singing == TimeSpan(3, 3.5)
+    assert b.placement.display.start <= 3 and b.placement.display.end >= 3.5

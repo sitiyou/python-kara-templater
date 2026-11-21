@@ -15,6 +15,8 @@ by --before/--after. --pulse accepts none, char, chars, or syllable. Character
 arrival, simultaneous characters, and a shared syllable pulse have different
 clocks and pivots. --fade-in-ms/--fade-out-ms control fades;
 --lead-ms/--tail-ms extend the display window without rewriting singing time.
+Omit --tail-ms for the automatic one-second tail including the fade, with
+200 ms of preferred hold when room permits. Pass --tail-ms 0 to request just the required animation time.
 Repeat --style to restrict imported styles. --owner selects a stable generation
 owner for replacement on subsequent runs.
 

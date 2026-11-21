@@ -381,9 +381,9 @@ def test_timed_vector_guide_preserves_ruby_and_singing_in_ass_exports(tmp_path):
     scene = prepare_tracks(doc, tracks=(Track(id="lyrics", guide_symbols={"◆": guide}, effects=(recipe,)),))
     layout = scene.lines[0].layout
     glyph = layout.body.characters[0]
-    assert glyph.bounds.width == round(0.8 * glyph.em_size)
+    assert glyph.bounds.width == round(0.8 * glyph.object.font_size)
     assert glyph.ink_bounds is not None
-    assert glyph.ink_bounds.width == pytest.approx(0.6 * glyph.em_size)
+    assert glyph.ink_bounds.width == pytest.approx(0.6 * glyph.object.font_size)
     assert layout.ruby[0].body_start == 0
     assert layout.body.singing == tuple(s.singing for u in doc.lyrics_at(index).units for s in u.segments)
     compact = tmp_path / "guide.ass"

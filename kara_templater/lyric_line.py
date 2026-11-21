@@ -12,7 +12,7 @@ from .document_text import SingingSpan
 from .geometry import Vec2, finite
 from .model import Box
 from .parameters import LengthExpr, TimeExpr
-from .scene import Lifetime, ObjectGroup, SceneObject
+from .scene import Lifetime, ObjectGroup, RectangleClip, RectangleKeyframes, SceneObject
 from .scene_animation import (
     AnimationClip,
     AnimationSequence,
@@ -242,6 +242,9 @@ class _LyricBinding:
     offset: float
     hold: bool
 
+    catalog_exit: bool = False
+    singing_release: bool = False
+
     def retarget(self, names: Mapping[str, str], delay: float) -> _LyricBinding:
         target = self.target
         if target.node_id in names:
@@ -308,7 +311,7 @@ class LyricLine(ObjectGroup):
     required_display: tuple[TimeSpan, ...] = ()
     _karaoke_paint: _KaraokePaint | None = field(default=None, repr=False)
     _scheduled: tuple[_LyricBinding, ...] = field(default=(), repr=False)
-    _at_placement: tuple[Callable[[LyricLine], LyricLine], ...] | None = field(default=None, repr=False, compare=False)
+    _at_placement: tuple[Callable[[LyricLine, float, float], LyricLine], ...] | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -480,7 +483,16 @@ class LyricLine(ObjectGroup):
                 else ()
             )
             if node.lifetime == previous:
-                result = replace(node, lifetime=display, clock_start=node.time_origin)
+                mask = node.clip
+                limit = display.end - node.time_origin
+                if isinstance(mask, RectangleClip) and isinstance(mask.deform, RectangleKeyframes):
+                    keys = mask.deform
+                    if keys.keyframes[-1][0] > limit:
+                        prefix = tuple(k for k in keys.keyframes if k[0] <= limit)
+                        if not prefix or prefix[-1][0] < limit:
+                            prefix = (*prefix, (limit, keys.bounds_at(limit)))
+                        mask = replace(mask, deform=RectangleKeyframes(prefix))
+                result = replace(node, lifetime=display, clock_start=node.time_origin, clip=mask)
             else:
                 result = node
             return (

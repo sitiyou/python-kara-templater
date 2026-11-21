@@ -227,6 +227,16 @@ def test_repeated_readings_keep_independent_sweep_clocks():
                 collect(child)
 
     collect(line)
+    target = line.query("character")[1]
+    node = nodes[target.node_id]
+    assert node.material is not None
+
+    def body_front(time):
+        state = scene.evaluator().at(node.id, time)
+        bands = node.material.bands(0, 1920, time - node.time_origin, state)
+        return sum(b.end - b.start for b in bands if b.fill == PINK)
+
+    assert 0 < body_front(1.2) == body_front(1.3) == body_front(1.4) < body_front(1.5)
     for index, target in enumerate(readings):
         node = nodes[target.node_id]
         assert node.material is not None

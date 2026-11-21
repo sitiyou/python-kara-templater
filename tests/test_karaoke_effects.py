@@ -632,9 +632,9 @@ def test_zoom_uses_full_note_then_releases_without_stacking_repeats(singing):
     evaluator = scene.evaluator()
     base = evaluator.at(target.node_id, 0.9).scale.x
     assert evaluator.at(target.node_id, 1.99).scale.x == pytest.approx(
-        base * 1.2475
+        base * 1.099
     )
-    assert evaluator.at(target.node_id, 2.9).scale.x <= base * 1.25 + 1e-7
+    assert evaluator.at(target.node_id, 2.9).scale.x <= base * 1.10 + 1e-7
     assert evaluator.at(target.node_id, 3.30).scale.x == pytest.approx(base)
     if singing == "zoom_pulse_scanline":
         nodes = {n.id: n for n in _walk(scene.lines[0])}
@@ -922,9 +922,10 @@ def test_duotone_compact_wipes_both_inks_in_one_letter(tmp_path, reverse):
         assert len(midtones & middle) >= 4
 
 
-def test_compact_duotone_preserves_separately_timed_readings(tmp_path):
+@pytest.mark.parametrize("gap_cs", [0, 10])
+def test_compact_duotone_preserves_separately_timed_readings(tmp_path, gap_cs):
     doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=80),))
-    doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k30}A|x{\k70}#|y"))
+    doc.records.append(Line(start_time=1000, end_time=2000, text=rf"{{\k30}}A|x{{\kt{30 + gap_cs}\k{70 - gap_cs}}}#|y"))
     scene = prepare_tracks(
         doc, tracks=(Track(id="main", effects=(KaraokeEffects.duotone(),)),)
     )
@@ -938,9 +939,9 @@ def test_compact_duotone_preserves_separately_timed_readings(tmp_path):
     origin = round(plan.line.lifetime.start * 100) * 10
     for text, size, start, end in (
         ("A", 80, 1000, 1300),
-        ("A", 80, 1300, 2000),
+        ("A", 80, 1300 + gap_cs * 10, 2000),
         ("x", 40, 1000, 1300),
-        ("y", 40, 1300, 2000),
+        ("y", 40, 1300 + gap_cs * 10, 2000),
     ):
         parts = [r.text for r in rows if r.text.endswith(text)]
         assert parts and all(rf"\fs{size}" in p for p in parts)
@@ -968,14 +969,14 @@ def test_scanline_retains_the_glyph_outline_and_inward_feather(gradient, reverse
         assert plain[3::4] == front[3::4]
 
 
-@pytest.mark.parametrize("level,mid_attack,mid_release", [(1, 1.125, 1.125), (3, 1.21875, 1.21875)])
+@pytest.mark.parametrize("level,mid_attack,mid_release", [(1, 1.05, 1.05), (3, 1.0875, 1.0875)])
 def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_release):
     scene = subject(text=r"{\k100}A", entry="none", exit="none",
                     singing="zoom_pulse", zoom_pulse_curve_level=level)
     target = scene.lines[0].query("character")[0]
     evaluator = scene.evaluator()
     baseline = evaluator.at(target.node_id, 1).scale.x
-    for time, factor in ((1.5, mid_attack), (2, 1.25), (2.15, mid_release), (2.3, 1)):
+    for time, factor in ((1.5, mid_attack), (2, 1.10), (2.15, mid_release), (2.3, 1)):
         assert evaluator.at(target.node_id, time).scale.x == pytest.approx(baseline * factor)
 
 

@@ -652,7 +652,7 @@ they resolve once per target when applying the sweep, not on every frame.
 A factory may return None to preserve that target's animated channel. If both
 channels are omitted, the target is left untouched, including its material.
 
-[Source](../../kara_templater/lyric_paint.py#L81)
+[Source](../../kara_templater/lyric_paint.py#L82)
 
 ```python
 LyricSweep(

@@ -136,7 +136,7 @@ def test_inline_and_independent_cues_share_model_without_changing_times():
     assert bound.independent == direct.independent
     assert bound.text.singing == layout.singing
     assert bound.text.source.text == layout.source.text
-    assert bound.text.characters[0].bounds.left == layout.characters[0].bounds.left + 84
+    assert bound.text.characters[0].bounds.left == layout.characters[0].bounds.left + 78
     assert bound.independent[0].state.position == Vec2(50, 60)
     scene = Scene(doc).add(bound.group(position=Vec2(100, 200)), *bound.independent)
     scene.replace_source(1)
@@ -149,6 +149,21 @@ def test_inline_and_independent_cues_share_model_without_changing_times():
     )
 
 
+@pytest.mark.parametrize("gap", [None, 0, 20])
+def test_inline_cue_follows_its_cell_in_a_mixed_size_line(gap):
+    doc = document(r"{\k100}A{\rSmall\k100}B")
+    doc.records.insert(0, Style(name="Small", fontname="DejaVu Sans", fontsize=32))
+    layout = layout_document_text(doc, 2)
+    host = layout.characters[-1].bounds
+    preset = CuePreset(factory=BarsCue(), gap=gap)
+    for offset in (1, 2):
+        bound = bind_cues(layout, {"bars": preset}, markers=(CueMarker("lead", "bars", offset),))
+        cue, = bound.cues
+        assert cue.position.y + cue.content.height / 2 == pytest.approx(host.middle)
+        assert cue.content.height == 32
+        assert cue.gap == (4 if gap is None else gap)
+
+
 def test_release_space_is_seekable_and_keeps_source_timing():
     layout = layout_document_text(document(r"{\k300}AB"), 1, display=Lifetime(0, 5))
     bound = bind_cues(
@@ -158,12 +173,12 @@ def test_release_space_is_seekable_and_keeps_source_timing():
     )
     letter = bound.text.characters[0].object
     assert (
-        letter.at(0.5).position.x == layout.characters[0].object.state.position.x + 84
+        letter.at(0.5).position.x == layout.characters[0].object.state.position.x + 78
     )
     assert letter.at(2).position.x == layout.characters[0].object.state.position.x
     assert letter.at(1).position.x == letter.at(2).position.x
     assert (
-        letter.at(0.5).position.x == layout.characters[0].object.state.position.x + 84
+        letter.at(0.5).position.x == layout.characters[0].object.state.position.x + 78
     )
     assert bound.text.singing == layout.singing
 
@@ -224,13 +239,13 @@ def test_reflow_moves_later_inline_cues_and_following_backgrounds():
         },
         markers=(CueMarker("first", "short"), CueMarker("second", "long")),
     )
-    assert bound.inline[1].at(0.5).position.x == 84
+    assert bound.inline[1].at(0.5).position.x == 78
     assert bound.inline[1].at(1.5).position.x == 0
     before = bound.text.range_bounds(0, 2, time=0.5)
     after = bound.text.range_bounds(0, 2, time=1.5)
-    assert before.left - after.left == 84
+    assert before.left - after.left == 78
     background = bound.text.background(0, 2, id="bg", color=Color(0, 0, 0), follow=True)
-    assert background.at(0.5).position.x - background.at(1.5).position.x == 84
+    assert background.at(0.5).position.x - background.at(1.5).position.x == 78
     Scene(document("source")).add(bound.group(), background).compile()
 
 
@@ -310,3 +325,48 @@ def test_direct_script_info_and_parsed_script_info_have_same_soft_breaks():
     original.records[index] = Line(text=r"A\nB", start_time=1000, end_time=5000)
     assert original.text_at(index).text == "A\nB"
     assert original.text_at(index) == Document.parse(original.dumps()).text_at(index)
+
+@pytest.mark.parametrize("bpm,expected", [(None, 1), (180, 3.999), (120, 3), (240000 / 1799, 5.397), (240000 / 1800, 2.7)])
+def test_tempo_count_in_defaults_and_explicit_seconds(bpm, expected):
+    preset = CuePreset(factory=BarsCue())
+    assert preset.resolve_timing(bpm=bpm) == (expected, expected)
+    assert replace(preset, lead=0).resolve_timing(bpm=bpm) == (0, expected)
+    assert replace(preset, duration=2).resolve_timing(bpm=bpm) == (1 if bpm is None else 2, 2)
+    assert replace(preset, lead=5, duration=2).resolve_timing(bpm=bpm) == (5, 2)
+
+
+@pytest.mark.parametrize("bpm", [90, 120, 180])
+def test_volume_countdown_uses_its_flash_and_fill_beats(bpm):
+    from kara_templater import VolumeCue
+
+    preset = CuePreset(factory=VolumeCue())
+    assert preset.resolve_timing(bpm=bpm) == pytest.approx((240 / bpm, 240 / bpm))
+    custom = replace(preset, factory=VolumeCue(count=6, flashes=2, flash_ratio=0.5))
+    assert custom.resolve_timing(bpm=bpm) == pytest.approx((120 / bpm, 120 / bpm))
+    assert replace(preset, duration=3).resolve_timing(bpm=bpm) == (3, 3)
+
+
+def test_tempo_volume_uses_the_same_clock_after_track_paint_is_bound():
+    from kara_templater import Track, VolumeCue, prepare_tracks
+
+    marker = CueMarker("intro", "volume").markup()
+    doc = document(marker + r"{\k400}{\k100}A")
+    track = Track(id="main", cues={"volume": CuePreset(factory=VolumeCue())})
+    scene = prepare_tracks(doc, tracks=(track,), bpm=120)
+    cue, = (node for node in scene.lines[0].children if "/cue:" in node.id)
+    assert cue.lifetime == Lifetime(3, 5)
+
+
+@pytest.mark.parametrize("bpm", [0, -1, float("inf"), float("nan")])
+def test_invalid_cue_tempo(bpm):
+    with pytest.raises(ValueError):
+        CuePreset(factory=BarsCue()).resolve_timing(bpm=bpm)
+
+
+def test_tempo_preserves_custom_step_fractions():
+    preset = CuePreset(factory=BarsCue(), steps=(0, .25, 1), trigger=5)
+    layout = layout_document_text(document("A"), 1)
+    bound = bind_cues(layout, {"bars": preset}, markers=(CueMarker("intro", "bars"),), bpm=120)
+    cue, = bound.cues
+    assert cue.lifetime == Lifetime(3, 5)
+    assert [node.lifetime.end for node in cue.content.objects] == [3.5, 5]

@@ -5,6 +5,7 @@ from unicodedata import category, name
 
 from . import _metrics
 from .ass import Style
+from .geometry import Vec2
 from .model import Box, LaidOutLine
 from .sources import _source_location
 from .timeline import Region, _finite
@@ -77,7 +78,8 @@ class FontFace:
 class DrawableCharacter:
     """An independently drawable shaped cluster with unit-local source range, advance/ink bounds, timing region, and actual font faces.
 
-    A cluster can contain several Unicode code points.
+    A cluster can contain several Unicode code points. Add pen_offset to the
+    allocated box origin to draw the cluster with ordinary ASS font metrics.
     """
 
     source: TextRange
@@ -86,6 +88,7 @@ class DrawableCharacter:
     ink_bounds: Box | None
     timing_region: Region
     font_faces: tuple[FontFace, ...] = ()
+    pen_offset: Vec2 = Vec2()
 
     @property
     def id(self) -> str:
@@ -111,7 +114,7 @@ def _clusters(text):
     """Conservative LTR repertoire, not a replacement for Unicode segmentation.
 
     Latin/Greek/Cyrillic, CJK, kana, modern Hangul, digits, punctuation and
-    karaoke guide dots are candidates. Combining marks stay with the preceding base. Joining
+    common lyric symbols are candidates. Combining marks stay with the preceding base. Joining
     scripts, bidi controls, emoji sequences and archaic jamo require a later backend.
     Candidate segmentation is subsequently checked against actual outlines.
     """
@@ -126,7 +129,7 @@ def _clusters(text):
         accepted = (
             kind == "Zs"
             or char
-            in "々ー●|"  # Japanese marks and karaoke guide dots; shape-checked below.
+            in "々ー●|☆★♥♡♪♫"  # Lyric marks, shape-checked below.
             or 0x1100 <= ord(char) <= 0x1112
             or 0x1161 <= ord(char) <= 0x1175
             or 0x11A8 <= ord(char) <= 0x11C2
@@ -154,7 +157,7 @@ def _clusters(text):
     return result
 
 
-def _shape(style, text, placement_x=0):
+def _shape(style, text, placement_x=0, *, palt=False):
     try:
         return _metrics.text_shape(
             style.fontname,
@@ -167,6 +170,7 @@ def _shape(style, text, placement_x=0):
             style.encoding,
             text,
             placement_x,
+            palt,
         )
     except ValueError as error:
         raise LayoutCapabilityError(str(error)) from error
@@ -218,7 +222,7 @@ def _translation(actual, isolated, *, source):
 
 
 def layout_characters(
-    layout: LaidOutLine, *, style: Style
+    layout: LaidOutLine, *, style: Style, palt: bool = False
 ) -> tuple[DrawableCharacter, ...]:
     """Measure verified clusters in the original unit layout, without relayout.
 
@@ -236,7 +240,7 @@ def layout_characters(
             except LayoutCapabilityError as error:
                 raise LayoutCapabilityError(f"unit {index}: {error}") from error
             width, _, _, baseline, outlines = _shape(
-                style, unit.source.text, unit.box.left
+                style, unit.source.text, unit.box.left, palt=palt
             )
             if abs(width - unit.box.width) > 1 / 64:
                 raise LayoutCapabilityError(
@@ -261,7 +265,7 @@ def layout_characters(
                     text = unit.source.text[start:end]
                     source = TextRange(index, start, end)
                     try:
-                        cw, ch, _, cb, isolated = _shape(style, text, unit.box.left)
+                        cw, ch, _, cb, isolated = _shape(style, text, unit.box.left, palt=palt)
                         actual = outlines[cursor : cursor + len(isolated)]
                         shift = _translation(actual, isolated, source=source)
                     except LayoutCapabilityError as error:
@@ -274,6 +278,14 @@ def layout_characters(
                     assert last_error is not None
                     raise last_error
                 text, source, cw, ch, cb, isolated, actual, shift = matched
+                pen_offset = Vec2()
+                if palt and isolated:
+                    # The portable renderer draws this cluster without palt. Bake
+                    # the GPOS translation into its pen, separately from its cell.
+                    plain = _shape(style, text, unit.box.left)[4]
+                    offset = _translation(isolated, plain, source=source)
+                    if offset is not None:
+                        pen_offset = Vec2(*offset)
                 cursor += len(isolated)
                 dx, dy = shift if shift is not None else (advance, 0)
                 box = Box(unit.box.left + dx, unit.box.top + baseline + dy - cb, cw, ch)
@@ -299,6 +311,7 @@ def layout_characters(
                                 FontFace(face[0], face[1], face[3]) for _, _, _, face in actual
                             )
                         ),
+                        pen_offset,
                     )
                 )
                 advance = dx + cw

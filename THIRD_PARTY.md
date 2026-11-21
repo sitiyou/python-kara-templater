@@ -11,6 +11,7 @@ Text measurement uses libass 0.17.5 under the ISC license. Its original source a
 - `004-libass-glyph-identity.patch`: this project's addition of glyph index and codepoint metadata, used to reject missing-glyph outlines after font fallback.
 - `005-libass-font-face.patch`: this project's owned copies of actual FreeType family/style names in measured outlines, used to check consistent font selection during independent cluster drawing.
 - `006-libass-coverage-blur.patch`: this project's bounded coverage and blur support for explicit material composition.
+- `007-libass-proportional-metrics.patch`: optional horizontal OpenType `palt` during measurement.
 - `LICENSE.libass`: the upstream libass license.
 
 The native build compiles the bundled patched libass statically; Linux hides its symbols. It does not replace or link against the system libass. FreeType, HarfBuzz, and FriBidi are shared dependencies. Linux also uses Fontconfig and libpng; Windows uses the system DirectWrite/GDI font provider instead of Fontconfig.

@@ -46,23 +46,23 @@ class LyricUnit:
     """A decoded body range and its ordered singing segments.
 
     Ranges count Unicode code points and must later respect shaped cluster
-    boundaries.
+    boundaries. Timed ruby segments describe successive parts of one reading.
+    Set repeat=True when each segment sings the entire body again.
     """
 
     start: int
     end: int
     segments: tuple[LyricSegment, ...] = ()
+    repeat: bool = False
 
     def _body_singing(self) -> tuple[SingingSpan, ...]:
-        """Adjacent timed readings share a single body sweep."""
+        """Successive timed ruby shares one body sweep, including intervening rests."""
         spans = tuple(segment.singing for segment in self.segments)
         if (
             len(spans) > 1
-            and all(s.ruby is not None for s in self.segments)
-            and all(
-                abs(a.end - b.start) < 1e-8
-                for a, b in zip(spans, spans[1:], strict=False)
-            )
+            and not self.repeat
+            and all(segment.ruby is not None for segment in self.segments)
+            and all(a.end <= b.start + 1e-8 for a, b in zip(spans, spans[1:], strict=False))
         ):
             return (replace(spans[0], end=spans[-1].end),)
         return spans

@@ -21,41 +21,44 @@ from .text_geometry import TextOutline, _VectorGuideText
 
 @dataclass(frozen=True)
 class VectorGuide:
-    """A timed lyric glyph with a baseline-relative path and horizontal advance in em units.
+    """A timed lyric glyph with a baseline-relative path and horizontal advance in units of size.
 
-    Positive y points down. One em follows the selected font at the marker.
+    Positive y points down. One unit defaults to the authored font size at the marker; size overrides it in script pixels.
     Track.guide_symbols maps individual body characters to guide glyphs.
     """
 
     path: VectorPath
     advance: float = 1
+    size: float | None = None
 
     def __post_init__(self) -> None:
         finite(self.advance)
+        if self.size is not None:
+            finite(self.size)
+        if self.size is not None and self.size <= 0:
+            raise ValueError("guide size must be positive")
         if self.advance < 0:
             raise ValueError("guide advance must be nonnegative")
 
     def _place(self, item: PositionedText) -> PositionedText:
         node = item.object
-        em = item.em_size
-        baseline = Vec2(0, item.baseline or 0)
-        path = self.path.map(lambda point: point * em + baseline)
+        baseline = Vec2(0, (item.baseline or 0) * node.state.scale.y)
+        size = node.font_size if self.size is None else self.size
+        path = self.path.map(lambda point: point * size + baseline)
         # The wipe follows the curve itself. Its Bézier handles can lie outside the ink.
         points = tuple(p for contour in path.contours for p in flatten(contour, tolerance=0.1).points)
         xmin, xmax = min(p.x for p in points), max(p.x for p in points)
         ymin, ymax = min(p.y for p in points), max(p.y for p in points)
-        scale = node.state.scale
-        advance = max(1, round(self.advance * em)) * scale.x
+        advance = max(1, round(self.advance * size))
         pos = Vec2(item.bounds.left, node.state.position.y)
         bounds = replace(item.bounds, width=advance)
-        measured = TextOutline(path, Box(0, 0, advance / scale.x, bounds.height / scale.y), item.fonts)
+        measured = TextOutline(path, Box(0, 0, advance, bounds.height), item.fonts)
         drawing = _VectorGuideText(**vars(node), outline=measured)
         return replace(
             item,
-            object=replace(drawing, state=replace(node.state, position=pos)),
+            object=replace(drawing, state=replace(node.state, position=pos, scale=Vec2(1, 1))),
             bounds=bounds,
-            ink_bounds=Box(pos.x + xmin * scale.x, pos.y + ymin * scale.y,
-                           (xmax - xmin) * scale.x, (ymax - ymin) * scale.y),
+            ink_bounds=Box(pos.x + xmin, pos.y + ymin, xmax - xmin, ymax - ymin),
         )
 
 
@@ -425,6 +428,7 @@ def layout_document_lyrics(
     display: Lifetime | None = None,
     ruby_gap: float = 6,
     studio_spacing: bool | StudioSpacing = False,
+    palt: bool = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
     vertical: bool = False,
@@ -450,6 +454,7 @@ def layout_document_lyrics(
         else display,
         ruby_gap=ruby_gap,
         studio_spacing=studio_spacing,
+        palt=palt,
         guide_symbols=guide_symbols,
         right_to_left=right_to_left, vertical=vertical,
         min_outline_gap=min_outline_gap,
@@ -465,6 +470,7 @@ def layout_lyrics(
     display: Lifetime,
     ruby_gap: float = 6,
     studio_spacing: bool | StudioSpacing = False,
+    palt: bool = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
     right_to_left: bool = False,
     vertical: bool = False,
@@ -475,6 +481,7 @@ def layout_lyrics(
 
     studio_spacing measures character cells from ink width, bearings and the primary
     outline before applying minimum outline clearance. The default uses shaped advances.
+    palt applies the horizontal proportional metrics in each selected body or ruby font.
     ruby_gap sets the vertical clearance between the hard ink bounds of a
     reading group and its body before animation. Negative values allow overlap.
     vertical stacks glyphs in measured font cells. ruby_gap then separates the body
@@ -532,7 +539,7 @@ def layout_lyrics(
         raise ValueError("each vector guide marker must be one nonblank character")
     body = _layout_document_view(
         document, lyrics.body, record_index, id=id, display=display, singing=singing,
-        guide_markers=guide_symbols or (),
+        guide_markers=guide_symbols or (), palt=palt and not vertical,
     )
     cells = StudioSpacing() if studio_spacing is True else studio_spacing
     if cells and not vertical:
@@ -553,6 +560,7 @@ def layout_lyrics(
                 ruby.source,
                 record_index,
                 id=f"{body.id}/ruby:{ui}:{si}",
+                palt=palt and not vertical,
                 display=body.lifetime,
                 singing=(
                     replace(

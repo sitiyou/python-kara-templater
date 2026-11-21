@@ -53,6 +53,12 @@ adds a singing segment to the previous body unit. Empty chunks and static text
 consume or retain their original positions in the source model. Display entry
 and exit are separate from the original singing intervals.
 
+A body unit with timed ruby retains its sung portion between reading segments.
+For `影` with readings `か` and `げ`, the body reaches halfway by the end of
+`か`, holds there during a rest, and resumes on `げ`. Each reading keeps its
+own clock. In structured lyrics, set `LyricUnit(..., repeat=True)` for a
+deliberate full-body repeat on each segment.
+
 Zero-length singing segments remain source data. Skip their animation or choose
 an explicit positive display duration when creating an AnimationClip. Backward
 singing-time jumps and unsupported input produce contextual errors.

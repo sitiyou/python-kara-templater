@@ -75,7 +75,7 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
     line = plan.line
     paint = line._karaoke_paint
     body = line.layout.body
-    if line.layout._vertical or any(isinstance(g.object, _VectorGuideText) for g in body.characters):
+    if body._palt or line.layout._vertical or any(isinstance(g.object, _VectorGuideText) for g in body.characters):
         return None
     curves: dict[int, _Knots] = {}
     if line.layout.ruby:
@@ -85,7 +85,14 @@ def _events(plan: LinePlan, original: Line) -> tuple[Line, ...] | None:
             spans = unit._body_singing()
             if len(spans) == 1 and (duration := spans[0].end - spans[0].start) > 0:
                 parts = line.layout._body_wipe(unit, reading_units=paint.ruby_reading_units, reverse=paint.reverse)
-                curves[unit.start] = tuple(((s.end - spans[0].start) / duration, b) for s, _, b in parts)
+                knots = []
+                previous_end = spans[0].start
+                for part, entry, release in parts:
+                    if part.start > previous_end:
+                        knots.append(((part.start - spans[0].start) / duration, entry))
+                    knots.append(((part.end - spans[0].start) / duration, release))
+                    previous_end = part.end
+                curves[unit.start] = tuple(knots)
         body = replace(
             body,
             singing=tuple(

@@ -24,15 +24,15 @@ Typed content factories, reservations, independent placement, and body/ruby bind
 
 A CueFactory producing a stepwise bar countdown from vector objects.
 
-Width, height, border, and colors are explicit and the returned content reserves
-its own layout dimensions.
+Automatic height follows the authored host font size (48 script pixels without a host).
+Automatic width is 1.5 times the height. Dimensions include the hard outline.
 
-[Source](../../kara_templater/cues.py#L130)
+[Source](../../kara_templater/cues.py#L182)
 
 ```python
 BarsCue(
-    width: float = 72,
-    height: float = 48,
+    width: float | None = None,
+    height: float | None = None,
     color: Color | None = None,
     border: float = 2,
     outline: Color | None = None,
@@ -44,8 +44,8 @@ BarsCue(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `width` | `float` | `72` |
-| `height` | `float` | `48` |
+| `width` | `float \| None` | `None` |
+| `height` | `float \| None` | `None` |
 | `color` | `Color \| None` | `None` |
 | `border` | `float` | `2` |
 | `outline` | `Color \| None` | `None` |
@@ -65,7 +65,7 @@ BarsCue.__call__(
 
 Local objects plus the explicit layout space the author wants to reserve.
 
-[Source](../../kara_templater/cues.py#L57)
+[Source](../../kara_templater/cues.py#L59)
 
 ```python
 CueContent(
@@ -89,7 +89,7 @@ Factory input containing a stable cue ID, absolute seconds lifetime, absolute st
 
 Factories create local objects for that interval. host is the measured text
 cluster at the marker (the final cluster for an end marker), when available. colors supplies the before/after paint for the first nonblank role.
-role_em is that role’s measured em in script pixels. base_gradient and gradient supply its unsung and sung fill ramps.
+role_font_size is its authored size for decoration scaling; role_em is its measured em in script pixels. base_gradient and gradient supply its unsung and sung fill ramps.
 zoom_pulse_curve_level selects the lyric zoom curve for cue steps, or None for steady size.
 
 [Source](../../kara_templater/cues.py#L34)
@@ -107,6 +107,8 @@ CueContext(
     role_em: float | None = None,
     gradient: LyricGradient | None = None,
     base_gradient: LyricGradient | None = None,
+    host_height: float | None = None,
+    role_font_size: float | None = None,
 )
 ```
 
@@ -125,6 +127,8 @@ CueContext(
 | `role_em` | `float \| None` | `None` |
 | `gradient` | `LyricGradient \| None` | `None` |
 | `base_gradient` | `LyricGradient \| None` | `None` |
+| `host_height` | `float \| None` | `None` |
+| `role_font_size` | `float \| None` | `None` |
 
 ## CueFactory
 
@@ -133,7 +137,7 @@ A typed callable that maps CueContext to local CueContent.
 Implement it with an ordinary function or callable object to customize cue text,
 geometry, and animation.
 
-[Source](../../kara_templater/cues.py#L79)
+[Source](../../kara_templater/cues.py#L81)
 
 ### CueFactory.__call__
 
@@ -152,7 +156,7 @@ A bound marker, preset, content, and trigger placement in the lyric layout.
 
 It retains the data needed to reserve or release inline space.
 
-[Source](../../kara_templater/cues.py#L216)
+[Source](../../kara_templater/cues.py#L276)
 
 ```python
 CuePlacement(
@@ -161,6 +165,8 @@ CuePlacement(
     preset: CuePreset,
     lifetime: Lifetime,
     position: Vec2,
+    host_height: float | None = None,
+    host_font_size: float | None = None,
 )
 ```
 
@@ -173,6 +179,14 @@ CuePlacement(
 | `preset` | `CuePreset` | `required` |
 | `lifetime` | `Lifetime` | `required` |
 | `position` | `Vec2` | `required` |
+| `host_height` | `float \| None` | `None` |
+| `host_font_size` | `float \| None` | `None` |
+
+### CuePlacement.gap
+
+Resolved clearance from the cue to its host, in script pixels.
+
+Type: `float`.
 
 ## CuePreset
 
@@ -180,20 +194,21 @@ A cue factory with lead/duration in seconds, normalized step fractions, gap, pos
 
 On a Track, line_edge places an independent cue above or below the measured
 lyric row (including ruby), reserves its dimensions and applies gap in pixels.
+Automatic gap is one eighth of the authored host font size (12 script pixels without a host).
 With no line_edge, independent cues use absolute position.
 An explicit trigger overrides the relevant singing interval default. colors fixes
 the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
 
-[Source](../../kara_templater/cues.py#L91)
+[Source](../../kara_templater/cues.py#L93)
 
 ```python
 CuePreset(
     *,
     factory: CueFactory,
-    lead: float = 1,
-    duration: float = 1,
+    lead: float | None = None,
+    duration: float | None = None,
     steps: tuple[float, ...] = (0, 0.3333333333333333, 0.6666666666666666, 1),
-    gap: float = 12,
+    gap: float | None = None,
     position: Vec2 = Vec2(x=0, y=0),
     line_edge: Literal['above', 'below'] | None = None,
     keep_space: bool = True,
@@ -207,15 +222,32 @@ CuePreset(
 | Name | Type | Default |
 | --- | --- | --- |
 | `factory` | `CueFactory` | `required` |
-| `lead` | `float` | `1` |
-| `duration` | `float` | `1` |
+| `lead` | `float \| None` | `None` |
+| `duration` | `float \| None` | `None` |
 | `steps` | `tuple[float, ...]` | `(0, 0.3333333333333333, 0.6666666666666666, 1)` |
-| `gap` | `float` | `12` |
+| `gap` | `float \| None` | `None` |
 | `position` | `Vec2` | `Vec2(x=0, y=0)` |
 | `line_edge` | `Literal['above', 'below'] \| None` | `None` |
 | `keep_space` | `bool` | `True` |
 | `trigger` | `float \| None` | `None` |
 | `colors` | `PaintPair \| None` | `None` |
+
+### CuePreset.resolve_timing
+
+Return (lead, duration) in seconds for a fixed song tempo.
+
+Without BPM, each omitted field defaults to one second. With BPM,
+omitted lead follows duration. VolumeCue budgets a beat for the final fill
+and flash_ratio beats for each flash. Other cues budget four beats
+per step, halved at 1800 ms or longer, then applies the step fractions
+when binding the cue. Explicit seconds always take precedence.
+
+```python
+CuePreset.resolve_timing(
+    *,
+    bpm: float | None = None,
+) -> tuple[float, float]
+```
 
 ## CuedLayout
 
@@ -223,7 +255,7 @@ A plain-text layout after cue binding, with inline and independent cue groups.
 
 Its group combines the adjusted text and reserved-space behavior.
 
-[Source](../../kara_templater/cues.py#L230)
+[Source](../../kara_templater/cues.py#L303)
 
 ```python
 CuedLayout(
@@ -258,7 +290,7 @@ CuedLayout.group(
 
 Body/ruby with shared cue reservations; independent cues remain separate.
 
-[Source](../../kara_templater/cues.py#L476)
+[Source](../../kara_templater/cues.py#L540)
 
 ```python
 CuedLyrics(
@@ -293,12 +325,12 @@ CuedLyrics.group(
 
 A row of vector lamps extinguishing on cue steps, right to left by default.
 
-size is the side of a lamp in script pixels, defaulting to size_ratio times the host font’s measured em size. Each lamp fades over the last
+size is the side of a lamp in script pixels, defaulting to size_ratio times the authored font size at the marker. Each lamp fades over the last
 transition fraction of its step. Pass a custom path in the unit square to
 use a drawn symbol with the same layout and clock. spacing adds script pixels between lamps.
 Set countdown in seconds to keep all lamps lit before the active steps.
 
-[Source](../../kara_templater/karaoke_cues.py#L359)
+[Source](../../kara_templater/karaoke_cues.py#L357)
 
 ```python
 SignalCue(
@@ -352,13 +384,13 @@ A CueFactory displaying configurable countdown text for each step.
 It measures the requested font and returns objects plus explicit reserved width
 and height.
 
-[Source](../../kara_templater/cues.py#L172)
+[Source](../../kara_templater/cues.py#L231)
 
 ```python
 TextCue(
     labels: tuple[str, ...] = ('3', '2', '1'),
     font: str = 'DejaVu Sans',
-    font_size: float = 48,
+    font_size: float | None = None,
     color: Color | None = None,
 )
 ```
@@ -369,7 +401,7 @@ TextCue(
 | --- | --- | --- |
 | `labels` | `tuple[str, ...]` | `('3', '2', '1')` |
 | `font` | `str` | `'DejaVu Sans'` |
-| `font_size` | `float` | `48` |
+| `font_size` | `float \| None` | `None` |
 | `color` | `Color \| None` | `None` |
 
 ### TextCue.__call__
@@ -392,11 +424,11 @@ fill get equal time by default; flash_ratio scales the length of each pulse
 relative to the fill. transition controls the softness of each flash from 0
 (hard blink) to 1. ratio is first-to-last column height and spacing is
 additional horizontal space in script pixels. Set countdown in seconds to leave the group visible
-and idle before the active portion. height and border use script pixels. Omit height to use size_ratio times the host em. column_width_ratio sets the width relative to height.
+and idle before the active portion. height and border use script pixels. Omit height to use size_ratio times the authored font size at the marker. column_width_ratio sets the width relative to height.
 align aligns the column tops, centers or bottoms.
 An omitted border scales the host outline, capped at a quarter of the column width.
 
-[Source](../../kara_templater/karaoke_cues.py#L147)
+[Source](../../kara_templater/karaoke_cues.py#L145)
 
 ```python
 VolumeCue(
@@ -453,11 +485,11 @@ VolumeCue.__call__(
 
 Bind input markers or equivalent Python values to the same object model.
 
-Defaults trigger at the first singing interval; there is no inferred beat.
+Defaults trigger at the first singing interval. Optional BPM sets automatic cue timing.
 A preset can supply an absolute trigger. Inline reservations are included in
 range/background measurements and optionally released after the cue ends.
 
-[Source](../../kara_templater/cues.py#L270)
+[Source](../../kara_templater/cues.py#L343)
 
 ```python
 bind_cues(
@@ -465,6 +497,7 @@ bind_cues(
     presets: Mapping[str, CuePreset],
     *,
     markers: tuple[CueMarker, ...] | None = None,
+    bpm: float | None = None,
 ) -> CuedLayout
 ```
 
@@ -476,7 +509,7 @@ Markers use projected body offsets. A reservation inside a body unit moves
 its ruby by half the reserved width, keeping its original center offset from
 the expanded body box; before a unit it moves ruby by the full width.
 
-[Source](../../kara_templater/cues.py#L502)
+[Source](../../kara_templater/cues.py#L566)
 
 ```python
 bind_lyric_cues(
@@ -484,5 +517,6 @@ bind_lyric_cues(
     presets: Mapping[str, CuePreset],
     *,
     markers: tuple[CueMarker, ...] | None = None,
+    bpm: float | None = None,
 ) -> CuedLyrics
 ```

@@ -58,7 +58,7 @@ def main() -> None:
         "--lead-ms", type=int, default=0, help="extend display before source event"
     )
     parser.add_argument(
-        "--tail-ms", type=int, default=0, help="extend display after source event"
+        "--tail-ms", type=int, help="override automatic display tail (milliseconds)"
     )
     parser.add_argument("--fade-in-ms", type=int, default=0)
     parser.add_argument("--fade-out-ms", type=int, default=0)
@@ -73,7 +73,7 @@ def main() -> None:
             max_bytes=args.max_bytes,
             max_active=args.max_active,
         )
-        if min(args.lead_ms, args.tail_ms, args.fade_in_ms, args.fade_out_ms) < 0:
+        if min(args.lead_ms, args.tail_ms or 0, args.fade_in_ms, args.fade_out_ms) < 0:
             raise ValueError("display padding and fade durations must be nonnegative")
         if args.raster_color_error is not None and not args.raster:
             raise ValueError("--raster-color-error requires --raster")
@@ -152,7 +152,7 @@ def main() -> None:
                 fade_in=args.fade_in_ms / 1000,
                 fade_out=args.fade_out_ms / 1000,
                 preview=args.lead_ms / 1000,
-                tail=args.tail_ms / 1000,
+                tail=None if args.tail_ms is None else args.tail_ms / 1000,
                 styles=tuple(args.style) if args.style else None,
                 raster=raster_settings,
             )

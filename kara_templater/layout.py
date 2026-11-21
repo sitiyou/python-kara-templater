@@ -7,7 +7,7 @@ from .ass import Style
 from .model import Box, KaraokeLine, LaidOutLine, LaidOutSegment, LaidOutUnit, TextUnit
 
 
-def text_extents(style: Style, text: str) -> tuple[float, float, float, float]:
+def text_extents(style: Style, text: str, *, palt: bool = False) -> tuple[float, float, float, float]:
     """Measure text using the native font/shaping environment and ASS style metrics.
 
     Return width, height, descent, and external leading in script pixels.
@@ -22,6 +22,8 @@ def text_extents(style: Style, text: str) -> tuple[float, float, float, float]:
         style.spacing,
         style.encoding,
         text,
+        0,
+        palt,
     )
 
 
@@ -58,8 +60,8 @@ class _MeasuredUnit:
         return LaidOutUnit(self.source, box, tuple(segments))
 
 
-def _measure(style: Style, text: str) -> Box:
-    width, height, _, _ = text_extents(style, text)
+def _measure(style: Style, text: str, *, palt: bool = False) -> Box:
+    width, height, _, _ = text_extents(style, text, palt=palt)
     return Box(0, 0, width, height)
 
 
@@ -85,6 +87,7 @@ def layout_line(
     style: Style,
     ruby_style: Style | None = None,
     resolution: tuple[int, int] = (1920, 1080),
+    palt: bool = False,
 ) -> LaidOutLine:
     """Measure a structured KaraokeLine with body and reading styles at the requested resolution.
 
@@ -99,9 +102,9 @@ def layout_line(
 
     groups: list[list[_MeasuredUnit]] = []
     for unit in source.units:
-        body = _measure(style, unit.text)
+        body = _measure(style, unit.text, palt=palt)
         readings = tuple(
-            _measure(ruby_style, part.ruby) if part.ruby else None
+            _measure(ruby_style, part.ruby, palt=palt) if part.ruby else None
             for part in unit.segments
         )
         if not (
@@ -130,7 +133,7 @@ def layout_line(
             cursor += unit.width
             ruby_cursor += sum(r.width for r in unit.readings if r is not None)
 
-    full = _measure(style, "".join(unit.text for unit in source.units))
+    full = _measure(style, "".join(unit.text for unit in source.units), palt=palt)
     width = max(full.width, cursor)
     available = resolution[0] - style.margin_l - style.margin_r - width
     left = style.margin_l + available * ((style.align - 1) % 3) / 2

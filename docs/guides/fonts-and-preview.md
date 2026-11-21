@@ -28,6 +28,15 @@ same nominal size can occupy different widths and look different in height.
 Apply the choice through [Track.styles](tracks.md#semantic-targets-and-appearance)
 before layout so text, ruby and inline cue positions use its measurements.
 
+## Use a font’s proportional kana spacing
+
+For horizontal lyrics, set `Track(id="lead", palt=True)` to use the font’s OpenType
+proportional alternate widths and placements. Body and ruby are measured before
+row allocation. Fonts without this feature retain their ordinary metrics.
+The hook and ASS exports draw the measured clusters at explicit positions.
+ASS playback uses the same font and works with upstream libass. Horizontal
+letter spacing still adds the style’s tracking to each advance.
+
 ## Match a Karaoke Studio font size
 
 Studio specifies the font’s em in pixels. ASS font size depends on the selected
