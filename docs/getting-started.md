@@ -99,4 +99,4 @@ Repository examples are a separate workflow: their `python -m examples...`
 commands require a source checkout. They are not installed with the wheel.
 
 Continue with the [custom animation tutorial](tutorials/custom-animation.md), or
-browse the [effect gallery](examples/README.md).
+browse the [effect gallery](examples/README.md). To design a reusable effect for timed lyrics, continue with the [template authoring skill](../skills/kara-templater/SKILL.md).

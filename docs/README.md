@@ -1,24 +1,12 @@
-# Documentation
+# Documentation index
 
-Start with timed lyrics or an empty scene, design an effect in Python, then
-[choose an ASS subtitle or a standalone hook](guides/choosing-output.md).
-
-## Write custom effects
-
-1. [Install and export your first scene](getting-started.md).
-2. [Write a reusable custom animation](tutorials/custom-animation.md).
-3. Learn [objects and coordinates](guides/objects.md) and [animation and timing](guides/animation.md).
-4. Explore the [effect gallery](examples/README.md) and adapt its source.
-5. Look up types, parameters, and methods in the [API reference](reference/README.md).
-
-## Style existing lyrics
-
-1. Read [Documents and lyrics](guides/documents.md) for input selection and timing.
-2. Start with the [recommended main-vocal recipe](guides/karaoke-effects.md#recommended-main-vocal). Compare [wipe, pulse, and instant recolor](guides/karaoke-effects.md#choose-the-singing-motion), or configure [Tracks](guides/tracks.md).
-   The [lyric highlight tutorial](tutorials/lyric-highlights.md) provides a complete fixed input.
-   Choose row geometry and accents in [Design a karaoke layout](tutorials/karaoke-design.md).
-3. Choose the [countdown order](guides/text-and-cues.md#choose-the-countdown-order), or [animate a cursor through a phrase](guides/animation.md#keep-a-cursor-moving-through-a-phrase).
-4. Choose [compact ASS, compiled ASS or a hook](guides/choosing-output.md). The [CLI](guides/cli.md) takes ASS input and writes ASS output.
+| Resource | Where to go |
+| --- | --- |
+| First export | [Getting started](getting-started.md) walks through installation, export and playback. |
+| Template authoring | The [template skill](../skills/kara-templater/SKILL.md) covers choosing a working example, styling timed lyrics and checking the rendered result. |
+| Tutorials | [Custom animation](tutorials/custom-animation.md), [timed highlights](tutorials/lyric-highlights.md), [karaoke layout](tutorials/karaoke-design.md) and [lyric motion studies](tutorials/lyric-studies.md) |
+| Examples | The [effect gallery](examples/README.md) pairs rendered previews with runnable source. |
+| Export formats | [Choosing an output](guides/choosing-output.md) compares compact ASS, compiled ASS and standalone hooks. |
 
 ## Task guides
 

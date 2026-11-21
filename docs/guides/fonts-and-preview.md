@@ -4,6 +4,10 @@ Text metrics and glyph geometry depend on the actual selected font, fallback,
 and shaping environment. Keep font selection consistent between compilation and
 playback when comparing layout or pixels.
 
+## Check the singing colours
+
+Sample possible accents from the artwork. Compare the unsung fill and sung fill against the background directly behind the text, then compare those two fills with each other. When the backdrop already uses the dominant hue, try a smaller accent from the illustration or title. Inspect a half-sung line in colour and grayscale, including its ruby. On moving footage repeat this over bright and dark shots. Check harmony colours with both voices visible. [Text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) · [Use of colour](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html)
+
 ## Choose a typeface for sung lyrics
 
 Audition the face on the song itself. For Japanese lyrics, take one dense
