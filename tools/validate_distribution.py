@@ -142,7 +142,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
     check.mkdir()
     for name in ("tests", "examples", "tools", "docs", "skills"):
         shutil.copytree(package / name, check / name)
-    for name in ("README.md", "THIRD_PARTY.md", "setup.py", "pyproject.toml"):
+    for name in ("README.md", "LICENSE", "THIRD_PARTY.md", "setup.py", "pyproject.toml"):
         shutil.copy2(package / name, check / name)
     venv = output / "venv"
     run(["uv", "venv", "--python", interpreter, str(venv)], "venv", check)
