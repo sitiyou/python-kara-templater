@@ -13,6 +13,7 @@ from kara_templater import (
     CuePreset,
     Document,
     FadeIn,
+    KaraokeRows,
     Layout,
     Lifetime,
     Line,
@@ -70,6 +71,23 @@ def document():
         height=180,
         styles=(Style(fontname="DejaVu Sans", fontsize=30, shadow=0, outline=0),),
     )
+
+
+@pytest.mark.parametrize("layout", [None, Layout(rows=2, alignment="alternating")])
+def test_chapter_restarts_rotation_without_a_cue(layout):
+    doc = document()
+    for start in (6000, 8000, 10000, 12000, 14000):
+        doc.records.append(Line(start_time=start, end_time=start + 500, text=r"{\k50}A"))
+    inputs = tuple(
+        LyricSource.from_lyrics(str(i), plan.source.lyrics, display=plan.source.display,
+                                chapter="verse" if i < 3 else "chorus")
+        for i, plan in enumerate(prepare_tracks(doc, tracks=(Track(id="base"),)).plans)
+    )
+    def rows(allocator):
+        scene = prepare_tracks(document(), inputs=inputs, tracks=(Track(id="main", layout=allocator),))
+        return [plan.placement.row for plan in scene.plans]
+    assert rows(layout) == [0, 1, 0, 0, 1]
+    assert rows(replace(layout or KaraokeRows(), reset_on_lead=False)) == [0, 1, 0, 1, 0]
 
 
 def test_structured_literal_text_repeats_ruby_and_precision_survive_without_records():

@@ -61,6 +61,8 @@ class LyricSource:
 
     id identifies source content independently of its track/view. Original
     singing intervals remain in lyrics; display is the original ASS visibility.
+    An optional chapter groups consecutive sources. The first selected line of a
+    chapter starts a fresh row rotation by default, even without a visible cue.
     """
 
     id: str
@@ -71,6 +73,7 @@ class LyricSource:
     display: Lifetime
     text_data: DocumentText
     projection: DocumentLyrics | None = None
+    chapter: str | None = None
 
     @classmethod
     def from_lyrics(
@@ -82,6 +85,7 @@ class LyricSource:
         style: str = "Default",
         actor: str = "",
         effect: str = "",
+        chapter: str | None = None,
     ) -> LyricSource:
         """Create a structured source without synthesizing or replacing ASS records.
 
@@ -91,7 +95,7 @@ class LyricSource:
         """
         if not id:
             raise ValueError("structured lyrics need a stable source id")
-        return cls(id, None, style, actor, effect, display, lyrics.source, lyrics)
+        return cls(id, None, style, actor, effect, display, lyrics.source, lyrics, chapter)
 
     @cached_property
     def lyrics(self) -> DocumentLyrics:
@@ -149,7 +153,7 @@ class Track:
     source: Callable[[LyricSource], bool] = _all_sources
     layout: Layout | KaraokeRows | None = None
     region: Box | None = None
-    preview: float = 1.8
+    preview: float = 5.0
     tail: float | None = None
     effects: tuple[LyricEffect, ...] = ()
     theme: KaraokeTheme = field(default_factory=KaraokeTheme)
@@ -730,7 +734,11 @@ def prepare_tracks(
                     sources=(SourceRef(source.id),),
                     tags=tags,
                     cues=source.lyrics.body.cues,
-                    lead=bool(source.lyrics.body.cues),
+                    lead=bool(source.lyrics.body.cues) or (
+                        source.chapter is not None and (
+                            track_index == 0 or source.chapter != selected[track_index - 1].chapter
+                        )
+                    ),
                     reserved=reserved,
                 )
             )

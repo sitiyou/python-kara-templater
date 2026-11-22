@@ -80,6 +80,9 @@ uv run ty check
 uv run python -m pytest
 ```
 
+The default pytest command runs the core suite. Run `uv run python -m pytest tests`
+for the complete suite.
+
 Alternatively, with pip supporting dependency groups:
 
 ```sh

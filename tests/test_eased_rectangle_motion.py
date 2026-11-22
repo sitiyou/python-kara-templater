@@ -50,6 +50,12 @@ def subject(duration=2, rate=smooth_rate):
     )
 
 
+def motion_probes(clips):
+    # Exercise both ends and the interior of every emitted interpolation segment.
+    return sorted({clip.start + clip.duration * fraction
+                   for clip in clips for fraction in (0, 0.25, 0.5, 0.75, 1)})
+
+
 @pytest.mark.parametrize("duration", (0.25, 2))
 @pytest.mark.parametrize("rate", (smooth_rate, smoother_rate))
 def test_curve_bounds_between_grid_points_preserve_source_and_endpoints(duration, rate):
@@ -60,9 +66,7 @@ def test_curve_bounds_between_grid_points_preserve_source_and_endpoints(duration
     assert lowered is not original
     assert _eased_rectangle_leaf(original, max_sections=1) is original
     assert scene.objects[0] is node
-    # 1 ms probes include points between the emitted 10 ms knot grid.
-    for tick in range(round((duration + 0.9) * 1000)):
-        time = tick / 1000
+    for time in motion_probes(lowered.node.animations):
         a, b = node.at(time), lowered.node.at(time)
         assert abs(a.position.x - b.position.x) <= 0.1 + 1e-9
         assert abs(a.position.y - b.position.y) <= 0.1 + 1e-9
@@ -136,8 +140,8 @@ def test_linear_travel_does_not_hide_eased_pivot_curvature_by_endpoint_cancellat
     original = _leaves(scene, scene.evaluator())[0][0]
     lowered = _eased_rectangle_leaf(original)
     assert lowered is not original
-    for ms in range(1001):
-        a, b = node.at(ms / 1000), lowered.node.at(ms / 1000)
+    for time in motion_probes(lowered.node.animations):
+        a, b = node.at(time), lowered.node.at(time)
         assert abs(a.position.x - b.position.x) <= 0.1 + 1e-9
         assert abs(a.position.y - b.position.y) <= 0.1 + 1e-9
     custom = replace(node, animations=()).animate(

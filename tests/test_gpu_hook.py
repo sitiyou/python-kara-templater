@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+from array import array
 from dataclasses import replace
 
 import pytest
@@ -22,6 +23,19 @@ from kara_templater import (
     VectorPath,
     VisualState,
 )
+
+
+def test_large_hook_record_and_curve_addresses_survive_float32_storage():
+    from kara_templater._gpu_hook import _Table
+
+    table = _Table()
+    table.values = array("f", [0]) * (2**24 + 1)
+    curve = table.add(0.0, 0.5, 1.0)
+    references = table.add(curve, 4 + curve, -4 - curve)
+    direct, samples, knots = table.values[references : references + 3]
+    assert direct == samples - 4 == -4 - knots == curve
+    assert list(table.values[curve : curve + 3]) == [0.0, 0.5, 1.0]
+    assert table.add(0.0, 0.5, 1.0) == curve
 
 
 @pytest.fixture

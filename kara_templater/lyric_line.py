@@ -270,9 +270,15 @@ class _LyricBinding:
             else self.at
         )
         assert isinstance(start, (int, float))
+        start += self.offset
+        local_start = local_seconds(start, node.time_origin)
+        local_end = local_seconds(start + self.duration, node.time_origin)
+        duration = self.duration
+        if local_end > local_start and local_seconds(local_start + duration, 0) != local_end:
+            duration = local_seconds(local_end, local_start)
         return AnimationClip(
-            local_seconds(start + self.offset, node.time_origin),
-            self.duration,
+            local_start,
+            duration,
             self.animation,
             self.hold,
         )

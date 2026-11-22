@@ -34,7 +34,8 @@ def anchors(path: Path) -> set[str]:
 
 
 def check() -> tuple[int, list[str]]:
-    pages = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
+    pages = [ROOT / "README.md", ROOT / "skills/kara-templater/SKILL.md",
+             *sorted((ROOT / "docs").rglob("*.md"))]
     errors: list[str] = []
     for page in pages:
         content = page.read_text(encoding="utf-8")

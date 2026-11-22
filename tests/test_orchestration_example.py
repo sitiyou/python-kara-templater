@@ -21,7 +21,6 @@ def test_custom_choices_preserve_author_rules_and_do_not_leak_state(
     layout = SongLayout(
         rows=2,
         position=Vec2(100, 290),
-        gap=80,
         reset_on_lead=reset,
         advance_solo=advance,
     )
@@ -51,7 +50,7 @@ def test_custom_choices_preserve_author_rules_and_do_not_leak_state(
 
 @pytest.mark.parametrize("rows", (1, 2, 3))
 def test_same_song_and_animation_rules_support_any_builtin_row_count(rows):
-    scene = build(layout=Layout(rows=rows, position=Vec2(100, 290), gap=80))
+    scene = build(layout=Layout(rows=rows, position=Vec2(100, 290)))
     main = [plan for plan in scene.plans if plan.track_id == "main"]
     # The fourth lyric opens the second three-line section with a count-in.
     assert [plan.placement.row for plan in main] == [i % rows for i in range(3)] * 2

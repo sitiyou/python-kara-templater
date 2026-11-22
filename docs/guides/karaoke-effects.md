@@ -82,7 +82,7 @@ rim = StatePatch(outline=Color.hex("#D4B6FF"), border=5)
 halo = Glow(Color.hex("#8054CD"), border=8, blur=4, opacity=0.75)
 back = LyricHighlights.from_singing(rim, base_paint=rim, glow=halo, base_glow=halo)
 face = LyricSweep(fill=Color.hex("#FF984A"), width=14, step=1)
-layout = Layout(rows=2, position=Vec2(42, 110), gap=100)
+layout = Layout(rows=2, position=Vec2(42, 110))
 
 scene = prepare_tracks(document, tracks=(
     Track(id="rim", layout=layout, effects=(back, *motion)),
@@ -106,7 +106,7 @@ catalog defaults: a 0.30 s fade at each end of the line and a white-to-coral
 wipe during singing. Watch the final held syllable in these synchronized
 libass renders of compiled ASS. Only the singing setting changes.
 
-![Three synchronized rows show the default wipe with a pulse, a steady wipe, and an immediate color change on the same long note.](../examples/assets/singing-motion.gif)
+![Three synchronized rows show the default wipe with a pulse, a steady wipe, and a color change when the same long note ends.](../examples/assets/singing-motion.gif)
 
 | What you want the singer to see | What to write |
 | --- | --- |
@@ -115,7 +115,7 @@ libass renders of compiled ASS. Only the singing setting changes.
 | The entire timed unit changes color when singing finishes | `KaraokeEffects(singing="no_wipe")` |
 
 To check a template, pause halfway through a long note. The wipe leaves
-both colors visible; the onset switch has already painted the whole unit.
+both colors visible; the completion switch keeps the waiting color until the unit ends.
 The full scene and hook carry the pulse. Compact ASS keeps the color timing
 and line fades and simplifies glyph motion. For Studio spacing or additional outline clearance,
 compact ASS positions clusters separately to retain the measured spacing. For count-in direction see
@@ -123,8 +123,7 @@ compact ASS positions clusters separately to retain the measured spacing. For co
 
 The catalog covers the animation menus in
 [Karaoke Studio / Lin-K Lyrics](https://github.com/karaoke-studio/karaoke-studio):
-19 entry choices, 19 exit choices, 7 singing choices and 8 singing-decoration
-choices, including `none`, plus outline flash. This is an independent implementation
+entry, exit, singing and decoration presets, plus outline flash. This is an independent implementation
 of those visual families, not an importer or a pixel-identical replacement for
 its Qt/Direct2D renderer.
 
@@ -155,6 +154,7 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `char_drip` | `char_drip` | Vertical shear about the character’s right edge. The outline tilts with the face. |
 | `spin_flip` | `spin_flip` | Scale and shear the face and outline around the character center. |
 | `utopia` | `utopia` | Overshooting entrance; rotating, flipping, shrinking exit |
+| `tilt_pop` | | Tilted, overshooting character entrance with the Utopia stagger and scale envelope. |
 | `tracking_in` | `converge_out` | Spread letters settle; letters converge toward the measured line center |
 | `wave_in` | `scatter_out` | Staggered upward arrival; seeded radial scatter |
 | `stretch_in` | `stretch_out` | Each glyph stretches horizontally with five fading outline layers in the theme’s shine color. The core outline and halo widen along with the glyph. |
@@ -166,6 +166,14 @@ See [Tracks](tracks.md), [text and cues](text-and-cues.md) and the
 | `petal` | `petal` | Petals sway and turn while entering/leaving |
 | `snow` | `snow` | Six-branched snowflakes with an open center |
 | `snow_solid` | `snow_solid` | Six-branched snowflakes with a filled center |
+
+Set `exit_unit="character"` to apply the chosen exit to each shaped glyph of both
+the body and its readings. For example, `exit="spin_flip"` keeps the flip, with
+an independent pivot and stagger slot for every glyph. Body and ruby each run
+in reading order within the same transition window. `entry_unit` makes the same
+choice for the entrance. Both default to `"preset"`, preserving each preset's
+normal grouping. Custom rules can also target `"syllable"` or `"line"`.
+Singing spans and highlight clocks are independent of this choice.
 
 A timed space still occupies a character slot. Petals, snow and other per-character transition particles can appear there during entry and exit. Singing decorations skip spaces.
 

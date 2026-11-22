@@ -121,6 +121,9 @@ class SceneFrames:
         if type(cache_bytes) is not int or cache_bytes < 1:
             raise ValueError("GPU scene cache budget must be a positive integer")
         self._evaluator = scene.evaluator()
+        # Hook export traverses simultaneous leaves from the same group.
+        # Reuse their world poses within this immutable snapshot only.
+        self._states: dict[tuple[str, float], VisualState] = {}
         leaves, native, coverage, _ = _leaves(scene, self._evaluator)
         if native or coverage:
             raise ValueError(
@@ -181,7 +184,9 @@ class SceneFrames:
         return tuple(result)
 
     def draw_at(self, leaf: _Leaf, time: float) -> DrawCommand | None:
-        state = leaf.at(time)
+        if len(self._states) >= 4096:
+            self._states.clear()
+        state = self._evaluator._at(leaf.node.id, time, self._states)
         if state.opacity == 0 or state.singular:
             return None
         node = leaf.node

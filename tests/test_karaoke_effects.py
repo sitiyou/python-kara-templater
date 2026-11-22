@@ -203,6 +203,23 @@ def test_ruby_uses_its_hosts_transition_slot(kind):
         assert [evaluator.at(r.node_id, time).opacity for r in ruby] == pytest.approx([opacity] * 2)
 
 
+def test_character_scope_rotates_each_reading_about_its_own_center():
+    scene = subject(text=r"{\k40}A|abc{\k40}B", start=1500, end=2300,
+                    entry="tilt_pop", exit="spin_flip", exit_unit="character",
+                    stagger=.3, singing="none")
+    line, = scene.lines
+    evaluator = scene.evaluator()
+    for targets in (line.query("character"), line.query("ruby")):
+        anchors = [evaluator.at(g.node_id, 1.6).transform.apply(g.center) for g in targets]
+        states = [evaluator.at(g.node_id, line.lifetime.end - .28) for g in targets]
+        scales = [state.scale.x for state in states]
+        assert scales == sorted(scales) and len(set(scales)) == len(targets)
+        for glyph, state, center in zip(targets, states, anchors, strict=True):
+            assert state.skew.x or state.skew.y
+            actual = state.transform.apply(glyph.center)
+            assert (actual.x, actual.y) == pytest.approx((center.x, center.y))
+
+
 @pytest.mark.parametrize("kind", ["tracking_in", "wave_in"])
 def test_readings_enter_with_the_hosts_translation_and_reveal(kind):
     scene = subject(text=r"{\k20}i{\k20}W|bc{\k20}！{\k20}D", start=1500, end=2300,
@@ -1575,7 +1592,7 @@ def test_scanline_crosses_syllable_boundary_on_both_glyphs():
 
 def test_second_row_particles_follow_synchronized_entry_and_extended_exit():
     doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
-    for t in (2000, 4200, 6500, 8800):
+    for t in (5200, 7400, 9700, 12000):
         doc.records.append(Line(text=r"{\k100}A", start_time=t, end_time=t+1000))
     effect = KaraokeEffects(entry="sparkle", exit="glow_out", singing="scanline")
     scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(effect,)),))

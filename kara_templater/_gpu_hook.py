@@ -62,19 +62,24 @@ class _Table:
 
     def __init__(self) -> None:
         self.values = array("f")
-        self.records: dict[tuple[float, ...], int] = {}
+        self.records: dict[bytes, int] = {}
 
     def add(self, *record: float) -> int:
-        existing = self.records.get(record)
+        packed = array("f", record).tobytes()
+        existing = self.records.get(packed)
         if existing is not None:
             return existing
         offset = len(self.values)
-        if offset + len(record) > 2**24 - 4:
-            raise ValueError(
-                "hook data exceeds exact float addressing; export a shorter interval"
-            )
-        self.values.extend(record)
-        self.records[record] = offset
+        # Above 2**24, float32 cannot encode every scalar address. Texel-aligned
+        # record starts and curve tags (+/-4) stay exact up to the texture limit.
+        padding = (-offset) % 4 if offset >= 2**24 - 4 else 0
+        offset += padding
+        if offset + len(record) > _WIDTH * 8192 * 4:
+            raise ValueError("hook data texture is full; export a shorter interval")
+        if padding:
+            self.values.extend([0.0] * padding)
+        self.values.frombytes(packed)
+        self.records[packed] = offset
         return offset
 
 
@@ -162,11 +167,11 @@ def _motion_record(table: _Table, span: Span, fps: int, origin: int, opacity_mod
         return -1
     curve = motion.curve
     if isinstance(curve, tuple):
-        curve = 3 + table.add(*curve)
+        curve = 4 + table.add(*curve)
     elif isinstance(curve, ProgressCurve):
         curve = table.add(len(curve.knots), *(v for knot in curve.knots for v in knot))
         # Negative indices distinguish shared knot tables from the built-in rates.
-        curve = -1 - curve
+        curve = -4 - curve
     m = motion.end.transform
     end = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty, motion.end.opacity)
     return table.add(
@@ -350,8 +355,8 @@ float weight(int motion, int index) {
     if(curve==0) return p;
     if(curve==1) return p*p*(3.-2.*p);
     if(curve==2) return p*p*p*(p*(6.*p-15.)+10.);
-    if(curve>=3) return item(curve-3+index-refAt(motion+5));
-    int knots=-1-curve;
+    if(curve>=4) return item(curve-4+index-refAt(motion+5));
+    int knots=-4-curve;
     int k=preceding(knots,p);
     if(k+2>=knots+1+2*refAt(knots)) return item(k+1);
     return mix(item(k+1),item(k+3),(p-item(k))/(item(k+2)-item(k)));

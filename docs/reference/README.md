@@ -14,7 +14,7 @@ Use `--check` to verify that committed pages match the current public API.
 | --- | --- |
 | [Documents and lyric input](documents.md) | 27 |
 | [Scenes and compilation](scenes.md) | 21 |
-| [Animation and timing](animation.md) | 32 |
+| [Animation and timing](animation.md) | 33 |
 | [Track authoring](tracks.md) | 26 |
 | [Text measurement and layout](text.md) | 28 |
 | [Geometry and paths](geometry.md) | 29 |
@@ -26,7 +26,7 @@ Use `--check` to verify that committed pages match the current public API.
 
 ## Symbol index
 
-234 public exports.
+235 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [Animation](animation.md#animation)
@@ -182,6 +182,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [SignalCue](cues.md#signalcue)
 - [SingingSpan](text.md#singingspan)
 - [SingingTag](documents.md#singingtag)
+- [Slide](animation.md#slide)
 - [SoftSweep](paint.md#softsweep)
 - [SourceRef](documents.md#sourceref)
 - [Sparkle](particles.md#sparkle)

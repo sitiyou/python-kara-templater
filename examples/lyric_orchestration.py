@@ -157,7 +157,7 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
         id="main",
         tail=1.0,  # This example compares layouts with fixed-duration animation rules.
         source=lambda source: source.style == "Main",
-        layout=layout or Layout(rows=2, position=Vec2(100, 290), gap=80),
+        layout=layout or Layout(rows=2, position=Vec2(100, 290)),
         tags=lambda source: frozenset((source.actor,)) if source.actor else frozenset(),
         effects=(
             LyricRule("line", "enter", fade, duration=0.15),
@@ -167,7 +167,8 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
         ),
         cues={
             "bars": CuePreset(
-                factory=BarsCue(width=60, height=30), lead=0.6, duration=0.6
+                # Keep the reset cue in the same 0.6 s window for each layout comparison.
+                factory=BarsCue(width=60, height=30), duration=0.6, lead=0.6
             ),
             "count": CuePreset(factory=TextCue(font_size=36), position=Vec2(820, 80)),
         },
@@ -213,12 +214,11 @@ def main() -> None:
         SongLayout(
             rows=args.rows,
             position=Vec2(100, 290),
-            gap=80,
             reset_on_lead=not args.keep_rotation,
             advance_solo=args.advance_solo,
         )
         if args.custom
-        else Layout(rows=args.rows, position=Vec2(100, 290), gap=80)
+        else Layout(rows=args.rows, position=Vec2(100, 290))
     )
     result = build(layout=layout, dense=args.dense).compile(budget=BUDGET)
     args.output.parent.mkdir(parents=True, exist_ok=True)

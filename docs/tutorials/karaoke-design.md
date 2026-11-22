@@ -1,16 +1,14 @@
 # Design a karaoke layout
 
 For a finished main vocal, start with the [layered soft-front recipe](../guides/karaoke-effects.md#recommended-main-vocal).
-Its two visual layers share a layout and the original singing clock. Set the
-row geometry for the song, then inspect a short and a held syllable against
+Its two visual layers share a layout and the original singing clock. Inspect a short and a held syllable against
 both light and dark frames.
 
-At 1920 × 1080 the default two-row layout has 50 px side margins and a 60 px
-bottom inset. Short lines move inward together according to their widths,
-including any inline cue. The grid uses the track's body ascent, descent and
-hard outlines, with 45 px between body boxes. A top-anchored track reserves
-reading space above the first baseline across pages. Margins and row spacing scale with script
-height. For horizontal main vocals at 1080p, start with 100 script pixels for the body
+At 1920 × 1080 the default two-row `KaraokeRows` layout leaves 50 px at the sides and 60 px at the bottom of the Track region. With a full-frame region, the bottom inset is 40 px at 720p. Short lines move inward together according to their widths,
+including any inline cue. The preset fits the body, outlines and readings of co-visible rows, then adds 45 px between them. Its margins and clearance scale with canvas height.
+For a custom origin or alignment, `Layout(rows=2)` places rows downward from the chosen origin, with measured row heights plus 20% of the largest body font size between rows. The bottom clearance then depends on the origin and the visible lyrics.
+
+For horizontal main vocals at 1080p, start with 100 script pixels for the body
 and 45 for ruby in the source styles. Scale both with canvas height. Preview
 the longest line and the densest readings at delivery size, then adjust either
 size to suit the typeface and the visual style.
@@ -18,9 +16,8 @@ For main, harmony and ruby typeface choices, see [Choose a typeface for sung lyr
 Set a separate region and an explicit layout for an upper harmony Track. Align
 a countdown with the phrase it introduces and check both when visible together.
 
-The default effect fades the line in and out over 0.30 s each and changes white
-to coral as the syllable pulses. Preview and tail request 1.8 s and 1.0 s.
-Row handoffs can shorten this padding. Custom allocators and explicit Track
+Adding `KaraokeEffects()` fades the line in and out over 0.30 s each and changes white
+to coral as the syllable pulses. Track requests 5 s of preview. Its automatic tail targets 1.0 s including the exit animation. Dense handoffs shorten the hold and, when necessary, the transitions. Custom allocators and explicit Track
 values take precedence. The CLI source-style recipe preserves ASS alignment and
 margins. [Studio style and layout definitions](https://github.com/karaoke-studio/karaoke-studio/blob/54f06eb7d75624b88bd36ba347e932ccc17a199b/krok_helper/subtitle_render/domain/models.py)
 

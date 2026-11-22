@@ -34,7 +34,7 @@ python -m tools.render_karaoke_catalog build/karaoke-catalog
 Start with [lyric_orchestration.py](../../examples/lyric_orchestration.py) for
 ordinary lyric authoring: one rule binds each line's fade and each singing
 segment's jump, while independent main/harmony Tracks choose their layouts.
-Change row count or override `allocate` for lead resets and single-line exceptions.
+Set `rows` to change the row count and `reset_on_lead` to choose whether a cue restarts the rotation. The custom allocator illustrates taking a solo line out of that rotation.
 
 ```sh
 python -m examples.lyric_orchestration build/two-rows.ass
@@ -60,6 +60,23 @@ and harmony Tracks different materials while sharing one time axis.
 The inline columns flash together. Each changes its fill and outer outline when its step begins. The stars use the harmony track’s teal sung color and extinguish from
 right to left. Both signals clear when singing begins; the lyric keeps its
 reserved position. [Runnable example](../../examples/karaoke_signals.py).
+
+### Paw countdown and character flips
+
+The [paw countdown component](../../examples/paw_countdown.py) places four vector prints above the row and its readings. Each print squashes halfway through its step and vanishes on the boundary. The cue inherits the host’s size and singing colour. For a fast song, four two-beat steps give about three seconds at 156 BPM:
+
+```python
+from examples.paw_countdown import paw_countdown
+from kara_templater import Track
+
+track = Track(id="lead", cues={"paws": paw_countdown(step_seconds=2 * 60 / 156)})
+```
+
+Place an independent cue marker named `paws` at the desired pickup (for example, `CueMarker("intro", "paws", placement="independent")`). The Track handles the row position and reading clearance.
+
+The flipping exit can be used independently. Add `KaraokeEffects(entry="tilt_pop", exit="spin_flip", exit_unit="character")` to a Track’s effects for a popping entrance and an exit in which each written character, including each kana in a reading, turns around its own pivot.
+
+For the sticker lettering, give the face a light outline and a vertical `LyricGradient` for each sweep state. For a thick coloured side, place solid copies of the outlined silhouette progressively down and to the right beneath the face. Use the same measured text, ruby, row layout and character animation on every copy so the side follows the face during a flip. The side colour and depth belong to the lettering design; the song supplies its font and palette.
 
 ## Choose an effect
 

@@ -70,6 +70,15 @@ def main(**changes):
     )
 
 
+def test_default_preview_starts_five_seconds_before_an_isolated_line():
+    doc = Document.create(styles=(Style(name="Solo", fontname="DejaVu Sans"),))
+    doc.records.append(Line(start_time=12000, end_time=13000, style="Solo", text=r"{\k100}A"))
+    scene = prepare_tracks(doc, tracks=(Track(id="solo"),))
+    plan, = scene.plans
+    assert plan.placement.display.start == 7
+    assert plan.source.display.start == 12
+
+
 def test_two_tracks_share_only_scene_and_keep_singing_source():
     doc = document()
     original = doc.dumps()
@@ -82,7 +91,7 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
     assert isinstance(scene, Scene)
     assert [p.placement.row for p in scene.plans] == [0, 1, 0, 0]
     assert [p.placement.display.start for p in scene.plans] == pytest.approx(
-        [0, 0.2, 2.2, 0]
+        [0, 0, 2.2, 0]
     )
     assert scene.plans[2].source.lyrics.units[0].segments[0].singing.start == 2.5
     assert scene.plans[3].line.state.position.y < scene.plans[0].line.state.position.y

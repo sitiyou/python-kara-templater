@@ -328,6 +328,42 @@ class Tween:
 
 
 @dataclass(frozen=True)
+class Slide:
+    """Translate by a relative offset in script pixels and fade over the bound interval.
+
+    An entrance moves from offset to rest. By default it reaches full opacity
+    in the first quarter. Set fast_reveal=False to fade along the travel curve.
+    An exit moves from rest to offset and fades throughout. Hook playback
+    interpolates eligible intervals directly from the offset and easing.
+    """
+
+    offset: Vec2
+    entering: bool
+    fast_reveal: bool = True
+    rate: Callable[[float], float] = smooth_rate
+
+    @property
+    def channels(self) -> frozenset[Channel]:
+        """Move and fade relative to the captured state."""
+        return frozenset(("position", "opacity"))
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Evaluate the pose at normalized progress."""
+        q = self.rate(progress)
+        distance = 1 - q if self.entering else q
+        alpha = (
+            min(1.0, 4 * progress)
+            if self.entering and self.fast_reveal
+            else 1 - distance
+        )
+        return replace(
+            base,
+            position=base.position + self.offset * distance,
+            opacity=base.opacity * alpha,
+        )
+
+
+@dataclass(frozen=True)
 class FadeIn:
     """Reveal the incoming opacity from zero, using normalized progress.
 

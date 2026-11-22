@@ -244,7 +244,8 @@ class Layout:
     position is the first row's top-left, defaulting to the context region.
     Alignment and offsets can be supplied per row.
     Alternating alignment places even rows on the left and odd rows on the right. Bounds already
-    include ruby and inline cue reservations. gap is row-origin spacing in pixels.
+    include ruby and inline cue reservations. Omit gap for measured row heights plus
+    20% of the largest body font size. Set gap for a fixed distance between row origins.
     """
 
     rows: int = 1

@@ -7,7 +7,7 @@ returns a LyricScene containing ordinary objects. Add decorations with
 All authoring times below are seconds.
 
 With layout omitted, Track alternates two bottom rows, upper left then lower
-right. Studio’s default `equal_margins` draws short rows toward the center as a page. A lone line is centered. Use `KaraokeRows(smart_horizontal="none")` to keep rows at their margins, or `"center_position"` to shift each row independently. Track requests 1.8 s of preview. Its automatic tail targets 1.0 s from the last sung unit to disappearance, including the resolved exit animation. It prefers at least 0.2 s before exit. On a crowded row, the incoming line gives up extra preview first, then the outgoing hold can shrink to zero. If the animations alone exceed the available gap, both run faster in proportion to their resolved spans, including character stagger. A zero gap cuts directly between lines. Singing and explicit cue windows keep their clocks. A 0.42 s exit normally leaves 0.58 s of hold, while a 0.9 s exit needs 1.1 s in total. Explicit numeric `tail` values override this policy. To place lyrics at a fixed
+right. Studio’s default `equal_margins` draws short rows toward the center as a page. A lone line is centered. Use `KaraokeRows(smart_horizontal="none")` to keep rows at their margins, or `"center_position"` to shift each row independently. For structured lyrics, pass the chapter ID to `LyricSource.from_lyrics(..., chapter=...)`. Both built-in layouts restart at the first row on a chapter change by default, including when the chapter has no cue. The existing `reset_on_lead=False` option keeps the rotation running. Track requests 5 s of preview. Its automatic tail targets 1.0 s from the last sung unit to disappearance, including the resolved exit animation. It prefers at least 0.2 s before exit. On a crowded row, the incoming line gives up extra preview first, then the outgoing hold can shrink to zero. If the animations alone exceed the available gap, both run faster in proportion to their resolved spans, including character stagger. A zero gap cuts directly between lines. Singing and explicit cue windows keep their clocks. A 0.42 s exit normally leaves 0.58 s of hold, while a 0.9 s exit needs 1.1 s in total. Explicit numeric `tail` values override this policy. To place lyrics at a fixed
 origin or use another row count, pass an explicit `Layout`. See the
 [karaoke layout tutorial](../tutorials/karaoke-design.md) for margins and spacing.
 
@@ -26,7 +26,7 @@ page, use `KaraokeRows(sync_each_page=True)`. To schedule each line's preview
 and tail independently, set `sync_entry=False, fill_section=False`. All time
 settings are in seconds. Each track has its own row rotation and section clock.
 
-To start a new verse at a marked line, override the boundary decision. A
+To start a new verse at a line whose actor is `verse-start`, override the boundary decision. A
 `"section"` starts a fresh first page with synchronized previews. A `"page"`
 restarts row placement within the current verse and keeps its section timing.
 A short page can leave a row free for the next page’s preview. In the bottom
@@ -43,12 +43,13 @@ class VerseRows(KaraokeRows):
     def break_before(
         self, previous: LayoutLine, line: LayoutLine
     ) -> Literal["none", "page", "section"]:
-        if line.lead:
+        if "verse-start" in line.tags:
             return "section"
         return super().break_before(previous, line)
 
 
-main = Track(id="main", layout=VerseRows())
+main = Track(id="main", layout=VerseRows(),
+             tags=lambda source: frozenset((source.actor,)))
 ```
 
 ## One effect entry point
@@ -80,12 +81,10 @@ from kara_templater import (
     Document,
     FadeIn,
     FadeOut,
-    Layout,
     LyricRule,
     LyricSweep,
     ScalePulse,
     Track,
-    Vec2,
     prepare_tracks,
 )
 
@@ -94,9 +93,6 @@ scene = prepare_tracks(
     tracks=(
         Track(
             id="main",
-            layout=Layout(rows=2, position=Vec2(80, 280), gap=80),
-            preview=0.6,
-            tail=0.3,
             effects=(
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
                 LyricRule("syllable", "singing", ScalePulse()),
@@ -187,43 +183,12 @@ use a world-space reference to inherit its motion.
 ## Allocation is the layout extension point
 
 `Layout(rows=1)`, `Layout(rows=2)` and `Layout(rows=3)` use the same allocator. Automatic row spacing fits the measured boxes of rows visible together, including their actual readings, and leaves an additional 20% of the largest body font size between them. Each line keeps its position throughout its display. An explicit `gap` retains its historical meaning of fixed row-origin pitch in script pixels.
-Both the default Track allocator (`KaraokeRows`) and `Layout` restart rotation at a lead cue. In a horizontal two-row layout the lead begins the left row, even on a one-line page. Set `reset_on_lead=False` on the allocator to continue rotating across cues. Silence-based resets are controlled separately.
+Both `KaraokeRows` and `Layout` restart rotation at the first row on a lead cue by default. Horizontal alignment comes from the chosen layout. Set `reset_on_lead=False` on the allocator to continue rotating across cues. Silence-based resets are controlled separately.
 
 The default for `Layout` is strict rotation; `policy="available"` chooses a free row.
 Automatic tracks share the gap between successive occupants of each row. Singing, inline countdowns and explicitly reserved effect intervals remain fixed. Overlapping fixed windows raise an error identifying both lines.
 
-For a custom policy, override one batch function. This example places lead cues
-on their own row, resets rotation, and puts a tagged exception at a fixed point:
-
-```python
-from kara_templater import Layout, LayoutContext, LayoutLine, Placement, Vec2
-
-class CustomLayout(Layout):
-    def allocate(
-        self, lines: tuple[LayoutLine, ...], context: LayoutContext
-    ) -> tuple[Placement, ...]:
-        row = 0
-        result = []
-        for line in lines:
-            if line.lead:
-                row = 0
-                position = Vec2(80, 180)
-            elif "solo" in line.tags:
-                position = Vec2(80, 240)
-            else:
-                position = Vec2(80, 300 + 70 * row)
-                row = (row + 1) % 2
-            result.append(Placement(line.id, position, line.display))
-        return tuple(result)
-```
-
-This example deliberately permits overlap and leaves display windows unchanged.
-An allocator that needs collision handling can read all measured bounds and
-required intervals, then choose its own policy. The engine validates complete
-identity mapping and required visibility; it does not run the default allocator
-first or overwrite the returned positions. lead and tags are input data, with no
-control events, reset hooks or persistent state protocol. Cross-track information
-is explicit through Track.references and LayoutContext.other_lines.
+Override `allocate` when a song needs a different occupancy policy, such as taking a solo line out of rotation. The allocator receives the measured bounds and required visibility intervals for every line. After assigning rows and resolving handoffs, call `self.row_offsets(lines, placements)` to position the rows with their measured clearances. Cross-track information is available through `Track.references` and `LayoutContext.other_lines`.
 
 The complete [lyric orchestration example](../../examples/lyric_orchestration.py)
 uses one song and the same animation declarations for these configurations:

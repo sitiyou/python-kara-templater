@@ -79,6 +79,7 @@ type KaraokeEntry = Literal[
     "char_drip",
     "spin_flip",
     "utopia",
+    "tilt_pop",
     "tracking_in",
     "wave_in",
     "stretch_in",
@@ -359,7 +360,15 @@ def _reading_edges(line: LyricLine) -> dict[str, tuple[float, float]]:
 
 
 def _character_offsets(line: LyricLine, hosts: dict[str, LyricTarget], spread: float,
-                       *, entering: bool) -> dict[str, float]:
+                       *, entering: bool, individual: bool = False) -> dict[str, float]:
+    if individual:
+        offsets = {}
+        for role in ("character", "ruby"):
+            glyphs = line.query(role)
+            for i, glyph in enumerate(glyphs):
+                phase = i if entering else i + 1 - len(glyphs)
+                offsets[glyph.node_id] = (phase / max(1, len(glyphs) - 1)) * spread
+        return offsets
     targets = line.query("character")
     step = round(spread * 1000) // max(1, len(targets) - 1) / 1000
     offsets = {t.node_id: (i if entering else i + 1 - len(targets)) * step
@@ -405,7 +414,7 @@ def _display_start(line: LyricLine, _target: LyricTarget) -> tuple[TimeSpan, ...
 def _transition_window(kind: str, configured: float, *, entering: bool) -> float:
     if kind == "none" or configured == 0:
         return 0
-    if kind == "utopia":
+    if kind in {"utopia", "tilt_pop"}:
         return 0.70 if entering else 0.75
     if kind in _CHAR_TRANSITIONS:
         return 0.60
@@ -932,6 +941,8 @@ class KaraokeEffects:
     entry: KaraokeEntry = "fade"
     exit: KaraokeExit = "fade"
     singing: KaraokeSinging = "utopia"
+    entry_unit: Literal["preset", "character"] = "preset"
+    exit_unit: Literal["preset", "character"] = "preset"
     reverse_wipe: bool = False
     decoration: KaraokeDecoration = "none"
     entry_duration: float = 0.3
@@ -1009,6 +1020,8 @@ class KaraokeEffects:
         ):
             raise ValueError("zoom pulse curve level must be an integer in [0,5]")
         width = 16 if self.scanline_width is None or isinstance(self.scanline_width, LengthExpr) else self.scanline_width
+        if any(unit not in {"preset", "character"} for unit in (self.entry_unit, self.exit_unit)):
+            raise ValueError("transition unit must be preset or character")
         if self.ruby_scanline not in {"reading", "both"}:
             raise ValueError("ruby_scanline must be reading or both")
         if self.scanline_mode not in {
@@ -1181,7 +1194,8 @@ class KaraokeEffects:
             anchor = "enter" if entering else "exit"
             if entering and first < total:
                 anchor = _display_start
-            if not entering and kind == "utopia":
+            individual = (self.entry_unit if entering else self.exit_unit) == "character"
+            if not individual and not entering and kind == "utopia":
                 departures = line._resolve((LyricRule(
                     line.query("character", "ruby"), _utopia_exit_anchor(line, total, release),
                     partial(transition, kind=kind, entering=False, seed=self.seed,
@@ -1192,16 +1206,16 @@ class KaraokeEffects:
                 continue
             animate = partial(transition, kind=kind, entering=entering, seed=self.seed,
                               zoom_pivot=self.singing.startswith("zoom_pulse"))
-            if kind in {"fade", "slide_in", "slide_out", "rise"}:
+            if not individual and kind in {"fade", "slide_in", "slide_out", "rise"}:
                 line = line.schedule(LyricRule("line", anchor, animate, duration=total))
                 continue
-            spread = total * (2 / 7 if kind == "utopia" else self.stagger)
+            spread = total * (2 / 7 if kind in {"utopia", "tilt_pop"} else self.stagger)
             hosts = _character_hosts(line)
             # Legacy exits finish at the display end. Geometric exits and their
             # particles start at the beginning of the exit window.
             count_back = not entering and kind in _CHAR_TRANSITIONS
-            offsets = (_character_offsets(line, hosts, spread, entering=not count_back)
-                       if kind not in {"glow_in", "glow_out"} else {})
+            offsets = (_character_offsets(line, hosts, spread, entering=not count_back, individual=individual)
+                       if individual or kind not in {"glow_in", "glow_out"} else {})
             host_motion = kind in {"tracking_in", "wave_in", "scatter_out", "converge_out"}
             rules = []
             for target in line.query("character", "ruby"):
@@ -1211,8 +1225,9 @@ class KaraokeEffects:
                 if entering and delay > 0:
                     rules.append(LyricRule(target, anchor, Transform(opacity=0),
                                            duration=delay, hold=False))
-                motion = partial(animate, host=hosts[target.node_id] if host_motion else None,
-                                 reading_edges=reading_edges.get(target.node_id))
+                motion = partial(animate, host=hosts[target.node_id] if host_motion and not individual else None,
+                                 reading_edges=None if individual else reading_edges.get(target.node_id),
+                                 glyph_pivot=individual)
                 rules.append(LyricRule(target, anchor, motion, duration=total - spread, offset=delay))
             line = line.schedule(*rules)
         if pulses_by_target:
@@ -1593,7 +1608,7 @@ class KaraokeEffects:
         additions: dict[str, list[SceneObject]] = {}
         line = self._particles(line, nodes, additions, transitions=True)
         replacements: dict[str, TextObject] = {}
-        fade_offsets = (_character_offsets(line, _character_hosts(line), self.exit_duration * self.stagger, entering=False)
+        fade_offsets = (_character_offsets(line, _character_hosts(line), self.exit_duration * self.stagger, entering=False, individual=self.exit_unit == "character")
                         if self.exit in {"char_fade", "spin_flip"} else {})
         # Horizontal glow echoes have their own envelope, beneath the sharp glyph.
         for target in line.query("character", "ruby"):

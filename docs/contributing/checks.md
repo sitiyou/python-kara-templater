@@ -16,6 +16,14 @@ Typing fixtures include valid custom extensions and deliberately rejected calls.
 The negative extension checker requires an argument-contract error; a broken
 import is not evidence that a type contract works.
 
+## Choosing a test run
+
+Run `uv run python -m pytest` during development. Its default modules in
+`pyproject.toml` cover lyric input, timing, layout, shaping and output. Pass a
+file or node ID to exercise a specific effect. Before release, run
+`uv run python -m pytest tests` to include every regression, example and
+documentation test. An explicit directory overrides the default selection.
+
 ## Effective tests
 
 Test retained behavior: source/owner preservation, timing and transforms, shape
@@ -42,11 +50,10 @@ fails the build. Native compilation runs before this budget starts.
 | Rendering regressions | Curve accuracy between frames, pixel coverage of sweeps and outlines, combinations of effects, clocks and fonts, actual hook playback when Vulkan is available | Upstream suite |
 | Developer and release checks | Documentation scripts and links, public typing, native source-cache invalidation, wheel metadata and bundled libraries | Upstream tests and release tooling |
 
-The upstream suite also exercises the core behaviors. AUR selects individual
-test IDs so adding an effect or a parameter combination does not silently
-increase package build time. Keep one representative case per package failure
-mode. For example, the installed CLI smoke checks the entry point once. CLI
-regressions for repeated exports and ownership still belong upstream.
+AUR runs the upstream default against the installed wheel. For the published
+1.0.0 source, which predates core test selection, the package check names the
+core modules available in that release. The installed CLI and standalone hook
+checks also run against each wheel.
 
 To reassess cost on a new release, run the full installed-package suite with
 `python -m pytest tests --durations=30 --junitxml=timings.xml`. Inspect both

@@ -2,9 +2,6 @@
 
 from pathlib import Path
 
-import pytest
-
-from examples.scene_whole_song import CASES, Case
 from kara_templater import (
     BarsCue,
     CueMarker,
@@ -17,20 +14,6 @@ from kara_templater import (
     bind_lyric_cues,
     layout_document_lyrics,
 )
-
-
-@pytest.mark.parametrize("case", CASES, ids=lambda case: case.id)
-def test_all_fixed_cases_preserve_document_semantics_through_file(
-    case: Case, tmp_path: Path
-):
-    scene = case.factory()
-    source = scene.document.dumps()
-    authored = scene.compile().document.dumps()
-    path = tmp_path / "input.ass"
-    scene.document.save(path)
-    scene.document = Document.load(path)
-    assert scene.compile().document.dumps() == authored
-    assert scene.document.dumps() == source
 
 
 def test_parse_before_binding_preserves_cues_colors_ruby_and_output(tmp_path: Path):

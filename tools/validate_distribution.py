@@ -140,7 +140,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
             raise AssertionError(f"source archive is missing {relative}")
     check = output / "check"
     check.mkdir()
-    for name in ("tests", "examples", "tools", "docs"):
+    for name in ("tests", "examples", "tools", "docs", "skills"):
         shutil.copytree(package / name, check / name)
     for name in ("README.md", "THIRD_PARTY.md", "setup.py", "pyproject.toml"):
         shutil.copy2(package / name, check / name)

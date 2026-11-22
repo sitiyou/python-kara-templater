@@ -48,6 +48,7 @@ def build() -> LyricScene:
                 text=marker.markup() + r"{\k190}" + word,
             )
         )
+    # Both types fill the same three-second window in this side-by-side demo.
     return prepare_tracks(
         doc,
         tracks=(

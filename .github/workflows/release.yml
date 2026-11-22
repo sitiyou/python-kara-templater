@@ -78,7 +78,7 @@ jobs:
               package, = (root / "source").iterdir()
               check = root / "check"
               check.mkdir()
-              for name in ("tests", "examples", "tools", "docs"):
+              for name in ("tests", "examples", "tools", "docs", "skills"):
                   shutil.copytree(package / name, check / name)
               for name in ("setup.py", "README.md", "THIRD_PARTY.md", "pyproject.toml"):
                   shutil.copy2(package / name, check / name)

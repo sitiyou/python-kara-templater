@@ -1,16 +1,15 @@
 """Studio-style motion expressed through the existing StateAnimation protocol."""
 
-from collections.abc import Callable
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from math import cos, pi, pow, radians, sin, tan
 
 from .easing import ease_out
 from .geometry import Vec2
 from .lyric_line import LyricAnimationContext, LyricTarget, _line_x
 from .scene_animation import (
-    Channel,
     FadeIn,
     FadeOut,
+    Slide,
     StateAnimation,
     StateFunction,
     Transform,
@@ -26,34 +25,6 @@ HALO_STROKES = (
     (0.58, 0.08),
     (0.82, 0.045),
 )
-
-
-@dataclass(frozen=True)
-class Slide:
-    """Studio translation keeps its short entry reveal on a separate curve."""
-
-    offset: Vec2
-    entering: bool
-    fast_reveal: bool = True
-    rate: Callable[[float], float] = smooth_rate
-
-    @property
-    def channels(self) -> frozenset[Channel]:
-        return frozenset(("position", "opacity"))
-
-    def sample(self, base: VisualState, progress: float) -> VisualState:
-        q = self.rate(progress)
-        distance = 1 - q if self.entering else q
-        alpha = (
-            min(1.0, 4 * progress)
-            if self.entering and self.fast_reveal
-            else 1 - distance
-        )
-        return replace(
-            base,
-            position=base.position + self.offset * distance,
-            opacity=base.opacity * alpha,
-        )
 
 
 class RowSlide(Slide):
@@ -112,12 +83,13 @@ def transition(
     entering: bool,
     seed: int,
     zoom_pivot: bool = False,
+    glyph_pivot: bool = False,
     host: LyricTarget | None = None,
     reading_edges: tuple[float, float] | None = None,
 ) -> StateAnimation:
     target = host or context.target
     center = context.target.center
-    if reading_edges is not None and kind != "utopia":
+    if reading_edges is not None and kind not in {"utopia", "tilt_pop"}:
         center = Vec2(sum(reading_edges) / 2, center.y)
     em = target.em_size or max(1, center.y * 2)
     targets = context.line.query(target.role)
@@ -152,10 +124,11 @@ def transition(
         if reading_edges is not None:
             drip_edge = reading_edges[1]
         else:
-            glyph = context.line.layout.body.characters[index]
+            glyph = (tuple(g for r in context.line.layout.ruby for g in r.layout.characters)[index]
+                     if target.role == "ruby" else context.line.layout.body.characters[index])
             _, drip_edge = _line_x(glyph, glyph.bounds.left, glyph.bounds.right)
 
-    utopia_pivot = center if zoom_pivot else target._baseline_pivot
+    utopia_pivot = center if zoom_pivot or glyph_pivot else target._baseline_pivot
     converge_distance = 0.0
     if kind == "converge_out":
         body = context.line.layout.body
@@ -191,7 +164,7 @@ def transition(
                     opacity = float(visible > 0)
                     # Vertical shear fixes the entire right edge regardless of pivot y.
                     pivot = Vec2(drip_edge, 0)
-            case "utopia":
+            case "utopia" | "tilt_pop":
                 pivot = utopia_pivot
                 if entering:
                     factor = 1.3 * p / 0.8 if p < 0.8 else 1 + 0.3 * (1 - p) / 0.2
@@ -205,7 +178,7 @@ def transition(
                     opacity = 1 - p
                     scale = Vec2((1 - p) * cos(pi * p), 1 - p)
                     rotation = -180 * p
-                    if not zoom_pivot:
+                    if not (zoom_pivot or glyph_pivot):
                         # Studio turns around the character centre first, then flips
                         # and shrinks the rotated shape about its left baseline.
                         outer = Transform(
@@ -232,6 +205,9 @@ def transition(
         transformed = Transform(
             offset=offset, scale=scale, rotation=rotation, opacity=opacity, pivot=pivot
         ).sample(base, p)
+        if kind == "tilt_pop":
+            angle = -19 * (1 - p) ** 2 + 4 * sin(pi * p)
+            transformed = Transform(rotation=angle, pivot=center).sample(transformed, p)
         if shear:
             old = transformed.transform.apply(pivot)
             transformed = replace(transformed, skew=transformed.skew + Vec2(0, shear))

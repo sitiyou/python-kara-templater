@@ -21,8 +21,6 @@ from kara_templater import (
     FadeOut,
     Glow,
     Layout,
-    LayoutContext,
-    LayoutLine,
     Line,
     LyricAnimationContext,
     LyricHighlights,
@@ -30,7 +28,6 @@ from kara_templater import (
     LyricRule,
     LyricScene,
     LyricTarget,
-    Placement,
     SceneBudget,
     StateFunction,
     StatePatch,
@@ -42,26 +39,6 @@ from kara_templater import (
 )
 
 type Design = Literal["broadcast", "amber", "candy"]
-
-
-@dataclass(frozen=True, kw_only=True)
-class OpposingRows(Layout):
-    """Reuse occupancy allocation; right-align odd rows within the same region."""
-
-    def allocate(
-        self, lines: tuple[LayoutLine, ...], context: LayoutContext
-    ) -> tuple[Placement, ...]:
-        placements = super().allocate(lines, context)
-        return tuple(
-            replace(
-                placement,
-                position=placement.position
-                + Vec2(context.region.width - line.bounds.width, 0),
-            )
-            if placement.row is not None and placement.row % 2
-            else placement
-            for line, placement in zip(lines, placements, strict=True)
-        )
 
 
 @dataclass(frozen=True)
@@ -245,9 +222,7 @@ def build(
                 id="main",
                 source=lambda source: source.style == "Main",
                 region=Box(72, 476, 1136, 220),
-                layout=OpposingRows(rows=2, gap=108),
-                preview=1.2,
-                tail=0.35,
+                layout=Layout(rows=2, alignment="alternating"),
                 effects=(
                     *(rules),
                     highlighter,
@@ -261,8 +236,6 @@ def build(
                             outline=WHITE,
                             border=1,
                         ),
-                        lead=0.8,
-                        duration=0.8,
                     )
                 },
             ),
@@ -271,8 +244,6 @@ def build(
                 source=lambda source: source.style == "Harmony",
                 region=Box(72, 76, 1136, 100),
                 layout=Layout(alignment="center"),
-                preview=0.8,
-                tail=0.3,
                 effects=(
                     *(
                         (rules[0], rules[1])

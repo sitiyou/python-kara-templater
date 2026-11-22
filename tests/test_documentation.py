@@ -17,7 +17,7 @@ from tools.check_docs import check
         ("docs/guides/gpu-rendering.md", "song.ass", 0, 3000),
         ("docs/getting-started.md", "first-effect.ass", 0, 3000),
         ("docs/tutorials/custom-animation.md", "sparks.ass", 0, 2300),
-        ("docs/tutorials/lyric-highlights.md", "lyric-arc.ass", 500, 4500),
+        ("docs/tutorials/lyric-highlights.md", "lyric-arc.ass", 0, 5000),
     ),
 )
 def test_complete_author_script_runs_as_written(

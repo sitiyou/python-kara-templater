@@ -172,8 +172,12 @@ class SceneEvaluator:
 
     def at(self, name: str, time: float) -> VisualState:
         """Evaluate a node world state at absolute seconds independently of previous queries."""
+        return self._at(name, time, {})
+
+    def _at(
+        self, name: str, time: float, cache: dict[tuple[str, float], VisualState]
+    ) -> VisualState:
         finite(time)
-        cache: dict[tuple[str, float], VisualState] = {}
 
         def evaluate(identity: str, requested: float) -> VisualState:
             finite(requested)

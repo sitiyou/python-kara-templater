@@ -71,7 +71,7 @@ Standard ASS is supported (complex motion is sampled). GPU enhancement uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L901)
+[Source](../../kara_templater/karaoke_effects.py#L910)
 
 ```python
 KaraokeEffects(
@@ -79,6 +79,8 @@ KaraokeEffects(
     entry: KaraokeEntry = 'fade',
     exit: KaraokeExit = 'fade',
     singing: KaraokeSinging = 'utopia',
+    entry_unit: Literal['preset', 'character'] = 'preset',
+    exit_unit: Literal['preset', 'character'] = 'preset',
     reverse_wipe: bool = False,
     decoration: KaraokeDecoration = 'none',
     entry_duration: float = 0.3,
@@ -124,6 +126,8 @@ KaraokeEffects(
 | `entry` | `KaraokeEntry` | `'fade'` |
 | `exit` | `KaraokeExit` | `'fade'` |
 | `singing` | `KaraokeSinging` | `'utopia'` |
+| `entry_unit` | `Literal['preset', 'character']` | `'preset'` |
+| `exit_unit` | `Literal['preset', 'character']` | `'preset'` |
 | `reverse_wipe` | `bool` | `False` |
 | `decoration` | `KaraokeDecoration` | `'none'` |
 | `entry_duration` | `float` | `0.3` |
@@ -200,7 +204,7 @@ KaraokeEffects.with_theme(
 Public type alias:
 
 ```python
-type KaraokeEntry = Literal['none', 'fade', 'slide_in', 'rise', 'char_fade', 'char_drip', 'spin_flip', 'utopia', 'tracking_in', 'wave_in', 'stretch_in', 'glow_in', 'assemble_in', 'sparkle', 'ripple', 'note', 'petal', 'snow', 'snow_solid']
+type KaraokeEntry = Literal['none', 'fade', 'slide_in', 'rise', 'char_fade', 'char_drip', 'spin_flip', 'utopia', 'tilt_pop', 'tracking_in', 'wave_in', 'stretch_in', 'glow_in', 'assemble_in', 'sparkle', 'ripple', 'note', 'petal', 'snow', 'snow_solid']
 ```
 
 ## KaraokeExit
@@ -262,7 +266,7 @@ sync_entry and sync_ending align the first and last pages respectively;
 sync_each_page applies enabled synchronization to every page. fill_section
 holds each row toward the next same-row preview and aligns final page tails.
 
-[Source](../../kara_templater/lyric_layout.py#L405)
+[Source](../../kara_templater/lyric_layout.py#L406)
 
 ```python
 KaraokeRows(
@@ -341,7 +345,8 @@ Set reset_on_lead to False to continue the sequence across leads.
 position is the first row's top-left, defaulting to the context region.
 Alignment and offsets can be supplied per row.
 Alternating alignment places even rows on the left and odd rows on the right. Bounds already
-include ruby and inline cue reservations. gap is row-origin spacing in pixels.
+include ruby and inline cue reservations. Omit gap for measured row heights plus
+20% of the largest body font size. Set gap for a fixed distance between row origins.
 
 [Source](../../kara_templater/lyric_layout.py#L234)
 
@@ -491,7 +496,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L182)
+[Source](../../kara_templater/orchestration.py#L186)
 
 ```python
 LinePlan(
@@ -659,7 +664,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L295)
+[Source](../../kara_templater/lyric_line.py#L301)
 
 ```python
 LyricLine(
@@ -929,7 +934,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L193)
+[Source](../../kara_templater/orchestration.py#L197)
 
 ```python
 LyricScene(
@@ -1045,6 +1050,8 @@ An immutable source view used by Track predicates and metadata functions.
 
 id identifies source content independently of its track/view. Original
 singing intervals remain in lyrics; display is the original ASS visibility.
+An optional chapter groups consecutive sources. The first selected line of a
+chapter starts a fresh row rotation by default, even without a visible cue.
 
 [Source](../../kara_templater/orchestration.py#L58)
 
@@ -1058,6 +1065,7 @@ LyricSource(
     display: Lifetime,
     text_data: DocumentText,
     projection: DocumentLyrics | None = None,
+    chapter: str | None = None,
 )
 ```
 
@@ -1073,6 +1081,7 @@ LyricSource(
 | `display` | `Lifetime` | `required` |
 | `text_data` | `DocumentText` | `required` |
 | `projection` | `DocumentLyrics \| None` | `None` |
+| `chapter` | `str \| None` | `None` |
 
 ### LyricSource.from_lyrics
 
@@ -1091,6 +1100,7 @@ LyricSource.from_lyrics(
     style: str = 'Default',
     actor: str = '',
     effect: str = '',
+    chapter: str | None = None,
 ) -> LyricSource
 ```
 
@@ -1254,7 +1264,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L118)
+[Source](../../kara_templater/orchestration.py#L122)
 
 ```python
 Track(
@@ -1263,7 +1273,7 @@ Track(
     source: Callable[[LyricSource], bool] = _all_sources,
     layout: Layout | KaraokeRows | None = None,
     region: Box | None = None,
-    preview: float = 1.8,
+    preview: float = 5.0,
     tail: float | None = None,
     effects: tuple[LyricEffect, ...] = (),
     theme: KaraokeTheme = _HAS_DEFAULT_FACTORY_CLASS(),
@@ -1291,7 +1301,7 @@ Track(
 | `source` | `Callable[[LyricSource], bool]` | `_all_sources` |
 | `layout` | `Layout \| KaraokeRows \| None` | `None` |
 | `region` | `Box \| None` | `None` |
-| `preview` | `float` | `1.8` |
+| `preview` | `float` | `5.0` |
 | `tail` | `float \| None` | `None` |
 | `effects` | `tuple[LyricEffect, ...]` | `()` |
 | `theme` | `KaraokeTheme` | `KaraokeTheme()` |
@@ -1338,7 +1348,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L437)
+[Source](../../kara_templater/orchestration.py#L441)
 
 ```python
 prepare_tracks(

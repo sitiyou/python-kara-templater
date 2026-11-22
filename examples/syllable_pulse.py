@@ -10,7 +10,6 @@ from pathlib import Path
 
 from kara_templater import (
     Document,
-    Layout,
     LyricAnimationContext,
     LyricRule,
     StatePatch,
@@ -69,7 +68,6 @@ class SyllablePulse:
 
 track = Track(
     id="lyrics",
-    layout=Layout(rows=2, position=Vec2(100, 350), gap=80),
     effects=(LyricRule("syllable", "singing", SyllablePulse()),),
 )
 

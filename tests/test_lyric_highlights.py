@@ -340,13 +340,13 @@ def test_fractional_coverage_partition_matches_unsplit_alpha_exactly():
 
     scenes = subjects(scale=True, fade=True, strategy="coverage")
     budget = SceneBudget(
-        fps=100, max_events=500_000, max_active=100_000, max_bytes=128 * 1024 * 1024
+        fps=25, max_events=500_000, max_active=100_000, max_bytes=128 * 1024 * 1024
     )
     outputs = tuple(scene.compile(budget=budget).document.dumps() for scene in scenes)
-    assert (
-        rasterize(outputs[0], 1130, (160, 120)).rgba
-        == rasterize(outputs[1], 1130, (160, 120)).rgba
-    )
+    for ms in (1120, 1520):
+        expected = rasterize(outputs[1], ms, (160, 120)).rgba
+        assert any(expected[3::4])
+        assert rasterize(outputs[0], ms, (160, 120)).rgba == expected
 
 
 def test_independent_highlights_keep_pauses_priority_exit_and_disjoint_regions():

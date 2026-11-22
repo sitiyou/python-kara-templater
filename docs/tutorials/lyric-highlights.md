@@ -70,8 +70,6 @@ scene = prepare_tracks(
         Track(
             id="main",
             layout=Layout(position=Vec2(70, 160)),
-            preview=0.5,
-            tail=0.5,
             effects=(
                 LyricRule("line", "enter", FadeIn(), duration=0.25),
                 LyricRule(
