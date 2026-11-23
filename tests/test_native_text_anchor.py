@@ -27,7 +27,7 @@ from kara_templater.layout import text_extents
 @pytest.mark.parametrize("travel_rate", (None, linear_rate))
 def test_centered_text_pulse_keeps_pixels_and_uses_one_event(text, italic, spacing, travel_rate):
     width, height, _, _ = text_extents(Style(
-        fontname="DejaVu Sans", fontsize=48, italic=italic, spacing=spacing,
+        fontname="DejaVu Sans", fontsize=48, italic=italic, spacing=spacing, outline=0,
     ), text)
     pivot = Vec2(width / 2, height / 2)
     node = TextObject(

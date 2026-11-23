@@ -298,17 +298,17 @@ static PyObject *outline(const Glyph &g, double xscale, double yscale,
 static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
   const char *family;
   PyObject *text;
-  double size, sx, sy, spacing, placement = 0;
+  double size, sx, sy, spacing, placement = 0, border = 0;
   int bold, italic, encoding, palt = 0;
-  if (!PyArg_ParseTuple(args, "sdiidddiU|dp", &family, &size, &bold, &italic,
+  if (!PyArg_ParseTuple(args, shapes ? "sdiidddiU|dp" : "sdiidddiU|dpd", &family, &size, &bold, &italic,
                         &sx, &sy, &spacing, &encoding, &text, &placement,
-                        &palt))
+                        &palt, &border))
     return nullptr;
   if (!(size > 0 && sx > 0 && sy > 0) || !std::isfinite(size * sx) ||
       !std::isfinite(size * sy) || !std::isfinite(placement) ||
-      !std::isfinite(spacing)) {
+      !std::isfinite(spacing) || !std::isfinite(border) || border < 0) {
     PyErr_SetString(PyExc_ValueError,
-                    "invalid font size, scale, spacing or placement");
+                    "invalid font size, scale, spacing, placement or outline");
     return nullptr;
   }
   try {
@@ -380,6 +380,7 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
         return visual[a.begin] < visual[b.begin];
       });
       double x = 0;
+      bool has_ink = false;
       for (auto &run : runs) {
         auto *face = run.face;
         std::unique_ptr<hb_buffer_t, decltype(&hb_buffer_destroy)> buf(
@@ -400,6 +401,11 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
         auto positions = hb_buffer_get_glyph_positions(buf.get(), nullptr);
         for (unsigned j = 0; j < count; j++) {
           auto &pos = positions[j];
+          if (border > 0 && !has_ink) {
+            hb_glyph_extents_t ink;
+            has_ink = hb_font_get_glyph_extents(face->hb, infos[j].codepoint, &ink) &&
+                      (ink.width || ink.height);
+          }
           if (shapes) {
             if (!infos[j].codepoint) {
               PyErr_Format(PyExc_ValueError,
@@ -417,9 +423,10 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
                         spacing * sx / size);
         }
       }
-      width = std::max(width, x);
-      height += asc + desc;
-      descent = std::max(descent, desc);
+      const double padding = has_ink ? border : 0;
+      width = std::max(width, x + 2 * padding);
+      height += asc + desc + 2 * padding;
+      descent = std::max(descent, desc + padding);
     }
     if (!shapes)
       return Py_BuildValue("(dddd)", width, height, descent, 0.);

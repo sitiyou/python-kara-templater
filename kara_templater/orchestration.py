@@ -141,7 +141,7 @@ class Track:
     Rule factories resolve once before decoration and bind to final target aliases.
     Authored visual intervals join occupancy; rule binding follows allocation.
     min_outline_gap is the minimum script-pixel clearance between hard strokes;
-    None disables extra clearance. studio_spacing selects Studio ink-based cells
+    zero allows touching outlines (the default) and None disables clearance. studio_spacing selects Studio ink-based cells
     for both body and readings. By default KaraokeRows uses Studio cells and
     Layout uses native advances. Horizontal palt selects the font’s proportional
     alternate widths for body and ruby and uses native advances by default. reserved_border declares the outer hard radius
@@ -169,7 +169,7 @@ class Track:
     tags: frozenset[str] | Callable[[LyricSource], frozenset[str]] = frozenset()
     styles: tuple[Style, ...] = ()
     references: tuple[LayoutLine, ...] = ()
-    min_outline_gap: float | None = 2
+    min_outline_gap: float | None = 0
     reserved_border: float = 0
     ruby_gap: float = 6
     studio_spacing: bool | StudioSpacing | None = None

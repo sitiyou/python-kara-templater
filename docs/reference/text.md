@@ -718,7 +718,7 @@ Measure a structured KaraokeLine with body and reading styles at the requested r
 
 Return layout boxes without changing source singing intervals.
 
-[Source](../../kara_templater/layout.py#L84)
+[Source](../../kara_templater/layout.py#L89)
 
 ```python
 layout_line(
@@ -805,6 +805,10 @@ select_characters(
 Measure text using the native font/shaping environment and ASS style metrics.
 
 Return width, height, descent, and external leading in script pixels.
+Each line with glyph ink reserves style.outline on each side of its
+typographic box. Blank lines retain their font metrics. The result uses
+the widest line, the sum of line heights and the largest padded descent.
+Set outline to zero to measure native advances. Shadows are excluded.
 
 [Source](../../kara_templater/layout.py#L10)
 

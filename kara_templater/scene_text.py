@@ -276,7 +276,7 @@ def _measure_run(
 ) -> tuple[float, float, float, tuple[DrawableCharacter, ...]]:
     family, size, bold, italic, sx, sy, spacing, encoding = key
     style = Style(fontname=family, fontsize=size, bold=bold, italic=italic,
-                  scale_x=sx, scale_y=sy, spacing=spacing, encoding=encoding)
+                  scale_x=sx, scale_y=sy, spacing=spacing, encoding=encoding, outline=0)
     width, height, descent, _ = text_extents(style, text, palt=palt)
     box = Box(x, 0, width, height)
     chars = layout_characters(

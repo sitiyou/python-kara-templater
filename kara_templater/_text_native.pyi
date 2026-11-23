@@ -15,6 +15,7 @@ def text_extents(
     text: str,
     placement_x: float = 0,
     palt: bool = False,
+    outline: float = 0,
     /,
 ) -> tuple[float, float, float, float]: ...
 def text_shape(

@@ -301,9 +301,9 @@ side bearings in the cell calculation, so italic letters can tuck closer
 together. The default space is 20% of an em and negative bearings are clamped.
 Body and ruby use their respective font sizes.
 
-After measurement, Track leaves at least 2 script pixels between neighboring
-horizontal ink bounds with hard outlines. Use `min_outline_gap=4` for more
-separation, zero to allow touching outlines, or `None` to skip this adjustment.
+After measurement, Track lets neighboring horizontal hard outlines touch and
+adds space where they would overlap. Use `min_outline_gap=4` to leave four
+script pixels between them or `None` to skip this adjustment.
 The same clearance applies between kana in one reading, including pairs split by a timing tag.
 Style outlines and static highlight paint borders contribute to
 clearance. Glow, shadow and temporary animation strokes can overlap. For a

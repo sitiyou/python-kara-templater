@@ -1479,7 +1479,7 @@ def compile_scene(
             if isinstance(node, TextObject) and node.alignment == 7 and "\n" not in node.text:
                 text_width, text_height, _, _ = text_extents(Style(
                     fontname=node.font, fontsize=node.font_size, bold=node.bold,
-                    italic=node.italic, spacing=node.spacing, encoding=node.encoding,
+                    italic=node.italic, spacing=node.spacing, encoding=node.encoding, outline=0,
                 ), node.text)
                 leaf = replace(leaf, rectangle_anchor=Vec2(text_width / 2, text_height / 2))
             if leaf.rectangle_anchor is not None:

@@ -80,7 +80,7 @@ class AssTests(unittest.TestCase):
 
 class MetricsTests(unittest.TestCase):
     def setUp(self):
-        self.style = Style(fontname="sans-serif", fontsize=32)
+        self.style = Style(fontname="sans-serif", fontsize=32, outline=0)
 
     def test_empty_and_spaces(self):
         self.assertEqual(text_extents(self.style, "")[0], 0)
@@ -92,6 +92,16 @@ class MetricsTests(unittest.TestCase):
             text_extents(self.style, "A")[0] + 2 * space,
             delta=0.1,
         )
+
+    def test_outline_pads_each_ink_bearing_line_once(self):
+        outlined = replace(self.style, outline=2.5, spacing=1.5)
+        plain = replace(outlined, outline=0)
+        for text in ("AV", r" AV\h", r"A\NB", "A\n\nB"):
+            rows = 2 if "B" in text else 1
+            w, h, d, leading = text_extents(plain, text)
+            self.assertEqual(text_extents(outlined, text), (w + 5, h + rows * 5, d + 2.5, leading))
+        for text in ("", "  ", r"\N\h", "\u2060"):
+            self.assertEqual(text_extents(outlined, text), text_extents(plain, text))
 
     def test_scale_spacing_and_height(self):
         w, h, d, leading = text_extents(self.style, "AV")

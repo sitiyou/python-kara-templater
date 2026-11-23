@@ -81,7 +81,7 @@ NativeEvent preserves already-lowered ASS while sharing output/provenance rules.
 Rendered output is a new Document; caller-owned scene/source objects remain intact.
 
 The authoring metrics module exposes font registration, extents and positioned
-glyph outlines. The C++ extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi and shapes them with HarfBuzz. Extent queries read advances; shape queries decompose FreeType outlines in script coordinates. The CPU preview rasterizes compiler drawings with aggdraw and Pillow.
+glyph outlines. The C++ extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi and shapes them with HarfBuzz. Public extent queries pad each ink-bearing line’s typographic box by the style outline radius. Pen placement uses the unpadded advances; shape queries decompose FreeType outlines in script coordinates. The CPU preview rasterizes compiler drawings with aggdraw and Pillow.
 Python author callbacks are evaluated
 before serialization; the player receives ordinary ASS rather than Python.
 

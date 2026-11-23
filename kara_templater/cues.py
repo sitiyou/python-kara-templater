@@ -247,7 +247,7 @@ class TextCue:
             raise ValueError("countdown labels must match the explicit step intervals")
         size = self.font_size if self.font_size is not None else (context.host.font_size if context.host else 48)
         metrics = tuple(
-            text_extents(Style(fontname=self.font, fontsize=size), label)
+            text_extents(Style(fontname=self.font, fontsize=size, outline=0), label)
             for label in self.labels
         )
         width, height = (

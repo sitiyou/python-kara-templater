@@ -760,6 +760,15 @@ def test_ripple_rings_expand_from_one_shared_glyph_center():
     assert len({n.lifetime.start for n in rings}) == len(rings)
 
 
+def test_default_track_gap_allows_adjacent_hard_outlines_to_touch():
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans", outline=8),))
+    doc.records.append(Line(text=r"{\k100}AB", start_time=1000, end_time=2000))
+    line, = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=False),)).lines
+    first, second = line.layout.body.characters
+    assert first.ink_bounds and second.ink_bounds
+    assert second.ink_bounds.left - first.ink_bounds.right == pytest.approx(16)
+
+
 @pytest.mark.parametrize("rtl", [False, True])
 def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
     from kara_templater import Glow, LyricHighlights, StatePatch
