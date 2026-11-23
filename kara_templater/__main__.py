@@ -8,7 +8,6 @@ from ._cli_preset import preset_scene
 from .ass import Document
 from .composition import Color
 from .orchestration import Track, prepare_tracks
-from .raster_settings import RasterSettings
 from .scene import Scene
 from .scene_output import SceneBudget
 
@@ -27,16 +26,6 @@ def main() -> None:
     parser.add_argument(
         "--owner",
         help="output owner for presets and Tracks (default: default)",
-    )
-    parser.add_argument(
-        "--raster",
-        action="store_true",
-        help="explicit coverage compositing for the default preset (higher output cost)",
-    )
-    parser.add_argument(
-        "--raster-color-error",
-        type=int,
-        help="maximum spatial color error in 0..255 before ASS transforms (requires --raster; default 0)",
     )
     parser.add_argument(
         "--style",
@@ -75,13 +64,6 @@ def main() -> None:
         )
         if min(args.lead_ms, args.tail_ms or 0, args.fade_in_ms, args.fade_out_ms) < 0:
             raise ValueError("display padding and fade durations must be nonnegative")
-        if args.raster_color_error is not None and not args.raster:
-            raise ValueError("--raster-color-error requires --raster")
-        raster_settings = (
-            RasterSettings(max_channel_error=args.raster_color_error or 0)
-            if args.raster
-            else None
-        )
         document = Document.load(args.input)
         scene: Scene | None = None
         tracks: tuple[Track, ...] | None = None
@@ -105,8 +87,7 @@ def main() -> None:
                 )
             if builder is not None:
                 if (
-                    args.raster
-                    or args.lead_ms
+                    args.lead_ms
                     or args.tail_ms
                     or args.style
                     or args.owner is not None
@@ -123,7 +104,7 @@ def main() -> None:
                     raise TypeError("build(document) must return Scene")
                 scene = built
             if declared_tracks is not None:
-                if args.raster or args.lead_ms or args.tail_ms or args.style:
+                if args.lead_ms or args.tail_ms or args.style:
                     raise ValueError(
                         "configure timing, selection and materials inside tracks"
                     )
@@ -154,17 +135,10 @@ def main() -> None:
                 preview=args.lead_ms / 1000,
                 tail=None if args.tail_ms is None else args.tail_ms / 1000,
                 styles=tuple(args.style) if args.style else None,
-                raster=raster_settings,
             )
         if scene is None:
             assert tracks is not None
             scene = prepare_tracks(document, tracks=tracks, owner=owner)
-        if raster_settings is not None:
-            print(
-                f"Coverage: spatial color tolerance {raster_settings.max_channel_error}/255 "
-                "before ASS transforms; not a YUV420 video error bound.",
-                flush=True,
-            )
         result = scene.compile(budget=budget)
         result.document.save(args.output)
         print(

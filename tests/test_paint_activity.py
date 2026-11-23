@@ -1,19 +1,15 @@
 """Optional activity declarations optimize common sampling without guessing callbacks."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 import pytest
 
 from kara_templater import (
     PINK,
     WHITE,
-    Document,
     Lifetime,
-    Scene,
-    SceneBudget,
     SoftSweep,
     TextObject,
-    Vec2,
     VisualState,
 )
 from kara_templater.paint_fields import PaintBand
@@ -40,28 +36,6 @@ class Unbounded:
         self, start: int, end: int, time: float, base: VisualState
     ) -> tuple[PaintBand, ...]:
         return self.field.bands(start, end, time, base)
-
-
-def test_activity_reduces_preflight_cost_without_changing_rendered_events():
-    material = SoftSweep(
-        left=50, right=200, start=2, duration=0.4, fill=(WHITE, PINK), width=12
-    )
-    node = TextObject(
-        id="word",
-        text="Word",
-        lifetime=Lifetime(0, 5),
-        state=VisualState(position=Vec2(50, 50)),
-        material=material,
-    )
-    doc = Document.create(width=320, height=180)
-    limited = Scene(doc).add(node).compile(budget=SceneBudget(max_events=100_000))
-    arbitrary = (
-        Scene(doc)
-        .add(replace(node, material=Unbounded(material)))
-        .compile(budget=SceneBudget(max_events=100_000))
-    )
-    assert limited.document.dumps() == arbitrary.document.dumps()
-    assert limited.estimated_events < arbitrary.estimated_events / 5
 
 
 def test_invalid_activity_and_missing_endpoints_are_rejected():

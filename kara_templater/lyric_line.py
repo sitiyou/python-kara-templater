@@ -7,7 +7,6 @@ from dataclasses import dataclass, field, replace
 from typing import Literal, Self
 
 from .characters import LayoutCapabilityError
-from .composition import Color
 from .document_text import SingingSpan
 from .geometry import Vec2, finite
 from .model import Box
@@ -284,20 +283,6 @@ class _LyricBinding:
         )
 
 
-@dataclass(frozen=True)
-class _KaraokePaint:
-    sung: Color
-    unsung: Color
-    entry: float
-    exit: float
-    wipe: bool
-    unsung_outline: Color | None = None
-    sung_outline: Color | None = None
-    feather_by_size: Mapping[float, float] = field(default_factory=dict)
-    reverse: bool = False
-    ruby_reading_units: bool = False
-
-
 @dataclass(frozen=True, kw_only=True)
 class LyricLine(ObjectGroup):
     """An editable lyric line, with the same animate method as any visual node.
@@ -315,7 +300,6 @@ class LyricLine(ObjectGroup):
     independent: tuple[ObjectGroup, ...] = ()
     track_index: int = 0
     required_display: tuple[TimeSpan, ...] = ()
-    _karaoke_paint: _KaraokePaint | None = field(default=None, repr=False)
     _scheduled: tuple[_LyricBinding, ...] = field(default=(), repr=False)
     _at_placement: tuple[Callable[[LyricLine, float, float], LyricLine], ...] | None = field(default=None, repr=False, compare=False)
 

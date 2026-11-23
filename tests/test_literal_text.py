@@ -8,7 +8,6 @@ from kara_templater import (
     Document,
     Lifetime,
     Scene,
-    StateFunction,
     TextObject,
     Vec2,
     VisualState,
@@ -18,7 +17,6 @@ from kara_templater import (
 from kara_templater._raster import rasterize
 
 
-@pytest.mark.parametrize("sampled", (False, True))
 @pytest.mark.parametrize(
     "literal,encoded",
     (
@@ -28,7 +26,7 @@ from kara_templater._raster import rasterize
         ("A\nB", r"A\NB"),
     ),
 )
-def test_literal_text_compiles_without_ass_injection(literal, encoded, sampled):
+def test_literal_text_compiles_without_ass_injection(literal, encoded):
     doc = Document.create(width=640, height=120)
     node = TextObject(
         id="literal",
@@ -37,8 +35,6 @@ def test_literal_text_compiles_without_ass_injection(literal, encoded, sampled):
         font_size=24,
         state=VisualState(position=Vec2(10, 10)),
     )
-    if sampled:
-        node = node.animate(StateFunction(lambda state, _: state), duration=1)
     result = Scene(doc).add(node).compile()
     # Build the independent ASS reference from a safe placeholder event and the
     # explicit encoding above, without passing the literal through the compiler.

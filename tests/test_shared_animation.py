@@ -61,7 +61,6 @@ def test_parent_fade_and_child_jump_share_evaluator_and_compile():
     assert state.opacity == pytest.approx(0.2)
     assert state.position == Vec2(120, 120)
     assert child.at(2).position == Vec2(20, 30)
-    assert scene.compile().event_count > 1
 
 
 def test_binding_validates_atomically_and_release_restores_held_value():

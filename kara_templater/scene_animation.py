@@ -576,7 +576,7 @@ class StateFunction:
     """Custom pure evaluator. Declare written channels for conflict detection.
 
     Randomness must be tied to object identity, not callback invocation order.
-    The compiler reports sampling intervals, not an error bound for this function.
+    Hook export samples this function. ASS export rejects custom frame callbacks.
     """
 
     function: Callable[[VisualState, float], VisualState]

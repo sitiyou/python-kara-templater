@@ -1,10 +1,8 @@
 # Effect gallery
 
-The animated previews on this page show **ASS rendered with libass**. For a
-shader preview and a comparison of the same lyric frame across all three export
-paths, see [Choose an output](../guides/choosing-output.md#one-singing-position-three-renders).
-Each primary example uses fixed content and accepts an output path. From a source
-checkout with the library installed, create `build/` and run the command shown.
+The gallery includes historical libass renders made with the former sampled ASS
+exporter. The scene sources illustrate the effects. For current export support,
+see [Choose an output](../guides/choosing-output.md).
 The wheel does not install the `examples` package.
 
 The previews use the repository test fonts, a dark background, 640-pixel width,
@@ -23,8 +21,7 @@ The preview is a 15fps overview of actual 60fps ASS renders using Sarasa UI J;
 use the videos for timing judgments.
 
 ```sh
-python -m examples.karaoke_catalog build/studio.ass --entry glow_in --exit dissolve_out
-python -m tools.render_karaoke_catalog build/karaoke-catalog
+python -m examples.karaoke_catalog build/studio.hook --entry glow_in --exit dissolve_out
 ```
 
 [Source](../../examples/karaoke_catalog.py) · [Recommended combinations](../tutorials/karaoke-design.md#built-in-animation-combinations)
@@ -35,12 +32,6 @@ Start with [lyric_orchestration.py](../../examples/lyric_orchestration.py) for
 ordinary lyric authoring: one rule binds each line's fade and each singing
 segment's jump, while independent main/harmony Tracks choose their layouts.
 Set `rows` to change the row count and `reset_on_lead` to choose whether a cue restarts the rotation. The custom allocator illustrates taking a solo line out of that rotation.
-
-```sh
-python -m examples.lyric_orchestration build/two-rows.ass
-python -m examples.lyric_orchestration build/three-rows.ass --rows 3
-python -m examples.lyric_orchestration build/custom-layout.ass --custom
-```
 
 The effects below also include direct object and material examples for custom
 geometry and composition. See [Tracks](../guides/tracks.md) for the authoring API.
@@ -101,10 +92,6 @@ Separate body, ruby, fill, outline, and constant glow layers share the original 
 
 [Source: scene_lyrics.py](../../examples/scene_lyrics.py)
 
-```sh
-python -m examples.scene_lyrics build/lyrics.ass
-```
-
 Edit the lyric source, `pulse`, glow factories, and each color-front width.
 
 ## Staggered entrance and exit
@@ -114,10 +101,6 @@ Edit the lyric source, `pulse`, glow factories, and each color-front width.
 Characters enter on offset timelines, move along custom curves, and return to their layout.
 
 [Source: scene_staggered.py](../../examples/scene_staggered.py)
-
-```sh
-python -m examples.scene_staggered build/staggered.ass
-```
 
 Edit `bounce`, `orbit`, per-character delays, and animation envelopes.
 
@@ -129,10 +112,6 @@ Lay out text and ruby along an arc with tangent rotation and repeated singing in
 
 [Source: scene_round.py](../../examples/scene_round.py)
 
-```sh
-python -m examples.scene_round build/round.ass
-```
-
 Edit the layout path, spacing, orientation, and repeat clocks.
 
 ## Sakura particles
@@ -143,10 +122,6 @@ Reusable petals drift along curves and emit from both ambient sources and the ly
 
 [Source: scene_sakura.py](../../examples/scene_sakura.py)
 
-```sh
-python -m examples.scene_sakura build/sakura.ass
-```
-
 Edit `PETAL`, the `petal` factory, emissions, named randomness, and seed.
 
 ## Text fragments
@@ -156,10 +131,6 @@ Edit `PETAL`, the `petal` factory, emissions, named randomness, and seed.
 Split glyph geometry into independent pieces and animate them back into place.
 
 [Source: scene_fragments.py](../../examples/scene_fragments.py)
-
-```sh
-python -m examples.scene_fragments build/fragments.ass
-```
 
 Edit the slicing grid, fragment birth times, offsets, and motion.
 
@@ -185,10 +156,6 @@ Deform contours with an explicit geometry function and time envelope.
 
 [Source: scene_outlines.py](../../examples/scene_outlines.py)
 
-```sh
-python -m examples.scene_outlines build/outlines.ass
-```
-
 Edit the deformation function, point bound, and envelope.
 
 ## Writing and pen motion
@@ -198,10 +165,6 @@ Edit the deformation function, point bound, and envelope.
 Explicit authored strokes reveal progressively while a separate pen follows their clock.
 
 [Source: scene_writing.py](../../examples/scene_writing.py)
-
-```sh
-python -m examples.scene_writing build/writing.ass
-```
 
 Edit stroke paths, progress, lift intervals, and pen appearance; strokes are supplied by the author.
 
@@ -213,10 +176,6 @@ A spatial color field paints text while delayed copies preserve earlier appearan
 
 [Source: scene_gradient.py](../../examples/scene_gradient.py)
 
-```sh
-python -m examples.scene_gradient build/gradient.ass
-```
-
 Edit color stops, field coordinates, echo delays, and opacity.
 
 ## Shape morphing
@@ -226,10 +185,6 @@ Edit color stops, field coordinates, echo delays, and opacity.
 Interpolate corresponding contours and control points over time.
 
 [Source: scene_morph.py](../../examples/scene_morph.py)
-
-```sh
-python -m examples.scene_morph build/morph.ass
-```
 
 Edit the paired paths and interpolation; contour correspondence is explicit.
 
@@ -241,10 +196,6 @@ Fill and outline have independently controlled soft fronts over a constant glow.
 
 [Source: scene_sweep.py](../../examples/scene_sweep.py)
 
-```sh
-python -m examples.scene_sweep build/sweep.ass
-```
-
 Edit front widths, colors, timing, border, and glow; these are separate objects.
 
 ## Inline and positioned lyric cues
@@ -255,16 +206,11 @@ Document markers select custom cue content, independent placement, and ruby timi
 
 [Source: scene_lyric_cues.py](../../examples/scene_lyric_cues.py)
 
-```sh
-python -m examples.scene_lyric_cues build/lyric-cues.ass
-```
-
 Edit CueMarker declarations, CuePreset factories, text, placement, and timing.
 
 ## Further examples
 
-These modules also generate ASS from a checkout. The command shape is
-`python -m examples.MODULE build/output.ass` unless the input column says otherwise.
+These modules demonstrate additional scene and track configurations.
 
 | Modules | Topic | Input |
 | --- | --- | --- |
@@ -280,24 +226,11 @@ These modules also generate ASS from a checkout. The command shape is
 | `scene_follow`, `scene_cue_follow` | World-space following and custom cue motion | Fixed |
 | `scene_keyframes`, `scene_native_tween` | Keyframes and explicit native interpolation | Fixed |
 | `scene_bilingual` | Multiple lyric rows and scripts | Fixed |
-| `scene_composite`, `scene_coverage` | Explicit RGBA raster and coverage composition | Fixed; intentionally larger budgets |
 | `scene_whole_song` | 180-second composition of the twelve primary effects | Fixed; intentionally larger budget |
 | `output_layers` | Shared animations with character-arrival, character and syllable bindings | Fixed |
 
 The `layered_glow` example exports `build(document)` with per-layer clipped glow,
 two-stage highlighting, ruby-specific glow widths and syllable attack/release.
-For CLI use, provide an explicit sampling budget:
-
-```sh
-uv run kara-templater tests/fixtures/layered_glow.ass build/glow.ass \
-  --effect examples/layered_glow.py --max-events 30000
-```
-
-The direct `python -m examples.layered_glow` command reframes to 1920×1080;
-the CLI builder retains the input resolution. Clip and coverage strategies have
-different blur and alpha semantics; coverage is an explicit choice in the
-example's Paint configuration. `_lyrics` is a small shared fixture helper.
-
 For a minimal script that uses only the installed package, start with
 [getting started](../getting-started.md). For your own callbacks and factories,
 read the [custom animation tutorial](../tutorials/custom-animation.md) and

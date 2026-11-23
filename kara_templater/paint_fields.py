@@ -1,7 +1,4 @@
-"""Screen-space RGB fields, compiled to disjoint standard ASS clip bands.
-
-Colors are sampled at band centers in encoded RGB, without alpha crossfading.
-The field colors an already rasterized silhouette: blur does not feather clips.
+"""RGB paint fields for scene evaluation and GPU gradient rendering.
 """
 
 from collections.abc import Callable
@@ -155,15 +152,9 @@ def _bands(
 class LinearGradient:
     """An x/y gradient for fill, outline, or both; screen coordinates by default.
 
-    Integer step controls color band width and the declared maximum band count.
-    Local space uses untransformed drawing coordinates. On an unmasked closed
-    vector path, fill and outline ramps follow translation, rotation and scaling.
-    The path must have fixed geometry, with shadows and blur on separate drawings.
-    ASS samples moving outline bands in screen space. The GPU samples local color directly.
-    For text or a clipped drawing, local gradients require positive axis-aligned
-    transforms and a non-inverse local RectangleKeyframes clip without parent masks.
-    Coverage material composition is unsupported. With native_tweens, eligible
-    scale/opacity curves and a single move share native band events.
+    The hook shades independent fill and outline ramps continuously. Local
+    space attaches color stops to the untransformed drawing. ASS compilation
+    rejects paint fields. The bands() method samples the field at integer steps.
     """
 
     fill: ColorRamp | None = None

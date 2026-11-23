@@ -5,13 +5,9 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
-    Color,
-    ColorRamp,
-    ColorStop,
     Document,
     DriftOut,
     Lifetime,
-    LinearGradient,
     PathObject,
     RectangleClip,
     RectangleKeyframes,
@@ -34,11 +30,6 @@ def subject(duration=2, rate=smooth_rate):
         id="glyph", lifetime=Lifetime(0, duration + 1),
         path=VectorPath.rectangle(48, 32),
         state=VisualState(position=Vec2(32, 40), opacity=0.8),
-        material=LinearGradient(
-            axis="y", space="local",
-            fill=ColorRamp((ColorStop(0, Color.hex("#30FFFF")),
-                            ColorStop(32, Color.hex("#FF60C0")))),
-        ),
         clip=RectangleClip(0, 0, 48, 32, space="local", deform=RectangleKeyframes((
             (0, (0, 0, 0, 32)), (duration, (0, 0, 48, 32)),
         ))),
@@ -80,14 +71,12 @@ def test_curve_bounds_between_grid_points_preserve_source_and_endpoints(duration
 
 
 @pytest.mark.parametrize("rate", (smooth_rate, smoother_rate))
-def test_native_gradient_matches_independent_static_frames_and_reduces_output(rate):
+def test_native_motion_matches_independent_static_frames(rate):
     node = subject(rate=rate)
     doc = Document.create(width=128, height=96)
     scene = Scene(doc).add(node)
     result = scene.compile(native_tweens=True)
-    sampled = scene.compile()
-    assert result.objects[0].strategy == "native-clip-eased-bands"
-    assert result.event_count < sampled.event_count * 0.6
+    assert result.objects[0].strategy == "native-clip-eased"
     assert scene.compile(native_tweens=True, budget=SceneBudget(fps=10)).event_count == result.event_count
     assert isinstance(node.clip, RectangleClip)
     assert isinstance(node.clip.deform, RectangleKeyframes)
@@ -123,13 +112,6 @@ def test_unrepresentable_cubic_or_source_clocks_keep_original_sampling(duration)
     scene = Scene(Document.create(width=128, height=96)).add(node)
     leaf = _leaves(scene, scene.evaluator())[0][0]
     assert _eased_rectangle_leaf(leaf) is leaf
-
-
-def test_sampled_departure_omits_held_transparent_tail():
-    node = subject()
-    result = Scene(Document.create(width=128, height=96)).add(node).compile()
-    assert max(line.end_time for line in result.document.lines) <= 2700
-    assert node.lifetime.end == 3
 
 
 def test_linear_travel_does_not_hide_eased_pivot_curvature_by_endpoint_cancellation():

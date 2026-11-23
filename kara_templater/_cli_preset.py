@@ -17,8 +17,6 @@ from .lyric_highlights import (
 from .lyric_layout import Layout, LayoutContext, LayoutLine, Placement
 from .lyric_line import LyricLine, LyricRule
 from .orchestration import LyricScene, Track, _sources, prepare_tracks
-from .raster_settings import RasterSettings
-from .scene import ObjectGroup, SceneObject
 from .scene_animation import FadeIn, FadeOut, ScalePulse, StatePatch, TimeSpan
 from .timeline import Region
 
@@ -88,33 +86,13 @@ def _passes(line: LyricLine) -> tuple[Highlight, ...]:
 class _Paint:
     before: Paint
     after: Paint
-    raster: RasterSettings | None
 
     def __call__(self, line: LyricLine) -> LyricLine:
-        def before(node: SceneObject) -> SceneObject:
-            if isinstance(node, ObjectGroup):
-                return replace(node, children=tuple(before(c) for c in node.children))
-            return replace(
-                node,
-                state=replace(
-                    node.state, fill=self.before.fill, opacity=self.before.opacity
-                ),
-            )
-
-        base = before(line)
-        assert isinstance(base, LyricLine)
-        return LyricHighlights(
-            highlights=tuple(
-                replace(
-                    h,
-                    paint=StatePatch(fill=self.after.fill, opacity=self.after.opacity),
-                )
-                for h in _passes(line)
-            ),
-            strategy="clip" if self.raster is None else "coverage",
-            settings=self.raster or RasterSettings(),
-        )(base)
-
+        return LyricHighlights.from_singing(
+            StatePatch(fill=self.after.fill, opacity=self.after.opacity),
+            edge_duration=0,
+            base_paint=StatePatch(fill=self.before.fill, opacity=self.before.opacity),
+        )(line)
 
 
 def _measurement_style(style: Style) -> Style:
@@ -145,7 +123,6 @@ def preset_scene(
     preview: float,
     tail: float | None,
     styles: tuple[str, ...] | None,
-    raster: RasterSettings | None,
 ) -> LyricScene:
     rules = []
     if fade_in:
@@ -185,7 +162,7 @@ def preset_scene(
                 tail=tail,
                 effects=(
                     *(tuple(rules)),
-                    _Paint(unsung, sung, raster),
+                    _Paint(unsung, sung),
                 ),
                 styles=tuple(_measurement_style(s) for s in document.styles.values()),
             )

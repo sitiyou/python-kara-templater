@@ -53,7 +53,6 @@ def test_whole_line_fade_and_syllable_jump_compose_without_manual_target_loop():
             original_scene.at(target, 1.25).position + Vec2(0, -10)
         )
         assert evaluator.at(target, 0.1).opacity == pytest.approx(0.5)
-    assert animated.compile().event_count > 1
     assert all(not child.animations for child in original.children)
     assert line.layout.lyrics == original.layout.lyrics
 

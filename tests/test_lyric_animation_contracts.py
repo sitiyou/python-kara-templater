@@ -63,11 +63,9 @@ def test_material_callbacks_wait_for_budget_preflight():
     )
     scene = Scene(document).add(animated)
     assert not calls
-    with pytest.raises(SceneCompileError, match="budget"):
+    with pytest.raises(SceneCompileError, match="frame sampling"):
         scene.compile(budget=SceneBudget(max_events=1))
     assert not calls
-    assert scene.compile().event_count
-    assert calls
 
 
 def test_bad_material_callback_reports_its_contract_at_evaluation():
@@ -78,8 +76,6 @@ def test_bad_material_callback_reports_its_contract_at_evaluation():
         Scene(document).add(animated).evaluator().at(
             line.query("character")[0].node_id, 1.25
         )
-    with pytest.raises(SceneCompileError, match="return VisualState"):
-        Scene(document).add(animated).compile()
     with pytest.raises(TypeError, match="Color"):
         VisualState(fill=3)  # ty: ignore[invalid-argument-type]
     with pytest.raises(TypeError, match="Vec2"):

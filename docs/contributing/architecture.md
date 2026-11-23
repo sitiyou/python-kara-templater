@@ -57,7 +57,7 @@ The glyph remains a lyric target through animation binding. The shared Scene lea
 collector then lowers it and its paint layers to path drawings for ASS and GPU.
 Lyric binding applies Track outline clearance to shaped cluster ink bounds before
 ruby, cues and row allocation. Each cluster retains the cumulative extra distance
-so automatic sweeps and compact ASS timing share the Studio primary-stroke interval or the native font advances.
+so automatic sweeps follow the Studio primary-stroke interval or the native font advances.
 
 Karaoke sweep timing belongs to the lyric engine. Singing progress is measured
 over shaped text geometry. Studio measures the glyph and primary hard stroke,
@@ -76,7 +76,7 @@ source glyph clock, while emitted ornaments keep independent lifetimes.
 ## Compiler and native measurement
 
 scene_output.py performs whole-scene preflight, strategy selection, deterministic
-sampling, event merging, ownership handling, reporting, and final resource checks.
+native ASS lowering, ownership handling, reporting, and final resource checks.
 NativeEvent preserves already-lowered ASS while sharing output/provenance rules.
 Rendered output is a new Document; caller-owned scene/source objects remain intact.
 

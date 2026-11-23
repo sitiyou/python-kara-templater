@@ -55,9 +55,6 @@ def test_world_reference_is_independent_of_order_parent_and_seek_history():
             30 + 100 * max(0, t - 0.5) + 5, 30
         )
     assert evaluator.at("follower", 1).opacity == 1
-    a = scene.compile()
-    assert a.document.dumps() == scene.compile().document.dumps()
-    assert a.objects[0].strategy == "sampled"
 
 
 def test_missing_and_cyclic_references_fail_before_callbacks():
@@ -166,12 +163,6 @@ def test_delayed_target_discontinuities_reach_output_grid():
         leader, text("follow", reference=FollowObject("target", delay=0.2))
     )
     assert 0.537 in scene.evaluator().breakpoints("follow")
-    result = scene.compile()
-    assert any(
-        line.start_time == 540 and "follow}" not in line.text
-        for line in result.document.lines
-        if line.effect.endswith(":follow")
-    )
 
 
 def test_custom_reference_copy_and_internal_retarget_preserve_clock():
@@ -207,62 +198,6 @@ def test_echoes_preserve_reference_history_and_dim_referenced_opacity():
     evaluator = Scene(Document.create()).add(target(), follower, ghost).evaluator()
     assert evaluator.at(ghost.id, 1.2).position == evaluator.at("f", 1).position
     assert evaluator.at(ghost.id, 1.2).opacity == 0.4
-    Scene(Document.create()).add(target(), follower, ghost).compile()
-
-
-def test_rendered_world_follow_matches_explicit_transform():
-    from kara_templater import PathObject, VectorPath
-    from kara_templater._raster import rasterize
-
-    leader = ObjectGroup(
-        id="leader-parent",
-        lifetime=Lifetime(0, 3),
-        state=VisualState(position=Vec2(80, 60), opacity=0.7),
-        children=(
-            text(
-                "leader",
-                state=VisualState(scale=Vec2(1.2, 1.2), rotation=20, opacity=0.8),
-                animations=(
-                    AnimationClip(0, 2, Tween(StatePatch(position=Vec2(100, 0)))),
-                ),
-            ),
-        ),
-    )
-    follower = PathObject(
-        id="follower",
-        lifetime=Lifetime(0, 3),
-        path=VectorPath.rectangle(40, 20),
-        reference=FollowObject(
-            "leader",
-            offset=Vec2(0, 50),
-            delay=0.2,
-            channels=frozenset(("position", "scale", "rotation", "opacity")),
-        ),
-    )
-    parent = ObjectGroup(
-        id="follower-parent",
-        lifetime=Lifetime(0, 3),
-        state=VisualState(position=Vec2(900, 900), opacity=0.1),
-        children=(follower,),
-    )
-    document = Document.create(width=320, height=240)
-    actual = Scene(document).add(leader, parent).compile().document.dumps()
-    # The 1.00–1.02s interval samples at 1.01s, looking up the target at 0.81s.
-    # Explicit world channels replace the follower parent's transform/opacity.
-    expected = replace(
-        follower,
-        reference=None,
-        state=VisualState(
-            position=Vec2(80 + 50 * 0.81, 110),
-            scale=Vec2(1.2, 1.2),
-            rotation=20,
-            opacity=0.7 * 0.8,
-        ),
-    )
-    reference = Scene(document).add(leader, expected).compile().document.dumps()
-    pixels = rasterize(actual, 1000, (320, 240)).rgba
-    assert any(pixels)
-    assert pixels == rasterize(reference, 1000, (320, 240)).rgba
 
 
 def test_repeated_reference_lookup_shares_one_state_within_a_seek():

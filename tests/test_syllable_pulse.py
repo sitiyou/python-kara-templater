@@ -52,16 +52,6 @@ def test_untimed_next_unit_uses_release_instead_of_skipping_ahead():
     assert clip.duration == pytest.approx(0.6)
 
 
-@pytest.mark.parametrize("parsed", (False, True))
-def test_constructed_and_parsed_ass_share_common_compilation(parsed):
-    doc, track = prepare()
-    if parsed:
-        doc = Document.parse(doc.dumps())
-    result = prepare_tracks(doc, tracks=(track,)).compile()
-    assert result.event_count > 0
-    assert not any(report.strategy == "native-event" for report in result.objects)
-
-
 def test_zero_duration_uses_authored_release_and_factory_runs_once_per_target():
     doc, track = prepare(r"{\k0}A", end=1010)
     calls = []
@@ -78,5 +68,3 @@ def test_zero_duration_uses_authored_release_and_factory_runs_once_per_target():
     node = scene.lines[0].children[0]
     assert node.animations[0].duration == 0.2
     assert node.at(1.1).scale.x == 1
-    scene.compile()
-    assert len(calls) == 1

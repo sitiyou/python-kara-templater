@@ -27,7 +27,6 @@ from .lyric_line import (
     LyricLine,
     LyricRule,
     LyricTarget,
-    _KaraokePaint,
     _line_x,
 )
 from .model import Box
@@ -43,6 +42,7 @@ from .scene import (
     RectangleKeyframes,
     SceneObject,
     TextObject,
+    _ColorStripClip,
 )
 from .scene_animation import (
     ScalePulse,
@@ -933,7 +933,8 @@ class KaraokeEffects:
     following particles inherit the glyph's hard outline radii relative to its em;
     a second hard rim is a separate drawing of the same moving particle.
 
-    Standard ASS is supported (complex motion is sampled). GPU enhancement uses
+    ASS supports native clips and eligible transforms. Complex motion, gradients
+    and soft fronts raise SceneCompileError on ASS export. Hook export uses
     the same Scene; dynamic blur can require additional cached native coverage.
     No dependency on Manim, Qt, or the reference application is introduced.
     """
@@ -1239,24 +1240,7 @@ class KaraokeEffects:
                         rules.append(rule)
             pulses = line._resolve(tuple(rules))
             line = replace(line, _scheduled=(*line._scheduled, *(replace(b, singing_release=True) for b in pulses)))
-        assert self.sung is not None and self.unsung is not None
-        return replace(
-            line,
-            _karaoke_paint=None
-            if "scanline" in self.singing
-            else _KaraokePaint(
-                self.sung,
-                self.unsung,
-                entry_total,
-                exit_total,
-                self.singing != "no_wipe",
-                self.unsung_outline,
-                self.sung_outline,
-                widths,
-                self.reverse_wipe,
-                self.ruby_reading_units,
-            ),
-        )
+        return line
 
     def _scanline(
         self, layer: _ScanlineLayer, index: int, path: _BandPath,
@@ -1317,6 +1301,7 @@ class KaraokeEffects:
                     yield lo, 0, strength, left_paint
                     yield 0, hi, strength, right_paint
 
+        clip_type = _ColorStripClip if softness else RectangleClip
         for strip, (lo, hi, strength, paint) in enumerate(painted_slices()):
             empty = (0.0, top, 0.0, bottom)
             mask = RectangleKeyframes((
@@ -1350,7 +1335,7 @@ class KaraokeEffects:
                 reference=None,
                 layer=node.layer if sides else node.layer + 2,
                 state=state,
-                clip=RectangleClip(0, 0, 1, 1, space="local", deform=mask),
+                clip=clip_type(0, 0, 1, 1, space="local", deform=mask),
             )
             yield copy
 

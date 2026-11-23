@@ -66,7 +66,7 @@ class Petal:
     """A seeded falling petal with curved drift, rotation and projected flutter.
 
     size/fall are script pixels, duration is seconds. Unlike Sparkle this uses
-    a sampled custom Transform for flutter, so inspect compilation cost.
+    a custom Transform for flutter and requires hook export.
     """
 
     color: Color | None = None
@@ -109,7 +109,7 @@ class Ribbon:
     duration is head travel time and lag is tail delay in seconds. width, travel
     and bend use local script pixels. Keyed variation changes travel/bend once
     at birth; geometry then uses the same TrailPath available to custom authors.
-    ASS samples the changing stroke, so inspect output costs at high rates.
+    ASS export does not support changing path geometry.
     """
 
     color: Color | None = None

@@ -5,20 +5,16 @@ import pytest
 from kara_templater import (
     Contour,
     CubicSegment,
-    Document,
     GeometryError,
     Lifetime,
     MoveAlong,
     PathObject,
     Polyline,
-    Scene,
-    SceneBudget,
     TrailPath,
     Vec2,
     VisualState,
     smooth_rate,
 )
-from kara_templater._raster import rasterize
 from kara_templater.path_geometry import path_bounds
 
 
@@ -77,24 +73,6 @@ def test_trail_rejects_geometry_budget_and_invalid_parameters_before_sampling():
     trail = TrailPath(path, rate=lambda p: float("nan"))
     with pytest.raises(ValueError):
         trail.sample(trail.full_path, 0.5)
-
-
-def test_ass_trail_clock_and_visible_interval_match_independent_geometry():
-    trail = TrailPath(Polyline((Vec2(), Vec2(100, 0))), duration=1, lag=0.25, width=4)
-    node = PathObject(
-        id="trail", lifetime=Lifetime(2, 3.25), path=trail.full_path, deform=trail,
-        state=VisualState(position=Vec2(20, 30)),
-    )
-    doc = Document.create(width=160, height=80)
-    result = Scene(doc).add(node).compile(budget=SceneBudget(fps=100))
-    for ms, interval in ((2100, (20, 30)), (2500, (45, 70)), (3100, (105, 120))):
-        pixels = rasterize(result.document.dumps(), ms, (160, 80)).rgba
-        xs = [i % 160 for i, alpha in enumerate(pixels[3::4]) if alpha > 128]
-        assert xs
-        assert abs(min(xs) - interval[0]) <= 1
-        assert abs(max(xs) + 1 - interval[1]) <= 1
-    for ms in (1900, 3300):
-        assert not any(rasterize(result.document.dumps(), ms, (160, 80)).rgba[3::4])
 
 
 def test_fractional_birth_accepts_exact_tail_end_but_rejects_actual_overrun():

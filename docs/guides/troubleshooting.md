@@ -18,7 +18,7 @@ reproduces it. Keep the traceback and exception cause when debugging callbacks.
 | Object follows the wrong position | Distinguish local object evaluation from world-space SceneEvaluator references |
 | PlayRes mismatch | Check Document script dimensions and the resolution used by the renderer or preview |
 | Editable Track rejects source style | Use native mode for unsupported underline/strikeout/angle/BorderStyle, or author the desired geometry explicitly |
-| A pulse disappears or a soft wipe looks sharper after export | Check which ASS path produced the file. [Compare the three renders](choosing-output.md#one-singing-position-three-renders) before changing the timing or colors. |
+| A pulse disappears or a soft wipe looks sharper after export | Check which ASS path produced the file. [Check the supported effects](choosing-output.md) before changing the timing or colors. |
 | Glow is cut off at a color front | Native clipping is post-render; use explicit coverage/raster material semantics for color-before-blur |
 | Group alpha looks too dense | Ordinary groups apply alpha per drawing layer; choose explicit offscreen/coverage composition when required |
 | Event, byte, active, path, band, or boolean budget fails | Inspect SceneResult/ObjectReport, simplify the effect, or deliberately raise the relevant SceneBudget/RasterSettings limit |

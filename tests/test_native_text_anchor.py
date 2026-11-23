@@ -5,13 +5,9 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
-    Color,
-    ColorRamp,
-    ColorStop,
     Document,
     DriftOut,
     Lifetime,
-    LinearGradient,
     RectangleClip,
     RectangleKeyframes,
     ScalePulse,
@@ -29,7 +25,7 @@ from kara_templater.layout import text_extents
 
 @pytest.mark.parametrize("text,italic,spacing", (("A", False, 0), ("gj", True, 0), ("AV", False, 1.5)))
 @pytest.mark.parametrize("travel_rate", (None, linear_rate))
-def test_centered_text_pulse_keeps_pixels_and_uses_one_event_per_band(text, italic, spacing, travel_rate):
+def test_centered_text_pulse_keeps_pixels_and_uses_one_event(text, italic, spacing, travel_rate):
     width, height, _, _ = text_extents(Style(
         fontname="DejaVu Sans", fontsize=48, italic=italic, spacing=spacing,
     ), text)
@@ -41,16 +37,13 @@ def test_centered_text_pulse_keeps_pixels_and_uses_one_event_per_band(text, ital
         clip=RectangleClip(0, -3, width, height + 3, space="local", deform=RectangleKeyframes((
             (0, (0, -3, 0, height + 3)), (2, (0, -3, width, height + 3)),
         ))),
-        material=LinearGradient(axis="y", space="local", fill=ColorRamp((
-            ColorStop(0, Color.hex("#80FFFF")), ColorStop(height, Color.hex("#FF80FF")),
-        ))),
     ).animate(ScalePulse(peak=1.1, peak_at=0.42, pivot=pivot, rate=smoother_rate), duration=2)
     doc = Document.create(width=192, height=128)
     scene = Scene(doc).add(node)
     result = scene.compile(native_tweens=True)
     report = result.objects[0]
-    assert report.strategy == "native-clip-eased-bands"
-    assert report.events == report.peak_bands
+    assert report.strategy == "native-clip-eased"
+    assert report.events == 1
     assert all(r"\an5" in line.text for line in result.document.lines)
     assert node.alignment == 7 and scene.objects[0] is node
     assert isinstance(node.clip, RectangleClip)
@@ -83,7 +76,7 @@ def test_centered_text_pulse_keeps_pixels_and_uses_one_event_per_band(text, ital
     assert output.event_count > result.event_count
     assert any(r"\move(" in line.text for line in output.document.lines)
     if travel_rate is linear_rate:
-        assert output.event_count <= 3 * report.peak_bands
+        assert output.event_count <= 3
     time = 2.28
     static = replace(drifting, state=drifting.at(time), animations=(), clip=replace(
         node.clip, deform=RectangleKeyframes(((0, (0, -3, width, height + 3)),)),

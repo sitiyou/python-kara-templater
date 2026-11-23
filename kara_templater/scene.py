@@ -172,6 +172,10 @@ class RectangleClip:
             raise ValueError("clip must have positive width and height")
 
 
+class _ColorStripClip(RectangleClip):
+    """Moving color strip used to draw soft scanlines and blended glow."""
+
+
 @dataclass(frozen=True, kw_only=True)
 class _CellWipeClip(RectangleClip):
     """Vertical cell traverse. Core times use the same local clock as the rectangle."""
@@ -599,12 +603,13 @@ class Scene:
         self,
         *,
         budget: SceneBudget | None = None,
-        native_tweens: bool = False,
+        native_tweens: bool = True,
         on_estimate: Callable[[SceneEstimate], None] | None = None,
     ) -> SceneResult:
         """Compile a new ASS Document and reports under explicit Scene budgets.
 
-        Eligible continuous Tween lowering is opt-in.
+        ASS supports native motion and hard clips. Frame sampling, paint fields,
+        feathered wipes and coverage groups raise SceneCompileError.
         on_estimate runs after preflight and before frame callbacks; raising
         cancels compilation without changing the scene or source document.
         """

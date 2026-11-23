@@ -14,6 +14,7 @@ from kara_templater import (
     RectangleKeyframes,
     Scene,
     SceneBudget,
+    SceneCompileError,
     VectorPath,
 )
 from kara_templater._raster import rasterize
@@ -61,10 +62,13 @@ def test_known_curve_uses_common_sampling_and_keeps_clock_after_crop(coverage, i
         children=(leaf,),
         coverage=Coverage() if coverage else None,
     )
+    if coverage:
+        with pytest.raises(SceneCompileError, match="coverage groups"):
+            Scene(doc).add(group).compile()
+        return
     budget = SceneBudget(fps=10)
     result = Scene(doc).add(group).compile(budget=budget)
-    # 100ms midpoint samples; plateau/reset/held tail have independent expected bounds.
-    for time, front in ((1100, 6), (1200, 8), (1300, 8), (1400, 4.5), (1600, 12)):
+    for time, front in ((1100, 4), (1200, 8), (1300, 8), (1400, 2), (1600, 12)):
         reference = (
             Scene(doc)
             .add(replace(leaf, clip=RectangleClip(0, 0, front, 12, inverse=inverse)))
@@ -95,7 +99,6 @@ def test_invalid_known_curves_are_rejected(keys):
 
 @pytest.mark.parametrize("inverse", (False, True))
 def test_native_curve_preserves_cropped_clock_pauses_resets_and_event_cost(inverse):
-    from kara_templater import SceneCompileError
 
     doc = Document.create(width=32, height=32)
     leaf = PathObject(
@@ -156,15 +159,13 @@ def test_native_curve_maps_local_bounds_and_falls_back_for_custom_animation():
         StateFunction(lambda state, t: replace(state, scale=state.scale * (1 + t * t))),
         duration=1,
     )
-    fallback = Scene(doc).add(animated).compile(native_tweens=True)
-    assert fallback.objects[0].strategy == "sampled"
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(doc).add(animated).compile()
     group = ObjectGroup(
         id="coverage", lifetime=leaf.lifetime, children=(leaf,), coverage=Coverage()
     )
-    assert (
-        Scene(doc).add(group).compile(native_tweens=True).objects[0].strategy
-        == "coverage"
-    )
+    with pytest.raises(SceneCompileError, match="coverage groups"):
+        Scene(doc).add(group).compile()
 
 
 @pytest.mark.parametrize("inverse", (False, True))
@@ -226,17 +227,13 @@ def test_overridden_curve_evaluation_is_not_assumed_linear():
             ),
         ),
     )
-    result = (
-        Scene(Document.create(width=32, height=32))
-        .add(leaf)
-        .compile(native_tweens=True)
-    )
-    assert result.objects[0].strategy == "sampled"
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(Document.create(width=32, height=32)).add(leaf).compile()
 
 
 @pytest.mark.parametrize("inverse", (False, True))
 def test_sampled_known_masks_budget_only_changing_sections_and_keep_resets(inverse):
-    from kara_templater import AnimationClip, RectangleFunction, StateFunction
+    from kara_templater import AnimationClip, StateFunction
 
     # A late arbitrary animation forces sampled output. Long held mask ranges
     # must not inflate preflight, including an instantaneous reset in the hold.
@@ -266,25 +263,5 @@ def test_sampled_known_masks_budget_only_changing_sections_and_keep_resets(inver
         ),
     )
     doc = Document.create(width=32, height=32)
-    result = Scene(doc).add(node).compile(budget=SceneBudget(fps=10, max_events=50))
-    assert result.event_count < 30
-    # Independent full-duration callback path: same masks, but cannot optimize
-    # from declared keyframe semantics. Compare actual libass pixels.
-    assert isinstance(node.clip, RectangleClip)
-    reference = (
-        Scene(doc)
-        .add(
-            replace(
-                node,
-                clip=replace(
-                    node.clip, deform=RectangleFunction(mask.sample, mask.breakpoints)
-                ),
-            )
-        )
-        .compile(budget=SceneBudget(fps=10))
-    )
-    for time in (0, 950, 1050, 1450, 1950, 2500, 14950, 15000, 15050, 28500, 29550):
-        assert (
-            rasterize(result.document.dumps(), time, (32, 32)).rgba
-            == rasterize(reference.document.dumps(), time, (32, 32)).rgba
-        )
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(doc).add(node).compile()

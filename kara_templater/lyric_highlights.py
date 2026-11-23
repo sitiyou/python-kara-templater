@@ -20,16 +20,13 @@ from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField, _mix
 from .parameters import LengthExpr, _width
 from .raster_settings import RasterSettings
 from .scene import (
-    NativeEvent,
     ObjectGroup,
-    PathObject,
     RectangleClip,
     RectangleFunction,
     RectangleKeyframes,
-    Scene,
     SceneObject,
-    TextObject,
     _CellWipeClip,
+    _ColorStripClip,
 )
 from .scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
 from .scene_lyrics import LyricLayout, _after_onset
@@ -418,61 +415,10 @@ def _owners(
 class _FeatheredSingingClip(RectangleClip):
     """Mix incoming ink into the sung layer behind its moving right edge."""
     width: float
-    ass_bands: int = 0
     unsung_fill: Color
     unsung_outline: Color
     unsung_gradient: LinearGradient | None = None
     front_color: Color | None = None
-
-
-def _ass_feathers(scene: Scene) -> Scene:
-    """Lower requested flat-colour hook fronts to disjoint native ASS clip strips."""
-    visited_groups: set[int] = set()
-
-    def expand(node: SceneObject | NativeEvent) -> tuple[SceneObject | NativeEvent, ...]:
-        if isinstance(node, ObjectGroup):
-            if id(node) in visited_groups:
-                return (node,)
-            visited_groups.add(id(node))
-            children = tuple(piece for child in node.children for piece in expand(child)
-                             if not isinstance(piece, NativeEvent))
-            if len(children) != len(node.children) or any(a is not b for a, b in zip(children, node.children, strict=False)):
-                return (replace(node, children=children),)
-        if not isinstance(node, (TextObject, PathObject)) or not isinstance(node.clip, _FeatheredSingingClip):
-            return (node,)
-        clip = node.clip
-        if not clip.ass_bands:
-            return (node,)
-        if node.material or clip.unsung_gradient or clip.front_color or not isinstance(clip.deform, RectangleKeyframes):
-            raise ValueError("ASS sweep bands require a flat before/after palette and rectangle keyframes")
-        keys = clip.deform.keyframes
-        # Ownership clips have one fixed outer bound and one moving front.
-        forward = all(rect[0] == keys[0][1][0] for _, rect in keys)
-        count = min(clip.ass_bands, max(1, ceil(clip.width)))
-        pieces = []
-        for i in range(count + 1):
-            start, end = clip.width * i / count, clip.width * (i + 1) / count
-            frames = []
-            for t, (left, top, right, bottom) in keys:
-                if forward:
-                    bounds = (left if i == count else max(left, right-end), top, max(left, right-start), bottom)
-                else:
-                    bounds = (min(right, left+start), top, right if i == count else min(right, left+end), bottom)
-                frames.append((t, bounds))
-            progress = min(1., (i + .5) / count)
-            mix = progress ** 2 * (3 - 2 * progress)
-            pieces.append(replace(
-                node, id=node.id if i == count else f"{node.id}/sweep-band:{i}",
-                state=replace(node.state, fill=_mix(clip.unsung_fill, node.state.fill, mix),
-                              outline=_mix(clip.unsung_outline, node.state.outline, mix)),
-                clip=RectangleClip(0, 0, 1, 1, space="local", deform=RectangleKeyframes(tuple(frames))),
-            ))
-        return tuple(pieces)
-
-    objects = [piece for obj in scene.objects for piece in expand(obj)]
-    if len(objects) == len(scene.objects) and all(a is b for a, b in zip(objects, scene.objects, strict=True)):
-        return scene
-    return replace(scene, objects=objects)
 
 
 @dataclass(frozen=True)
@@ -582,9 +528,10 @@ class _Ownership:
             )
 
         if start == end:
-            return RectangleKeyframes(
-                ((start, bounds(origin - sign * padding)), (end, bounds(finish + sign * padding)))
-            )
+            empty = self.strip(0, 0)
+            full = self.strip(-65536, 65536)
+            first, last = (full, empty) if self.owner is None else (empty, full)
+            return RectangleKeyframes(((start, first), (end, last)))
         keys = [(start, bounds(origin + sign * feather / 2))]
         for index, part in enumerate(passes):
             if index and part.time.start > passes[index-1].time.end:
@@ -656,7 +603,7 @@ def _split_glow(
                 return ownership.strip(x + start, 65536 if end is None else x + end)
             return ownership.strip(-65536 if end is None else x - end, x - start)
 
-        return RectangleClip(0, 0, 1, 1, space="local", deform=RectangleKeyframes(
+        return _ColorStripClip(0, 0, 1, 1, space="local", deform=RectangleKeyframes(
             tuple((t, bounds(rect[edge])) for t, rect in keys.keyframes)
         ))
 
@@ -709,7 +656,6 @@ class LyricHighlights:
     hook_feather: float | LengthExpr = 0
     edge_duration: float = _EDGE_SECONDS
     blend_glow: bool = True
-    ass_feather_bands: int = 0
     front_color: Color | None = None
 
     @property
@@ -745,7 +691,6 @@ class LyricHighlights:
         ruby_fill: Color | None = None,
         edge_duration: float = _EDGE_SECONDS,
         blend_glow: bool = True,
-        ass_feather_bands: int = 0,
         front_color: Color | None = None,
         settings: RasterSettings | None = None,
     ) -> LyricHighlights:
@@ -761,8 +706,6 @@ class LyricHighlights:
         equal portions of their body, holding their position through rests.
         ruby_fill overrides the sung fill of all readings independently.
         blend_glow=False gives each side a clipped halo with its own color.
-        ass_feather_bands also draws a flat palette soft front in standard ASS
-        using up to 16 moving color strips (zero disables the approximation).
         Contiguous timed readings divide their host wipe equally at reading
         checkpoints. With ruby_reading_units=True, visible reading characters instead
         receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
@@ -780,7 +723,7 @@ class LyricHighlights:
         """
         return cls(
             highlights=_SingingHighlights(paint, glow, material, wipe, reverse, ruby_reading_units, segment_colors, ruby_fill),
-            edge_duration=edge_duration, blend_glow=blend_glow, ass_feather_bands=ass_feather_bands,
+            edge_duration=edge_duration, blend_glow=blend_glow,
             glow=base_glow,
             base_material=base_material,
             hook_feather=hook_feather,
@@ -792,8 +735,6 @@ class LyricHighlights:
 
     def __post_init__(self) -> None:
         finite(self.edge_duration)
-        if type(self.ass_feather_bands) is not int or not 0 <= self.ass_feather_bands <= 16:
-            raise ValueError("ASS sweep band count must be in 0..16")
         if self.edge_duration < 0:
             raise ValueError("sweep edge duration must be nonnegative")
         if not isinstance(self.hook_feather, LengthExpr):
@@ -952,7 +893,6 @@ class LyricHighlights:
                 automatic
                 and len(chosen) == 1
                 and chosen[0].passes[-1].round == 0
-                and chosen[0].passes[-1].time.end > chosen[0].passes[0].time.start
             )
             # One shared spatial margin keeps body/glow ownership disjoint.
             states = (self.base_paint.interpolate(node.state, 1), *(h.paint.interpolate(node.state, 1) for h in chosen))
@@ -1073,7 +1013,7 @@ class LyricHighlights:
                                 plain_clip.bottom,
                                 space=plain_clip.space,
                                 deform=plain_clip.deform,
-                                width=widths[character.object.font_size] / scale.x, ass_bands=self.ass_feather_bands,
+                                width=widths[character.object.font_size] / scale.x,
                                 unsung_fill=unsung.fill,
                                 unsung_outline=unsung.outline,
                                 unsung_gradient=before_material if isinstance(before_material, LinearGradient) else None,

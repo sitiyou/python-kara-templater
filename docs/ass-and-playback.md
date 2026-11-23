@@ -1,6 +1,6 @@
 # ASS output and playback
 
-The ASS exporter resolves Python objects, animation callbacks and input cue
+The ASS exporter resolves supported scene objects, native animations and input cue
 markers during generation; the player needs no
 kara-templater plugin or patched libass. Use a player with ASS support and provide
 the selected fonts.
@@ -8,15 +8,11 @@ the selected fonts.
 ## What the format can express
 
 Text, vector drawings, transforms, clips, alpha, color, blur, and multiple timed
-events provide the building blocks. Curves, geometry changes, gradients, and
-particles are compiled into those primitives. Scene offers explicit budgets and
-reports because complex effects can create large files or many active events.
-
-ASS has no general-purpose shader, arbitrary blend modes, video textures, or
-3D camera. Raster/coverage exits approximate richer composition with standard
-ASS rectangles; their event and playback costs remain real. Morphing requires
-corresponding contours, writing requires authored strokes, and custom callback
-sampling does not establish a continuous error bound.
+events provide the building blocks. The compiler supports static text and paths, native movement, eligible transforms and
+hard wipes. Effects that require per-frame events, spatial color bands or raster
+coverage groups raise `SceneCompileError` during export. Use the hook exporter for
+glyph gradients, feathered wipes and sampled particle motion. See
+[Choose an output](guides/choosing-output.md).
 
 Preserving an ASS record does not mean every override can become an editable
 Scene object. NativeEvent preserves already-lowered behavior; text/lyric

@@ -5,10 +5,8 @@ import pytest
 from kara_templater import (
     CYAN,
     PINK,
-    Document,
     Lifetime,
     PathObject,
-    Scene,
     StateKeyframe,
     StatePatch,
     Timeline,
@@ -45,7 +43,7 @@ def test_keyframes_capture_state_keep_omitted_channels_and_seek():
     assert timeline.clips[-1].start == 2.25
 
 
-def test_keyframes_compile_identically_to_explicit_plays_and_repeat():
+def test_keyframes_evaluate_identically_to_explicit_plays_and_repeat():
     frames = (
         StateKeyframe(0.35, StatePatch(position=Vec2(30, 10))),
         StateKeyframe(0.75, StatePatch(position=Vec2(), fill=PINK)),
@@ -54,9 +52,9 @@ def test_keyframes_compile_identically_to_explicit_plays_and_repeat():
     explicit = Timeline().wait(0.1)
     explicit.play(Tween(frames[0].target), duration=0.35)
     explicit.play(Tween(frames[1].target), duration=0.4).repeat(2)
-    actual = Scene(Document.create()).add(square(keyed)).compile()
-    expected = Scene(Document.create()).add(square(explicit)).compile()
-    assert actual.document.dumps() == expected.document.dumps()
+    actual, expected = square(keyed), square(explicit)
+    for time in (0, 0.1, 0.3, 0.45, 0.7, 0.85, 1.2, 1.6):
+        assert actual.at(time) == expected.at(time)
 
 
 def test_keyframe_conflict_is_atomic_and_parallel_channels_work():

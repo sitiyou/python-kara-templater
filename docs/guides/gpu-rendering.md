@@ -8,9 +8,7 @@ The hook includes glyph coverage, timing, gradients, clips and motion. The
 rendering machine needs FFmpeg with libplacebo and a working Vulkan device.
 The fonts and the Python authoring environment are needed at export time.
 
-For a prepared lyric scene, write the playback ASS with
-`scene.export_compact_ass("song.ass")` and the full shader with
-`scene.export_hook("song.hook", fps=60)`. Both use the same prepared scene.
+Export a prepared lyric scene with `scene.export_hook("song.hook", fps=60)`.
 See [Export a song](karaoke-effects.md#export-a-song) for a Track-based entry point.
 The lower-level example below supplies its own fallback for a raw Scene.
 

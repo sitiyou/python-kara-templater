@@ -35,7 +35,7 @@ def test_parse_before_binding_preserves_cues_colors_ruby_and_output(tmp_path: Pa
         index = len(source.records) - 1
         lyrics = layout_document_lyrics(source, index, display=Lifetime(0, 4))
         bound = bind_lyric_cues(
-            lyrics, {"bars": CuePreset(factory=BarsCue(), keep_space=False)}
+            lyrics, {"bars": CuePreset(factory=BarsCue())}
         )
         scene = Scene(source).add(bound.group(), *bound.independent)
         scene.replace_source(index)

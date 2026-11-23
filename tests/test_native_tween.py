@@ -14,6 +14,7 @@ from kara_templater import (
     ObjectGroup,
     Scene,
     SceneBudget,
+    SceneCompileError,
     StatePatch,
     Style,
     TextObject,
@@ -76,10 +77,9 @@ def rgba(script: str, ms: int) -> Image.Image:
 
 def test_continuous_tween_matches_handwritten_ass_and_reduces_cost():
     scene = Scene(Document.create(width=640, height=360)).add(subject())
-    sampled = scene.compile()
     native = scene.compile(native_tweens=True, budget=SceneBudget(max_events=1))
     assert native.event_count == native.estimated_events == 1
-    assert sampled.event_count > 40
+    assert scene.compile().event_count == 1
     assert native.objects[0].strategy == "native-tween"
     reference = Document.create(
         width=640,
@@ -117,7 +117,7 @@ def test_continuous_tween_matches_handwritten_ass_and_reduces_cost():
         "parent",
     ],
 )
-def test_ineligible_tweens_remain_sampled(change: str):
+def test_ineligible_tweens_require_sampling(change: str):
     node = subject()
     clip = node.animations[0]
     if change == "ease":
@@ -141,8 +141,8 @@ def test_ineligible_tweens_remain_sampled(change: str):
         if change == "parent"
         else node
     )
-    result = Scene(Document.create()).add(root).compile(native_tweens=True)
-    assert result.objects[0].strategy.startswith("sampled")
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(Document.create()).add(root).compile()
 
 
 def test_sequential_and_parallel_path_tweens_preserve_capture_and_birth_clock():
@@ -243,7 +243,7 @@ def test_common_fades_on_parent_match_continuous_handwritten_ass():
     native = scene.compile(native_tweens=True, budget=SceneBudget(max_events=1))
     assert native.event_count == 1
     assert native.objects[0].strategy == "native-tween"
-    assert scene.compile().event_count > 20
+    assert scene.compile().event_count == 1
     reference = Document.create(
         width=640,
         height=360,
@@ -270,7 +270,7 @@ def test_common_fades_on_parent_match_continuous_handwritten_ass():
         )
 
 
-def test_inherited_opacity_products_and_delayed_reveal_remain_sampled():
+def test_inherited_opacity_products_and_delayed_reveal_require_sampling():
     from kara_templater import FadeIn
 
     child = TextObject(id="word", text="W", lifetime=Lifetime(0, 2)).animate(
@@ -281,17 +281,13 @@ def test_inherited_opacity_products_and_delayed_reveal_remain_sampled():
     ).animate(FadeIn(), duration=1)
     scene = Scene(Document.create()).add(parent)
     assert scene.evaluator().at("word", 0.5).opacity == 0.25
-    assert scene.compile(native_tweens=True).objects[0].strategy.startswith("sampled")
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        scene.compile()
     delayed = TextObject(id="late", text="W", lifetime=Lifetime(0, 2)).animate(
         FadeIn(), at=0.5, duration=0.5
     )
-    assert (
-        Scene(Document.create())
-        .add(delayed)
-        .compile(native_tweens=True)
-        .objects[0]
-        .strategy.startswith("sampled")
-    )
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(Document.create()).add(delayed).compile()
 
 
 def test_linear_nested_sequence_keeps_native_interpolation_and_released_scope_does_not():
@@ -343,16 +339,11 @@ def test_linear_nested_sequence_keeps_native_interpolation_and_released_scope_do
             is None
         )
     released = replace(node, animations=(replace(node.animations[0], hold=False),))
-    assert (
-        Scene(Document.create())
-        .add(released)
-        .compile(native_tweens=True)
-        .objects[0]
-        .strategy.startswith("sampled")
-    )
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(Document.create()).add(released).compile()
 
 
-def test_instant_opacity_changes_use_common_sampling_and_preserve_exact_boundaries():
+def test_instant_opacity_changes_require_sampling():
     from kara_templater import StateFunction
 
     base = TextObject(
@@ -371,17 +362,7 @@ def test_instant_opacity_changes_use_common_sampling_and_preserve_exact_boundari
     node = base.animate(jump, duration=3, breakpoints=(1,))
     document = Document.create(width=640, height=360)
     scene = Scene(document).add(node)
-    result = scene.compile(native_tweens=True)
-    assert result.objects[0].strategy.startswith("sampled")
-    assert result.event_count == 2
-    for time, opacity in ((0, 0.2), (990, 0.2), (1000, 0.8), (2500, 0.8)):
-        reference = (
-            Scene(document)
-            .add(replace(base, state=replace(base.state, opacity=opacity)))
-            .compile()
-        )
-        assert (
-            rgba(result.document.dumps(), time).tobytes()
-            == rgba(reference.document.dumps(), time).tobytes()
-        )
-    assert scene.compile(native_tweens=True).document.dumps() == result.document.dumps()
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        scene.compile()
+    assert node.at(0.99).opacity == 0.2
+    assert node.at(1).opacity == 0.8

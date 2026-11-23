@@ -35,7 +35,7 @@ Callback-free coverage work counts, before pixels or ASS rectangles exist.
 frames includes declared breakpoints; target_samples is frames times drawable
 leaves. Neither predicts encoded event count, memory use, or elapsed time.
 
-[Source](../../kara_templater/scene_output.py#L121)
+[Source](../../kara_templater/scene_output.py#L116)
 
 ```python
 CoverageEstimate(
@@ -95,7 +95,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L532)
+[Source](../../kara_templater/scene.py#L536)
 
 ```python
 NativeEvent(
@@ -120,7 +120,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
 
-[Source](../../kara_templater/scene.py#L440)
+[Source](../../kara_templater/scene.py#L444)
 
 ```python
 ObjectGroup(
@@ -213,7 +213,7 @@ Per-object output strategy, event count, source origin, sample interval, and obs
 
 Optional metrics apply only to relevant strategies.
 
-[Source](../../kara_templater/scene_output.py#L148)
+[Source](../../kara_templater/scene_output.py#L142)
 
 ```python
 ObjectReport(
@@ -253,7 +253,7 @@ Coordinates are local to its local origin and parent transforms. Set filled=Fals
 for an outline-only drawing. The border radius uses script pixels by default.
 With scale_border=True the radius is measured in local path coordinates.
 
-[Source](../../kara_templater/scene.py#L401)
+[Source](../../kara_templater/scene.py#L405)
 
 ```python
 PathObject(
@@ -477,7 +477,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L550)
+[Source](../../kara_templater/scene.py#L554)
 
 ```python
 Scene(
@@ -511,7 +511,8 @@ Scene.add(
 
 Compile a new ASS Document and reports under explicit Scene budgets.
 
-Eligible continuous Tween lowering is opt-in.
+ASS supports native motion and hard clips. Frame sampling, paint fields,
+feathered wipes and coverage groups raise SceneCompileError.
 on_estimate runs after preflight and before frame callbacks; raising
 cancels compilation without changing the scene or source document.
 
@@ -519,7 +520,7 @@ cancels compilation without changing the scene or source document.
 Scene.compile(
     *,
     budget: SceneBudget | None = None,
-    native_tweens: bool = False,
+    native_tweens: bool = True,
     on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult
 ```
@@ -566,12 +567,12 @@ Scene.replace_source(
 
 Positive whole-scene sampling and resource limits.
 
-Defaults bound events, bytes, active drawings, geometry, color bands, and
-boolean work; exceeding a limit raises instead of reducing quality.
+ASS compilation enforces limits on events, bytes, active drawings, geometry
+and boolean work. It does not sample at fps or generate paint bands.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
 
-[Source](../../kara_templater/scene_output.py#L81)
+[Source](../../kara_templater/scene_output.py#L76)
 
 ```python
 SceneBudget(
@@ -606,7 +607,7 @@ An invalid scene or exceeded compilation limit with object_id and optional sourc
 
 Callback causes remain available for diagnosis.
 
-[Source](../../kara_templater/scene_output.py#L65)
+[Source](../../kara_templater/scene_output.py#L60)
 
 ```python
 SceneCompileError(
@@ -621,11 +622,10 @@ SceneCompileError(
 
 Immutable compilation preflight delivered before frame callbacks.
 
-estimated_events counts ordinary/native output estimates, excluding coverage
-rectangles whose count is unknown until rendering. coverage reports their
-planned work separately. Final budgets still apply to all output.
+estimated_events counts generated ASS records. The coverage tuple is empty
+because the ASS compiler rejects coverage groups during preflight.
 
-[Source](../../kara_templater/scene_output.py#L135)
+[Source](../../kara_templater/scene_output.py#L130)
 
 ```python
 SceneEstimate(
@@ -715,7 +715,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/scene_output.py#L167)
+[Source](../../kara_templater/scene_output.py#L161)
 
 ```python
 SceneResult(
@@ -758,7 +758,7 @@ Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
 
-[Source](../../kara_templater/scene.py#L359)
+[Source](../../kara_templater/scene.py#L363)
 
 ```python
 TextObject(
@@ -868,7 +868,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L182)
+[Source](../../kara_templater/scene.py#L186)
 
 ```python
 VectorClip(
@@ -899,7 +899,7 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L204)
+[Source](../../kara_templater/scene.py#L208)
 
 ```python
 VisualNode(
@@ -986,14 +986,14 @@ Type: `float`.
 
 Return a new Document. Source records and caller-owned nodes never mutate.
 
-[Source](../../kara_templater/scene_output.py#L1911)
+[Source](../../kara_templater/scene_output.py#L1381)
 
 ```python
 compile_scene(
     scene: Scene,
     *,
     budget: SceneBudget | None = None,
-    native_tweens: bool = False,
+    native_tweens: bool = True,
     on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult
 ```

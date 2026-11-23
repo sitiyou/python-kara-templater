@@ -386,18 +386,16 @@ def test_timed_vector_guide_preserves_ruby_and_singing_in_ass_exports(tmp_path):
     assert glyph.ink_bounds.width == pytest.approx(0.6 * glyph.object.font_size)
     assert layout.ruby[0].body_start == 0
     assert layout.body.singing == tuple(s.singing for u in doc.lyrics_at(index).units for s in u.segments)
-    compact = tmp_path / "guide.ass"
-    scene.export_compact_ass(compact)
-    for output in (scene.compile(native_tweens=True).document, Document.parse(compact.read_text())):
-        rows = [row for row in output.lines if not row.comment]
-        assert all("◆" not in row.text for row in rows)
-        assert any(r"\p1" in row.text for row in rows)
-        counts = []
-        for time in (1010, 1250, 1490):
-            frame = rasterize(output.dumps(), time, (640, 360)).rgba
-            counts.append(sum(r > 180 and g < 80 and a > 180
-                              for r, g, a in zip(frame[0::4], frame[1::4], frame[3::4], strict=True)))
-        assert counts[0] < counts[1] < counts[2]
+    output = scene.compile().document
+    rows = [row for row in output.lines if not row.comment]
+    assert all("◆" not in row.text for row in rows)
+    assert any(r"\p1" in row.text for row in rows)
+    counts = []
+    for time in (1010, 1250, 1490):
+        frame = rasterize(output.dumps(), time, (640, 360)).rgba
+        counts.append(sum(r > 180 and g < 80 and a > 180
+                          for r, g, a in zip(frame[0::4], frame[1::4], frame[3::4], strict=True)))
+    assert counts[0] < counts[1] < counts[2]
 
 
 def test_anchored_guides_stay_unsung_on_the_shared_onset():

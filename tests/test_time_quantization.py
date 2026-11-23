@@ -1,57 +1,18 @@
 """Output diagnostics distinguish sampled collapse from native interpolation."""
 
-from dataclasses import replace
 
 import pytest
 
 from kara_templater import (
     AnimationClip,
-    Coverage,
     Document,
     Lifetime,
-    ObjectGroup,
     PathObject,
-    ScalePulse,
     Scene,
     StatePatch,
     Tween,
     VectorPath,
 )
-
-
-@pytest.mark.parametrize("coverage", (False, True))
-def test_collapsed_parent_animation_reports_once_and_preserves_input(coverage):
-    child = PathObject(id="a", lifetime=Lifetime(0, 2), path=VectorPath.rectangle(8, 8))
-    group = ObjectGroup(
-        id="parent",
-        lifetime=child.lifetime,
-        children=(child, replace(child, id="b")),
-        animations=(AnimationClip(1, 0.004, ScalePulse(peak=2)),),
-        coverage=Coverage() if coverage else None,
-    )
-    scene = Scene(Document.create(width=32, height=32)).add(group)
-    result = scene.compile()
-    assert result.diagnostics == (
-        "parent: sampled animation interval 1..1.004s collapses on ASS centisecond grid",
-    )
-    assert scene.compile().diagnostics == result.diagnostics
-    assert group.animations[0].duration == 0.004
-    assert result.max_time_quantization == pytest.approx(0.004)
-
-
-def test_breakpoint_collapse_and_hidden_intervals_are_distinguished():
-    child = PathObject(
-        id="pulse",
-        lifetime=Lifetime(0, 2),
-        path=VectorPath.rectangle(8, 8),
-        animations=(AnimationClip(1, 0.02, ScalePulse(), breakpoints=(0.004,)),),
-    )
-    doc = Document.create(width=32, height=32)
-    assert len(Scene(doc).add(child).compile().diagnostics) == 1
-    visible = replace(child, lifetime=Lifetime(1.01, 2), clock_start=0)
-    assert not Scene(doc).add(visible).compile().diagnostics
-    exact = replace(child, animations=(AnimationClip(1, 0.02, ScalePulse()),))
-    assert not Scene(doc).add(exact).compile().diagnostics
 
 
 def test_native_millisecond_tween_does_not_report_sampled_collapse():
@@ -62,7 +23,6 @@ def test_native_millisecond_tween_does_not_report_sampled_collapse():
         animations=(AnimationClip(1, 0.004, Tween(StatePatch(opacity=0.5))),),
     )
     scene = Scene(Document.create(width=32, height=32)).add(child)
-    assert scene.compile().diagnostics
     result = scene.compile(native_tweens=True)
     assert result.objects[0].strategy == "native-tween"
     assert not result.diagnostics

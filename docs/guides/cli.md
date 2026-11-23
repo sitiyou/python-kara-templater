@@ -7,7 +7,7 @@ applying reusable styling to imported lyrics.
 ## Preset styling
 
 ```sh
-kara-templater input.ass output.ass --after '#33ddff' --pulse char
+kara-templater input.ass output.ass --after '#33ddff'
 ```
 
 The source secondary color is unsung and primary color sung unless overridden
@@ -22,28 +22,25 @@ owner for replacement on subsequent runs.
 
 The preset retains source alignment and event/style margins through a layout
 allocator. Lyrics become ordinary Scene objects, with shared fades, pulses and
-highlight masks. Whole-scene budgets apply to the resulting sampled output.
+highlight masks. Whole-scene budgets apply to the generated events.
 Fade durations reserve time outside singing; insufficient time before zero is
 an error rather than a silently shortened animation.
 
---raster explicitly chooses coverage composition for the preset;
---raster-color-error sets its spatial color tolerance in 0..255 before ASS
-transforms. This is not a final YUV420 video error bound. Script effects declare
-their own material strategy and budget settings instead of using these flags.
+The CLI uses the [standard ASS compiler](compilation.md).
 
 ## Track configurations
 
 An effect file may export a sequence named tracks:
 
 ```python
-from kara_templater import CYAN, FadeIn, LyricRule, LyricSweep, Track
+from kara_templater import CYAN, FadeIn, LyricHighlights, LyricRule, StatePatch, Track
 
 tracks = (
     Track(
         id="main",
         effects=(
             LyricRule("line", "enter", FadeIn(), duration=0.2),
-            LyricSweep(fill=CYAN, width=0),
+            LyricHighlights.from_singing(StatePatch(fill=CYAN)),
         ),
     ),
 )

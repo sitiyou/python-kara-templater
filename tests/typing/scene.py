@@ -8,9 +8,7 @@ from kara_templater import (
     CoverageEstimate,
     Document,
     Lifetime,
-    ObjectGroup,
     ObjectReport,
-    RasterizedGroup,
     ScalePulse,
     Scene,
     SceneEstimate,
@@ -62,15 +60,6 @@ def affine_contract(state: VisualState) -> Vec2:
     matrix = Affine2D(a=2, d=0.8) @ state.transform
     assert_type(matrix, Affine2D)
     return matrix.apply(Vec2(10, 20))
-
-
-def raster_contract(group: "ObjectGroup") -> "RasterizedGroup":
-    from kara_templater import rasterize_group
-
-    result = rasterize_group(group, resolution=(320, 180), blur_radius=2)
-    assert_type(result.scene, Scene)
-    assert_type(result.sampled_frames, int)
-    return result
 
 
 assert_type(Scene(Document.create()).compile(native_tweens=True), SceneResult)

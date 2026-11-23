@@ -1,7 +1,6 @@
 """Relative recipe parameters bind to the same targets in every delivery path."""
 
 from dataclasses import replace
-from math import ceil
 
 import pytest
 
@@ -21,11 +20,14 @@ from kara_templater import (
     LyricRule,
     Note,
     ScalePulse,
+    SceneCompileError,
     Style,
     TextCue,
+    TextObject,
     Track,
     prepare_tracks,
 )
+from kara_templater.karaoke_effects import _walk
 from kara_templater.lyric_highlights import _FeatheredSingingClip
 
 
@@ -50,18 +52,8 @@ def test_body_and_reading_share_resolved_export_widths(tmp_path, ruby_size, fixe
             yield from clips(child)
 
     assert dict(clips(line)) == expected
-    path = tmp_path / "compact.ass"
-    scene.export_compact_ass(path)
-    assert all(
-        sum(
-            row.text.endswith(letter)
-            for row in Document.load(path).lines
-            if not row.comment
-        )
-        == 2 + ceil(width / 3)
-        for letter, width in expected.items()
-    )
-    assert scene.compile(native_tweens=True).event_count > 0
+    with pytest.raises(SceneCompileError, match="feathered wipes"):
+        scene.compile()
     scene.export_hook(tmp_path / "song.hook", fps=20)
     assert "//!HOOK MAIN" in (tmp_path / "song.hook").read_text()
 
@@ -148,9 +140,7 @@ def test_theme_inheritance_reaches_cues_and_respects_effect_ink():
     )
     scene = prepare_tracks(doc, tracks=tracks, theme=palette)
     assert seen == [(BLUE, RED), (BLUE, harmony), (BLUE, BLUE)]
-    assert [
-        line._karaoke_paint.sung for line in scene.lines if line._karaoke_paint
-    ] == [RED, harmony, BLUE]
+    assert [next(node.state.fill for node in _walk(line) if isinstance(node, TextObject) and isinstance(node.clip, _FeatheredSingingClip)) for line in scene.lines] == [RED, harmony, BLUE]
     assert ink.sung is None
     assert ink.with_theme(palette).particle_color == "follow_after"
     assert (
@@ -267,26 +257,3 @@ def test_explicit_transparent_cue_and_unthemed_lyric_keep_their_paints():
     )
 
 
-def test_compiled_bands_match_absolute_width_for_each_resolved_style():
-    from kara_templater import LyricHighlights, StatePatch
-
-    doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=72),))
-    doc.records.append(Line(text=r"{\k100}A|x", end_time=1000))
-
-    def band_events(width, glyph):
-        ink = LyricHighlights.from_singing(
-            StatePatch(fill=RED),
-            base_paint=StatePatch(fill=BLUE),
-            hook_feather=width,
-            ass_feather_bands=4,
-        )
-        scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(ink,)),))
-        return [
-            r.text
-            for r in scene.compile(native_tweens=True).document.lines
-            if not r.comment and r.text.endswith(glyph)
-        ]
-
-    for glyph, width in (("A", 12), ("x", 6)):
-        assert band_events(Glyph.font_size / 6, glyph) == band_events(width, glyph)
-        assert band_events(24, glyph) != band_events(width, glyph)

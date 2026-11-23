@@ -101,7 +101,7 @@ Color.hex(
 
 Piecewise linear colors at absolute script coordinates; ends clamp.
 
-[Source](../../kara_templater/paint_fields.py#L101)
+[Source](../../kara_templater/paint_fields.py#L98)
 
 ```python
 ColorRamp(
@@ -131,7 +131,7 @@ An RGB color at a finite script-space position along a paint field axis.
 
 ColorRamp requires ordered stops.
 
-[Source](../../kara_templater/paint_fields.py#L87)
+[Source](../../kara_templater/paint_fields.py#L84)
 
 ```python
 ColorStop(
@@ -211,7 +211,7 @@ Glow.from_studio(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L213)
+[Source](../../kara_templater/lyric_highlights.py#L210)
 
 ```python
 Highlight(
@@ -262,7 +262,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L1173)
+[Source](../../kara_templater/lyric_highlights.py#L1113)
 
 ```python
 HighlightArrival(
@@ -308,7 +308,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L145)
+[Source](../../kara_templater/lyric_highlights.py#L142)
 
 ```python
 HighlightPass(
@@ -402,17 +402,11 @@ KaraokeTheme.overlay(
 
 An x/y gradient for fill, outline, or both; screen coordinates by default.
 
-Integer step controls color band width and the declared maximum band count.
-Local space uses untransformed drawing coordinates. On an unmasked closed
-vector path, fill and outline ramps follow translation, rotation and scaling.
-The path must have fixed geometry, with shadows and blur on separate drawings.
-ASS samples moving outline bands in screen space. The GPU samples local color directly.
-For text or a clipped drawing, local gradients require positive axis-aligned
-transforms and a non-inverse local RectangleKeyframes clip without parent masks.
-Coverage material composition is unsupported. With native_tweens, eligible
-scale/opacity curves and a single move share native band events.
+The hook shades independent fill and outline ramps continuously. Local
+space attaches color stops to the untransformed drawing. ASS compilation
+rejects paint fields. The bands() method samples the field at integer steps.
 
-[Source](../../kara_templater/paint_fields.py#L154)
+[Source](../../kara_templater/paint_fields.py#L151)
 
 ```python
 LinearGradient(
@@ -484,7 +478,7 @@ from undecorated glyph bounds, independent of glow/outline;
 step is color-band width in local script pixels. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyric_highlights.py#L85)
+[Source](../../kara_templater/lyric_highlights.py#L82)
 
 ```python
 LyricGradient(
@@ -532,7 +526,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L682)
+[Source](../../kara_templater/lyric_highlights.py#L629)
 
 ```python
 LyricHighlights(
@@ -547,7 +541,6 @@ LyricHighlights(
     hook_feather: float | LengthExpr = 0,
     edge_duration: float = 0.02,
     blend_glow: bool = True,
-    ass_feather_bands: int = 0,
     front_color: Color | None = None,
 )
 ```
@@ -566,7 +559,6 @@ LyricHighlights(
 | `hook_feather` | `float \| LengthExpr` | `0` |
 | `edge_duration` | `float` | `0.02` |
 | `blend_glow` | `bool` | `True` |
-| `ass_feather_bands` | `int` | `0` |
 | `front_color` | `Color \| None` | `None` |
 
 ### LyricHighlights.__call__
@@ -596,8 +588,6 @@ sets their duration in seconds (default 0.02). segment_colors maps
 equal portions of their body, holding their position through rests.
 ruby_fill overrides the sung fill of all readings independently.
 blend_glow=False gives each side a clipped halo with its own color.
-ass_feather_bands also draws a flat palette soft front in standard ASS
-using up to 16 moving color strips (zero disables the approximation).
 Contiguous timed readings divide their host wipe equally at reading
 checkpoints. With ruby_reading_units=True, visible reading characters instead
 receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
@@ -631,7 +621,6 @@ LyricHighlights.from_singing(
     ruby_fill: Color | None = None,
     edge_duration: float = 0.02,
     blend_glow: bool = True,
-    ass_feather_bands: int = 0,
     front_color: Color | None = None,
     settings: RasterSettings | None = None,
 ) -> LyricHighlights
@@ -754,7 +743,7 @@ Changes to the incoming VisualState are sampled independently. Omit this
 protocol when an arbitrary callback cannot make the constancy guarantee;
 the compiler then samples its complete visible lifetime.
 
-[Source](../../kara_templater/paint_fields.py#L71)
+[Source](../../kara_templater/paint_fields.py#L68)
 
 ### PaintActivity.active_intervals
 
@@ -768,7 +757,7 @@ A half-open integer interval with resolved fill and outline colors.
 
 Paint fields return these bounded bands for standard ASS compilation.
 
-[Source](../../kara_templater/paint_fields.py#L26)
+[Source](../../kara_templater/paint_fields.py#L23)
 
 ```python
 PaintBand(
@@ -797,7 +786,7 @@ tuple declares a static field. max_bands bounds every invocation.
 Times are signed seconds from the owning object's clock origin; absolute
 breakpoints cannot precede Scene zero or exceed the object's display end.
 
-[Source](../../kara_templater/paint_fields.py#L39)
+[Source](../../kara_templater/paint_fields.py#L36)
 
 ### PaintField.axis
 
@@ -868,7 +857,7 @@ Widths are script pixels. The front travels past both ends so the declared
 span is completely unsung at start and completely sung at start+duration.
 start and duration are local seconds from the owning object's clock origin.
 
-[Source](../../kara_templater/paint_fields.py#L219)
+[Source](../../kara_templater/paint_fields.py#L210)
 
 ```python
 SoftSweep(

@@ -163,8 +163,8 @@ def test_asymmetric_pulse_uses_actual_peak_clock_and_unknown_easing_samples():
     eased = replace(node, animations=()).animate(
         ScalePulse(peak=2, peak_at=0.3, rate=lambda p: p * p), at=1, duration=1,
     )
-    nonlinear = Scene(doc).add(eased).compile(native_tweens=True)
-    assert nonlinear.objects[0].strategy == "sampled"
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(doc).add(eased).compile(native_tweens=True)
 
 
 @pytest.mark.parametrize("error", (0, -1, float("nan"), float("inf")))
@@ -286,12 +286,8 @@ def test_overlapping_inherited_opacity_curves_remain_sampled():
         lifetime=child.lifetime,
         children=(child,),
     ).animate(FadeIn(), duration=2)
-    result = (
-        Scene(Document.create(width=300, height=100))
-        .add(parent)
-        .compile(native_tweens=True)
-    )
-    assert result.objects[0].strategy == "sampled"
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(Document.create(width=300, height=100)).add(parent).compile()
 
 
 def test_native_decoration_channels_keep_original_clocks_through_clip_cuts():

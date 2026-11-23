@@ -207,8 +207,8 @@ def test_invalid_projection_ranges_fail_before_measurement():
         )
 
 
-def test_flat_sweep_exports_ass_bands_and_preserves_hook_scene() -> None:
-    from kara_templater import LyricHighlights, StatePatch
+def test_feathered_wipe_requires_hook(tmp_path) -> None:
+    from kara_templater import LyricHighlights, SceneCompileError, StatePatch
 
     source = structured()
     first = source.lyrics.units[0].segments[0]
@@ -217,13 +217,11 @@ def test_flat_sweep_exports_ass_bands_and_preserves_hook_scene() -> None:
     source = LyricSource.from_lyrics("ink", projection, display=source.display)
     recipe = LyricHighlights.from_singing(
         StatePatch(fill=RED), base_paint=StatePatch(fill=BLUE),
-        hook_feather=12, ass_feather_bands=4, edge_duration=0,
+        hook_feather=12, edge_duration=0,
     )
     scene = prepare_tracks(document(), inputs=(source,), tracks=(Track(id="ink", effects=(recipe,)),))
     original = scene.objects.copy()
-    result = scene.compile(native_tweens=True)
-    # The midpoint of each strip uses the same smoothstep as the shader.
-    expected = {round(255 * (p*p*(3-2*p))) for p in (0.125, 0.375, 0.625, 0.875)}
-    text = result.document.dumps()
-    assert all(rf"\1c&H{255-red:02X}00{red:02X}&" in text for red in expected)
+    with pytest.raises(SceneCompileError, match="feathered wipes"):
+        scene.compile()
+    scene.export_hook(tmp_path / "sweep.hook", fps=24)
     assert all(a is b for a, b in zip(scene.objects, original, strict=True))

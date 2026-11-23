@@ -12,12 +12,12 @@ from tools.check_docs import check
 @pytest.mark.parametrize(
     ("page", "filename", "start", "duration"),
     (
-        ("README.md", "chorus.ass", 0, 4000),
-        ("docs/guides/karaoke-effects.md", "karaoke.ass", 0, 5600),
+        ("README.md", "chorus.hook", 0, 4000),
+        ("docs/guides/karaoke-effects.md", "karaoke.hook", 0, 5600),
         ("docs/guides/gpu-rendering.md", "song.ass", 0, 3000),
         ("docs/getting-started.md", "first-effect.ass", 0, 3000),
-        ("docs/tutorials/custom-animation.md", "sparks.ass", 0, 2300),
-        ("docs/tutorials/lyric-highlights.md", "lyric-arc.ass", 0, 5000),
+        ("docs/tutorials/custom-animation.md", "sparks.hook", 0, 2300),
+        ("docs/tutorials/lyric-highlights.md", "lyric-arc.hook", 0, 5000),
     ),
 )
 def test_complete_author_script_runs_as_written(
@@ -29,6 +29,9 @@ def test_complete_author_script_runs_as_written(
     assert scripts
     monkeypatch.chdir(tmp_path)
     exec(compile(scripts[0], page, "exec"), {"__name__": "__main__"})
+    if filename.endswith(".hook"):
+        assert "//!HOOK MAIN" in (tmp_path / filename).read_text()
+        return
     if page in {"README.md", "docs/getting-started.md", "docs/guides/gpu-rendering.md"}:
         hook = (tmp_path / filename).with_suffix(".hook")
         assert "//!HOOK MAIN" in hook.read_text(encoding="utf-8")

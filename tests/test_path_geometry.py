@@ -28,7 +28,7 @@ from kara_templater.path_geometry import (
     resample_path,
     stroke,
 )
-from kara_templater.scene_output import SceneBudget, SceneCompileError
+from kara_templater.scene_output import SceneCompileError
 from kara_templater.text_geometry import outline_text, text_to_path
 
 
@@ -171,7 +171,7 @@ def test_writing_and_tip_share_arc_length_and_are_seekable():
     assert writer.tip(1) == Vec2(100, 0)
 
 
-def test_geometry_budget_preflight_actual_checks_and_empty_frames():
+def test_ass_rejects_geometry_before_callback_execution():
     base = VectorPath.rectangle(20, 20)
 
     def fail(path: VectorPath, time: float) -> VectorPath:
@@ -183,27 +183,8 @@ def test_geometry_budget_preflight_actual_checks_and_empty_frames():
         path=base,
         deform=PathFunction(fail, max_points=5000),
     )
-    with pytest.raises(SceneCompileError, match="declared geometry"):
+    with pytest.raises(SceneCompileError, match="frame sampling"):
         Scene(document()).add(node).compile()
-    invalid = replace(node, deform=PathFunction(lambda p, t: p, max_points=3))
-    with pytest.raises(SceneCompileError, match="declared point bound") as error:
-        Scene(document()).add(invalid).compile()
-    assert error.value.object_id == "path"
-    hidden = replace(
-        node,
-        deform=PathFunction(
-            lambda p, t: None if 0.25 <= t < 0.75 else p,
-            max_points=4,
-            breakpoints=(0.25, 0.75),
-        ),
-    )
-    result = Scene(document()).add(hidden).compile()
-    assert result.event_count == 2
-    assert [
-        (l.start_time, l.end_time) for l in result.document.lines if not l.comment
-    ] == [(0, 250), (750, 1000)]
-    with pytest.raises(SceneCompileError, match="estimated event"):
-        Scene(document()).add(hidden).compile(budget=SceneBudget(max_events=2))
 
 
 def test_geometry_sampler_morph_and_timing():
@@ -215,10 +196,6 @@ def test_geometry_sampler_morph_and_timing():
         deform=MorphPath(base.map(lambda p: p * 2), duration=1),
     )
     assert node.path_at(2.5) == base.map(lambda p: p * 1.5)
-    result = Scene(document()).add(node).compile()
-    assert result.objects[0].strategy == "sampled"
-    assert result.event_count == 51
-    assert result.objects[0].peak_path_points == 4
 
 
 def test_convex_intersection_retains_hole_winding_and_handles_empty_results():
@@ -258,25 +235,6 @@ def test_circle_and_writing_geometry_limits():
 def test_clip_discontinuity_splits_event_even_off_regular_sample_grid(initial_opacity):
     from kara_templater import AnimationClip, StateFunction
 
-    node = TextObject(
-        id="step",
-        lifetime=Lifetime(0, 1),
-        text="A",
-        animations=(
-            AnimationClip(
-                0,
-                1,
-                StateFunction(
-                    lambda s, p: replace(s, opacity=initial_opacity if p < 0.23 else 1),
-                    frozenset(("opacity",)),
-                ),
-                breakpoints=(0.23,),
-            ),
-        ),
-    )
-    result = Scene(document()).add(node).compile()
-    times = [(l.start_time, l.end_time) for l in result.document.lines if not l.comment]
-    assert times == ([(0, 230)] if initial_opacity else []) + [(230, 1000)]
     with pytest.raises(ValueError, match="breakpoint"):
         AnimationClip(0, 1, StateFunction(lambda s, p: s), breakpoints=(2,))
 

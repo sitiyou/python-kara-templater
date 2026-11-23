@@ -1,6 +1,6 @@
 """Render one built-in animation on identical Japanese lyrics and real note lengths.
 
-uv run python -m examples.karaoke_catalog build/studio.ass --entry petal --exit snow
+uv run python -m examples.karaoke_catalog build/studio.hook --entry petal --exit snow
 """
 
 import argparse
@@ -18,7 +18,6 @@ from kara_templater import (
     Layout,
     Line,
     LyricScene,
-    SceneBudget,
     Style,
     Track,
     prepare_tracks,
@@ -100,8 +99,11 @@ def main() -> None:
         decoration=args.decoration,
         stroke_flash=args.stroke_flash,
     )
-    result = scene.compile(native_tweens=True, budget=SceneBudget(fps=60))
     args.output.parent.mkdir(parents=True, exist_ok=True)
+    if args.output.suffix == ".hook":
+        scene.export_hook(args.output, fps=60)
+        return
+    result = scene.compile()
     result.document.save(args.output)
     print(f"{result.event_count} events / {result.byte_count} bytes")
 

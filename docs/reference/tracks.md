@@ -67,7 +67,8 @@ of particles planned per line, including entry and exit. With particle_layers="s
 following particles inherit the glyph's hard outline radii relative to its em;
 a second hard rim is a separate drawing of the same moving particle.
 
-Standard ASS is supported (complex motion is sampled). GPU enhancement uses
+ASS supports native clips and eligible transforms. Complex motion, gradients
+and soft fronts raise SceneCompileError on ASS export. Hook export uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
@@ -496,7 +497,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L186)
+[Source](../../kara_templater/orchestration.py#L185)
 
 ```python
 LinePlan(
@@ -537,7 +538,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L92)
+[Source](../../kara_templater/lyric_line.py#L91)
 
 ```python
 LyricAnimationContext(
@@ -664,7 +665,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L301)
+[Source](../../kara_templater/lyric_line.py#L286)
 
 ```python
 LyricLine(
@@ -888,7 +889,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L134)
+[Source](../../kara_templater/lyric_line.py#L133)
 
 ```python
 LyricRule(
@@ -934,7 +935,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L197)
+[Source](../../kara_templater/orchestration.py#L196)
 
 ```python
 LyricScene(
@@ -970,7 +971,8 @@ LyricScene.add(
 
 Compile a new ASS Document and reports under explicit Scene budgets.
 
-Eligible continuous Tween lowering is opt-in.
+ASS supports native motion and hard clips. Frame sampling, paint fields,
+feathered wipes and coverage groups raise SceneCompileError.
 on_estimate runs after preflight and before frame callbacks; raising
 cancels compilation without changing the scene or source document.
 
@@ -978,7 +980,7 @@ cancels compilation without changing the scene or source document.
 LyricScene.compile(
     *,
     budget: SceneBudget | None = None,
-    native_tweens: bool = False,
+    native_tweens: bool = True,
     on_estimate: Callable[[SceneEstimate], None] | None = None,
 ) -> SceneResult
 ```
@@ -989,23 +991,6 @@ Construct a seekable world-space evaluator for this scene hierarchy and its refe
 
 ```python
 LyricScene.evaluator() -> SceneEvaluator
-```
-
-### LyricScene.export_compact_ass
-
-Save a playback ASS with native karaoke timing, line fades and cues.
-
-For simple KaraokeEffects lines this approximates motion and materials with
-native sweep and fade tags. Duotone readings use measured ruby layouts and
-their own clocks. Complex timings and internal inline cue reservations
-use ordinary ASS compilation. budget controls compiler resource limits.
-
-```python
-LyricScene.export_compact_ass(
-    path: str | pathlib.Path,
-    *,
-    budget: SceneBudget | None = None,
-) -> None
 ```
 
 ### LyricScene.export_hook
@@ -1053,7 +1038,7 @@ singing intervals remain in lyrics; display is the original ASS visibility.
 An optional chapter groups consecutive sources. The first selected line of a
 chapter starts a fresh row rotation by default, even without a visible cue.
 
-[Source](../../kara_templater/orchestration.py#L58)
+[Source](../../kara_templater/orchestration.py#L57)
 
 ```python
 LyricSource(
@@ -1128,7 +1113,7 @@ Line/syllable centers use body text, so ruby/glow do not shift the pivot.
 source_style is the body cluster's active ASS style, inherited by its readings.
 A factory changing a target's local coordinate origin must update center too.
 
-[Source](../../kara_templater/lyric_line.py#L53)
+[Source](../../kara_templater/lyric_line.py#L52)
 
 ```python
 LyricTarget(
@@ -1264,7 +1249,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L122)
+[Source](../../kara_templater/orchestration.py#L121)
 
 ```python
 Track(
@@ -1348,7 +1333,7 @@ inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
 
-[Source](../../kara_templater/orchestration.py#L441)
+[Source](../../kara_templater/orchestration.py#L428)
 
 ```python
 prepare_tracks(

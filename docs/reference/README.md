@@ -21,12 +21,12 @@ Use `--check` to verify that committed pages match the current public API.
 | [Colors and appearance](paint.md) | 31 |
 | [Lyric cues](cues.md) | 13 |
 | [Particles and references](particles.md) | 14 |
-| [Coverage and raster output](coverage.md) | 9 |
+| [Coverage and raster output](coverage.md) | 7 |
 | [Regions and progress curves](native.md) | 4 |
 
 ## Symbol index
 
-235 public exports.
+233 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [Animation](animation.md#animation)
@@ -158,7 +158,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [RED](paint.md#red)
 - [RasterEstimate](coverage.md#rasterestimate)
 - [RasterSettings](coverage.md#rastersettings)
-- [RasterizedGroup](coverage.md#rasterizedgroup)
 - [Record](documents.md#record)
 - [RectangleClip](scenes.md#rectangleclip)
 - [RectangleFunction](scenes.md#rectanglefunction)
@@ -250,7 +249,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [path_boolean](geometry.md#path_boolean)
 - [path_bounds](geometry.md#path_bounds)
 - [prepare_tracks](tracks.md#prepare_tracks)
-- [rasterize_group](coverage.md#rasterize_group)
 - [read_document_text](documents.md#read_document_text)
 - [resample_path](geometry.md#resample_path)
 - [select_characters](text.md#select_characters)

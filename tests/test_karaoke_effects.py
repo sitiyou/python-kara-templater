@@ -18,6 +18,7 @@ from kara_templater import (
     PathObject,
     RectangleClip,
     SceneBudget,
+    SceneCompileError,
     Style,
     Track,
     prepare_tracks,
@@ -53,18 +54,17 @@ def test_every_menu_choice_compiles_and_retains_source_timing(field, name):
         for s in t.singing
         for v in (s.start, s.end)
     ] == pytest.approx([1.4, 1.75, 1.75, 2.1, 2.1, 2.8, 2.8, 4.2])
-    result = scene.compile(native_tweens=True, budget=SceneBudget(fps=24))
-    assert result.event_count > 0
+    native = name in {"none", "fade", "no_wipe"}
+    if native:
+        assert scene.compile().event_count > 0
+    else:
+        with pytest.raises(SceneCompileError, match="ASS does not support"):
+            scene.compile()
     assert scene.lines[0].layout.lyrics == original
     frames = SceneFrames(scene)
     assert frames.at(1.6)
     frames.at(0.5)
     frames.at(4.9)
-    assert all(
-        r.end_time >= r.start_time
-        for r in result.document.records
-        if isinstance(r, Line)
-    )
 
 
 def subject(text=r"{\k50}AB|ab{\k100}C", start=1000, end=2500, min_outline_gap=2, **options):
@@ -91,7 +91,6 @@ def test_zero_preview_and_ruby_have_no_overlapping_animations():
     scene = subject(start=0, end=1500, stroke_flash=True)
     assert scene.lines[0].lifetime.start == 0
     assert scene.lines[0].query("ruby")
-    assert scene.compile(native_tweens=True).event_count > 0
     nodes = list(_walk(scene.lines[0]))
     assert all(isinstance(n, PathObject) for n in nodes if ":flash:" in n.id)
     assert not any(":flash:" in n.id for n in nodes if "/ruby" in n.id)
@@ -119,7 +118,6 @@ def test_character_entry_requires_positive_preroll(kind):
 
 @pytest.mark.parametrize("kind", ["char_drip", "spin_flip"])
 def test_short_preroll_resumes_the_sung_pulse_and_band_at_their_current_phase(kind):
-    from kara_templater._raster import rasterize
 
     def build(entry):
         return subject(text=r"{\k70}H{\k80}W", start=100, end=1600, entry=entry, exit="none",
@@ -131,35 +129,6 @@ def test_short_preroll_resumes_the_sung_pulse_and_band_at_their_current_phase(ki
     evaluator = scene.evaluator()
     assert evaluator.at(second.node_id, 0.30).opacity == 0
     assert evaluator.at(first.node_id, 0.61).scale == plain.evaluator().at(first.node_id, 0.61).scale
-    script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
-
-    def cyan(ms):
-        rgba = rasterize(script, ms, (640, 360)).rgba
-        return any(rgba[i:i + 4] == b"\x00\xff\xff\xff" for i in range(0, len(rgba), 4))
-
-    assert not cyan(600)
-    assert cyan(610)
-
-
-@pytest.mark.parametrize("phase", ["entry", "exit"])
-def test_char_drip_shears_the_painted_outline_with_the_face(phase):
-    from kara_templater._raster import rasterize
-
-    doc = Document.create(width=640, height=360, styles=(
-        Style(fontname="DejaVu Sans", fontsize=48, outline=6, shadow=0),
-    ))
-    doc.records.append(Line(start_time=1500, end_time=3500, text=r"{\k200}H"))
-    recipe = replace(KaraokeEffects(entry="none", exit="none", singing="none"),
-                     **{phase: "char_drip"})
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
-    script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
-    lifetime = scene.lines[0].lifetime
-    ms = round((lifetime.start + 0.06 if phase == "entry" else lifetime.end - 0.06) * 1000)
-    def area(at):
-        return sum(rasterize(script, at, (640, 360)).rgba[3::4]) / 255
-
-    # A vertical shear preserves area, including the thick border on the uprights.
-    assert area(ms) == pytest.approx(area(2000), rel=0.04)
 
 
 def test_char_fade_changes_with_playback_time_inside_one_sampling_interval():
@@ -325,7 +294,6 @@ def test_particle_pens_follow_size_and_leave_rings_without_outlines():
     em = line.query("character")[0].em_size
     assert face.state.border * face.state.scale.x == pytest.approx(4 / em)
     assert rim.state.border * rim.state.scale.x == pytest.approx(10 / em)
-    assert scene.compile(native_tweens=True).event_count > 0
 
     scene, _, rings = drawings("ripple")
     assert len(rings) == 3 and all(p.state.border == 0 for p in rings)
@@ -348,7 +316,6 @@ def test_snow_inherits_vertical_face_gradient_in_rotating_sprite_coordinates():
     assert face.material.space == "local" and face.material.axis == "y"
     assert face.material.fill.at(-em / 2) == red and face.material.fill.at(em / 2) == blue
     assert face.at(1.1).rotation != face.at(1.2).rotation
-    assert scene.compile(native_tweens=True).event_count > 0
 
 
 def test_petal_primary_outline_gradient_uses_local_sprite_em():
@@ -368,7 +335,6 @@ def test_petal_primary_outline_gradient_uses_local_sprite_em():
     half = 0.5 / petal.state.scale.x
     assert material.outline.at(-half) == red and material.outline.at(half) == blue
     assert petal.at(1.2).fill == face_color
-    assert scene.compile(native_tweens=True).event_count > 0
 
 
 @pytest.mark.parametrize("gradient_face", (False, True))
@@ -396,7 +362,6 @@ def test_horizontal_particle_outline_tracks_motion_independently_of_face(gradien
             else:
                 assert state.fill == solid
     assert len(levels) >= 6
-    assert scene.compile(native_tweens=True).event_count > 0
 
 
 def test_note_spread_uses_the_scaled_cell_width():
@@ -472,7 +437,6 @@ def test_each_ripple_samples_the_gradient_at_its_own_expansion():
     # Quadratic expansion snapped to 1/32 gives positions 24/32, 18/32 and 0.
     assert [p.at(1.30).fill for p in rings] == [Color(0, 128, 128), Color(0, 223, 32), red]
     assert all(p.state.border == 0 for p in rings)
-    assert scene.compile(native_tweens=True).event_count > 0
 
 
 def test_horizontal_ripple_ink_uses_the_host_position_in_the_whole_line():
@@ -576,22 +540,6 @@ def test_stroke_flash_uses_the_body_onset_and_stationary_outline():
     evaluator = scene.evaluator()
     for n in flashes:
         assert evaluator.at(n.id, 1.60).scale == evaluator.at(n.id, 1.51).scale
-    assert scene.compile(native_tweens=True).event_count
-
-
-def test_outline_flash_reaches_the_ink_inside_a_hard_scanline():
-    from kara_templater._raster import rasterize
-
-    def render(flash):
-        scene = subject(text=r"{\k50}A", end=1500, entry="none", exit="none",
-                        singing="scanline", scanline_width=48, scanline_softness=0,
-                        scanline_color=Color(0, 128, 255), stroke_flash=flash)
-        script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
-        return rasterize(script, 1060, (640, 360)).rgba
-
-    plain, flashed = render(False), render(True)
-    blue = bytes((0, 128, 255, 255))
-    assert any(plain[i:i + 4] == blue and flashed[i] > 80 for i in range(0, len(plain), 4))
 
 
 def test_entry_is_visible_before_motion_has_settled():
@@ -661,7 +609,6 @@ def test_zoom_uses_full_note_then_releases_without_stacking_repeats(singing):
                       for n in fronts if isinstance(n.clip, RectangleClip) and n.clip.deform
                       and (rect := n.clip.deform.sample(t - n.time_origin))]
             assert widths == pytest.approx([24], abs=0.5)
-    assert scene.compile(native_tweens=True).event_count > 0
 
 
 def test_budget_rejects_before_particle_construction(monkeypatch):
@@ -675,12 +622,6 @@ def test_budget_rejects_before_particle_construction(monkeypatch):
 
 def test_seeded_outputs_and_source_immutability():
     a = build(decoration="petal", entry="assemble_in")
-    b = build(decoration="petal", entry="assemble_in")
-    first = a.compile(native_tweens=True, budget=SceneBudget(fps=12)).document.dumps()
-    assert (
-        first
-        == b.compile(native_tweens=True, budget=SceneBudget(fps=12)).document.dumps()
-    )
     # Seek in arbitrary order; particles cannot consume a mutable random stream.
     particle = next(n for n in _walk(a.lines[0]) if ":particle:" in n.id)
     evaluator = a.evaluator()
@@ -818,38 +759,6 @@ def test_ripple_rings_expand_from_one_shared_glyph_center():
     assert len({n.lifetime.start for n in rings}) == len(rings)
 
 
-def test_compact_ass_uses_resolved_recipe_and_absolute_singing(tmp_path):
-    scene = subject(
-        text=r"{\kt40}{\kf20}A{\kf40}B",
-        sung=Color(12, 34, 56),
-        entry="none",
-        exit="fade",
-        exit_duration=0.27,
-        singing="no_wipe",
-    )
-    path = tmp_path / "compact.ass"
-    scene.export_compact_ass(path)
-    rows = Document.load(path).lines
-    assert all(row.start_time == 0 for row in rows)
-    assert [row.text.split(r"\fad(0,270)}")[1] for row in rows] == [
-        r"{\k160}{\k0}A", r"{\k200}{\k0}B",
-    ]
-    assert all(r"\1c&H38220C&" in row.text for row in rows)
-    assert all(not row.comment for row in scene.document.lines)
-
-
-def test_compact_ass_preserves_ruby_via_scene_compilation(tmp_path):
-    scene = subject(entry="none", exit="none", singing="none")
-    path = tmp_path / "ruby.ass"
-    scene.export_compact_ass(path)
-    expected = [
-        row.serialize()
-        for row in scene.compile(native_tweens=True).document.lines
-        if not row.comment
-    ]
-    assert [row.serialize() for row in Document.load(path).lines] == expected
-
-
 @pytest.mark.parametrize("rtl", [False, True])
 def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
     from kara_templater import Glow, LyricHighlights, StatePatch
@@ -878,114 +787,6 @@ def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
         assert [c.bounds for c in painted.characters] == [c.bounds for c in aligned.characters]
 
 
-@pytest.mark.parametrize("reverse", (False, True))
-def test_duotone_compact_wipes_both_inks_in_one_letter(tmp_path, reverse):
-    from kara_templater._raster import rasterize
-
-    recipe = replace(KaraokeEffects.duotone(feather=24), reverse_wipe=reverse).with_theme()
-    doc = Document.create(
-        width=320,
-        height=180,
-        styles=(
-            Style(fontname="DejaVu Sans", fontsize=64, bold=True, outline=5, shadow=0),
-        ),
-    )
-    doc.records.append(Line(start_time=1000, end_time=3000, text=r"{\kt50\kf100}O"))
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
-    output = tmp_path / "duotone.ass"
-    scene.export_compact_ass(output)
-    script = output.read_text(encoding="utf-8-sig")
-
-    def painted_pixels(time):
-        rgba = rasterize(script, time, (320, 180)).rgba
-        return {
-            tuple(rgba[i : i + 3]) for i in range(0, len(rgba), 4) if rgba[i + 3] == 255
-        }
-
-    before, middle, after = map(painted_pixels, (1450, 2000, 2550))
-    for color in (recipe.unsung, recipe.unsung_outline):
-        assert color is not None
-        rgb = (color.red, color.green, color.blue)
-        assert rgb in before and rgb in middle and rgb not in after
-    for color in (recipe.sung, recipe.sung_outline):
-        assert color is not None
-        rgb = (color.red, color.green, color.blue)
-        assert rgb not in before and rgb in middle and rgb in after
-    rgba = rasterize(script, 2000, (320, 180)).rgba
-    def columns(color):
-        ink = bytes((color.red, color.green, color.blue, 255))
-        return [i // 4 % 320 for i in range(0, len(rgba), 4) if rgba[i:i + 4] == ink]
-    left, right = (recipe.unsung, recipe.sung) if reverse else (recipe.sung, recipe.unsung)
-    assert max(columns(left)) < min(columns(right))
-    # O has solid horizontal strokes across the front at its top and bottom.
-    # A sharp clip yields only endpoint inks there; a wide wipe has interior inks.
-    weights = [i / 16 for i in (3, 5, 7, 9, 11, 13)]
-    assert recipe.unsung and recipe.sung and recipe.unsung_outline and recipe.sung_outline
-    for a, b in (
-        (recipe.unsung, recipe.sung),
-        (recipe.unsung_outline, recipe.sung_outline),
-    ):
-        midtones = set()
-        for x in weights:
-            w = x * x * (3 - 2 * x)
-            midtones.add(
-                tuple(
-                    round(p + (q - p) * w)
-                    for p, q in zip(
-                        (a.red, a.green, a.blue), (b.red, b.green, b.blue), strict=True
-                    )
-                )
-            )
-        assert len(midtones & middle) >= 4
-
-
-@pytest.mark.parametrize("gap_cs", [0, 10])
-def test_compact_duotone_preserves_separately_timed_readings(tmp_path, gap_cs):
-    doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=80),))
-    doc.records.append(Line(start_time=1000, end_time=2000, text=rf"{{\k30}}A|x{{\kt{30 + gap_cs}\k{70 - gap_cs}}}#|y"))
-    scene = prepare_tracks(
-        doc, tracks=(Track(id="main", effects=(KaraokeEffects.duotone(),)),)
-    )
-    plan = scene.plans[0]
-    (unit,) = plan.line.layout.lyrics.units
-    [(body_start, body_end)] = [(s.start, s.end) for s in unit._body_singing()]
-    assert (body_start, body_end) == (1, 2)
-    output = tmp_path / "readings.ass"
-    scene.export_compact_ass(output)
-    rows = Document.load(output).lines
-    origin = round(plan.line.lifetime.start * 100) * 10
-    for text, size, start, end in (
-        ("A", 80, 1000, 1300),
-        ("A", 80, 1300 + gap_cs * 10, 2000),
-        ("x", 40, 1000, 1300),
-        ("y", 40, 1300 + gap_cs * 10, 2000),
-    ):
-        parts = [r.text for r in rows if r.text.endswith(text)]
-        assert parts and all(rf"\fs{size}" in p for p in parts)
-        assert all(rf"\t({start - origin},{end - origin}," in p for p in parts)
-
-
-@pytest.mark.parametrize(("gradient", "reverse"), [(False, False), (True, False), (True, True)])
-def test_scanline_retains_the_glyph_outline_and_inward_feather(gradient, reverse):
-    from kara_templater import LyricGradient
-    from kara_templater._raster import rasterize
-
-    def script(singing):
-        return subject(
-            text=r"{\k50}H{\k50}Q", entry="none", exit="none", singing=singing,
-            scanline_width=16, scanline_softness=6, scanline_color=Color(16, 100, 232), reverse_wipe=reverse,
-            material=LyricGradient((Color(244, 20, 70), Color(120, 70, 255))) if gradient else None,
-        ).compile(native_tweens=True).document.dumps()
-
-    ordinary, softened = script("none"), script("scanline")
-    for ms in (1050, 1300, 1500, 1750, 1950):
-        plain, front = (
-            rasterize(ass, ms, (640, 360)).rgba for ass in (ordinary, softened)
-        )
-        assert plain != front
-        assert plain[3::4] == front[3::4]
-
-
 @pytest.mark.parametrize("level,mid_attack,mid_release", [(1, 1.05, 1.05), (3, 1.0875, 1.0875)])
 def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_release):
     scene = subject(text=r"{\k100}A", entry="none", exit="none",
@@ -997,9 +798,8 @@ def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_
         assert evaluator.at(target.node_id, time).scale.x == pytest.approx(baseline * factor)
 
 
-@pytest.mark.parametrize("softness", [0, 4])
-@pytest.mark.parametrize("motion, front", [("none", "scanline"), ("utopia", "utopia_scanline"), ("zoom_pulse", "zoom_pulse_scanline")])
-def test_scanline_colors_the_visible_second_outline(softness, motion, front):
+@pytest.mark.parametrize("motion, front", [("none", "scanline"), ("utopia", "utopia_scanline")])
+def test_scanline_colors_the_visible_second_outline(motion, front):
     from kara_templater import Glow
     from kara_templater._raster import rasterize
 
@@ -1008,7 +808,7 @@ def test_scanline_colors_the_visible_second_outline(softness, motion, front):
     def render(singing):
         glow = Glow(rim, border=7)
         scene = subject(text=r"{\k100}Q", singing=singing, entry="none", exit="none",
-                        base_glow=glow, glow=glow, scanline_width=16, scanline_softness=softness,
+                        base_glow=glow, glow=glow, scanline_width=16, scanline_softness=0,
                         scanline_color=Color(0, 255, 255))
         return rasterize(scene.compile(native_tweens=True).document.dumps(), 1500, (640, 360)).rgba
 
@@ -1019,9 +819,6 @@ def test_scanline_colors_the_visible_second_outline(softness, motion, front):
     if motion != "none":
         rim_rows = {outer[0] // (640 * 4), outer[-1] // (640 * 4)}
         assert all(band[i:i + 4] == plain[i:i + 4] for i in outer if i // (640 * 4) in rim_rows)
-    if softness:
-        assert plain[3::4] == band[3::4]
-        assert any(50 < band[i + 1] < 255 for i in outer)
 
 
 def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
@@ -1035,8 +832,6 @@ def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
     assert len(brushes) == len(fronts) and all(g.outline for g in brushes)
     assert any(g.fill == g.outline for g in brushes)  # solid core
     assert any(g.fill != g.outline for g in brushes)  # softened edges
-    document = scene.compile(native_tweens=True).document
-    assert any(r"\clip(" in row.text for row in document.lines if not row.comment)
     assert any(d.gradient is not None for d in SceneFrames(scene).at(1.3))
 
 
@@ -1171,7 +966,6 @@ def test_scanline_lifts_gradient_stops_on_the_selected_side(mode):
     if mode == "follow_after":
         assert ramps[-1] is not None
         assert [s.color for s in ramps[-1].stops] == [Color(243, 215, 215), Color(215, 238, 215)]
-    assert scene.compile(native_tweens=True).event_count > 0
 
 
 def test_dense_scanline_palettes_remain_exportable_to_gpu():
@@ -1221,69 +1015,6 @@ def test_multicharacter_reading_divides_its_wipe_by_shaped_cluster():
         assert knots[1:-1] == [start, end]
 
 
-@pytest.mark.parametrize("singing", ["utopia_scanline", "zoom_pulse_scanline"])
-def test_pulsing_reading_band_only_repaints_the_current_kana(singing):
-    from kara_templater import Glow
-    from kara_templater._raster import rasterize
-
-    def cyan_counts(pen, rim=0):
-        style = Style(fontname="DejaVu Sans", fontsize=56, outline=pen, shadow=0)
-        doc = Document.create(width=640, height=360, styles=(
-            style, replace(style, name="Default-furigana", fontsize=28, outline=0.5),
-        ))
-        doc.records.append(Line(start_time=1000, end_time=1600, text=r"{\k30}A|H{\k30}#|H"))
-        def host_glow(_line, target):
-            return Glow(Color(10, 10, 10), border=rim) if rim and target.role == "character" else None
-
-        fx = KaraokeEffects(entry="none", exit="none", singing=singing, scanline_width=24,
-                            glow=host_glow, base_glow=host_glow,
-                            scanline_softness=0, scanline_color=Color(0, 255, 255))
-        scene = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=True, effects=(fx,)),))
-        script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
-        counts = []
-        for ms in (1150, 1300, 1450):
-            rgba = rasterize(script, ms, (640, 360)).rgba
-            counts.append(sum(rgba[i:i + 4] == b"\x00\xff\xff\xff" for i in range(0, len(rgba), 4)))
-        return counts
-
-    thin, thick = cyan_counts(0.5), cyan_counts(3)
-    assert thin[1] == thick[1] == 0
-    assert thick[0] > thin[0] > 0
-    assert thick[2] > thin[2] > 0
-    assert cyan_counts(0.5, rim=3) == thick
-
-
-@pytest.mark.parametrize("secondary", [False, True])
-def test_soft_reading_strip_preserves_outer_ink_beyond_the_host_pen(secondary):
-    from kara_templater import Glow
-    from kara_templater._raster import rasterize
-
-    def frame(host_pen, singing):
-        style = Style(fontname="DejaVu Sans", fontsize=56, outline=host_pen, shadow=0)
-        doc = Document.create(width=640, height=360, styles=(
-            style, replace(style, name="Default-furigana", fontsize=28, outline=0.5 if secondary else 4),
-        ))
-        doc.records.append(Line(start_time=1000, end_time=1600, text=r"{\k60}A|H"))
-
-        def rim(_line, target):
-            return Glow(Color(0, 0, 0), border=4) if secondary and target.role == "ruby" else None
-
-        recipe = KaraokeEffects(
-            entry="none", exit="none", singing=singing, base_glow=rim, glow=rim,
-            scanline_width=32, scanline_softness=4, scanline_color=Color(0, 255, 255),
-        )
-        scene = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=True, effects=(recipe,)),))
-        script = scene.compile(native_tweens=True, budget=SceneBudget(fps=100)).document.dumps()
-        return rasterize(script, 1300, (640, 360)).rgba
-
-    narrow = frame(1, "zoom_pulse_scanline")
-    broad = frame(4, "zoom_pulse_scanline")
-    assert narrow[3::4] == frame(1, "zoom_pulse")[3::4]
-    def cyan(rgba):
-        return sum(rgba[i:i + 4] == b"\x00\xff\xff\xff" for i in range(0, len(rgba), 4))
-    assert 0 < cyan(narrow) < 0.85 * cyan(broad)
-
-
 def test_timed_readings_own_the_front_and_optional_body_sweeps_once():
     def fronts(mode):
         scene = subject(text=r"{\k25}空|そ{\k25}#|ら", start=1000, end=1500,
@@ -1312,47 +1043,30 @@ def test_timed_readings_own_the_front_and_optional_body_sweeps_once():
     assert early and late and max(b[2] for b in early) < max(b[2] for b in late)
 
 
-@pytest.mark.parametrize("mode", ["none", "scanline"])
-def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass(tmp_path, mode):
+def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass():
     from kara_templater._raster import rasterize
 
     def frame(text, ms):
         scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
-                        singing=mode, ruby_scanline="both", sung_outline=Color(30, 40, 50),
+                        singing="none", ruby_scanline="both", sung_outline=Color(30, 40, 50),
                         scanline_color=Color(0, 255, 255), scanline_width=16, scanline_softness=4)
-        path = tmp_path / "lyric.ass"
-        scene.export_compact_ass(path)
-        return rasterize(path.read_text(encoding="utf-8-sig"), ms, (640, 360)).rgba
+        return rasterize(scene.compile().document.dumps(), ms, (640, 360)).rgba
 
     short = frame(r"{\k10}空|そ{\k40}#|ら", 1100)
     equal = frame(r"{\k25}空|そ{\k25}#|ら", 1250)
-    if mode == "none":
-        assert short == equal
-    else:
-        def center(image):
-            columns = [i // 4 % 640 for i in range(0, len(image), 4)
-                       if image[i:i + 4] == bytes((0, 255, 255, 255))]
-            return sum(columns) / len(columns)
-
-        assert center(short) == pytest.approx(center(equal), abs=1)
+    assert short == equal
     assert short != frame(r"{\k10}空|そ{\k40}#|ら", 1250)
 
 
-@pytest.mark.parametrize("compact", [False, True])
 @pytest.mark.parametrize("reverse", [False, True])
-def test_reading_clock_spends_half_the_note_on_each_host_glyph(tmp_path, compact, reverse):
+def test_reading_clock_spends_half_the_note_on_each_host_glyph(reverse):
     from kara_templater._raster import rasterize
 
     scene = subject(text=r"{\k100}iW|ab", start=1000, end=2000, entry="none", exit="none",
                     singing="none", ruby_reading_units=True, reverse_wipe=reverse,
                     sung=Color(255, 0, 0), unsung=Color(0, 0, 255),
                     sung_outline=Color(255, 0, 0), unsung_outline=Color(0, 0, 255))
-    if compact:
-        path = tmp_path / "reading.ass"
-        scene.export_compact_ass(path)
-        ass = path.read_text(encoding="utf-8-sig")
-    else:
-        ass = scene.compile(native_tweens=True).document.dumps()
+    ass = scene.compile(native_tweens=True).document.dumps()
     frame = rasterize(ass, 1500, (640, 360)).rgba
     bottom = max(i // (640 * 4) for i in range(3, len(frame), 4) if frame[i])
     # At the handoff one complete glyph should be red and the other blue.
@@ -1394,36 +1108,13 @@ def test_reading_handoff_reaches_each_hosts_own_ink_at_ass_ticks():
     assert edge(1.07) == pytest.approx(second_ink.left + 0.05 * second_ink.width)
 
 
-def test_leading_empty_reading_delays_the_first_visible_scanline():
-    from kara_templater._raster import rasterize
-
-    scene = subject(text=r"{\k10}W|{\k40}#|abcd", start=1000, end=1500,
-                    entry="none", exit="none", singing="scanline", ruby_scanline="both",
-                    ruby_reading_units=True, scanline_color=Color(0, 255, 255),
-                    scanline_width=16, scanline_softness=3)
-    ass = scene.compile(native_tweens=True).document.dumps()
-
-    def cyan(ms):
-        frame = rasterize(ass, ms, (640, 360)).rgba
-        return any(frame[i:i + 4] == bytes((0, 255, 255, 255)) for i in range(0, len(frame), 4))
-
-    assert not any(cyan(ms) for ms in (1020, 1080, 1100))
-    assert cyan(1150)
-
-
-@pytest.mark.parametrize("compact", [False, True])
-def test_ruby_character_clock_holds_body_at_three_quarters_through_empty_part(tmp_path, compact):
+def test_ruby_character_clock_holds_body_at_three_quarters_through_empty_part():
     from kara_templater._raster import rasterize
 
     def body(text, times):
         scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
                         singing="none", ruby_reading_units=True, sung_outline=Color(30, 40, 50))
-        if compact:
-            path = tmp_path / "ruby.ass"
-            scene.export_compact_ass(path)
-            ass = path.read_text(encoding="utf-8-sig")
-        else:
-            ass = scene.compile(native_tweens=True).document.dumps()
+        ass = scene.compile(native_tweens=True).document.dumps()
         frames = [rasterize(ass, ms, (640, 360)).rgba for ms in times]
         # Ruby and body occupy separate rows. Compare the body including both outlines.
         bottom = max(i // (640 * 4) for i in range(3, len(frames[0]), 4) if frames[0][i])
@@ -1449,49 +1140,13 @@ def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, 
     recipe = KaraokeEffects(entry="none", exit="none", singing="none", reverse_wipe=reverse, sung=Color(255, 0, 0),
                             unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
     scene = prepare_tracks(doc, tracks=(Track(id="main", preview=0, tail=1, effects=(recipe,)),))
-    compact = tmp_path / "lyric.ass"
-    scene.export_compact_ass(compact)
-    scripts = scene.compile(native_tweens=True).document.dumps(), compact.read_text(encoding="utf-8-sig")
+    script = scene.compile().document.dumps()
 
     def red_pixels(script, ms):
         rgba = rasterize(script, ms, (640, 360)).rgba
         return sum(rgba[i:i + 4] == b"\xff\x00\x00\xff" for i in range(0, len(rgba), 4))
 
-    for ms in (jump_ms - 10, jump_ms, jump_ms + 10):
-        assert red_pixels(scripts[0], ms) == red_pixels(scripts[1], ms)
-    assert red_pixels(scripts[0], jump_ms) - red_pixels(scripts[0], jump_ms - 10) > 100
-
-
-def test_scanline_releases_previous_word_across_untimed_spaces():
-    from kara_templater._raster import rasterize
-
-    scene = subject(text=r"{\k50}W{\k0}  {\k50}W", start=1000, end=2000,
-                    entry="none", exit="none", singing="scanline", scanline_width=16,
-                    scanline_softness=3, scanline_color=Color(0, 255, 255))
-    script = scene.compile(native_tweens=True).document.dumps()
-
-    def front(ms):
-        rgba = rasterize(script, ms, (640, 360)).rgba
-        xs = [i // 4 % 640 for i in range(0, len(rgba), 4) if rgba[i:i + 4] == b"\x00\xff\xff\xff"]
-        return sum(xs) / len(xs)
-
-    before, release, after = map(front, (1490, 1500, 1510))
-    assert abs(release - before) < 3
-    assert after - release > 6
-
-
-def test_scanline_handoff_uses_endpoint_after_instant_final_reading():
-    from kara_templater._raster import rasterize
-
-    def handoff(first, last):
-        scene = subject(text=rf"{{\k{first}}}空|そ{{\k{last}}}#|ら{{\k50}}を",
-                        start=1500, end=2500, entry="none", exit="none", singing="scanline",
-                        scanline_width=16, scanline_softness=3, scanline_color=Color(0, 255, 255))
-        rgba = rasterize(scene.compile(native_tweens=True).document.dumps(), 2000, (640, 360)).rgba
-        return [i for i in range(0, len(rgba), 4) if rgba[i:i + 4] == b"\x00\xff\xff\xff"]
-
-    ordinary = handoff(25, 25)
-    assert ordinary and handoff(50, 0) == ordinary
+    assert red_pixels(script, jump_ms) - red_pixels(script, jump_ms - 10) > 100
 
 
 @pytest.mark.parametrize(("mode", "ticks", "expected"), [
@@ -1504,8 +1159,6 @@ def test_ruby_color_switch_at_the_annotation_boundary(tmp_path, mode, ticks, exp
     scene = subject(text=rf"{{\k{ticks}}}空|そ{{\k{50-ticks}}}#|ら",
                     start=1000, end=1500, entry="none", exit="none", singing=mode,
                     sung=Color(255, 0, 0), unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
-    path = tmp_path / "ruby.ass"
-    scene.export_compact_ass(path)
     def ruby_has_red(script, ms):
         rgba = rasterize(script, ms, (640, 360)).rgba
         top = next(i // 640 for i, a in enumerate(rgba[3::4]) if a > 128)
@@ -1514,48 +1167,8 @@ def test_ruby_color_switch_at_the_annotation_boundary(tmp_path, mode, ticks, exp
                    for i in range(0, len(ruby), 4))
 
     times = (1000, 1200 if ticks else 1010, 1500)
-    for script in (scene.compile(native_tweens=True).document.dumps(), path.read_text(encoding="utf-8-sig")):
-        assert tuple(ruby_has_red(script, ms) for ms in times) == expected
-
-
-def test_empty_timed_reading_hides_scanline_during_rest():
-    from kara_templater._raster import rasterize
-
-    scene = subject(
-        text=r"{\k10}空|そ{\k20}#|{\k20}#|ら{\k10}#|", start=1500, end=2100,
-        entry="none", exit="none", singing="scanline", scanline_width=24,
-        scanline_color=Color(0, 255, 255),
-    )
-    script = scene.compile(native_tweens=True).document.dumps()
-
-    def visible(ms):
-        rgba = rasterize(script, ms, (640, 360)).rgba
-        return any(rgba[i:i + 4] == bytes((0, 255, 255, 255)) for i in range(0, len(rgba), 4))
-
-    assert all(visible(ms) for ms in (1510, 1600, 1800, 1990, 2000))
-    assert all(not visible(ms) for ms in (1500, 1610, 1790, 2010, 2090))
-
-
-def test_body_scanline_holds_release_frame_and_resumes_after_a_pause():
-    from kara_templater._raster import rasterize
-
-    scene = subject(text=r"{\k40}H{\kt80\k40}Q", start=1500, end=2700,
-                    entry="none", exit="none", singing="scanline", scanline_width=24,
-                    scanline_color=Color(0, 255, 255), min_outline_gap=None)
-    script = scene.compile(native_tweens=True).document.dumps()
-
-    def cyan_columns(ms):
-        rgba = rasterize(script, ms, (640, 360)).rgba
-        return {i // 4 % 640 for i in range(0, len(rgba), 4)
-                if rgba[i:i + 4] == bytes((0, 255, 255, 255))}
-
-    assert not cyan_columns(1500)
-    assert cyan_columns(1510)
-    release = cyan_columns(1900)
-    assert release and release == cyan_columns(2300)
-    assert not cyan_columns(1910) and not cyan_columns(2290)
-    assert max(cyan_columns(2350)) > max(release)
-    assert not cyan_columns(2700)
+    script = scene.compile().document.dumps()
+    assert tuple(ruby_has_red(script, ms) for ms in times) == expected
 
 
 def test_scanline_crosses_syllable_boundary_on_both_glyphs():
@@ -1667,7 +1280,6 @@ def test_track_reverses_windows_before_cues_readings_and_rule_binding(tmp_path):
     assert forward.independent[0].lifetime.end == 5.5
     assert scene.plans[0].source.lyrics.units[-1].segments[0].singing.start == 2.5
     assert scene.compile(native_tweens=True).event_count > 0
-    scene.export_compact_ass(tmp_path / "reverse.ass")
 
 
 @pytest.mark.parametrize("reverse", [False, True])
@@ -1683,17 +1295,15 @@ def test_rtl_cells_keep_glyphs_upright_and_wipe_from_the_first_sung_side(tmp_pat
     first, second = line.layout.body.characters
     assert first.object.text == "H" and first.bounds.left > second.bounds.left
     assert first.object.state.scale.x > 0 and second.object.state.scale.x > 0
-    path = tmp_path / "compact.ass"
-    scene.export_compact_ass(path)
-    for script in (scene.compile(native_tweens=True).document.dumps(), path.read_text(encoding="utf-8-sig")):
-        rgba = rasterize(script, 1250, (320, 180)).rgba
-        pixels = list(zip(rgba[::4], rgba[1::4], rgba[2::4], rgba[3::4], strict=True))
-        red = [i % 320 for i, c in enumerate(pixels) if c == (255, 0, 0, 255)]
-        white = [i % 320 for i, c in enumerate(pixels) if c == (255, 255, 255, 255)]
-        if reverse:
-            assert max(red) < min(white)
-        else:
-            assert max(white) < min(red)
+    script = scene.compile().document.dumps()
+    rgba = rasterize(script, 1250, (320, 180)).rgba
+    pixels = list(zip(rgba[::4], rgba[1::4], rgba[2::4], rgba[3::4], strict=True))
+    red = [i % 320 for i, c in enumerate(pixels) if c == (255, 0, 0, 255)]
+    white = [i % 320 for i, c in enumerate(pixels) if c == (255, 255, 255, 255)]
+    if reverse:
+        assert max(red) < min(white)
+    else:
+        assert max(white) < min(red)
 
 
 @pytest.mark.parametrize(("phase", "time"), [("entry", 0.14), ("exit", 2.66)])
@@ -1718,34 +1328,14 @@ def test_drip_keeps_measured_cell_edge_stationary(phase, time):
     assert a.transform.apply(point).y == pytest.approx(b.transform.apply(point).y)
 
 
-@pytest.mark.parametrize("stretch", [50, 100, 150, 200])
-def test_scanline_width_stays_in_script_pixels_on_stretched_type(stretch):
-    from kara_templater import Glow
-    from kara_templater._raster import rasterize
-
-    doc = Document.create(width=640, height=360, styles=(
-        Style(fontname="DejaVu Sans", fontsize=96, scale_x=stretch, outline=1, shadow=0),
-    ))
-    doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}H"))
-    rim = Glow(Color(182, 50, 86), border=6)
-    fx = KaraokeEffects(entry="none", exit="none", singing="scanline", glow=rim, base_glow=rim,
-                        scanline_width=12, scanline_softness=2, scanline_color=Color(0, 255, 255))
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(fx,)),))
-    frame = rasterize(scene.compile(native_tweens=True).document.dumps(), 1500, (640, 360))
-    bright = {i // 4 % 640 for i in range(0, len(frame.rgba), 4)
-              if frame.rgba[i] < 45 and min(frame.rgba[i+1:i+4]) > 220}
-    assert len(bright) == 10
-
-
-@pytest.mark.parametrize("mode,level", [("utopia_scanline", 1), ("zoom_pulse_scanline", 1), ("zoom_pulse_scanline", 5)])
-def test_pulse_keeps_canvas_band_width_during_the_note(mode, level):
+def test_utopia_keeps_canvas_band_width_during_the_note():
     from kara_templater._raster import rasterize
 
     doc = Document.create(width=640, height=360, styles=(
         Style(fontname="DejaVu Sans", fontsize=160, shadow=0),
     ))
     doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}—"))
-    recipe = KaraokeEffects(entry="none", exit="none", singing=mode, zoom_pulse_curve_level=level,
+    recipe = KaraokeEffects(entry="none", exit="none", singing="utopia_scanline",
                             scanline_width=32, scanline_softness=0, scanline_color=Color(0, 255, 255))
     scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
     ass = scene.compile(native_tweens=True).document.dumps()

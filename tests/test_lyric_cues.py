@@ -71,8 +71,6 @@ def test_ruby_keeps_body_center_offset_during_multiple_reservations_and_releases
         - original.ruby[0].layout.characters[0].object.state.position.x
         == pytest.approx(-95 if right_to_left else 95)
     )
-    scene = Scene(Document.create()).add(bound.group())
-    assert scene.compile().document.dumps() == scene.compile().document.dumps()
 
 
 def test_independent_cue_does_not_move_body_or_ruby_and_no_inline_group_works():
@@ -96,7 +94,7 @@ def test_input_marker_and_projected_python_marker_are_equivalent():
     imported = layout_document_lyrics(
         doc, len(doc.records) - 1, display=original.body.lifetime
     )
-    presets = {"bars": CuePreset(factory=BarsCue(), keep_space=False)}
+    presets = {"bars": CuePreset(factory=BarsCue())}
     from_input = bind_lyric_cues(imported, presets)
     from_code = bind_lyric_cues(
         original, presets, markers=(CueMarker("intro", "bars"),)
@@ -179,7 +177,6 @@ def test_volume_flash_softness_preserves_fill_time(transition, opacity):
     evaluator = scene.evaluator()
     assert [evaluator.at(group.id, t).opacity for t in (0.1, 0.15, 0.35, 0.4)] == pytest.approx(opacity)
     assert evaluator.at(group.id, 0.5).opacity == 1
-    assert scene.compile().event_count > 0
 
 
 @pytest.mark.parametrize(

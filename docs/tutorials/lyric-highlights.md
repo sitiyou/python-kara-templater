@@ -2,7 +2,7 @@
 
 This complete script binds a shared jump animation when each measured character
 is reached by the singing front. It uses only the installed library and writes
-`lyric-arc.ass`. Lyrics and ordinary objects use the same animation protocol.
+`lyric-arc.hook`. Lyrics and ordinary objects use the same animation protocol.
 
 ```python
 from kara_templater import (
@@ -81,7 +81,7 @@ scene = prepare_tracks(
         ),
     ),
 )
-scene.compile().document.save("lyric-arc.ass")
+scene.export_hook("lyric-arc.hook", fps=60)
 ```
 
 The factory describes each syllable's measured region and original singing

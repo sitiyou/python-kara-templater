@@ -25,8 +25,7 @@ Colors run vertically through each measured glyph and follow its scale/translati
 Body and ruby resolve their own heights. Use `axis="x"` to spread the colors
 across the visible ink of the body line. Readings sample the same horizontal
 positions, so adjacent syllables continue the ramp during the wipe. Separate glow retains its configured
-color; only the sung drawing receives this material. `step=1` uses one-local-pixel
-color bands; increasing it trades gradient resolution for fewer ASS events.
+color; only the sung drawing receives this material. Export gradients with the GPU hook.
 
 For a duet, use the active ASS style as the singer name. For example,
 `{\rLead}` and `{\rReply}` switch roles within a line. Each horizontal ramp
@@ -56,7 +55,7 @@ accept the same material parameter.
 This uses the local `LinearGradient` backend: currently it requires clip strategy,
 a single positive singing interval, and axis-aligned scale/translation. Repeated
 singing and coverage-mode material composition are not supported by this backend.
-Unsupported combinations raise; inspect compilation reports for band/event cost.
+Standard ASS rejects paint fields during compilation.
 
 ## Paint separate visual roles
 
@@ -70,44 +69,11 @@ should grow with the text.
 
 SoftSweep is a spatial color field with (unsung, sung) fill/outline pairs,
 independent front widths, a script-space range, start, duration, and rate.
-With `native_tweens=True`, a static screen-space `LinearGradient` can share native rectangle
-clip animation when the clip edges along the gradient axis stay fixed. For
-example, vertical color bands support a horizontal karaoke sweep. Geometry and
-colors must remain static; eligible opacity fades are supported. Continuous clip
-sections share one event per band, while instantaneous resets remain separate.
-This keeps event counts independent of sampling FPS for eligible objects without
-changing `step`. Inverse clips, animated geometry/colors, custom paint fields,
-and screen-space clips crossing color bands use the general sampler. Native clips
-retain the compiler's existing integer-coordinate error budget.
-
 Material time, including SoftSweep.start, is local seconds from the owning
 object's `time_origin`. Delayed copies retain that local clock. Custom fields
 can use signed local times when visibility precedes the origin; see
 [animation clocks](animation.md#scene-clips-and-timelines).
-LinearGradient uses ColorRamp/ColorStop values along x or y. Fields compile into
-bounded ASS color bands; step and max_bands affect precision and cost. PaintField
-is the extension protocol for your own spatial paint function.
-
-`LinearGradient(space="local")` uses untransformed drawing coordinates for
-color stops and band width. On an unmasked, closed vector path, a fill gradient
-rotates with the path. ASS cuts the fixed path into colored pieces once and
-transforms them around the original pivot. The standalone hook samples the
-gradient continuously. To color the pen, set the gradient’s `outline` ramp and
-a positive border radius. ASS clips the original pen into rotated color bands,
-including the part that extends beyond the path. A solid face stays in one piece.
-Moving outline bands use sampled ASS events. Place shadows and blur on separate drawings.
-
-For text and clipped paths, local gradients follow positive axis-aligned scaling
-and translation and require a non-inverse local `RectangleKeyframes` clip without
-parent masks. A sweep across stationary geometry uses one native clip event per
-band. For a moving or scaling glyph, the compiler can sample the intersections.
-Coverage materials do not support local gradients.
-
-Eligible local gradients retain native clip and scale/opacity transforms; a
-single position-only linear Tween can share the same event. Multiple moves or
-unsupported curves may require more events or sampling. Native clip coordinates
-still have the compiler's integer rounding/error contract: attached one-pixel
-bands are not a continuous shader texture.
+LinearGradient uses ColorRamp/ColorStop values along x or y. The hook evaluates the fill and outline ramps independently.
 
 Other scene materials use script-space color coordinates. Group motion changes which
 parts of the object encounter a field; for a different attachment rule, author
@@ -203,7 +169,7 @@ color and opacity across the front. A fully transparent side contributes no
 color, so a fading halo keeps its visible hue. The engine approximates
 the Gaussian color transition with up to eight narrow moving strips between
 the two outer colors. Each strip follows the same singing clock as the text.
-A linear wipe can export these as native ASS clip animations. Differences in
+These blended strips require hook export. For ASS, choose separate halos with `blend_glow=False`. Differences in
 halo geometry keep the ordinary clipped layers. Use coverage to
 partition actual glyph ink before blurring, including across gaps in a glyph.
 
@@ -241,25 +207,6 @@ callback results, including any geometry-dependent scaling the callback adds.
 
 ## Explicit composition choices
 
-| Choice | Meaning | Cost and constraints |
-| --- | --- | --- |
-| Ordinary Scene groups | Each drawing layer receives inherited opacity and clips | Efficient ASS objects; no isolated offscreen group buffer |
-| `rasterize_group` | Bake a group's completed RGBA image into ASS rectangles | Explicit spatial/temporal bounds and output budget |
-| `ObjectGroup(coverage=Coverage(...))` | Color source coverage, apply glow/material scopes, then encode ASS | Explicit components, partitions, glow bounds, and scoped opacity |
-
-Raster and coverage results remain standard ASS, but can contain thousands of
-pixel rectangles per frame. Whole-group RGBA and component coverage have
-different compositing contracts and are explicit choices. Binding dictionaries
-and ScopeOpacity owners use object IDs; copying a configured ObjectGroup remaps
-its internal ownership IDs.
-
-A coverage group may be inside ordinary groups. Parent transforms, masks,
-opacity and lifetimes apply to that branch; sibling drawings remain separate.
-Clipping a display window does not restart animation clocks. Geometry references
-can address objects elsewhere in the same Scene. Nested coverage declarations
-and opacity-writing references currently raise explicit ownership errors.
-
-Diffused color-before-blur
-has different semantics from a crisp banded front. RGB/full-resolution chroma
-subtitle compositing is required for pixel-level material comparisons; YUV420
-can create rectangle-dependent color edges. See [compilation](compilation.md).
+Ordinary groups pass opacity and clips to each drawing layer. Explicit
+coverage groups request per-pixel material composition and cannot export to
+ASS or hook. See [export formats](choosing-output.md).

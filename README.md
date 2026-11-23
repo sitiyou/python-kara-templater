@@ -27,13 +27,12 @@ gold = KaraokeEffects.duotone(unsung=Color.hex("#281C26"), sung=Color.hex("#FFE0
 vocal_track = Track(id="vocal", layout=Layout(rows=1, position=Vec2(80, 180)), effects=(gold,))
 scene = prepare_tracks(song, tracks=(vocal_track,))
 
-scene.export_compact_ass("chorus.ass")
 scene.export_hook("chorus.hook", fps=30)
 ```
 
-Open `chorus.ass` as a subtitle over a video, or play `chorus.hook` with mpv’s GPU renderer.
-The two exports preserve the singing times. To see how their sweep edges differ,
-[compare the same frame across renderers](docs/guides/choosing-output.md#one-singing-position-three-renders).
+Play `chorus.hook` with mpv’s GPU renderer. For standard ASS, set
+`feather=0` on the duotone recipe and save `scene.compile().document`.
+[Choose an output](docs/guides/choosing-output.md).
 
 ## Use your own lyrics
 

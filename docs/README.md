@@ -6,7 +6,7 @@
 | Template authoring | The [template skill](../skills/kara-templater/SKILL.md) covers choosing a working example, styling timed lyrics and checking the rendered result. |
 | Tutorials | [Custom animation](tutorials/custom-animation.md), [timed highlights](tutorials/lyric-highlights.md), [karaoke layout](tutorials/karaoke-design.md) and [lyric motion studies](tutorials/lyric-studies.md) |
 | Examples | The [effect gallery](examples/README.md) pairs rendered previews with runnable source. |
-| Export formats | [Choosing an output](guides/choosing-output.md) compares compact ASS, compiled ASS and standalone hooks. |
+| Export formats | [Choosing an output](guides/choosing-output.md) compares standard ASS and standalone hooks. |
 
 ## Task guides
 

@@ -4,13 +4,10 @@ import pytest
 
 from examples.scene_sakura import build
 from kara_templater import (
-    Document,
     ObjectGroup,
     PathObject,
-    Scene,
     SoftSweep,
     TextObject,
-    _metrics,
 )
 
 
@@ -38,18 +35,3 @@ def test_visible_sweep_and_particle_cursor_share_time_and_span():
         assert front.front_at(time) == pytest.approx(expected)
     assert front.width == 24
     assert front.outline_width == 32
-
-    script = Scene(Document.create()).add(lyrics).compile().document.dumps()
-
-    def colors(time_ms: int) -> set[int]:
-        return {
-            color >> 8
-            for _, _, width, height, kind, color, _ in _metrics.rasterize(
-                script, time_ms, 1280, 720, 4_000_000, 10_000
-            )
-            if kind == 0 and width and height
-        }
-
-    assert colors(500) == {0xFFFFFF}
-    assert colors(2500) == {0xFFC0CB}
-    assert len(colors(1500)) > 2

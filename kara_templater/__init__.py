@@ -223,7 +223,6 @@ from .scene_output import (
     SceneResult,
     compile_scene,
 )
-from .scene_raster import RasterizedGroup, rasterize_group
 from .scene_text import (
     DocumentLayout,
     PositionedText,
@@ -374,7 +373,6 @@ __all__ = [
     "RED",
     "RasterEstimate",
     "RasterSettings",
-    "RasterizedGroup",
     "Record",
     "RectangleClip",
     "RectangleFunction",
@@ -453,7 +451,6 @@ __all__ = [
     "path_boolean",
     "path_bounds",
     "prepare_tracks",
-    "rasterize_group",
     "read_document_text",
     "resample_path",
     "select_characters",

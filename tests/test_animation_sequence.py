@@ -120,7 +120,6 @@ def test_lyric_factory_combines_material_and_geometry_on_common_timeline():
     value = evaluator.at(target.node_id, 1.25)
     assert value.fill == Color(255, 128, 128)
     assert value.scale == Vec2(1.1, 1.1)
-    assert Scene(document).add(animated).compile().event_count > 1
     assert len(calls) == len(line.query("character"))
 
 

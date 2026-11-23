@@ -1,8 +1,8 @@
 """Render the representative examples to ASS and GitHub-friendly animated GIFs.
 
 Run from a source checkout with FFmpeg/libass and the checks dependencies:
-python -m tools.render_gallery --case sweep
-Omit --case to render the complete gallery. Reports and ASS stay under build/.
+python -m tools.render_gallery --case word-backgrounds
+Historical sampled ASS cases cannot be regenerated with this exporter. Reports and ASS stay under build/.
 """
 
 import argparse
@@ -127,8 +127,9 @@ def main() -> None:
         ["ffmpeg", "-version"], capture_output=True, text=True, check=True
     ).stdout.splitlines()[0]
     artifacts = []
+    selected = args.case or ["word-backgrounds"]
     for case in CASES:
-        if args.case and case.name not in args.case:
+        if case.name not in selected:
             continue
         artifact = render(
             case, output, assets, width=args.width, fps=args.fps, duration=args.duration

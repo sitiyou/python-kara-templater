@@ -13,9 +13,7 @@ two fills, or supply either outline explicitly. The default feather spans one
 sixth of each target's authored font size (12 px on a 72 px lyric, 6 px on
 a 36 px reading). Set `feather=12` to give both the same width, or
 `feather=Glyph.font_size / 8` for a narrower proportional edge. The GPU hook interpolates both color pairs continuously.
-For simple timed lyrics, compact ASS approximates the same profile with up to
-8 moving color strips plus the two endpoint colors per cluster. Set
-`feather=0` for a sharp boundary and smaller ASS.
+For standard ASS use `feather=0` to select a hard boundary.
 
 ![Four libplacebo crops compare fixed and proportional edges on 36 and 48 px readings.](../examples/assets/relative-ruby.png)
 
@@ -81,14 +79,14 @@ motion = (
 rim = StatePatch(outline=Color.hex("#D4B6FF"), border=5)
 halo = Glow(Color.hex("#8054CD"), border=8, blur=4, opacity=0.75)
 back = LyricHighlights.from_singing(rim, base_paint=rim, glow=halo, base_glow=halo)
-face = LyricSweep(fill=Color.hex("#FF984A"), width=14, step=1)
+face = LyricHighlights.from_singing(StatePatch(fill=Color.hex("#FF984A")), hook_feather=14)
 layout = Layout(rows=2, position=Vec2(42, 110))
 
 scene = prepare_tracks(document, tracks=(
     Track(id="rim", layout=layout, effects=(back, *motion)),
     Track(id="face", layout=layout, reserved_border=5, effects=(face, *motion)),
 ))
-scene.compile(native_tweens=True).document.save("karaoke.ass")
+scene.export_hook("karaoke.hook", fps=60)
 ```
 
 The preview above shows compiled ASS rendered with libass. The two tracks draw the same timed lyrics at the same positions, back layer
@@ -96,8 +94,7 @@ first. Both views reserve the outer 5 px hard rim so their glyphs stay aligned. 
 how much of the letter contains intermediate colors; tune `halo.blur` to change
 how far the light spreads outside it. The sizes above accompany a 60 px font.
 For an existing song, load its Document and select the same main-vocal sources
-for both views. Render a verse before compiling a whole song: the soft front
-uses color bands in standard ASS, and the pulse moves those bands with the text.
+for both views. Export a verse to check the feather and pulse together.
 
 ## Choose the singing motion
 
@@ -116,9 +113,7 @@ libass renders of compiled ASS. Only the singing setting changes.
 
 To check a template, pause halfway through a long note. The wipe leaves
 both colors visible; the completion switch keeps the waiting color until the unit ends.
-The full scene and hook carry the pulse. Compact ASS keeps the color timing
-and line fades and simplifies glyph motion. For Studio spacing or additional outline clearance,
-compact ASS positions clusters separately to retain the measured spacing. For count-in direction see
+For count-in direction see
 [Choose the countdown order](text-and-cues.md#choose-the-countdown-order).
 
 The catalog covers the animation menus in
@@ -196,8 +191,7 @@ capacity error; reduce the effect duration or adjust the allocator in that case.
 Utopia exit begins after the following character finishes. The final character
 uses the remaining display tail. Each departure lasts 750 ms. Snow uses a
 six-branch vector with an open center. Assembly combines moving squares with
-a separate glyph fade. Sampled ASS animations hold their state between events,
-which is most visible during fast shears and tracking entrances.
+a separate glyph fade. Export these animated effects as a hook.
 
 ## Singing and decoration
 
@@ -230,7 +224,7 @@ move independently after birth. They are emitted from body text, not ruby.
 - Singing emits one burst per glyph onset. The defaults are three ripple rings, four petals or snowflakes, seven moving stars, or three classic stars or notes. Set `particle_rate` to choose a density per second of singing. Ripple keeps its three-ring timing.
 - `particle_color` accepts a single color or a pair, for example `(Color.hex("#FFB7C5"), Color.hex("#FFD7E0"))`. Two different colors split each burst between two seeded patterns. The first receives the extra particle for odd counts and the second draws on top where particles overlap. Equal colors use the single-color pattern. Particles follow the effective sung ink by default. Set `particle_color="illustrated"` for white singing particles, cherry-pink transition petals and icy transition snow.
 - Use `"follow_before"` for the character’s waiting fill, `"follow_after"` for its sung fill, or `"follow_mix"` for both. Each gradient contributes the RGB average of its color stops. Line-wide sparkles in a single follow mode take their color from their current horizontal position as they move across roles. In mixed mode they use the first character’s pair. This setting applies to both singing and transition particles.
-- Set `particle_layers="stroke"` with a follow color mode to inherit the character’s primary outline and hard secondary rim. Both radii scale with the moving sprite. Ripple rings keep their thin contour. Line-wide sparkles in `"follow_before"` and `"follow_after"` use only the color at their horizontal position. With a vertical fill gradient, each ripple ring changes color as it expands. For a horizontal gradient, each particle samples the fill and primary outline independently at its current position across the line. A material with only an outline ramp leaves the face in the chosen lyric color. On petals, snow, notes and stars, vertical fill and primary outline gradients rotate with the shape. ASS approximates one em with about five color bands. The pen extends past this range using its endpoint colors. Each moving band adds ASS drawing events. The standalone hook shades both ramps continuously.
+- Set `particle_layers="stroke"` with a follow color mode to inherit the character’s primary outline and hard secondary rim. Both radii scale with the moving sprite. Ripple rings keep their thin contour. Line-wide sparkles in `"follow_before"` and `"follow_after"` use only the color at their horizontal position. With a vertical fill gradient, each ripple ring changes color as it expands. For a horizontal gradient, each particle samples the fill and primary outline independently at its current position across the line. A material with only an outline ramp leaves the face in the chosen lyric color. On petals, snow, notes and stars, vertical fill and primary outline gradients rotate with the shape. The standalone hook shades both ramps continuously.
 - With a follow color, `particle_layers="decor"` adds the source character’s soft glow or offset black shadow. `"all"` also includes the available hard outlines. `particle_glow_concentration` selects one, two or three glow passes at levels 0, 1 and 2. Level -1 hides the soft glow. Each pass adds five translucent outlines per decorated particle.
 - `max_particles`: total entry/exit/singing particle budget per line, default 512;
   exceeding it raises before particle factories execute.
@@ -253,8 +247,7 @@ move independently after birth. They are emitted from body text, not ruby.
   `KaraokeEffects(singing="utopia", hook_feather=17, sung_outline=Color.hex("#522432"))`.
   The final 17 script pixels behind a single-interval sweep edge mix the unsung
   and sung inks inside the glyph and outline masks. Both the waiting and sung gradients retain their colors through the feather. To carry the same transition into a halo, supply both glow
-  colors with matching border, blur and opacity. Ordinary ASS and repeated
-  intervals retain the basic wipe. Choose a scanline mode when you want an
+  colors with matching border, blur and opacity. For ASS, use a hard wipe on a single singing interval. Choose a scanline mode when you want an
   additional bright stripe. With a feathered hook, set `front_color` to give
   the moving edge a distinct color inside the fill and hard outline. The halo
   retains its softer color transition.
@@ -275,27 +268,15 @@ libass renders, not mockups. Read [recommended designs](../tutorials/karaoke-des
 for when to use each combination.
 
 ```sh
-uv run python -m examples.karaoke_catalog build/petals.ass --entry wave_in --exit petal --singing zoom_pulse --decoration petal
-uv run python -m tools.render_karaoke_catalog build/karaoke-catalog
+uv run python -m examples.karaoke_catalog build/petals.hook --entry wave_in --exit petal --singing zoom_pulse --decoration petal
 ```
-
-[Example source](../../examples/karaoke_catalog.py) and
-[catalog renderer](../../tools/render_karaoke_catalog.py). The renderer writes a
-640×360/60fps video and ASS for each choice,
-plus four combinations, with event counts and hashes in its manifest.
-Use `--only design-` to regenerate just the recommendations.
 
 ## Output and costs
 
-All catalog options can compile to standard ASS. Rotations, dynamic blur and
-particles can generate many events; the catalog is not a promise of small ASS
-files. Inspect `Scene.compile()` reports and keep ordinary player limits in mind.
-
-The same Scene can use [GPU-enhanced output](gpu-rendering.md). Continuous gradients
-then avoid ASS color bands. Changing native blur still requires different coverage
-masks in the current GPU adapter; it is not a general GPU blur shader. The tests
-exercise draw preparation for every catalog choice. Local validation includes
-actual libass videos and a GPU-enhanced example; Windows Direct2D parity is not claimed.
+For ordinary ASS players, use hard singing wipes, native fades and
+supported transforms. Gradient text, feathered wipes, soft scanlines and
+particle trajectories requiring frame callbacks raise SceneCompileError.
+[Choose an output](choosing-output.md) describes the limits of both formats.
 
 For custom timing curves, independent ornament clocks or different particle
 geometry, use [animation](animation.md) and [particles](particles.md). Built-ins
@@ -305,7 +286,7 @@ are a short authoring path into those same mechanisms.
 
 Keep the visual recipe in a module that accepts a prepared Document and returns
 the LyricScene from `prepare_tracks`. A separate entry point can load the lyrics
-and write both playback files from that same scene.
+and write a standalone hook from that same scene.
 
 ```python
 from kara_templater import Document
@@ -313,18 +294,8 @@ from kara_templater import Document
 from l4ts_template import build
 
 scene = build(Document.load("L4TS.document.ass"))
-scene.export_compact_ass("L4TS.ass")
 scene.export_hook("L4TS.hook", fps=60)
 ```
 
-To play the full catalog effects in a regular ASS player, use
-`scene.compile(native_tweens=True).document.save("L4TS.full.ass")`.
-This includes the scanline, per-character motion, particles and outline flashes
-in the subtitle file. Complex scenes can generate many more events.
-
-The compact ASS approximates catalog motion, materials and particles with native
-karaoke timing, the recipe's sung/unsung colors and line fades. It keeps inline
-cue space and drawings. Duotone lyrics retain ruby positions and reading clocks
-in compact output. Other ruby recipes, complex timing and internal inline cue
-reservations use ordinary scene compilation, so their output can be larger. The hook draws supported scene effects directly. [Compare the same singing
-position in all three exports](choosing-output.md#one-singing-position-three-renders).
+Use `scene.compile().document.save("L4TS.ass")` for ASS-compatible recipes.
+[Choose an output](choosing-output.md) lists the supported strategies.

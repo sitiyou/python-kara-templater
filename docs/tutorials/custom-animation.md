@@ -2,7 +2,7 @@
 
 This tutorial extends [getting started](../getting-started.md) with a path object,
 a reusable factory, and your own animation function. It runs with the installed
-library and writes `sparks.ass` in the current directory.
+library and writes `sparks.hook` in the current directory.
 
 ## Define the motion and object
 
@@ -49,9 +49,7 @@ def spark(identity: str, position: Vec2, birth: float) -> PathObject:
 scene = Scene(Document.create(width=640, height=360)).add(
     *(spark(f"spark:{i}", Vec2(100, 100 + i * 35), i * 0.1) for i in range(4))
 )
-result = scene.compile()
-result.document.save("sparks.ass")
-print(result.event_count, result.peak_active, result.byte_count)
+scene.export_hook("sparks.hook", fps=60)
 ```
 
 `spark` is an ordinary factory. Each call constructs an independently editable
@@ -72,6 +70,4 @@ For randomized particles, switch to [emit_particles](../guides/particles.md) and
 named random channels. For a lyric sweep, bind [Document text](../guides/text-and-cues.md)
 or prepare [Tracks](../guides/tracks.md), then add the same objects to that Scene.
 
-Compilation samples custom motion according to [SceneBudget](../guides/compilation.md).
-The callback does not acquire a continuous error bound merely because its
-samples fit a frame rate. Inspect the generated ASS in your intended player.
+Hook export samples this custom motion at the export frame rate.

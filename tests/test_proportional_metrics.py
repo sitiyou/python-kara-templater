@@ -47,10 +47,8 @@ def test_palt_keeps_gpos_placement_separate_from_portable_glyph_advance(tmp_path
     recipe = KaraokeEffects(entry="none", exit="none", singing="none")
     scene = prepare_tracks(doc, tracks=(Track(id="main", palt=True, min_outline_gap=None, effects=(recipe,)),))
     assert scene.lines[0].layout.body.bounds.width == pytest.approx(adjusted.bounds.width)
-    target = tmp_path / "portable.ass"
-    scene.export_compact_ass(target)
-    for output in (Document.load(target), scene.compile(native_tweens=True).document):
-        rows = [line.text for line in output.lines if not line.comment]
-        assert any(line.endswith("時") for line in rows)
-        assert any(line.endswith("々") for line in rows)
-        assert all(r"\pos(" in line or r"\move(" in line for line in rows)
+    output = scene.compile().document
+    rows = [line.text for line in output.lines if not line.comment]
+    assert any(line.endswith("時") for line in rows)
+    assert any(line.endswith("々") for line in rows)
+    assert all(r"\pos(" in line or r"\move(" in line for line in rows)

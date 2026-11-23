@@ -12,9 +12,7 @@ Explicit coverage/material and whole-group RGBA output. These retain distinct co
 - [OutputCapabilityError](#outputcapabilityerror)
 - [RasterEstimate](#rasterestimate)
 - [RasterSettings](#rastersettings)
-- [RasterizedGroup](#rasterizedgroup)
 - [ScopeOpacity](#scopeopacity)
-- [rasterize_group](#rasterize_group)
 
 ## Coverage
 
@@ -254,30 +252,6 @@ RasterSettings(
 | `max_frames` | `int` | `1000` |
 | `max_cached_masks` | `int` | `128` |
 
-## RasterizedGroup
-
-Baked standard-ASS scene and its explicit sampling/quantization costs.
-
-[Source](../../kara_templater/scene_raster.py#L28)
-
-```python
-RasterizedGroup(
-    scene: Scene,
-    sampled_frames: int,
-    source_events: int,
-    max_channel_error: int,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `scene` | `Scene` | `required` |
-| `sampled_frames` | `int` | `required` |
-| `source_events` | `int` | `required` |
-| `max_channel_error` | `int` | `required` |
-
 ## ScopeOpacity
 
 A leaf contribution's extra alpha at a named leaf or ancestor scope.
@@ -313,29 +287,4 @@ Evaluate scope opacity at seconds time and validate the 0 through 1 result.
 ScopeOpacity.sample(
     time: float,
 ) -> float
-```
-
-## rasterize_group
-
-Bake a group's already-lowered picture, then apply its root opacity once.
-
-The viewport-clipped RGBA picture is blurred in premultiplied space before
-root opacity is applied. Child and root masks act before this group blur;
-offscreen content beyond the viewport cannot contribute to the blur.
-Descendant opacity retains ordinary Scene semantics. The root must be
-self-contained: external references are diagnosed by the Scene compiler.
-Geometry first uses the Scene sampling strategy, then pixel frames are
-sampled at the declared output grid. No tighter temporal error is claimed.
-
-[Source](../../kara_templater/scene_raster.py#L38)
-
-```python
-rasterize_group(
-    group: ObjectGroup,
-    *,
-    resolution: tuple[int, int],
-    blur_radius: float = 0,
-    settings: RasterSettings = RasterSettings(max_channel_error=0, max_pixels=4000000, max_images=50000, max_frame_events=50000, max_rectangles=200000, max_frame_chars=8000000, max_output_chars=64000000, max_frames=1000, max_cached_masks=128),
-    budget: SceneBudget = SceneBudget(fps=50, max_events=25000, max_bytes=10485760, max_active=1000, max_path_points=4096, max_bands=1024, max_boolean_work=1000000, clip_error_px=0.75),
-) -> RasterizedGroup
 ```

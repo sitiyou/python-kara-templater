@@ -143,29 +143,14 @@ def test_earlier_local_clip_keeps_clock_and_renders():
         FadeIn,
         Lifetime,
         PathObject,
-        Scene,
         Timeline,
         VectorPath,
     )
-    from kara_templater._raster import rasterize
-
-    document = Document.create(width=80, height=60)
     node = PathObject(
         id="dot", lifetime=Lifetime(0.2, 2), clock_start=1,
         path=VectorPath.rectangle(12, 12),
         animations=(AnimationClip(-0.8, 0.8, FadeIn()),),
     )
-    result = Scene(document).add(node).compile(native_tweens=True)
-    reference = Scene(document).add(replace(
-        node, clock_start=0.2, animations=(AnimationClip(0, 0.8, FadeIn()),),
-    )).compile(native_tweens=True)
-    for ms in (200, 400, 600, 800, 1000):
-        actual = rasterize(result.document.dumps(), ms, (80, 60)).rgba[3::4]
-        expected = rasterize(reference.document.dumps(), ms, (80, 60)).rgba[3::4]
-        # Sampled fallback uses 20 ms midpoints: at most 0.01 / 0.8 alpha
-        # error, plus byte quantization. Compare alpha, not transparent RGB.
-        assert max(abs(a - b) for a, b in zip(actual, expected, strict=True)) <= 4
-        assert node.at(ms / 1000).opacity == pytest.approx((ms - 200) / 800)
     assert node.time_origin == 1
     with pytest.raises(ValueError, match="absolute time zero"):
         replace(node, animations=(AnimationClip(-1.1, 0.5, FadeIn()),))

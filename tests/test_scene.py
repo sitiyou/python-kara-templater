@@ -165,7 +165,7 @@ def test_budget_preflight_never_invokes_callback():
         raise AssertionError("must fail preflight before callbacks")
 
     node = text(animations=(AnimationClip(0, 3, StateFunction(fail)),))
-    with pytest.raises(SceneCompileError, match="estimated event budget"):
+    with pytest.raises(SceneCompileError, match="frame sampling"):
         Scene(document()).add(node).compile(budget=SceneBudget(max_events=10))
 
 
@@ -181,16 +181,6 @@ def test_actual_byte_peak_path_and_quantization_budgets():
         Scene(document()).add(path).compile(budget=SceneBudget(max_path_points=3))
     with pytest.raises(SceneCompileError, match="centisecond"):
         Scene(document()).add(replace(text(), lifetime=Lifetime(0, 0.001))).compile()
-
-
-def test_sampler_merges_constant_states_and_preserves_boundaries():
-    node = text(
-        animations=(AnimationClip(0.507, 0.123, StateFunction(lambda state, _: state)),)
-    )
-    result = Scene(document()).add(node).compile()
-    assert result.event_count == 1
-    assert result.objects[0].strategy == "sampled"
-    assert result.objects[0].sample_interval == 0.02
 
 
 def test_native_event_copies_caller_object():
@@ -238,7 +228,7 @@ def test_copy_translates_entire_animation_and_group_children():
     Scene(document()).add(group, duplicate).compile()
 
 
-def test_custom_copy_translation_and_actual_sample_interval():
+def test_custom_copy_translation():
     node = text(
         animations=(
             AnimationClip(
@@ -253,8 +243,6 @@ def test_custom_copy_translation_and_actual_sample_interval():
     )
     copied = node.copy(id="copy", offset=Vec2(100, 0))
     assert copied.at(1.5).position == Vec2(115, 0)
-    result = Scene(document()).add(node).compile(budget=SceneBudget(fps=60))
-    assert result.objects[0].sample_interval == 0.02
 
 
 def test_reordered_without_effect_column_recompiles_without_duplication():
@@ -271,7 +259,7 @@ def test_reordered_without_effect_column_recompiles_without_duplication():
     assert second.document.dumps() == first.document.dumps()
 
 
-def test_sampling_budget_uses_only_known_changing_intervals():
+def test_native_tween_spans_the_long_final_hold():
     node = TextObject(
         id="brief",
         text="brief",
@@ -280,9 +268,9 @@ def test_sampling_budget_uses_only_known_changing_intervals():
     )
     result = Scene(document()).add(node).compile(budget=SceneBudget(max_events=100))
     assert result.estimated_events < 100
-    assert result.objects[0].sample_interval == 0.02
+    assert result.objects[0].sample_interval is None
     assert any(
-        line.start_time == 1500 and line.end_time == 60000
+        line.start_time == 0 and line.end_time == 60000
         for line in result.document.lines
         if not line.comment
     )
@@ -297,202 +285,8 @@ def test_unknown_geometry_callbacks_still_budget_the_full_lifetime():
         path=VectorPath.rectangle(10, 10),
         deform=PathFunction(lambda path, time: path, max_points=5, breakpoints=(1, 2)),
     )
-    with pytest.raises(SceneCompileError, match="estimated event budget"):
+    with pytest.raises(SceneCompileError, match="frame sampling"):
         Scene(document()).add(node).compile(budget=SceneBudget(max_events=100))
-
-
-def test_identity_organization_group_preserves_native_move_and_paint_budget():
-    from dataclasses import replace
-
-    from kara_templater import (
-        CYAN,
-        PINK,
-        AnimationClip,
-        ColorRamp,
-        ColorStop,
-        Document,
-        Lifetime,
-        LinearGradient,
-        ObjectGroup,
-        Scene,
-        SceneBudget,
-        StatePatch,
-        TextObject,
-        Tween,
-        Vec2,
-    )
-
-    node = TextObject(
-        id="text",
-        text="MOVE",
-        lifetime=Lifetime(0, 5),
-        material=LinearGradient(
-            fill=ColorRamp((ColorStop(0, CYAN), ColorStop(640, PINK)))
-        ),
-        animations=(AnimationClip(0, 5, Tween(StatePatch(position=Vec2(100, 0)))),),
-    )
-    budget = SceneBudget(max_events=1000)
-    direct = Scene(Document.create()).add(node).compile(budget=budget)
-    parent = ObjectGroup(id="organization", lifetime=Lifetime(0, 5), children=(node,))
-    grouped = Scene(Document.create()).add(parent).compile(budget=budget)
-    assert grouped.estimated_events == direct.estimated_events
-    assert grouped.event_count == direct.event_count
-    assert [line.text for line in grouped.document.lines if not line.comment] == [
-        line.text for line in direct.document.lines if not line.comment
-    ]
-    # A moving parent still needs joint evaluation and cannot use this shortcut.
-    moving = replace(
-        parent,
-        animations=(AnimationClip(0, 5, Tween(StatePatch(position=Vec2(0, 20)))),),
-    )
-    with pytest.raises(SceneCompileError, match="budget"):
-        Scene(Document.create()).add(moving).compile(budget=budget)
-
-
-def test_identity_group_that_crops_birth_does_not_restart_native_move_clock():
-    node = TextObject(
-        id="move",
-        text="MOVE",
-        lifetime=Lifetime(0, 5),
-        animations=(AnimationClip(0, 5, Tween(StatePatch(position=Vec2(100, 0)))),),
-    )
-    group = ObjectGroup(id="late", lifetime=Lifetime(1, 4), children=(node,))
-    result = Scene(Document.create()).add(group).compile()
-    assert result.objects[0].strategy == "sampled"
-    first = next(line for line in result.document.lines if not line.comment)
-    assert first.start_time == 1000
-    assert r"\pos(20.2,0)" in first.text
-
-
-def test_song_offset_copy_keeps_half_grid_boundaries_and_alpha_identical():
-    node = TextObject(
-        id="original",
-        text="A",
-        lifetime=Lifetime(0.025, 1.025),
-        state=VisualState(opacity=0),
-        animations=(AnimationClip(0.04, 0.5, Tween(StatePatch(opacity=1))),),
-    )
-    scene = Scene(Document.create()).add(node, node.copy(id="later", delay=72))
-    result = scene.compile()
-    early = [
-        (line.start_time, line.end_time, line.text)
-        for line in result.document.lines
-        if not line.comment and line.start_time < 72000
-    ]
-    late = [
-        (line.start_time - 72000, line.end_time - 72000, line.text)
-        for line in result.document.lines
-        if not line.comment and line.start_time >= 72000
-    ]
-    assert early == late
-    for time in (0.025, 0.065, 0.315, 0.565, 0.995):
-        assert node.at(time) == node.copy(id="copy", delay=144).at(time + 144)
-
-
-def test_sampled_callback_failure_preserves_origin_time_and_original_cause():
-    from kara_templater import EventOrigin, SourceRef
-
-    origin = EventOrigin((SourceRef("line", 1, 2),), "custom", ("echo",))
-    failure = RuntimeError("broken property")
-    calls = []
-
-    def fail(state, progress):
-        calls.append(progress)
-        raise failure
-
-    node = text(
-        origin=origin,
-        animations=(AnimationClip(0, 3, StateFunction(fail)),),
-    )
-    scene = Scene(document()).add(node)
-    with pytest.raises(SceneCompileError, match="budget"):
-        scene.compile(budget=SceneBudget(max_events=1))
-    assert not calls
-    with pytest.raises(SceneCompileError, match="sample at 0.010000s") as caught:
-        scene.compile()
-    assert caught.value.object_id == node.id
-    assert caught.value.origin == origin
-    cause: BaseException = caught.value
-    while cause.__cause__ is not None:
-        cause = cause.__cause__
-    assert cause is failure
-    assert calls == [pytest.approx(0.01 / 3)]
-
-
-def test_event_merging_keeps_sampling_callbacks_and_visibility_gaps():
-    calls = []
-
-    def constant(state, progress):
-        calls.append(progress)
-        return replace(state, opacity=0.5)
-
-    node = replace(
-        text(),
-        lifetime=Lifetime(0, 0.12),
-        animations=(AnimationClip(0, 0.12, StateFunction(constant)),),
-    )
-    result = Scene(Document.create()).add(node).compile()
-    assert calls == pytest.approx(
-        [t / 0.12 for t in (0.01, 0.03, 0.05, 0.07, 0.09, 0.11)]
-    )
-    assert result.event_count == 1
-    events = [e for e in result.document.lines if not e.comment]
-    assert [(e.start_time, e.end_time) for e in events] == [(0, 120)]
-
-    def interrupted(state, progress):
-        return replace(state, opacity=0 if 1 / 3 <= progress < 2 / 3 else 0.5)
-
-    changed = replace(
-        node,
-        animations=(
-            AnimationClip(
-                0, 0.12, StateFunction(interrupted), breakpoints=(0.04, 0.08)
-            ),
-        ),
-    )
-    output = Scene(Document.create()).add(changed).compile()
-    visible = [
-        event
-        for event in output.document.lines
-        if not event.comment and r"\alpha&HFF&" not in event.text
-    ]
-    assert [(e.start_time, e.end_time) for e in visible] == [(0, 40), (80, 120)]
-    assert (
-        output.document.dumps()
-        == Scene(Document.create()).add(changed).compile().document.dumps()
-    )
-
-
-def test_sub_alpha_precision_changes_merge_only_after_all_samples_are_evaluated():
-    calls = []
-
-    def nearly_constant(state, progress):
-        value = 0.5 + progress * 1e-10
-        calls.append(value)
-        return replace(state, opacity=value)
-
-    node = replace(
-        text(),
-        lifetime=Lifetime(0, 0.12),
-        animations=(AnimationClip(0, 0.12, StateFunction(nearly_constant)),),
-    )
-    result = Scene(Document.create()).add(node).compile()
-    assert len(calls) == len(set(calls)) == 6
-    # Distinct float states have identical serialized ASS alpha; merging is exact
-    # at the output representation, without skipping callback samples.
-    assert result.event_count == 1
-
-
-def test_invalid_state_callback_reports_target_and_sample_time():
-    invalid = StateFunction(lambda state, p: None)  # ty: ignore[invalid-argument-type]
-    scene = Scene(Document.create()).add(
-        text(animations=(AnimationClip(0, 3, invalid),))
-    )
-    with pytest.raises(
-        SceneCompileError, match="sample at 0.010000s.*must return VisualState"
-    ) as caught:
-        scene.compile()
-    assert caught.value.object_id == "text"
 
 
 def test_native_empty_negative_intervals_and_budget():

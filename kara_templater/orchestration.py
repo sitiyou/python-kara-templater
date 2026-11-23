@@ -8,7 +8,6 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property
 from hashlib import sha256
-from pathlib import Path
 from urllib.parse import quote, unquote
 
 from ._karaoke_motion import RowSlide
@@ -50,7 +49,7 @@ from .scene_lyrics import (
     VectorGuide,
     layout_lyrics,
 )
-from .scene_output import SceneBudget, _scene_source_records
+from .scene_output import _scene_source_records
 from .scene_text import DocumentLayout, _union
 from .sources import EventOrigin, SourceRef
 
@@ -199,18 +198,6 @@ class LyricScene(Scene):
     """A normal Scene with immutable lyric arrangement snapshots for inspection."""
 
     plans: tuple[LinePlan, ...] = ()
-
-    def export_compact_ass(self, path: str | Path, *, budget: SceneBudget | None = None) -> None:
-        """Save a playback ASS with native karaoke timing, line fades and cues.
-
-        For simple KaraokeEffects lines this approximates motion and materials with
-        native sweep and fade tags. Duotone readings use measured ruby layouts and
-        their own clocks. Complex timings and internal inline cue reservations
-        use ordinary ASS compilation. budget controls compiler resource limits.
-        """
-        from ._compact_ass import compact_document
-
-        compact_document(self, budget or SceneBudget()).save(path)
 
     @property
     def lines(self) -> tuple[LyricLine, ...]:
@@ -760,9 +747,6 @@ def prepare_tracks(
                     entry_scale = min(1.0, max(0.0, item.singing.start - placement.display.start) / item.entrance)
                 if item.exit:
                     exit_scale = min(1.0, max(0.0, placement.display.end - item.singing.end) / item.exit)
-            paint = line._karaoke_paint
-            if paint is not None:
-                line = replace(line, _karaoke_paint=replace(paint, entry=paint.entry * entry_scale, exit=paint.exit * exit_scale))
             for decorate in line._at_placement or ():
                 line = decorate(line, entry_scale, exit_scale)
             line = replace(line, _at_placement=None)

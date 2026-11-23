@@ -1,4 +1,3 @@
-from dataclasses import replace
 
 import pytest
 
@@ -10,32 +9,17 @@ from kara_templater import (
     Color,
     ColorRamp,
     ColorStop,
-    Document,
     Lifetime,
     LinearGradient,
-    PaintBand,
-    PathObject,
-    Scene,
     SoftSweep,
     TextObject,
-    Vec2,
-    VectorPath,
     VisualState,
 )
-from kara_templater._raster import rasterize
-from kara_templater.scene import ObjectGroup, RectangleClip, VectorClip
-from kara_templater.scene_animation import AnimationClip, StatePatch, Tween
-from kara_templater.scene_output import SceneBudget, SceneCompileError
+from kara_templater.scene import ObjectGroup
 
 
 def ramp(a=BLACK, b=WHITE):
     return ColorRamp((ColorStop(0, a), ColorStop(64, b)))
-
-
-def node(**kwargs):
-    return PathObject(
-        id="field", lifetime=Lifetime(0, 2), path=VectorPath.rectangle(64, 32), **kwargs
-    )
 
 
 def test_ramp_clamps_and_interpolates_encoded_rgb():
@@ -74,123 +58,10 @@ def test_sweep_channels_have_independent_widths_and_seek_is_pure():
     assert at(1) == middle
 
 
-def test_gradient_pixel_centers_and_no_alpha_seams():
-    field = LinearGradient(fill=ramp())
-    doc = Document.create(width=64, height=32)
-    result = Scene(doc).add(node(material=field)).compile()
-    image = rasterize(result.document.dumps(), 0, (64, 32))
-    reference = rasterize(
-        Scene(doc).add(node()).compile().document.dumps(), 0, (64, 32)
-    )
-    for x in range(64):
-        pixel = image.rgba[(16 * 64 + x) * 4 : (16 * 64 + x + 1) * 4]
-        expected = round(255 * (x + 0.5) / 64)
-        assert tuple(pixel[:3]) == (expected, expected, expected)
-        assert pixel[3] == reference.rgba[(16 * 64 + x) * 4 + 3]
-    assert result.objects[0].strategy == "native-static-bands"
-    assert result.objects[0].peak_bands == 64
-
-
-def test_slicing_blurred_rotated_text_preserves_coverage():
-    doc = Document.create(width=320, height=160)
-    text = TextObject(
-        id="text",
-        text="AV ffi",
-        font_size=64,
-        lifetime=Lifetime(0, 2),
-        state=VisualState(
-            position=Vec2(30, 30),
-            fill=WHITE,
-            outline=RED,
-            border=3,
-            blur=2,
-            rotation=8,
-            opacity=0.7,
-        ),
-    )
-
-    # A custom field keeps equal colors as separate bands to exercise every seam.
-    class Slices:
-        axis = "x"
-        max_bands = 320
-        breakpoints = ()
-
-        def bands(self, start, end, time, base):
-            return tuple(
-                PaintBand(x, x + 1, base.fill, base.outline) for x in range(start, end)
-            )
-
-    original = rasterize(Scene(doc).add(text).compile().document.dumps(), 0, (320, 160))
-    sliced = rasterize(
-        Scene(doc).add(replace(text, material=Slices())).compile().document.dumps(),
-        0,
-        (320, 160),
-    )
-    assert original.rgba == sliced.rgba
-
-
-def test_static_field_keeps_native_move_and_rectangle_intersection():
-    source = node(
-        material=LinearGradient(fill=ramp()),
-        clip=RectangleClip(10, 5, 30, 20),
-        animations=(AnimationClip(0, 2, Tween(StatePatch(position=Vec2(10, 0)))),),
-    )
-    result = Scene(Document.create(width=64, height=32)).add(source).compile()
-    assert result.objects[0].strategy == "native-move-bands"
-    assert result.event_count == 20
-    assert all(r"\move(" in line.text for line in result.document.lines)
-
-
 def test_material_constraints_and_preflight():
     field = LinearGradient(fill=ramp())
     with pytest.raises(ValueError, match="group paint"):
         ObjectGroup(id="group", children=(), lifetime=Lifetime(0, 2), material=field)
-    inverse = (
-        Scene(Document.create())
-        .add(
-            node(
-                material=field,
-                clip=VectorClip(VectorPath.rectangle(10, 10), inverse=True),
-            )
-        )
-        .compile()
-    )
-    assert inverse.objects[0].strategy == "native-static-bands"
-    assert inverse.event_count > 0
-    with pytest.raises(SceneCompileError, match="band budget"):
-        Scene(Document.create()).add(node(material=field)).compile(
-            budget=SceneBudget(max_bands=3)
-        )
-
-    class BadField:
-        axis = "x"
-        max_bands = 2
-        breakpoints = ()
-
-        def bands(self, start, end, time, base):
-            return (PaintBand(1, end, base.fill, base.outline),)
-
-    with pytest.raises(SceneCompileError, match="partition"):
-        Scene(Document.create()).add(node(material=BadField())).compile()
-
-
-def test_sweep_compilation_merges_static_intervals_and_is_repeatable():
-    field = SoftSweep(
-        left=0, right=64, start=0.5, duration=1, fill=(RED, BLUE), width=8
-    )
-    scene = Scene(Document.create(width=64, height=32)).add(node(material=field))
-    result = scene.compile()
-    assert result.document.dumps() == scene.compile().document.dumps()
-    assert result.objects[0].strategy == "sampled-bands"
-    assert result.peak_active <= field.max_bands
-    assert any(
-        line.start_time == 0 and line.end_time == 500 for line in result.document.lines
-    )
-    assert any(
-        line.start_time == 1500 and line.end_time == 2000
-        for line in result.document.lines
-    )
-    assert result.event_count <= result.estimated_events
 
 
 def test_material_survives_geometry_conversion_and_copy():
@@ -200,19 +71,6 @@ def test_material_survives_geometry_conversion_and_copy():
     text = TextObject(id="text", text="W", lifetime=Lifetime(0, 2), material=field)
     assert text_to_path(text).material is field
     assert text.copy(id="copy", delay=1).material is field
-
-
-def test_preflight_rejects_before_evaluating_custom_field():
-    class ExpensiveField:
-        axis = "x"
-        max_bands = 500
-        breakpoints = (0, 2)
-
-        def bands(self, start, end, time, base):
-            pytest.fail("preflight must precede paint evaluation")
-
-    with pytest.raises(SceneCompileError, match="estimated event budget"):
-        Scene(Document.create()).add(node(material=ExpensiveField())).compile()
 
 
 def test_soft_sweep_exposes_eased_transition_center_including_padding():

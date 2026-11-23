@@ -21,9 +21,7 @@ from kara_templater import (
     Style,
     Vec2,
     layout_document_lyrics,
-    linear_rate,
 )
-from kara_templater._raster import rasterize
 
 
 def subject():
@@ -96,12 +94,6 @@ def test_measured_gradient_scales_to_body_and_ruby_without_tinting_glow():
         halos = [objects[name] for name in target.aliases if name.endswith("/glow")]
         assert halos and all(node.material is None for node in halos)
         assert all(node.state.opacity == pytest.approx(0.3) for node in halos)
-    bound = painted.bind(LyricRule("character", "singing", ScalePulse(rate=linear_rate)))
-    result = Scene(doc).add(bound).compile(native_tweens=True)
-    assert result.event_count > 0
-    assert any(report.strategy == "native-clip" for report in result.objects)
-    # The factory runs at preparation, not per frame or once per color strip.
-    assert len(calls) == 2
     assert all(node.material is None for node in nodes(original))
 
 
@@ -128,35 +120,6 @@ def test_material_coverage_combination_fails_during_preparation(unsung):
             StatePatch(), strategy="coverage", material=None if unsung else gradient,
             base_material=gradient if unsung else None,
         )(line)
-
-
-def test_rendered_sung_body_has_vertical_color_change_and_unsung_body_does_not():
-    doc, line = subject()
-    line = LyricHighlights.from_singing(
-        StatePatch(), material=LyricGradient((RED, BLUE)),
-    )(line).copy(id="render", offset=Vec2(80, 50))
-    result = Scene(doc).add(line).compile(native_tweens=True)
-
-    def colored_rows(time):
-        rgba = rasterize(result.document.dumps(), time, (320, 180)).rgba
-        rows = {}
-        for y in range(180):
-            values = []
-            for x in range(320):
-                i = (y * 320 + x) * 4
-                r, g, b, a = rgba[i:i + 4]
-                if a > 220 and abs(r - b) > 20 and g < 20:
-                    values.append(r - b)
-            if values:
-                rows[y] = sum(values) / len(values)
-        return rows
-
-    assert not colored_rows(500)
-    rows = colored_rows(2200)
-    # Actual colored pixels, independent of generated node IDs or band count.
-    assert len(rows) > 10
-    assert max(rows.values()) > 50
-    assert min(rows.values()) < -50
 
 
 def test_horizontal_ramp_uses_the_same_body_coordinates_for_glyphs_and_readings():
@@ -216,7 +179,6 @@ def test_volume_gradient_shares_the_body_span_only_for_a_leading_inline_cue(plac
     left, right = gradient(line, target).bounds
     assert (left < 0) == (placement == "inline")
     assert right - left > 18
-    assert scene.compile(native_tweens=True).event_count > 0
 
 
 def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
@@ -275,4 +237,3 @@ def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
     assert tuple(glyph.object.state.position.x + x * glyph.layout_scale.x
                  for x in front.material.bounds) == pytest.approx(
                      (glyph.bounds.left, glyph.bounds.right))
-    scene.compile(native_tweens=True)

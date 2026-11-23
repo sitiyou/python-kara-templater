@@ -14,7 +14,7 @@ from kara_templater.cues import (
 )
 from kara_templater.geometry import Vec2, VectorPath
 from kara_templater.scene import Lifetime, PathObject, Scene
-from kara_templater.scene_animation import StateFunction, Timeline, VisualState
+from kara_templater.scene_animation import VisualState
 from kara_templater.scene_text import layout_document_text
 
 
@@ -26,50 +26,6 @@ def document(text: str) -> Document:
         ],
         Record(res_x=640, res_y=360),
     )
-
-
-def test_following_word_background_preserves_internal_motion_breakpoint():
-    from kara_templater import _metrics
-
-    doc = Document.create(width=640, height=360)
-    doc.records.append(Line(text="A", start_time=1000, end_time=3000))
-    layout = layout_document_text(doc, len(doc.records) - 1, display=Lifetime(1, 3))
-
-    def jump(state: VisualState, progress: float) -> VisualState:
-        return replace(state, position=Vec2(200 if progress >= 0.35 else 100, 100))
-
-    timeline = (
-        Timeline()
-        .wait(0.1)
-        .play(
-            StateFunction(jump, frozenset(("position",))),
-            duration=1,
-            breakpoints=(0.35,),
-        )
-    )
-    item = layout.characters[0]
-    layout = replace(
-        layout,
-        characters=(
-            replace(item, object=replace(item.object, animations=timeline.clips)),
-        ),
-    )
-    background = layout.background(0, 1, id="bg", color=Color(255, 0, 0), follow=True)
-    script = Scene(doc).add(background).compile().document.dumps()
-
-    def left_at(time: int) -> int:
-        images = _metrics.rasterize(script, time, 640, 360, 1_000_000, 100)
-        return min(
-            left
-            for left, _, width, height, _, color, _ in images
-            if width and height and color >> 8 == 0xFF0000
-        )
-
-    initial = left_at(1449)
-    assert left_at(1440) == initial
-    assert left_at(1450) == initial + 100
-    assert left_at(1451) == initial + 100
-    assert left_at(1449) == initial
 
 
 def test_binding_preserves_color_scope_source_and_timing():
@@ -246,7 +202,6 @@ def test_reflow_moves_later_inline_cues_and_following_backgrounds():
     assert before.left - after.left == 78
     background = bound.text.background(0, 2, id="bg", color=Color(0, 0, 0), follow=True)
     assert background.at(0.5).position.x - background.at(1.5).position.x == 78
-    Scene(document("source")).add(bound.group(), background).compile()
 
 
 def test_document_file_and_direct_layout_are_equivalent():
@@ -289,7 +244,6 @@ def test_bound_clusters_render_like_a_whole_shaped_run():
     from examples.scene_cues import build
     from kara_templater._raster import rasterize
     from kara_templater.scene import TextObject
-    from kara_templater.scene_animation import VisualState
 
     doc = build().document
     index = next(i for i, record in enumerate(doc.records) if isinstance(record, Line))

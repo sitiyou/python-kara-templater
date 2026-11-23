@@ -79,12 +79,6 @@ def test_authored_visual_time_reaches_allocator_before_factory_output_is_clipped
     assert len(allocations) == 1
     assert allocations[0].required.end == pytest.approx(2.4)
     assert scene.lines[0].lifetime.end == pytest.approx(2.4)
-    result = scene.compile(budget=SceneBudget(fps=10, max_events=100_000))
-    assert (
-        max(event.end_time for event in result.document.lines if not event.comment)
-        == 2400
-    )
-    assert len(factories) == 1
     assert source.dumps() == original
 
 
@@ -124,8 +118,6 @@ def test_factory_tail_participates_in_capacity_and_preview_trim_keeps_clock():
     assert isinstance(glow, GlowFunction)
     sampled = glow.sample(VisualState(), 3.1 - second.time_origin)
     assert sampled is not None and sampled.blur == pytest.approx(2)
-    scene.compile(budget=SceneBudget(fps=10, max_events=100_000))
-    assert len(calls) == 2
     source.records[-1] = Line(text=r"{\k100}B", start_time=2100, end_time=3100)
     original = source.dumps()
     with pytest.raises(ValueError, match="occupied"):
@@ -280,8 +272,6 @@ def test_factory_early_decoration_extends_visibility_without_restarting_animatio
     assert line.at(0.75).position == line.state.position
     assert line.at(1.5).position == line.state.position * 0.5 + Vec2(5, 0)
     assert line.layout.body.singing[0].start == 1
-    scene.compile(budget=SceneBudget(fps=10, max_events=100_000))
-    assert len(calls) == 1
 
 
 @pytest.mark.parametrize("strategy", ("clip", "coverage"))
@@ -289,7 +279,6 @@ def test_early_highlight_matches_explicit_preview_without_moving_existing_animat
     strategy,
 ):
     from kara_templater import FadeIn, Lifetime
-    from kara_templater._raster import rasterize
 
     source = Document.create(
         width=96,
@@ -336,16 +325,6 @@ def test_early_highlight_matches_explicit_preview_without_moving_existing_animat
     for scene in scenes:
         assert scene.lines[0].lifetime == Lifetime(0.5, 2)
         assert scene.lines[0].required_display == (TimeSpan(0.5, 1.5),)
-    outputs = tuple(
-        scene.compile(budget=SceneBudget(fps=20)).document.dumps() for scene in scenes
-    )
-    for time in (550, 850, 1250, 1850):
-        assert (
-            rasterize(outputs[0], time, (96, 64)).rgba
-            == rasterize(outputs[1], time, (96, 64)).rgba
-        )
-    assert any(rasterize(outputs[0], 1250, (96, 64)).rgba[3::4])
-    assert len(calls) == 2
     assert source.dumps() == original
 
 
@@ -400,8 +379,6 @@ def test_signed_glow_requirement_reserves_early_window_before_sampling():
     assert allocations[0].required == TimeSpan(0.5, 2)
     assert scene.lines[0].lifetime == Lifetime(0.5, 2)
     assert scene.lines[0].time_origin == 1
-    scene.compile(budget=SceneBudget(fps=10, max_events=100_000))
-    assert any(time < 0 for time in samples)
 
 
 @pytest.mark.parametrize(

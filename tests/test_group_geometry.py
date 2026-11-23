@@ -89,7 +89,6 @@ def test_preflight_rejects_before_geometry_callback():
 def test_empty_geometry_and_descendant_clip_diagnostics():
     merged = merge_geometry(group())
     assert merged.path_at(0) is None
-    assert Scene(Document.create()).add(merged).compile().event_count == 0
     child = replace(box("a"), clip=RectangleClip(0, 0, 10, 10))
     with pytest.raises(GeometryError, match="a: merge_geometry"):
         merge_geometry(group(child))

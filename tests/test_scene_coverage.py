@@ -197,49 +197,6 @@ def test_budget_preflight_precedes_callbacks_and_errors_have_identity():
         sampler(root(invalid)).frame(0.5)
 
 
-@pytest.mark.parametrize("axis", ["x", "y"])
-def test_color_fields_use_scene_coordinates_before_coverage_composition(axis):
-    from kara_templater import SoftSweep
-
-    field = SoftSweep(
-        left=25,
-        right=65,
-        start=0,
-        duration=1,
-        fill=(RED, BLUE),
-        outline=(BLUE, RED),
-        axis=axis,
-        width=12,
-    )
-    node = replace(rectangle(), material=field)
-    sample = sampler(root(node))
-    for time in (0.11, 0.51, 0.91):
-        actual = canvas_frame(sample.frame(time)).rgba
-        expected = native(node, time=round(time * 1000)).rgba
-        assert actual[3::4] == expected[3::4]
-        # Coverage painting has an extra 8-bit premultiply/unpremultiply stage.
-        # Compare displayed color, not unstable straight RGB at tiny alpha.
-        for background in (0, 255):
-
-            def over(data, background=background):
-                return tuple(
-                    round(
-                        data[i + c] * data[i + 3] / 255
-                        + background * (1 - data[i + 3] / 255)
-                    )
-                    for i in range(0, len(data), 4)
-                    for c in range(3)
-                )
-
-            assert (
-                max(
-                    abs(a - b)
-                    for a, b in zip(over(actual), over(expected), strict=True)
-                )
-                <= 1
-            )
-
-
 def test_glow_field_spreads_across_the_front_before_fill_occlusion():
     from kara_templater import Color, SoftSweep
 

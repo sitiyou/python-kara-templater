@@ -18,6 +18,7 @@ from kara_templater import (
     LyricAnimationContext,
     LyricRule,
     Scene,
+    SceneCompileError,
     Style,
     TextCue,
     Track,
@@ -63,7 +64,6 @@ def main(**changes):
             effects=(
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
                 LyricRule("line", "exit", FadeOut(), duration=0.2),
-                LyricRule("syllable", "singing", Jump()),
             ),
         ),
         **changes,
@@ -579,7 +579,8 @@ def test_display_keyframe_factory_keeps_original_window_when_other_rule_extends_
     for time, opacity in ((1, 0.5), (0.5, 0.75), (2, 0), (2.1, 0)):
         assert baseline.lines[0].at(time).opacity == pytest.approx(opacity)
         assert extended.lines[0].at(time).opacity == pytest.approx(opacity)
-    extended.compile()
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        extended.compile()
     assert durations == [2, 2]
     assert source.dumps() == original
 

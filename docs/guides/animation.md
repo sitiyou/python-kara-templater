@@ -63,9 +63,7 @@ is needed. Built-ins and custom transforms use the same binding and evaluator.
 The example's `--custom` option combines this exit with duration-aware emphasis.
 
 This example also attaches a vertical fill gradient through `LyricGradient`.
-With `native_tweens=True`, eligible built-in smooth pulses and drift exits use
-bounded piecewise native transforms. The custom variant still samples. Both can
-generate large ASS files: concise author code does not imply compact output.
+Export scenes with gradients or custom motion as hooks.
 
 ## Change parameters for each singing interval
 
@@ -246,24 +244,16 @@ example with character jumps and whole-line fades.
 
 ## Sampling and output semantics
 
-Lyrics and direct Scene objects use the same compiler strategies. General
-animation holds deterministic samples unless an eligible native strategy is chosen.
-`native_tweens=True` explicitly permits eligible continuous Tween lowering.
-These choices can differ between sample instants. Custom callbacks do not gain
-a proven continuous error bound simply from a sampling rate. Inspect strategy
-and sample_interval in [compilation reports](compilation.md).
+ASS uses native transforms and hard clips. Custom motion callbacks require hook export.
 
-`Transform` and unknown easing callbacks use sampled output.
 `ScalePulse(rate=linear_rate)` can use native rectangle-clip lowering. With
 `native_tweens=True`, `ScalePulse` and `DriftOut` using `smooth_rate` or `smoother_rate` can also use
-the `native-clip-eased` strategy (with `-bands` for gradients). Eligible cubic and
+the `native-clip-eased` strategy. Eligible cubic and
 quintic scale phases use three or five standard ASS transforms instead of a long
 list of scale samples. The compiler checks positive intermediate scale controls
 and bounds millisecond phase rounding to 0.001 scale units; unsafe controls or
 mixed unsupported scale curves retain the bounded piecewise form. Clip edges and
-opacity retain their existing separate approximation. This reduces repeated tags
-across gradient bands without reducing the color bands or recognizing arbitrary
-Python callbacks. The compiler
+opacity retain their existing separate approximation. The compiler
 subdivides the supported polynomial curve on the ASS time grid, bounding continuous error by
 0.1 parent-space pixels per position coordinate, 0.001 per scale coordinate and
 1/255 opacity. Native clip edge error/rounding is checked separately against the
@@ -273,7 +263,7 @@ This optimization requires held clips, grid-aligned original start/end times,
 ordinary eligible rectangle clipping, and parents with no scale/rotation/skew or
 animated geometry. A pulse peak can fall between grid points: source duration and
 the original curve determine the approximation. If the bounds cannot be met at
-10 ms resolution, the original sampler remains in use. Arbitrary custom curves
+10 ms resolution, ASS compilation raises SceneCompileError. Arbitrary custom curves
 are not assumed to match either supported polynomial. Inspect output cost when applying animation to many glyphs.
 
 Animation evaluation and conflict checks use the same 1e-10-second numerical
@@ -297,7 +287,7 @@ the compiler may emit a centered ASS anchor. A centered pulse then uses scale
 transforms without splitting events for compensating position changes. This is
 an output-only change: source objects, measured pivots, masks and gradient
 coordinates remain unchanged. Curved departures still need separate linear
-movement sections; gradient bands multiply those sections, so inspect output
+movement sections. Inspect output
 cost even when pulse events have been merged.
 
 `DriftOut(travel_rate=linear_rate)` keeps displacement at constant speed while
@@ -306,7 +296,7 @@ all three follow `rate`. This separates motion design from fade/scale design;
 choose it explicitly rather than silently changing a requested eased path.
 For eligible native text, the compiler proves linear output-anchor motion over
 all geometry knots and can combine it into one ASS move with scale/alpha
-transforms. Arbitrary travel callbacks retain sampling.
+transforms. Arbitrary travel callbacks require hook export.
 
 ## Size and time relative to the lyric
 

@@ -49,6 +49,3 @@ def test_three_modes_have_distinct_bindings_in_one_scene():
         for alias in target.aliases:
             assert evaluator.at(alias, peak).position == middle.position
             assert evaluator.at(alias, peak).scale == middle.scale
-    result = scene.compile()
-    assert all(report.strategy != "native-event" for report in result.objects)
-    assert result.peak_active < 100

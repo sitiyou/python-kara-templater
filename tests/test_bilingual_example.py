@@ -56,17 +56,3 @@ def test_shared_decoration_uses_both_parents_and_independent_cue_stays_fixed():
     assert cues
     for cue in cues:
         assert after.at(cue.id, 0.5) == before.at(cue.id, 0.5)
-
-
-def test_export_preserves_both_sources_and_consumes_markers():
-    scene = build()
-    source = scene.document.dumps()
-    result = scene.compile()
-    assert scene.document.dumps() == source
-    comments = [line for line in result.document.lines if line.comment]
-    assert len(comments) == 2
-    assert any("kara:v1" in line.text for line in comments)
-    assert all(
-        "kara:v1" not in line.text for line in result.document.lines if not line.comment
-    )
-    assert result.document.dumps() == scene.compile().document.dumps()

@@ -14,6 +14,7 @@ from kara_templater import (
     RectangleClip,
     RectangleKeyframes,
     Scene,
+    SceneCompileError,
     Vec2,
     VectorPath,
     VisualState,
@@ -53,8 +54,8 @@ def test_fade_beginning_after_visibility_still_falls_back():
         clip=RectangleClip(0, 0, 20, 16, space="local",
                            deform=RectangleKeyframes(((0, (0, 0, 20, 16)),))),
     ).animate(FadeIn(), at=0.2, duration=0.3)
-    result = Scene(Document.create(width=80, height=60)).add(node).compile(native_tweens=True)
-    assert result.objects[0].strategy == "sampled"
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(Document.create(width=80, height=60)).add(node).compile(native_tweens=True)
     assert node.at(1.1).opacity == 1  # Visible before the authored fade resets it.
 
 @pytest.mark.parametrize("clipped", [False, True])

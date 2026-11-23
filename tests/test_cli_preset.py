@@ -31,7 +31,6 @@ def preset(
         preview=preview,
         tail=tail,
         styles=styles,
-        raster=None,
     )
 
 

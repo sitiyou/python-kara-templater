@@ -96,8 +96,8 @@ as shown in the [geometry guide](geometry.md#path-trails). A trail consists of
 connected stroke geometry, not a row of independent dots.
 
 Sparkles use one native move with a fading transform when native lowering is
-enabled and the surrounding scene permits it. Petal flutter is a sampled custom
-`Transform`, so it costs more events. Both use the existing keyed random channels
+enabled and the surrounding scene permits it. Petal flutter uses a custom
+`Transform` and requires hook export. Both use the existing keyed random channels
 and ordinary Scene objects; neither has a separate playback engine.
 
 A simple custom particle does not need its own animation class:

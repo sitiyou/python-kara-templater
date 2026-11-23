@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from examples.layered_glow import BUDGET, CURVE, build, highlights
+from examples.layered_glow import CURVE, build, highlights
 from kara_templater import Document, ObjectGroup
 
 SOURCE = Path(__file__).parent / "fixtures/layered_glow.ass"
@@ -31,12 +31,6 @@ def test_glow_preserves_lyric_timing_and_composes_line_fade_with_syllable_pulse(
     assert sweep.rate(0.5) == CURVE.at(0.5)
     assert highlights(lead)[0].passes[0].rate(0.5) == 0.5
     assert document.dumps() == original
-    result = scene.compile(budget=BUDGET)
-    assert all(
-        item.strategy not in ("native-event", "coverage") for item in result.objects
-    )
-    assert result.event_count < 10_000
-    assert result.peak_active < 100
 
 
 def test_body_and_ruby_glow_geometry_follows_shared_target_hierarchy():

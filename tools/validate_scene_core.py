@@ -20,9 +20,6 @@ from PIL import Image, ImageDraw
 from examples.scene_affine import build as build_affine
 from examples.scene_bilingual import build as build_bilingual
 from examples.scene_boolean import build as build_boolean
-from examples.scene_composite import BUDGET as COMPOSITE_BUDGET
-from examples.scene_composite import RASTER_SETTINGS as COMPOSITE_SETTINGS
-from examples.scene_composite import build as build_composite
 from examples.scene_coverage import BUDGET as COVERAGE_BUDGET
 from examples.scene_coverage import RASTER_SETTINGS as COVERAGE_SETTINGS
 from examples.scene_coverage import build as build_coverage
@@ -143,7 +140,6 @@ def validate(
         "bilingual",
         "cue-follow",
         "native-tween",
-        "composite",
         "coverage",
         "coverage-tracks",
     ] = "staggered",
@@ -174,7 +170,6 @@ def validate(
         "bilingual": build_bilingual,
         "cue-follow": build_cue_follow,
         "native-tween": build_native_tween,
-        "composite": build_composite,
     }.get(scene_name)
     artifact = "scene-core" if scene_name == "staggered" else f"scene-{scene_name}"
     font = load_font(ROOT / "tests/fonts/DejaVuSans.ttf")
@@ -191,15 +186,9 @@ def validate(
     ]
     output.mkdir(parents=True, exist_ok=True)
     started = perf_counter()
-    budget = (
-        COMPOSITE_BUDGET
-        if scene_name == "composite"
-        else COVERAGE_TRACKS_BUDGET
-        if scene_name == "tracks"
-        else None
-    )
+    budget = COVERAGE_TRACKS_BUDGET if scene_name == "tracks" else None
     resolution = (
-        "320x180" if scene_name in ("composite", "coverage", "tracks") else "1280x720"
+        "320x180" if scene_name in ("coverage", "tracks") else "1280x720"
     )
     if scene_name == "coverage-tracks":
         resolution = "240x135"
@@ -211,7 +200,7 @@ def validate(
             return build_coverage_tracks()
         assert build is not None
         return build().compile(
-            budget=budget, native_tweens=scene_name == "native-tween"
+            budget=budget
         )
 
     result = generate()
@@ -228,7 +217,7 @@ def validate(
     )
     if scene_name == "coverage-tracks":
         times = (0.0, 0.5, 0.8, 1.2, 1.8, 2.5, 3.0, 3.5)
-    elif scene_name in ("composite", "coverage", "tracks"):
+    elif scene_name in ("coverage", "tracks"):
         times = (0.0, 0.8, 1.2, 2.5, 3.8, 4.2, 5.0)
     elif scene_name == "bilingual":
         times = (0.0, 0.5, 1.3, 1.8, 2.5, 3.4, 4.5, 5.0)
@@ -339,17 +328,17 @@ def validate(
             "other scene fixtures and other renderers",
         ],
     }
-    if scene_name in ("composite", "coverage", "coverage-tracks", "tracks"):
+    if scene_name in ("coverage", "coverage-tracks", "tracks"):
         counts = Counter(item.strategy for item in result.objects)
         report["strategies"] = [
             {"strategy": strategy, "objects": count}
             for strategy, count in sorted(counts.items())
         ]
         report["raster_settings"] = asdict(
-            COVERAGE_SETTINGS if scene_name == "coverage" else COMPOSITE_SETTINGS
+            COVERAGE_SETTINGS if scene_name == "coverage" else COVERAGE_TRACKS_SETTINGS
         )
         report["scene_budget"] = asdict(
-            COVERAGE_BUDGET if scene_name == "coverage" else COMPOSITE_BUDGET
+            COVERAGE_BUDGET if scene_name == "coverage" else COVERAGE_TRACKS_BUDGET
         )
         if scene_name in ("coverage-tracks", "tracks"):
             report["raster_settings"] = asdict(COVERAGE_TRACKS_SETTINGS)
@@ -403,7 +392,6 @@ def main() -> None:
             "bilingual",
             "cue-follow",
             "native-tween",
-            "composite",
             "coverage",
             "coverage-tracks",
         ),

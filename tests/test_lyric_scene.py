@@ -9,8 +9,8 @@ from kara_templater import (
     Document,
     Lifetime,
     Line,
+    LyricHighlights,
     LyricRule,
-    LyricSweep,
     NativeEvent,
     SceneBudget,
     SceneCompileError,
@@ -37,7 +37,7 @@ def source() -> Document:
 
 def track() -> Track:
     return Track(
-        id="main", preview=0, tail=0, effects=(LyricSweep(fill=PINK, width=0),)
+        id="main", preview=0, tail=0, effects=(LyricHighlights.from_singing(StatePatch(fill=PINK)),)
     )
 
 
@@ -115,7 +115,10 @@ def test_mixed_scene_preflight_and_final_budgets_keep_repeated_compile_stable():
     )
     scene = prepare_tracks(source(), tracks=(configured,))
     scene.add(TextObject(id="extra", text="X", lifetime=Lifetime(0, 0.4)))
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        scene.compile()
     assert not calls
+    scene = prepare_tracks(source(), tracks=(track(),))
     with pytest.raises(SceneCompileError, match="budget"):
         scene.compile(budget=SceneBudget(max_events=1))
     assert not calls
@@ -123,7 +126,7 @@ def test_mixed_scene_preflight_and_final_budgets_keep_repeated_compile_stable():
     with pytest.raises(SceneCompileError, match="peak active"):
         scene.compile(budget=SceneBudget(max_active=1))
     first = scene.compile()
-    assert calls
+    assert not calls
     assert scene.compile().document.dumps() == first.document.dumps()
     with pytest.raises(SceneCompileError, match="byte budget"):
         scene.compile(budget=SceneBudget(max_bytes=100))

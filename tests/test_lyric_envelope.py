@@ -108,7 +108,6 @@ def test_reusable_factory_extends_layout_and_matches_direct_animation(singing):
         assert target.at(time).scale.x == pytest.approx(expected)
         assert target.at(time).scale.x == pytest.approx(direct.at(time).scale.x)
         assert target.at(time).scale.y == pytest.approx(direct.at(time).scale.y)
-    assert first.compile().document.dumps() == second.compile().document.dumps()
     assert source.dumps() == original
     assert isinstance(config.effects[0], LyricRule)
     assert config.effects[0].animation is accent

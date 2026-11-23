@@ -11,7 +11,6 @@ from kara_templater import (
     LyricSweep,
     ObjectGroup,
     Scene,
-    SceneBudget,
     Vec2,
     prepare_tracks,
 )
@@ -43,13 +42,6 @@ def test_sweep_is_one_material_protocol_with_screen_position_and_seek():
         (band.start, band.end, band.fill) for band in moved
     ]
     assert node.material.bands(0, 640, local, state) == first
-    result = scene.compile(budget=SceneBudget(max_events=100_000))
-    assert result.event_count > 1
-    assert all(
-        not event.text.startswith("{kara:v1")
-        for event in result.document.lines
-        if not event.comment
-    )
 
 
 def test_sweep_works_after_semantic_copy_and_rejects_unrepresentable_front():
@@ -121,11 +113,6 @@ def test_sweep_receives_animated_base_paint_independent_of_binding_order():
         bands = node.material.bands(0, 640, 1.25 - node.lifetime.start, state)
         assert {band.fill for band in bands} == {PINK, state.fill}
         assert all(band.outline == state.outline for band in bands)
-    budget = SceneBudget(max_events=100_000)
-    assert (
-        scenes[0].compile(budget=budget).document.dumps()
-        == scenes[1].compile(budget=budget).document.dumps()
-    )
 
 
 def test_bad_sweep_factory_is_rejected_during_construction_without_mutating_line():
@@ -141,7 +128,7 @@ def test_bad_sweep_factory_is_rejected_during_construction_without_mutating_line
 
 
 @pytest.mark.parametrize("parsed", (False, True))
-def test_cluster_color_factory_reaches_ass_for_constructed_and_parsed_sources(
+def test_cluster_color_factory_runs_for_constructed_and_parsed_sources(
     parsed, tmp_path
 ):
     from kara_templater import BLUE, GREEN, RED, Document, Line, Style, Track
@@ -167,29 +154,9 @@ def test_cluster_color_factory_reaches_ass_for_constructed_and_parsed_sources(
     configured = Track(
         id="colors", preview=0, tail=0, effects=(LyricSweep(fill=color, width=0),)
     )
-    scene = prepare_tracks(source, tracks=(configured,))
+    prepare_tracks(source, tracks=(configured,))
     assert len(calls) == 9
-    result = scene.compile(budget=SceneBudget(max_events=100_000))
-    assert len(calls) == 9
-    final = [
-        event
-        for event, _ in result.event_origins
-        if event.start_time <= 350 < event.end_time
-    ]
-    assert len(final) == 9
-    for event, text, color_value in zip(final, "ABCABCabc", colors * 3, strict=True):
-        assert event.text.endswith(text)
-        assert (
-            rf"\1c&H{color_value.blue:02X}{color_value.green:02X}{color_value.red:02X}&"
-            in event.text
-        )
     assert source.dumps() == original
-    assert (
-        prepare_tracks(source, tracks=(configured,))
-        .compile(budget=SceneBudget(max_events=100_000))
-        .document.dumps()
-        == result.document.dumps()
-    )
 
 
 def test_repeated_readings_keep_independent_sweep_clocks():
@@ -360,7 +327,6 @@ def test_local_singing_colors_preserve_role_geometry_and_base_paint():
         expected = GREEN if target.node_id == first or target.role == "ruby" else RED
         assert all(b.fill == expected for b in bands)
     assert all(c.object.state.border == 5 for c in plain.layout.body.characters)
-    assert Scene(source).add(painted).compile().event_count > 0
 
 
 @pytest.mark.parametrize("delay", (0, 3))
@@ -374,7 +340,6 @@ def test_instant_singing_changes_body_and_ruby_at_exact_source_clock(delay):
         Style,
         layout_document_lyrics,
     )
-    from kara_templater._raster import rasterize
     from kara_templater.paint_fields import PaintActivity
 
     doc = Document.create(
@@ -410,29 +375,3 @@ def test_instant_singing_changes_body_and_ruby_at_exact_source_clock(delay):
             assert {band.fill for band in bands} == {
                 node.state.fill if time < 1 else RED
             }
-
-    def colored(node):
-        if isinstance(node, ObjectGroup):
-            return replace(
-                node, children=tuple(colored(child) for child in node.children)
-            )
-        return replace(node, state=replace(node.state, fill=RED))
-
-    budget = SceneBudget(fps=1)
-    rendered = Scene(doc, replace_records={index}).add(painted).compile(budget=budget)
-    for time, reference in (
-        (990, plain),
-        (1000, colored(plain)),
-        (2500, colored(plain)),
-    ):
-        expected = (
-            Scene(doc, replace_records={index}).add(reference).compile(budget=budget)
-        )
-        frame = rasterize(rendered.document.dumps(), time + delay * 1000, (160, 100))
-        assert any(frame.rgba)
-        assert (
-            frame.rgba
-            == rasterize(
-                expected.document.dumps(), time + delay * 1000, (160, 100)
-            ).rgba
-        )

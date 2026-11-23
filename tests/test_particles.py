@@ -158,35 +158,8 @@ def test_echo_group_delays_parent_and_children_once():
     assert copy.at(1.5).position == group.at(1).position
     assert copy.children[0].at(1.5).position == child.at(1).position
     assert copy.children[0].id != child.id
-    Scene(Document.create()).add(group, copy).compile()
     with pytest.raises(ValueError, match="before copying"):
         echoes(group, count=3, max_objects=5)
-
-
-def test_echo_preserves_step_boundaries_and_custom_opacity():
-    node = PathObject(
-        id="p",
-        lifetime=Lifetime(0, 1),
-        path=VectorPath.rectangle(2, 2),
-        animations=(
-            AnimationClip(
-                0,
-                1,
-                StateFunction(
-                    lambda s, t: replace(s, opacity=0 if t < 0.23 else 1),
-                    frozenset(("opacity",)),
-                ),
-                breakpoints=(0.23,),
-            ),
-        ),
-    )
-    echo = echoes(node, count=1, spacing=0.1)[0]
-    result = Scene(Document.create()).add(echo).compile()
-    assert [
-        (line.start_time, line.end_time)
-        for line in result.document.lines
-        if not line.comment
-    ] == [(330, 1100)]  # Fully transparent samples do not become ASS events.
 
 
 def test_split_geometry_has_local_moving_cells_and_preserves_sources():
@@ -245,7 +218,6 @@ def test_curve_layout_preserves_grouped_annotation_and_local_animation():
     assert isinstance(inner, ObjectGroup)
     assert inner.children == group.children
     assert inner.at(1).scale == Vec2(1.5, 1.5)
-    Scene(Document.create()).add(placed).compile()
     with pytest.raises(ValueError, match="budget"):
         layout_path(
             (PathItem(group, 50), PathItem(group, 50)),

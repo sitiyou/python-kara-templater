@@ -94,6 +94,7 @@ def test_single_pass_lowers_at_one_fps_and_matches_static_boundary_pixels():
         StatePatch(fill=RED),
         glow=Glow(RED, blur=3, border=3),
         base_glow=Glow(BLUE, blur=3, border=3),
+        blend_glow=False,
     )(line)
     canvas = Document.create(width=160, height=96, styles=tuple(doc.styles.values()))
     scene = Scene(canvas).add(line)
@@ -154,8 +155,6 @@ def test_two_color_soft_glow_meets_at_the_singing_front(reverse):
     assert red == sorted(red, reverse=not reverse)
     assert min(red) == 0 and max(red) == 255
     assert max(abs(a - b) for a, b in zip(red, red[1:], strict=False)) < 64
-    result = Scene(doc).add(painted).compile(native_tweens=True, budget=SceneBudget(fps=1))
-    assert all(o.strategy == "native-clip" for o in result.objects if "/glow" in o.id)
 
 
 @pytest.mark.parametrize("before_alpha", [0, 0.25])
@@ -209,15 +208,20 @@ def test_delayed_copy_offsets_each_ruby_glyphs_own_wipe():
         )
 
 
-def test_zero_duration_and_repeated_singing_remain_valid():
+def test_ass_supports_instant_wipe_and_rejects_repeated_singing():
     for text in (r"{\k0}A{\k23}B", r"{\k8}A{\k15}#"):
         doc, line = make_line(text)
         result = LyricHighlights.from_singing(
             StatePatch(fill=RED),
             glow=Glow(RED, blur=2),
+            blend_glow=False,
         )(line)
         canvas = Document.create(
             width=160, height=96, styles=tuple(doc.styles.values())
         )
-        compiled = Scene(canvas).add(result).compile(native_tweens=True)
-        assert compiled.event_count
+        scene = Scene(canvas).add(result)
+        if "#" in text:
+            with pytest.raises(ValueError, match="frame sampling"):
+                scene.compile()
+        else:
+            assert scene.compile().event_count

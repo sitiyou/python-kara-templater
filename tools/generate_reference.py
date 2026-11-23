@@ -99,8 +99,6 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
         "Coverage and raster output",
         (
             "coverage_animation",
-            "coverage_output",
-            "scene_raster",
             "raster_settings",
         ),
         "Explicit coverage/material and whole-group RGBA output. These retain distinct composition semantics and require deliberate resource limits. See [materials](../guides/materials.md).",

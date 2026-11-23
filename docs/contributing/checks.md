@@ -81,8 +81,8 @@ exceptions, and supported limits in the owning API/guide.
 ## Visual previews
 
 ```sh
-uv run python -m tools.render_gallery
-uv run python -m tools.validate_scene_core --scene sweep build/preview-sweep
+uv run python -m tools.render_gallery --case word-backgrounds
+uv run python -m tools.validate_scene_core --scene cues build/preview-cues
 ```
 
 The gallery saves actual ASS before rendering the tracked GIFs. Its ignored report
@@ -95,6 +95,4 @@ See [release builds](releasing.md) for clean-source and installed-package checks
 
 For Studio frame comparisons, match the measured font em on both renderers
 before registering images at rest. Use one fixed registration for the line.
-For sampled ASS also compare against the reference at the emitted interval’s
-midpoint. A separate comparison at the playback timestamp measures the
-visible sampling error. See [font sizing](../guides/fonts-and-preview.md#match-a-karaoke-studio-font-size).
+See [font sizing](../guides/fonts-and-preview.md#match-a-karaoke-studio-font-size).

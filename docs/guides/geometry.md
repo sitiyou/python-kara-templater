@@ -82,8 +82,8 @@ ending at event-local time zero. The combined animation/keyframe boundaries
 must align with the centisecond grid for this animated optimization. A spatial
 bound that cannot fit that grid raises an error, as does exceeding event limits.
 Rotating or shearing animations, parent geometry animations, inherited masks, materials,
-references and coverage retain the common sampled path. Arbitrary
-`RectangleFunction` callbacks are also sampled.
+references and coverage can require frame sampling and raise SceneCompileError.
+ASS compilation also rejects arbitrary `RectangleFunction` callbacks.
 
 A group mask applies in its shared coordinate space. Nested masks compose and
 may require polygon/boolean lowering. path_boolean supports intersection, union,
@@ -132,4 +132,4 @@ is the resulting Polyline: pass it to `MoveAlong` to use the same arc-length
 geometry, or use `trail.tip(time)` for the head position on its exact local clock.
 `Polyline.slice(start, end)` exposes the underlying normalized interval operation
 for custom geometry. Strokes use bevel joins and butt caps. Changing path geometry
-is sampled in ASS; `max_points` limits each frame, not the number of events.
+is unsupported for ASS export.

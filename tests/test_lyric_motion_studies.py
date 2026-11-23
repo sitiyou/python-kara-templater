@@ -27,7 +27,6 @@ from kara_templater import (
     layout_document_lyrics,
     prepare_tracks,
 )
-from kara_templater._raster import rasterize
 
 
 def subject():
@@ -168,17 +167,6 @@ def test_studies_keep_common_source_timing_and_independent_harmony(effect, japan
     ]
     assert harmony.query("line")[0].singing[0].start == 2.5
     assert bool(main.query("ruby")) == japanese
-    result = scene.compile(native_tweens=True)
-    assert result.event_count > 0
-    assert result.peak_active < 300
-
-
-def test_particle_writing_reveals_hidden_text_while_sparkles_keep_unsung_text():
-    writing = build("writing").compile(native_tweens=True).document.dumps()
-    sparkles = build("sparkles").compile(native_tweens=True).document.dumps()
-    assert not any(rasterize(writing, 900, (640, 360)).rgba[3::4])
-    assert any(rasterize(sparkles, 900, (640, 360)).rgba[3::4])
-    assert any(rasterize(writing, 2200, (640, 360)).rgba[3::4])
 
 
 def test_echo_study_rises_continuously_while_original_baseline_stays_put():

@@ -2,12 +2,15 @@
 
 from dataclasses import replace
 
+import pytest
+
 from kara_templater import (
     Document,
     Lifetime,
     ObjectGroup,
     PathObject,
     Scene,
+    SceneCompileError,
     StatePatch,
     Tween,
     Vec2,
@@ -42,5 +45,5 @@ def test_multiple_movement_phases_do_not_claim_one_move_native_output():
     node = PathObject(id="spark", lifetime=Lifetime(0, 2), path=VectorPath.rectangle(6, 6))
     node = node.animate(Tween(StatePatch(position=Vec2(30, 0))), duration=1)
     node = node.animate(Tween(StatePatch(position=Vec2(0, 30))), at=1, duration=1)
-    result = Scene(Document.create(width=160, height=100)).add(node).compile(native_tweens=True)
-    assert result.objects[0].strategy == "sampled"
+    with pytest.raises(SceneCompileError, match="frame sampling"):
+        Scene(Document.create(width=160, height=100)).add(node).compile(native_tweens=True)

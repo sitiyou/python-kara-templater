@@ -126,19 +126,18 @@ checkout or source distribution; they are not wheel-installed example assets.
 The gallery tool first saves ASS, then asks FFmpeg/libass to render that file:
 
 ```sh
-python -m tools.render_gallery --case sweep
+python -m tools.render_gallery --case word-backgrounds
 ```
 
 Run it from a checkout with FFmpeg/libass and the checks dependencies installed.
 It writes ASS, copied preview fonts, and a provenance report under build/gallery,
-and creates the selected GIF under docs/examples/assets. Omit --case to rebuild
-the complete twelve-effect gallery. Override --output or --assets for a local
+and creates the selected GIF under docs/examples/assets. The other historical gallery cases used the former sampled ASS exporter. Override --output or --assets for a local
 experiment without replacing tracked previews.
 
 For detailed continuous-playback and seek checks of a particular example:
 
 ```sh
-python -m tools.validate_scene_core --scene sweep build/preview-sweep
+python -m tools.validate_scene_core --scene cues build/preview-cues
 ```
 
 This writes its generated ASS and diagnostic report to the requested output

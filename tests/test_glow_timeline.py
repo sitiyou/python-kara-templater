@@ -9,14 +9,9 @@ from kara_templater import (
     WHITE,
     AnimationSequence,
     Color,
-    Coverage,
-    Document,
     Glow,
     GlowFunction,
     Lifetime,
-    ObjectGroup,
-    Scene,
-    SceneBudget,
     StateFunction,
     StateKeyframe,
     StatePatch,
@@ -26,7 +21,6 @@ from kara_templater import (
     Vec2,
     VisualState,
 )
-from kara_templater._raster import rasterize
 
 
 def glow_from(
@@ -66,31 +60,6 @@ def test_glow_multi_property_tween_matches_the_same_animation_on_a_drawing():
         state = drawing.at(time)
         assert glow.sample(VisualState(), time) == Glow(
             state.fill, blur=state.blur, border=state.border, opacity=state.opacity
-        )
-    leaf = TextObject(
-        id="letter",
-        text="A",
-        font_size=16,
-        lifetime=Lifetime(0, 1),
-        state=VisualState(position=Vec2(25, 25)),
-    )
-    group = ObjectGroup(
-        id="lyric",
-        lifetime=leaf.lifetime,
-        children=(leaf,),
-        coverage=Coverage(glows={leaf.id: glow}),
-    )
-    document = Document.create(width=80, height=64)
-    budget = SceneBudget(fps=10, max_events=100_000, max_active=10_000)
-    dynamic = Scene(document).add(group).compile(budget=budget).document.dumps()
-    for time in (850, 150, 550):
-        value = glow.sample(VisualState(), time / 1000)
-        assert value is not None
-        fixed = replace(group, coverage=Coverage(glows={leaf.id: value}))
-        reference = Scene(document).add(fixed).compile(budget=budget).document.dumps()
-        assert (
-            rasterize(dynamic, time, (80, 64)).rgba
-            == rasterize(reference, time, (80, 64)).rgba
         )
 
 
@@ -224,51 +193,3 @@ def test_glow_opacity_is_validated_for_static_and_animated_values(opacity):
     )
     with pytest.raises(ValueError):
         effect.sample(VisualState(), 0.5)
-
-
-def test_dynamic_glow_bounds_and_local_opacity_compose_with_parent_fade():
-    from kara_templater import FadeIn, SceneCompileError
-
-    leaf = TextObject(
-        id="letter",
-        text="A",
-        font="DejaVu Sans",
-        font_size=16,
-        lifetime=Lifetime(0, 0.4),
-        state=VisualState(position=Vec2(25, 25), opacity=0.6),
-    )
-    glow = GlowFunction(
-        lambda state, time: Glow(RED, blur=2 + 10 * time, opacity=0.25),
-        max_blur=6,
-        max_border=0,
-    )
-    group = ObjectGroup(
-        id="root",
-        lifetime=leaf.lifetime,
-        children=(leaf,),
-        coverage=Coverage(glows={leaf.id: glow}),
-    ).animate(FadeIn(), duration=0.2)
-    doc = Document.create(width=80, height=64)
-    budget = SceneBudget(fps=10, max_events=100_000, max_active=10_000)
-    output = Scene(doc).add(group).compile(budget=budget).document.dumps()
-    for time in (350, 50, 150):
-        t = time / 1000
-        fixed = replace(
-            group,
-            animations=(),
-            state=VisualState(opacity=min(1, t / 0.2)),
-            coverage=Coverage(
-                glows={leaf.id: Glow(RED, blur=2 + 10 * t, opacity=0.25)}
-            ),
-        )
-        expected = Scene(doc).add(fixed).compile(budget=budget).document.dumps()
-        assert (
-            rasterize(output, time, (80, 64)).rgba
-            == rasterize(expected, time, (80, 64)).rgba
-        )
-    assert leaf.state.opacity == 0.6
-    invalid = replace(
-        group, coverage=Coverage(glows={leaf.id: replace(glow, max_blur=2)})
-    )
-    with pytest.raises(SceneCompileError, match="bounds"):
-        Scene(doc).add(invalid).compile(budget=budget)
