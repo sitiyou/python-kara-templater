@@ -18,6 +18,7 @@ from kara_templater import (
     KaraokeSinging,
     SceneBudget,
 )
+from tools.preview_frames import encode_preview
 
 
 def variants() -> list[tuple[str, KaraokeEffects]]:
@@ -173,33 +174,10 @@ def main() -> None:
         result = scene.compile(native_tweens=True, budget=SceneBudget(fps=60))
         ass = root / f"{name}.ass"
         result.document.save(ass)
-        subprocess.run(
-            [
-                "ffmpeg",
-                "-v",
-                "error",
-                "-nostdin",
-                "-y",
-                "-f",
-                "lavfi",
-                "-i",
-                "color=c=0x172033:s=640x360:r=60:d=6",
-                "-vf",
-                f"ass={name}.ass,drawtext=text={name}:x=18:y=18:fontsize=20:fontcolor=white",
-                "-an",
-                "-c:v",
-                "libx264",
-                "-threads",
-                "2",
-                "-crf",
-                "18",
-                "-pix_fmt",
-                "yuv420p",
-                f"{name}.mp4",
-            ],
-            cwd=root,
-            check=True,
-        )
+        encode_preview(result.document.dumps(), (640, 360), 60, 6,
+                       "color=c=0x172033:s=640x360:r=60:d=6",
+                       f",drawtext=text={name}:x=18:y=18:fontsize=20:fontcolor=white",
+                       ["-an","-c:v","libx264","-threads","2","-crf","18","-pix_fmt","yuv420p",f"{name}.mp4"], root)
         manifest.append(
             {
                 "name": name,

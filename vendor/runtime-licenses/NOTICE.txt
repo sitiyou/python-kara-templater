@@ -6,5 +6,3 @@ Dependency sources:
 https://github.com/msys2/MINGW-packages
 https://src.fedoraproject.org/
 https://almalinux.org/
-
-See THIRD_PARTY.md for the bundled libass source and metrics patches.

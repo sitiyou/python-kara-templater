@@ -46,9 +46,9 @@ fails the build. Native compilation runs before this budget starts.
 
 | Test group | What it verifies | Where it runs |
 | --- | --- | --- |
-| Package core | Font selection and native shaping, ASS timing import, structured ruby and cue placement, row allocation, libass raster round trip, seekable GPU draw preparation, installed CLI and standalone hook export | AUR |
+| Package core | Font selection and native shaping, ASS timing import, structured ruby and cue placement, row allocation, CPU raster round trip, seekable GPU draw preparation, installed CLI and standalone hook export | AUR |
 | Rendering regressions | Curve accuracy between frames, pixel coverage of sweeps and outlines, combinations of effects, clocks and fonts, actual hook playback when Vulkan is available | Upstream suite |
-| Developer and release checks | Documentation scripts and links, public typing, native source-cache invalidation, wheel metadata and bundled libraries | Upstream tests and release tooling |
+| Developer and release checks | Documentation scripts and links, public typing, standalone native metrics, wheel metadata and bundled libraries | Upstream tests and release tooling |
 
 AUR runs the upstream default against the installed wheel. For the published
 1.0.0 source, which predates core test selection, the package check names the

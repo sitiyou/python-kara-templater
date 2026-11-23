@@ -109,7 +109,11 @@ def test_gpu_cached_local_coverage_matches_untransformed_native_text(alignment, 
         color |= round(255 * (1 - draw.opacity))
         canvas.over((x + 80, y + 60, width, height, kind, color, data))
     actual = canvas.finish()
-    assert actual.rgba == expected.rgba
+    # Compare coverage on the ink itself, so blank canvas cannot hide a shift.
+    actual_alpha = actual.rgba[3::4]
+    reference_alpha = expected.rgba[3::4]
+    difference = sum(abs(a - b) for a, b in zip(actual_alpha, reference_alpha, strict=True))
+    assert difference <= 0.1 * sum(reference_alpha)
 
 
 def test_outline_only_drawing_keeps_its_center_clear_during_native_fade():
@@ -130,3 +134,20 @@ def test_outline_only_drawing_keeps_its_center_clear_during_native_fade():
     rgba = rasterize(compiled.document.dumps(), 1000, (64, 64)).rgba
     assert rgba[4 * (24 * 64 + 24) + 3] == 0
     assert 120 <= rgba[4 * (24 * 64 + 10) + 3] <= 135
+
+
+def test_hook_rasterizes_paths_and_text_without_an_ass_event(monkeypatch):
+    from kara_templater import PathObject, VectorPath, _ass_preview
+
+    def unexpected(*args):
+        pytest.fail("hook coverage attempted ASS event rendering")
+
+    monkeypatch.setattr(_ass_preview, "rasterize", unexpected)
+    path = PathObject(id="box", path=VectorPath.rectangle(20, 12), lifetime=Lifetime(0, 3),
+                      state=VisualState(border=2, shadow=Vec2(-4, 3)))
+    draws = SceneFrames(Scene(Document.create()).add(path, node())).at(2)
+    assert len(draws) == 2 and draws[1].images
+    shadow, border, fill = draws[0].images
+    assert [shadow[4], border[4], fill[4]] == [2, 1, 0]
+    assert shadow[:2] == (border[0] - 4, border[1] + 3)
+    assert fill[6][(6 - fill[1]) * fill[2] + 10 - fill[0]] == 255

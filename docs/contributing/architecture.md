@@ -80,9 +80,9 @@ native ASS lowering, ownership handling, reporting, and final resource checks.
 NativeEvent preserves already-lowered ASS while sharing output/provenance rules.
 Rendered output is a new Document; caller-owned scene/source objects remain intact.
 
-native/metrics.cpp and the bundled libass patches supply text measurement,
-shaping, outlines, and raster coverage. The native build is keyed by source and
-patch bytes, platform, and Python ABI. Python author callbacks are evaluated
+The authoring metrics module exposes font registration, extents and positioned
+glyph outlines. The C++ extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi and shapes them with HarfBuzz. Extent queries read advances; shape queries decompose FreeType outlines in script coordinates. The CPU preview rasterizes compiler drawings with aggdraw and Pillow.
+Python author callbacks are evaluated
 before serialization; the player receives ordinary ASS rather than Python.
 
 Public exports are defined once in kara_templater.__all__. Add a public interface
@@ -94,6 +94,7 @@ The generated [API reference](../reference/README.md) documents the retained set
 Scene.export_hook partitions each leaf at lifetime, clip and animation boundaries.
 Known motion spans store endpoint transforms and easing; rectangle keyframes
 interpolate independently. Opaque spans sample the shared evaluator locally.
+Hook export rasterizes positioned glyph outlines and vector paths directly with aggdraw. Pillow filters the coverage planes before atlas packing.
 A sparse timeline indexes tiled draws in painter order. Curve knots, scalar
 tracks, tile lists, materials and raster masks share storage across instances. The fragment shader composites those
 draws in painter order onto the input video. FFmpeg/libplacebo owns the frame

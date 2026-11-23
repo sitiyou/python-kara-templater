@@ -6,22 +6,21 @@ It does not serialize author callbacks or invent a second animation evaluator.
 """
 
 from collections import OrderedDict
-from dataclasses import dataclass, replace
-from math import ceil, floor
+from dataclasses import dataclass
+from math import ceil, floor, log, sqrt
 
-from . import _metrics
+import aggdraw  # ty: ignore[import-not-found]  # Extension module without a type stub.
+from PIL import Image, ImageChops, ImageFilter
+
 from ._native_types import RasterImage
-from .ass import Document
 from .composition import Color
-from .geometry import Affine2D, Vec2, finite
+from .geometry import Affine2D, CubicSegment, VectorPath, finite
 from .paint_fields import LinearGradient
 from .path_geometry import path_bounds
 from .scene import PathObject, RectangleClip, Scene, TextObject
 from .scene_animation import VisualState, local_seconds
-from .scene_output import SceneCompileError, _event, _Leaf, _leaves
+from .scene_output import SceneCompileError, _Leaf, _leaves
 from .text_geometry import outline_text
-
-_WHITE = Color(255, 255, 255)
 
 
 @dataclass(frozen=True)
@@ -81,37 +80,69 @@ def _coverage(
     )
     if path is None:
         return ()
+    return path_coverage(path, state, node.filled, pixel_budget, node.id)
+
+
+def path_coverage(
+    path: VectorPath, state: VisualState, filled: bool, pixel_budget: int, object_id: str,
+) -> tuple[RasterImage, ...]:
     bounds = path_bounds(path)
-    padding = ceil(state.border) + _metrics.blur_padding(state.blur) + 4
-    left = floor(bounds.left - padding + min(0, state.shadow.x))
-    top = floor(bounds.top - padding + min(0, state.shadow.y))
-    right = ceil(bounds.right + padding + max(0, state.shadow.x))
-    bottom = ceil(bounds.top + bounds.height + padding + max(0, state.shadow.y))
-    width, height = right - left, bottom - top
+    if not 0 <= state.blur <= 100:
+        raise ValueError("Blur radius must be in 0..100 ASS pixels")
+    sigma = state.blur * 2 / sqrt(log(256))
+    padding = ceil(state.border + 4 * sigma) + 2
+    left, top = floor(bounds.left) - padding, floor(bounds.top) - padding
+    width = ceil(bounds.right) + padding - left
+    height = ceil(bounds.top + bounds.height) + padding - top
     if width * height > pixel_budget:
-        raise SceneCompileError(
-            "GPU glyph raster pixel budget exceeded", object_id=node.id
-        )
-    cutout = _cutout_border(node, state)
-    neutral = replace(
-        state,
-        position=Vec2(-left, -top),
-        scale=Vec2(1, 1),
-        rotation=0,
-        skew=Vec2(),
-        opacity=0.5 if cutout else 1,
-        fill=_WHITE,
-        outline=_WHITE,
-    )
-    doc = Document.create(width=width, height=height)
-    doc.records.append(_event(leaf, neutral, 0, 100, "Default"))
-    images = _metrics.rasterize(doc.dumps(), 0, width, height, pixel_budget, 10_000)
-    # The representative opacity selects native geometry only. Each draw
-    # applies its evaluated opacity to the unit-opacity masks.
-    return tuple(
-        (x + left, y + top, w, h, kind, (color & ~255) if cutout else color, data)
-        for x, y, w, h, kind, color, data in images
-    )
+        raise SceneCompileError("GPU glyph raster pixel budget exceeded", object_id=object_id)
+
+    drawing = aggdraw.Path()
+    for contour in path.contours:
+        drawing.moveto(contour.start.x - left, contour.start.y - top)
+        for segment in contour.segments:
+            if isinstance(segment, CubicSegment):
+                drawing.curveto(
+                    segment.control1.x - left, segment.control1.y - top,
+                    segment.control2.x - left, segment.control2.y - top,
+                    segment.end.x - left, segment.end.y - top,
+                )
+            else:
+                drawing.lineto(segment.end.x - left, segment.end.y - top)
+        drawing.close()
+
+    def mask(border: float) -> Image.Image:
+        plane = Image.new("L", (width, height))
+        canvas = aggdraw.Draw(plane)
+        pen = aggdraw.Pen("white", 2 * border) if border else None
+        canvas.path(drawing, aggdraw.Brush("white"), pen)
+        canvas.flush()
+        return plane
+
+    fill = mask(0)
+    backing = mask(state.border) if state.border else fill
+    border_mask = backing
+    if state.border and (round((1 - state.opacity) * 255) != 0 or not filled):
+        border_mask = ImageChops.subtract(backing, fill)
+
+    images: list[RasterImage] = []
+
+    def append(plane: Image.Image, kind: int, blur: bool, dx: int = 0, dy: int = 0) -> None:
+        if sigma and blur:
+            plane = plane.filter(ImageFilter.GaussianBlur(sigma))
+        box = plane.getbbox()
+        if box is not None:
+            ink = plane.crop(box)
+            images.append((left + box[0] + dx, top + box[1] + dy, ink.width, ink.height,
+                           kind, 0xffffff00, ink.tobytes()))
+
+    if (state.shadow.x or state.shadow.y) and (filled or state.border):
+        append(backing if filled else border_mask, 2, True, round(state.shadow.x), round(state.shadow.y))
+    if state.border:
+        append(border_mask, 1, True)
+    if filled:
+        append(fill, 0, not state.border)
+    return tuple(images)
 
 
 class SceneFrames:

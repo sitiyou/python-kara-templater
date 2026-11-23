@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageFilter
 
 from examples.scene_fragments import build
-from kara_templater import Document, _metrics, load_font
+from kara_templater import Document, _ass_preview, load_font
 from tools.validate_case_geometry import reference as settled_reference
 from tools.validate_cues import static_intervals
 from tools.validate_engine_backgrounds import ROOT, SIZE, backgrounds, preview
@@ -60,7 +60,7 @@ def masks(script: str, ms: int) -> tuple[Image.Image, Image.Image, Image.Image]:
     edges = Image.new("L", SIZE)
     count = Image.new("L", SIZE)
     fading = Image.new("L", SIZE)
-    for x, y, width, height, _, color, data in _metrics.rasterize(
+    for x, y, width, height, _, color, data in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10000
     ):
         if not width or not height:

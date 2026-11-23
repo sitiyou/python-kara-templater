@@ -11,7 +11,7 @@ from pathlib import Path
 from PIL import Image, ImageChops
 
 from examples.scene_cues import build
-from kara_templater import Document, Line, Style, _metrics, load_font
+from kara_templater import Document, Line, Style, _ass_preview, _metrics, load_font
 from tools.validate_case_geometry import compare
 from tools.validate_cues import static_intervals
 from tools.validate_custom_cue import reference as sparkle_reference
@@ -93,7 +93,7 @@ def complete_reference(ms: int) -> str:
 
 def unweighted_envelope(script: str, ms: int) -> Image.Image:
     result = Image.new("L", SIZE)
-    for left, top, width, height, kind, _, data in _metrics.rasterize(
+    for left, top, width, height, kind, _, data in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10_000
     ):
         if kind not in (0, 1) or not width or not height:

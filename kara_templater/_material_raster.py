@@ -1,10 +1,10 @@
-"""Assign material to coverage before applying libass's finite blur kernel."""
+"""Assign material to coverage before applying the preview blur kernel."""
 
 from dataclasses import dataclass
 from itertools import pairwise
 from math import floor
 
-from . import _metrics
+from . import _ass_preview
 from ._raster import RasterBudget, RasterFrame
 from .composition import Color
 from .timeline import Region, _finite
@@ -57,7 +57,7 @@ def paint_coverage(
     """Color a complete, nonoverlapping horizontal material partition.
 
     Pixel coverage is partitioned by the fractional horizontal overlap of bands.
-    Four premultiplied 8-bit planes are then filtered with the same libass kernel.
+    Four premultiplied 8-bit planes are then filtered with the same Gaussian blur.
     Alpha is blurred once, independently of the number of material regions.
     Returned offsets include the filter's exact finite working-region expansion.
     """
@@ -105,7 +105,7 @@ def paint_coverage(
     width, height = mask.width, mask.height
     if blur_radius:
         results = tuple(
-            _metrics.blur_mask(plane, width, height, blur_radius, budget.max_pixels)
+            _ass_preview.blur_mask(plane, width, height, blur_radius, budget.max_pixels)
             for plane in planes
         )
         left, top, width, height, _ = results[0]
@@ -136,7 +136,7 @@ def blur_frame(
         for channel in range(3)
     ) + (frame.rgba[3::4],)
     results = tuple(
-        _metrics.blur_mask(plane, frame.width, frame.height, radius, budget.max_pixels)
+        _ass_preview.blur_mask(plane, frame.width, frame.height, radius, budget.max_pixels)
         for plane in planes
     )
     left, top, width, height, alpha = results[3]

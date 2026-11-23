@@ -17,7 +17,7 @@ python -m twine check --strict dist/*
 ```
 
 Use a fresh output directory to avoid mixing old artifacts. The source archive
-includes library/native sources, bundled patches/licenses, current docs/media,
+includes library/native sources, dependency license notices, current docs/media,
 examples, and required tests/fixtures. It must not require .dev or previous build
 outputs. Fonts have separate licenses and are not automatically bundled in wheels.
 
@@ -25,10 +25,6 @@ Native dependency notices are fixed files under vendor/runtime-licenses and are
 included directly in source/wheel metadata. Builds do not scan the host. Review
 the recorded versions and update the snapshots manually when changing native
 dependencies or the Windows DLL bundle. Linux host-linked libraries remain external.
-
-Native source caches are keyed by archive, ordered patches, binding/build files,
-platform, and Python ABI. Failed patch application does not publish a partial
-source cache. The extension is relinked against the selected cache.
 
 ## Platform repair
 

@@ -11,7 +11,7 @@ from dataclasses import dataclass, replace
 from math import ceil
 from typing import Literal
 
-from . import _metrics
+from . import _ass_preview
 from ._coverage_stack import CoverageStack, compose_stacks
 from ._material_composition import MaterialLayer, compose_material_layers
 from ._material_raster import CoverageMask, MaterialBand
@@ -186,7 +186,7 @@ class SceneCoverageSampler:
             ),
             default=0,
         )
-        self.overscan = _metrics.blur_padding(maximum_blur)
+        self.overscan = _ass_preview.blur_padding(maximum_blur)
         padding = 2 * self.overscan + ceil(maximum_border)
         self.raster_budget.check_pixels(
             resolution[0] + 2 * padding, resolution[1] + 2 * padding
@@ -371,7 +371,7 @@ class SceneCoverageSampler:
         )
         document = Document.create(width=width, height=height, styles=(style,))
         document.records.extend(painted.events)
-        images = _metrics.rasterize(
+        images = _ass_preview.rasterize(
             document.dumps(),
             0,
             width,
@@ -705,7 +705,7 @@ class SceneCoverageSampler:
                 radius = max(radius, glow.blur)
         sampled = copy(self)
         sampled.glows = evaluated
-        sampled.overscan = _metrics.blur_padding(radius)
+        sampled.overscan = _ass_preview.blur_padding(radius)
         return sampled._frame(time)
 
     def _frame(self, time: float) -> PositionedFrame | None:

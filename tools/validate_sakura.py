@@ -11,14 +11,22 @@ from math import hypot
 from pathlib import Path
 
 from examples.scene_sakura import build
-from kara_templater import Document, MoveAlong, PathObject, Scene, _metrics, load_font
+from kara_templater import (
+    Document,
+    MoveAlong,
+    PathObject,
+    Scene,
+    _ass_preview,
+    _metrics,
+    load_font,
+)
 from tools.validate_engine_backgrounds import ROOT
 
 
 def centroid(script: str, ms: int) -> tuple[float, float, int] | None:
     mass = xsum = ysum = 0.0
     alphas: set[int] = set()
-    for left, top, width, height, kind, color, data in _metrics.rasterize(
+    for left, top, width, height, kind, color, data in _ass_preview.rasterize(
         script, ms, 1280, 720, 4_000_000, 10_000
     ):
         if kind != 0:

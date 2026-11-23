@@ -20,7 +20,7 @@ from kara_templater import (
     PathObject,
     Scene,
     TextObject,
-    _metrics,
+    _ass_preview,
     load_font,
 )
 from tools.validate_engine_backgrounds import ROOT, SIZE, backgrounds
@@ -37,9 +37,9 @@ def finish(channels: tuple[Image.Image, ...]) -> Image.Image:
 
 
 def over(channels: tuple[Image.Image, ...], script: str, time_ms: int) -> Image.Image:
-    """Float source-over of libass tiles; quantize once at the final RGB image."""
+    """Float source-over of CPU preview tiles; quantize once at the final RGB image."""
     presence = Image.new("L", SIZE)
-    for left, top, width, height, _, color, data in _metrics.rasterize(
+    for left, top, width, height, _, color, data in _ass_preview.rasterize(
         script, time_ms, *SIZE, 4_000_000, 10_000
     ):
         if not width or not height:

@@ -5,10 +5,11 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "kara-templater"
 version = "1.0.1"
-description = "Scriptable karaoke effects and ASS generation with native libass text metrics"
+description = "Scriptable karaoke effects and ASS generation with native HarfBuzz text geometry"
 requires-python = ">=3.12"
+dependencies = ["aggdraw>=1.3.19", "Pillow>=10"]
 license = "MIT"
-license-files = ["LICENSE", "vendor/LICENSE.libass", "vendor/runtime-licenses/**/*"]
+license-files = ["LICENSE", "vendor/runtime-licenses/**/*"]
 readme = "README.md"
 
 [project.scripts]
@@ -53,7 +54,7 @@ repair-wheel-command = """auditwheel repair --plat manylinux_2_28_x86_64 --only-
   --exclude 'libpng16.so.*' --exclude 'libbrotlidec.so.*' \\
   --exclude 'libbrotlicommon.so.*' --exclude 'libpcre2-8.so.*' \\
   -w {dest_dir} {wheel}"""
-before-all = "dnf install -y epel-release && dnf install -y autoconf automake libtool nasm pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts dejavu-sans-mono-fonts google-noto-sans-cjk-ttc-fonts"
+before-all = "dnf install -y epel-release && dnf install -y pkgconf-pkg-config freetype-devel harfbuzz-devel fribidi-devel fontconfig-devel libpng-devel dejavu-sans-fonts dejavu-sans-mono-fonts google-noto-sans-cjk-ttc-fonts"
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]

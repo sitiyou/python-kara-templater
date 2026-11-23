@@ -1,4 +1,4 @@
-"""Source-mapped, independently drawable clusters verified against libass shapes."""
+"""Source-mapped, independently drawable clusters verified against shaped glyph outlines."""
 
 from dataclasses import dataclass, field, replace
 from unicodedata import category, name
@@ -209,7 +209,7 @@ def _translation(actual, isolated, *, source):
         for (x, y), (rx, ry) in zip(points, reference, strict=True):
             if shift is None:
                 shift = (x - rx, y - ry)
-            # libass positions outlines on a 1/64-pixel grid. Permit one grid
+            # The C++ text engine positions outlines on a 1/64-pixel grid. Permit one grid
             # step of rounding, but never accept scaled or substituted glyphs.
             if (
                 abs(x - rx - shift[0]) > 1 / 64 + 1e-8

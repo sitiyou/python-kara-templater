@@ -1,58 +1,17 @@
-import os
-import runpy
+"""The installed metrics engine must operate independently of subtitle renderers."""
+
+import sys
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
-
-
-@pytest.fixture
-def build_key(tmp_path):
-    with patch("setuptools.setup"):
-        namespace = runpy.run_path(
-            str(Path(__file__).resolve().parents[1] / "setup.py")
-        )
-    for name in (
-        "vendor/libass-0.17.5.tar.gz",
-        "vendor/001.patch",
-        "native/metrics.cpp",
-        "native/meson.build",
-        "native/meson.options",
-    ):
-        path = tmp_path / name
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"original input")
-    return namespace["native_build_key"], tmp_path
+from kara_templater import _metrics, _text_native
 
 
-@pytest.mark.parametrize(
-    "name",
-    [
-        "vendor/libass-0.17.5.tar.gz",
-        "vendor/001.patch",
-        "native/metrics.cpp",
-        "native/meson.build",
-        "native/meson.options",
-    ],
-)
-def test_native_cache_uses_content_not_timestamps(build_key, name):
-    key, root = build_key
-    original = key(root)
-    path = root / name
-    before = path.stat()
-    path.write_bytes(b"modified input")
-    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))
-    assert key(root) != original
-    path.write_bytes(b"original input")
-    assert key(root) == original
-
-
-def test_adding_or_renaming_patch_invalidates_native_cache(build_key):
-    key, root = build_key
-    original = key(root)
-    added = root / "vendor/002.patch"
-    added.write_bytes(b"second patch")
-    second = key(root)
-    assert second != original
-    added.rename(root / "vendor/003.patch")
-    assert key(root) != second
+def test_native_font_geometry_is_standalone():
+    width, height, _, baseline, glyphs = _metrics.text_shape(
+        "sans-serif", 32, 0, 0, 100, 100, 0, 1, "Hello"
+    )
+    assert width > 0 and height >= baseline > 0
+    assert len(glyphs) == 5 and all(glyph[0] for glyph in glyphs)
+    assert not hasattr(_text_native, "rasterize")
+    if sys.platform == "linux":
+        assert not any("/libass.so" in line for line in Path("/proc/self/maps").read_text().splitlines())

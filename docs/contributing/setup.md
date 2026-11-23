@@ -1,26 +1,22 @@
 # Development setup
 
-The project uses Python 3.12 or later and a C++ extension linked to a bundled,
-patched libass. Installing the library from source builds that extension. A
+The project uses Python 3.12 or later and a C++ extension linked to FreeType, HarfBuzz, FriBidi and Fontconfig. Installing the library from source builds that extension. A
 matching repaired wheel avoids the native build toolchain on the destination.
 
 ## Linux
 
-A source build needs a C/C++ toolchain, Python headers, Autotools, libtool, NASM,
-pkg-config, and development headers for FreeType, HarfBuzz, FriBidi, Fontconfig,
+A source build needs a C/C++ toolchain, Python headers, pkg-config, and development headers for FreeType, HarfBuzz, FriBidi, Fontconfig,
 and libpng. For a Debian/Ubuntu environment with Python 3.12+:
 
 ```sh
-sudo apt install build-essential python3-dev python3-venv autoconf automake \
-  libtool nasm pkg-config libfreetype-dev libharfbuzz-dev libfribidi-dev \
+sudo apt install build-essential python3-dev python3-venv pkg-config libfreetype-dev libharfbuzz-dev libfribidi-dev \
   libfontconfig-dev libpng-dev fonts-dejavu-core
 ```
 
 For Arch Linux:
 
 ```sh
-sudo pacman -S --needed base-devel python python-pip autoconf automake libtool \
-  nasm pkgconf freetype2 harfbuzz fribidi fontconfig libpng ttf-dejavu
+sudo pacman -S --needed base-devel python python-pip pkgconf freetype2 harfbuzz fribidi fontconfig libpng ttf-dejavu
 ```
 
 Package names vary by OS version. The dependency names above describe the
@@ -46,7 +42,7 @@ Use x64 CPython and the MSYS2 UCRT64 toolchain. In UCRT64:
 ```sh
 pacman -Syu
 pacman -S --needed patch mingw-w64-ucrt-x86_64-gcc \
-  mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-nasm \
+  mingw-w64-ucrt-x86_64-pkgconf mingw-w64-ucrt-x86_64-fontconfig \
   mingw-w64-ucrt-x86_64-freetype mingw-w64-ucrt-x86_64-harfbuzz \
   mingw-w64-ucrt-x86_64-fribidi
 ```
@@ -66,7 +62,7 @@ python -m pip install --no-index --find-links wheelhouse kara-templater
 
 Windows repair bundles selected DLLs. Test the repaired installed wheel outside
 the checkout, with the build-toolchain directories removed from PATH. Font
-selection uses the Windows DirectWrite/GDI provider rather than Fontconfig.
+selection uses Fontconfig and explicitly registered font files.
 
 ## Check tools and previews
 
@@ -93,7 +89,7 @@ For source-tree tests after a non-editable installation, build the native
 extension in place with `python setup.py build_ext --inplace`. For installed-wheel
 checks, use the isolated workflow in [release builds](releasing.md).
 
-Gallery and detailed playback tools additionally need FFmpeg built with libass.
+Gallery video encoding uses FFmpeg. Optional player-comparison tools that explicitly test FFmpeg’s ASS filter require that filter in the external player build.
 Provide the same fonts to the metrics renderer and FFmpeg/player. See
 [fonts and preview](../guides/fonts-and-preview.md).
 

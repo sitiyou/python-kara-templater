@@ -2,29 +2,7 @@
 
 The Python effects pipeline and C++ binding are independently written. Karaoke timing and ruby notation were studied in Aegisub; effects requirements were studied in local PyonFX and karaoke-studio references. No reference-project implementation, Lua scripts or Lua runtime is included.
 
-Text measurement uses libass 0.17.5 under the ISC license. Its original source archive, license, and metrics patches are included in `vendor/`:
-
-- `libass-0.17.5.tar.gz`: https://github.com/libass/libass/releases/tag/0.17.5
-- `001-libass-metrics-api.patch`: experimental metrics API associated with https://github.com/libass/libass/pull/856
-- `002-libass-metrics-crashfix.patch`: metrics lifetime and empty-event corrections distributed with aegisub-karaskel-fix.
-- `003-libass-glyph-origin.patch`: this project's addition of glyph positions before bitmap subpixel quantization, used to verify independent cluster placement.
-- `004-libass-glyph-identity.patch`: this project's addition of glyph index and codepoint metadata, used to reject missing-glyph outlines after font fallback.
-- `005-libass-font-face.patch`: this project's owned copies of actual FreeType family/style names in measured outlines, used to check consistent font selection during independent cluster drawing.
-- `006-libass-coverage-blur.patch`: this project's bounded coverage and blur support for explicit material composition.
-- `007-libass-proportional-metrics.patch`: optional horizontal OpenType `palt` during measurement.
-- `LICENSE.libass`: the upstream libass license.
-
-The native build compiles the bundled patched libass statically; Linux hides its symbols. It does not replace or link against the system libass. FreeType, HarfBuzz, and FriBidi are shared dependencies. Linux also uses Fontconfig and libpng; Windows uses the system DirectWrite/GDI font provider instead of Fontconfig.
-
-Windows wheel builds bundle their shared DLL dependencies using delvewheel. Linux wheels dynamically link against the system's FreeType, HarfBuzz, FriBidi, Fontconfig, libpng, and C++ runtime libraries; those runtime packages must be installed by the user. The project's MIT license does not replace the licenses of linked libraries. A fixed, version-controlled collection of native dependency notices is included from [vendor/runtime-licenses](vendor/runtime-licenses/README.md). Builds do not scan the machine for licenses. Review and update the snapshots when changing dependency versions or the bundled DLL set. Dependency source packages are available through the MSYS2 and distribution repositories listed in that directory. Building libass itself uses the bundled source without downloading it.
-
-The C++ binding consumes run advances, ascent, and descent from `ass_get_metrics`. No bitmap-boundary scanning is used. Non-breaking spaces retain edge-space advances; hard breaks are measured as separate rows. The metrics API is experimental and pinned to the bundled version.
-
-The `text_shape` binding also copies fill outline points and contour segments
-from that API. Character layout compares the original shaped text with isolated
-candidate clusters to reject unsafe splitting. The comparison and source-range
-models are independently implemented here; no reference-project code is used.
-Outline control-point bounds are conservative geometry, not raster ink bounds.
+The C++ text engine uses HarfBuzz for shaping, FreeType for font files and outlines, FriBidi for bidirectional ordering, and Fontconfig for system font matching. Windows wheels bundle native runtime libraries; their notices are in [vendor/runtime-licenses](vendor/runtime-licenses/README.md).
 
 Tests and visual-validation tools carry unmodified DejaVu Sans regular and oblique
 fonts in `tests/fonts/DejaVuSans.ttf` and `tests/fonts/DejaVuSans-Oblique.ttf`, with
@@ -52,15 +30,9 @@ The regular DejaVu Sans fixture SHA-256 is
 `6038a160b491e121c1f12c7bccb4a9c8730296e3adc1086a059404ed84b7451c`.
 It is included in source distributions for reproducible tests, not in the runtime
 Python package. Explicit font registration validates bytes with FreeType and
-registers a copied font with libass; rendering applications must load the same
+keeps a private copy for the text engine; rendering applications must load the same
 font separately.
 
-Build requirements are setuptools, Python headers, a C/C++ toolchain, pkg-config, patch, and the native dependencies listed above. Linux uses Autoconf, Automake, and libtool; Windows uses MSYS2 UCRT64, Meson, and Ninja. NASM enables libass's x86 assembly optimizations. The renderer stays inside the extension module and measurements hold the Python GIL. Build and publication configuration is documented in [release builds](docs/contributing/releasing.md).
+Linux source builds use pkg-config and a C++17 toolchain. Windows builds use Meson and MSYS2 UCRT64. See [release builds](docs/contributing/releasing.md).
 
-Run verification with:
-
-```sh
-python -m pytest tests -v
-```
-
-The standalone shader uses libplacebo in the host FFmpeg or mpv installation.
+Hook export uses aggdraw and Pillow. Hook playback uses the host libplacebo installation.

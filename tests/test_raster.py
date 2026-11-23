@@ -2,7 +2,13 @@
 
 import pytest
 
-from kara_templater import Document, OutputCapabilityError, Style, _metrics
+from kara_templater import (
+    Document,
+    OutputCapabilityError,
+    Style,
+    _ass_preview,
+    _metrics,
+)
 from kara_templater._raster import (
     RasterBudget,
     RasterCanvas,
@@ -82,10 +88,10 @@ def test_native_bitmaps_are_owned_and_raster_resolution_does_not_change_metrics(
     before = _metrics.text_shape("DejaVu Sans", 32, 0, 0, 100, 100, 0, 1, "office")
     frame = RasterFrame(32, 24, bytes((12, 23, 34, 255)) * 768)
     text = script(encode_frame(frame, DisplayWindow(0, 1000)))
-    images = _metrics.rasterize(text, 500, 32, 24, 10000, 1000)
+    images = _ass_preview.rasterize(text, 500, 32, 24, 10000, 1000)
     snapshot = tuple(images)
     assert images
-    _metrics.rasterize(script(width=640, height=480), 0, 640, 480, 1_000_000, 1000)
+    _ass_preview.rasterize(script(width=640, height=480), 0, 640, 480, 1_000_000, 1000)
     assert tuple(images) == snapshot
     assert (
         _metrics.text_shape("DejaVu Sans", 32, 0, 0, 100, 100, 0, 1, "office") == before
@@ -94,13 +100,13 @@ def test_native_bitmaps_are_owned_and_raster_resolution_does_not_change_metrics(
 
 def test_native_image_copy_has_explicit_frame_and_overdraw_budgets():
     with pytest.raises(ValueError, match="budget"):
-        _metrics.rasterize(script(), 0, 640, 480, 100, 1)
+        _ass_preview.rasterize(script(), 0, 640, 480, 100, 1)
     frame = RasterFrame(32, 24, bytes((255, 255, 255, 255)) * 768)
     lines = encode_frame(frame, DisplayWindow(0, 1000))
     with pytest.raises(ValueError, match="coverage"):
-        _metrics.rasterize(script((*lines, *lines)), 500, 32, 24, 768, 10)
+        _ass_preview.rasterize(script((*lines, *lines)), 500, 32, 24, 768, 10)
     with pytest.raises(ValueError, match="coverage"):
-        _metrics.rasterize(script((*lines, *lines)), 500, 32, 24, 10000, 1)
+        _ass_preview.rasterize(script((*lines, *lines)), 500, 32, 24, 10000, 1)
 
 
 def test_encoding_rejects_work_exceeding_each_budget():
@@ -141,12 +147,12 @@ def test_coverage_blur_matches_native_ass_kernel_and_working_bounds(radius):
         r"{\an7\pos(220,220)\p1\bord0\shad0\1c&HFFFFFF&\blur0}m 0 0 l 30 0 30 30 0 30"
     )
     event = Line(text=text, start_time=0, end_time=1000)
-    images = _metrics.rasterize(
+    images = _ass_preview.rasterize(
         script((event,), 512, 512), 500, 512, 512, 4_000_000, 100
     )
     canvas = RasterCanvas(512, 512)
     for x, y, width, height, kind, color, data in images:
-        dx, dy, bw, bh, blurred = _metrics.blur_mask(
+        dx, dy, bw, bh, blurred = _ass_preview.blur_mask(
             data, width, height, radius, 4_000_000
         )
         canvas.over((x + dx, y + dy, bw, bh, kind, color, blurred))
@@ -158,12 +164,12 @@ def test_coverage_blur_matches_native_ass_kernel_and_working_bounds(radius):
 def test_blur_workspace_budget_and_radius_are_checked_before_filtering():
     for radius in (-1, 101, float("inf"), float("nan")):
         with pytest.raises(ValueError, match="radius"):
-            _metrics.blur_mask(b"\xff", 1, 1, radius, 1000)
+            _ass_preview.blur_mask(b"\xff", 1, 1, radius, 1000)
     with pytest.raises(ValueError, match="budget"):
-        _metrics.blur_mask(b"\xff", 1, 1, 100, 1000)
+        _ass_preview.blur_mask(b"\xff", 1, 1, 100, 1000)
     with pytest.raises(ValueError, match="dimensions"):
-        _metrics.blur_mask(b"\xff", 2, 2, 1, 1000)
-    assert _metrics.blur_mask(b"\x00\x80\xff", 3, 1, 0, 1000) == (
+        _ass_preview.blur_mask(b"\xff", 2, 2, 1, 1000)
+    assert _ass_preview.blur_mask(b"\x00\x80\xff", 3, 1, 0, 1000) == (
         0,
         0,
         3,
@@ -244,12 +250,12 @@ def test_colored_frames_share_the_same_group_alpha_and_translation():
 
 @pytest.mark.parametrize("radius", (0, 0.01, 0.1, 1, 3, 10, 50, 100))
 def test_native_blur_padding_bounds_every_alignment(radius):
-    padding = _metrics.blur_padding(radius)
+    padding = _ass_preview.blur_padding(radius)
     expansions = []
     # Exercise every possible downsample alignment for supported radii.
     for width in range(1, 65):
         height = 65 - width
-        left, top, w, h, _ = _metrics.blur_mask(
+        left, top, w, h, _ = _ass_preview.blur_mask(
             bytes([255]) * width * height, width, height, radius, 4_000_000
         )
         sides = (-left, -top, left + w - width, top + h - height)
@@ -261,7 +267,7 @@ def test_native_blur_padding_bounds_every_alignment(radius):
 @pytest.mark.parametrize("radius", (-1, 100.01, float("inf"), float("nan")))
 def test_native_blur_padding_rejects_invalid_radius(radius):
     with pytest.raises(ValueError, match="radius"):
-        _metrics.blur_padding(radius)
+        _ass_preview.blur_padding(radius)
 
 
 def test_neutral_style_encoding_removes_redundant_tags_without_pixel_changes():

@@ -14,13 +14,13 @@ from PIL import Image, ImageChops, ImageFilter
 
 from examples.scene_fragments import build as fragments
 from examples.scene_outlines import build as outlines
-from kara_templater import Document, Line, Style, _metrics, load_font
+from kara_templater import Document, Line, Style, _ass_preview, load_font
 from tools.validate_engine_backgrounds import ROOT, SIZE
 
 
 def mask(script: str, ms: int) -> Image.Image:
     result = Image.new("L", SIZE)
-    for left, top, width, height, kind, color, coverage in _metrics.rasterize(
+    for left, top, width, height, kind, color, coverage in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10_000
     ):
         if kind != 0 or not width or not height:

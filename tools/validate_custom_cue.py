@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw
 
 from examples.scene_cues import build
-from kara_templater import Document, Line, Style, _metrics, load_font
+from kara_templater import Document, Line, Style, _ass_preview, load_font
 from tools.validate_case_geometry import compare
 from tools.validate_engine_backgrounds import ROOT, SIZE
 
@@ -47,7 +47,7 @@ def reference(ms: int, *, offset: float = 0) -> str:
 def coverage(script: str, ms: int, role: int) -> tuple[Image.Image, set[int]]:
     result = Image.new("L", SIZE)
     alpha: set[int] = set()
-    for left, top, width, height, kind, color, data in _metrics.rasterize(
+    for left, top, width, height, kind, color, data in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10_000
     ):
         if kind != role or not width or not height:

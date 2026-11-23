@@ -1,20 +1,20 @@
 """Capture the layered glow effect on a self-contained input.
 
 python -m tools.capture_layered_glow /tmp/layered-glow-baseline
-Requires ffmpeg with libass and Pillow, as do the other visual validators.
+Uses the package CPU preview renderer.
 """
 
 import argparse
 import hashlib
 import json
 import shutil
-import subprocess
 from pathlib import Path
 
 from PIL import Image
 
 from examples.layered_glow import BUDGET, build
 from kara_templater import Document, load_font
+from tools.render_effects import render
 
 TIMES = (0, 500, 800, 1000, 1300, 1600, 1700, 1800, 1850, 2400, 2700, 3000, 3900)
 
@@ -37,33 +37,7 @@ def main():
     source = root / "tests/fixtures/layered_glow.ass"
     result = build(Document.load(source)).compile(budget=BUDGET)
     result.document.save(output / "layered-glow.ass")
-    selection = "+".join(f"eq(n,{t // 10})" for t in TIMES)
-    process = subprocess.run(
-        [
-            "ffmpeg",
-            "-filter_threads",
-            "1",
-            "-hide_banner",
-            "-loglevel",
-            "info",
-            "-f",
-            "lavfi",
-            "-i",
-            "color=c=black:s=640x480:r=100:d=4",
-            "-vf",
-            f"subtitles=layered-glow.ass:fontsdir=fonts,select='{selection}'",
-            "-fps_mode",
-            "vfr",
-            "-y",
-            "frame-%02d.png",
-        ],
-        cwd=output,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    (output / "render.log").write_text(process.stderr)
-    process.check_returncode()
+    render("layered-glow.ass", str(output / "frame-%02d.png"), TIMES)
     frames = []
     for index, time in enumerate(TIMES, 1):
         frame = Image.open(output / f"frame-{index:02d}.png").convert("RGB")
@@ -77,10 +51,7 @@ def main():
     report = {
         "input_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "font_sha256": registered.sha256,
-        "ffmpeg_filter_threads": 1,
-        "ffmpeg_version": subprocess.run(
-            ["ffmpeg", "-version"], capture_output=True, text=True, check=True
-        ).stdout.splitlines()[0],
+        "renderer": "kara-templater CPU preview",
         "event_count": result.event_count,
         "objects": len(result.objects),
         "diagnostics": result.diagnostics,

@@ -122,14 +122,11 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         ]
     if mismatched:
         raise AssertionError(f"wheel modules differ from source archive: {mismatched}")
-    if not any(
-        name.startswith("kara_templater/_metrics.") and name.endswith((".so", ".pyd"))
-        for name in files
-    ):
-        raise AssertionError("wheel is missing the native metrics extension")
+    extensions = [name for name in files if name.startswith("kara_templater/")
+                  and name.endswith((".so", ".pyd"))]
+    if len(extensions) != 1 or not extensions[0].startswith("kara_templater/_text_native."):
+        raise AssertionError(f"unexpected wheel extensions: {extensions}")
     for relative in (
-        "vendor/006-libass-coverage-blur.patch",
-        "vendor/007-libass-proportional-metrics.patch",
         "native/metrics.cpp",
         "tests/fonts/KaraTestCJK.ttf",
         "tests/fonts/KaraTestMultiscript.ttf",
@@ -175,7 +172,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
             str(python),
             "-I",
             "-c",
-            "import json,sys,kara_templater; from kara_templater import _metrics; print(json.dumps({'python':sys.version,'package':kara_templater.__file__,'native':_metrics.__file__}))",
+            "import json,sys,kara_templater; from kara_templater import _text_native; print(json.dumps({'python':sys.version,'package':kara_templater.__file__,'native':_text_native.__file__}))",
         ],
         cwd=check,
         env=environment,

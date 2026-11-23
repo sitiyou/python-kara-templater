@@ -22,7 +22,7 @@ from kara_templater import (
     DisplayWindow,
     Line,
     Region,
-    _metrics,
+    _ass_preview,
     load_font,
 )
 from kara_templater._material_raster import CoverageMask, MaterialBand, paint_coverage
@@ -43,7 +43,7 @@ def source_document(text):
 
 
 def mask_of(text):
-    images = _metrics.rasterize(
+    images = _ass_preview.rasterize(
         source_document(text).dumps(), 500, 640, 480, 4_000_000, 1000
     )
     left, top = min(i[0] for i in images), min(i[1] for i in images)

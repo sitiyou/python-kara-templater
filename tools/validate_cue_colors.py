@@ -18,7 +18,7 @@ from examples.scene_morph import build as build_morph
 from examples.scene_outlines import build as build_outlines
 from examples.scene_round import build as build_round
 from examples.scene_writing import build as build_writing
-from kara_templater import _metrics, load_font
+from kara_templater import _ass_preview, load_font
 from tools.validate_cues import inline_reference, labels_reference
 from tools.validate_engine_backgrounds import ROOT, SIZE, backgrounds, preview
 from tools.validate_morph import color_reference as morph_reference
@@ -37,7 +37,7 @@ def solids(scripts: tuple[str, ...], ms: int) -> dict[int, tuple[int, int, int]]
     """Visible, exactly opaque single-color pixels after ordered tile overdraw."""
     result: dict[int, tuple[int, int, int]] = {}
     for script in scripts:
-        for left, top, width, height, _, color, data in _metrics.rasterize(
+        for left, top, width, height, _, color, data in _ass_preview.rasterize(
             script, ms, *SIZE, 4_000_000, 10_000
         ):
             rgb = (color >> 24 & 255, color >> 16 & 255, color >> 8 & 255)

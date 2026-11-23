@@ -123,13 +123,13 @@ checkout or source distribution; they are not wheel-installed example assets.
 
 ## Render the exported ASS
 
-The gallery tool first saves ASS, then asks FFmpeg/libass to render that file:
+The gallery tool saves ASS, rasterizes the compiled events with the package CPU preview and streams the frames to FFmpeg for encoding:
 
 ```sh
 python -m tools.render_gallery --case word-backgrounds
 ```
 
-Run it from a checkout with FFmpeg/libass and the checks dependencies installed.
+Run it from a checkout with FFmpeg and the checks dependencies installed.
 It writes ASS, copied preview fonts, and a provenance report under build/gallery,
 and creates the selected GIF under docs/examples/assets. The other historical gallery cases used the former sampled ASS exporter. Override --output or --assets for a local
 experiment without replacing tracked previews.
@@ -141,7 +141,7 @@ python -m tools.validate_scene_core --scene cues build/preview-cues
 ```
 
 This writes its generated ASS and diagnostic report to the requested output
-directory. It checks a fixed example in the configured libass environment; it
+directory. It checks a fixed example in the configured preview environment; it
 does not establish equivalent rendering in every player.
 
 For ordinary playback, load the saved ASS in your target player and inspect

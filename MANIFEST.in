@@ -6,7 +6,6 @@ include tests/fonts/DejaVuSans-Oblique.ttf
 include tests/fonts/KaraTestPrimary.ttf
 include tests/fonts/KaraTestHangul.ttf tests/fonts/LICENSE-Sarasa
 include tests/fonts/KaraTestCJK.ttf tests/fonts/KaraTestMultiscript.ttf
-recursive-include vendor *.tar.gz *.patch LICENSE.*
 recursive-include vendor/runtime-licenses *
 include THIRD_PARTY.md
 recursive-include examples *.ass *.py

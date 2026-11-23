@@ -2,9 +2,10 @@
 
 These are version-controlled license-text snapshots for the native runtime DLLs
 in the reviewed Windows bundle. Builds include these files directly; they do not
-scan the host or collect licenses automatically. libass has a separate notice in
-[LICENSE.libass](../LICENSE.libass). Linux host-linked libraries are supplied by
+scan the host or collect licenses automatically. Linux host-linked libraries are supplied by
 the operating system.
+
+The Fontconfig and Expat COPYING files accompany the Windows font provider and XML parser.
 
 Update this collection manually when changing dependency versions or bundled
 DLLs. The source texts were copied verbatim from the following MSYS2 UCRT64

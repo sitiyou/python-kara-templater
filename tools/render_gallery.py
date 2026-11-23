@@ -1,6 +1,6 @@
 """Render the representative examples to ASS and GitHub-friendly animated GIFs.
 
-Run from a source checkout with FFmpeg/libass and the checks dependencies:
+Run from a source checkout with FFmpeg and the checks dependencies:
 python -m tools.render_gallery --case word-backgrounds
 Historical sampled ASS cases cannot be regenerated with this exporter. Reports and ASS stay under build/.
 """
@@ -14,6 +14,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 
 from examples.scene_whole_song import CASES, Case
+from kara_templater import load_font
+from tools.preview_frames import encode_preview
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -57,32 +59,11 @@ def render(
     ass_digest = digest(subtitle)
     destination = assets / f"{case.name}.gif"
     size = f"{scene.document.meta.res_x}x{scene.document.meta.res_y}"
-    # Relative filter paths avoid filter-language escaping of checkout paths.
-    graph = (
-        f"ass=filename={subtitle.name}:fontsdir=fonts,scale={width}:-2:flags=lanczos,"
-        "split[frames][colors];[colors]palettegen[palette];"
-        "[frames][palette]paletteuse=dither=bayer:bayer_scale=3"
-    )
-    subprocess.run(
-        [
-            "ffmpeg",
-            "-v",
-            "error",
-            "-nostdin",
-            "-y",
-            "-f",
-            "lavfi",
-            "-i",
-            f"color=c=0x181b24:s={size}:r={fps}:d={duration}",
-            "-filter_complex",
-            graph,
-            "-loop",
-            "0",
-            str(destination),
-        ],
-        cwd=output,
-        check=True,
-    )
+    graph = (f",scale={width}:-2:flags=lanczos,split[frames][colors];"
+             "[colors]palettegen[palette];[frames][palette]paletteuse=dither=bayer:bayer_scale=3")
+    encode_preview(result.document.dumps(), (scene.document.meta.res_x, scene.document.meta.res_y),
+                   fps, duration, f"color=c=0x181b24:s={size}:r={fps}:d={duration}",
+                   graph, ["-loop", "0", str(destination)], output)
     if digest(subtitle) != ass_digest:
         raise RuntimeError("preview generation changed the exported ASS")
     source = ROOT / (case.factory.__module__.replace(".", "/") + ".py")
@@ -122,6 +103,7 @@ def main() -> None:
     fonts = output / "fonts"
     fonts.mkdir(exist_ok=True)
     for path in sorted((ROOT / "tests/fonts").glob("*.ttf")):
+        load_font(path)
         shutil.copyfile(path, fonts / path.name)
     version = subprocess.run(
         ["ffmpeg", "-version"], capture_output=True, text=True, check=True

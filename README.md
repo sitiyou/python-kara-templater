@@ -4,6 +4,8 @@ A Python library for turning timed lyrics into animated karaoke subtitles.
 Arrange vocals and ruby readings on separate rows, sweep colour through each sung syllable,
 and export the result as ASS subtitles or a standalone libplacebo hook for mpv and FFmpeg.
 
+Text measurement uses a C++ extension with HarfBuzz, FreeType, FriBidi and Fontconfig. Both output formats can be generated on systems without libass.
+
 ![Gold sweeps through 星に届け and its readings in time with three sung notes](docs/examples/assets/chorus-hook.gif)
 
 [Getting started](docs/getting-started.md) · [Effect gallery](docs/examples/README.md) · [Documentation](docs/README.md) · [For AI agents](#for-ai-agents)

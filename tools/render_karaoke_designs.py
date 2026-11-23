@@ -15,6 +15,7 @@ from PIL import Image, ImageDraw
 
 from examples.karaoke_designs import Design, build
 from kara_templater import SceneBudget
+from tools.preview_frames import encode_preview
 
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = ROOT / "build/karaoke-design-study/rendered"
@@ -78,22 +79,8 @@ def main() -> None:
         for background, source in BACKGROUNDS.items():
             start = perf_counter()
             video = f"{design}{suffix}-{background}.mp4"
-            ffmpeg(
-                "-f",
-                "lavfi",
-                "-i",
-                source,
-                "-vf",
-                f"ass={ass.name}",
-                "-an",
-                "-c:v",
-                "libx264",
-                "-preset",
-                "fast",
-                "-crf",
-                "20",
-                video,
-            )
+            encode_preview(result.document.dumps(), (1280, 720), 60, 14, source, "",
+                           ["-an", "-c:v", "libx264", "-preset", "fast", "-crf", "20", video], OUTPUT)
             render_seconds[background] = perf_counter() - start
             for time in (1.5, 3.1, 6.5, 10.3):
                 frame = OUTPUT / f"{design}{suffix}-{background}-{time}.png"

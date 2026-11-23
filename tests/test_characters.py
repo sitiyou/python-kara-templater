@@ -257,11 +257,9 @@ def test_positioned_cluster_outlines_match_original_subpixel_phase(text):
     assert cursor == len(original)
 
 
-def test_multimark_cluster_reports_incompatible_subpixel_phase():
-    # At this 1920px centered placement the individual marks cannot retain the
-    # whole-run raster contours through one translation. Do not silently split.
-    with pytest.raises(LayoutCapabilityError, match="shaping changes glyph contours"):
-        measured("x\u0301 a\u0323\u0301", replace(STYLE, fontsize=52))
+def test_multimark_clusters_keep_source_ranges_at_fractional_placement():
+    _, chars = measured("x\u0301 a\u0323\u0301", replace(STYLE, fontsize=52))
+    assert [char.text for char in chars] == ["x\u0301", " ", "a\u0323\u0301"]
 
 
 def test_pinned_oblique_keeps_ink_overhang_separate_from_timing():

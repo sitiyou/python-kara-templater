@@ -12,7 +12,7 @@ from urllib.parse import quote
 from PIL import Image, ImageChops
 
 from examples.scene_fragments import build
-from kara_templater import Document, Line, Style, _metrics, load_font
+from kara_templater import Document, Line, Style, _ass_preview, _metrics, load_font
 from tools.validate_case_geometry import compare
 from tools.validate_engine_backgrounds import ROOT, SIZE
 
@@ -160,7 +160,7 @@ def reference(
 def coverage(script: str, ms: int) -> tuple[Image.Image, set[int]]:
     result = Image.new("L", SIZE)
     alphas: set[int] = set()
-    for x, y, width, height, kind, color, data in _metrics.rasterize(
+    for x, y, width, height, kind, color, data in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10000
     ):
         if kind != 0 or not width or not height:

@@ -21,7 +21,7 @@ from kara_templater import (
     Tween,
     Vec2,
     VisualState,
-    _metrics,
+    _ass_preview,
     smooth_rate,
 )
 
@@ -56,7 +56,7 @@ def subject() -> TextObject:
 
 def rgba(script: str, ms: int) -> Image.Image:
     canvas = Image.new("RGBA", (640, 360))
-    for x, y, width, height, _, color, data in _metrics.rasterize(
+    for x, y, width, height, _, color, data in _ass_preview.rasterize(
         script, ms, 640, 360, 4_000_000, 10_000
     ):
         if not width or not height:
@@ -208,7 +208,7 @@ def test_sequential_and_parallel_path_tweens_preserve_capture_and_birth_clock():
         )
         alphas = {
             color & 255
-            for _, _, w, h, kind, color, _ in _metrics.rasterize(
+            for _, _, w, h, kind, color, _ in _ass_preview.rasterize(
                 script, ms, 640, 360, 4_000_000, 10_000
             )
             if kind == 0 and w and h

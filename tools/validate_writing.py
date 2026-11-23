@@ -12,7 +12,7 @@ from math import hypot
 from pathlib import Path
 
 from examples.scene_writing import build
-from kara_templater import _metrics
+from kara_templater import _ass_preview
 
 STROKES = ((300, 1200), (1350, 2250), (2400, 2900), (3050, 4500))
 Point = tuple[float, float]
@@ -60,7 +60,7 @@ def position(ms: float, points: list[Point], lengths: list[float]) -> Point:
 
 def pen(script: str, ms: int) -> Point | None:
     weight = xsum = ysum = 0.0
-    for left, top, width, height, kind, color, mask in _metrics.rasterize(
+    for left, top, width, height, kind, color, mask in _ass_preview.rasterize(
         script, ms, 1280, 720, 4_000_000, 10_000
     ):
         if kind != 0 or color != 0xFFC0CB00:

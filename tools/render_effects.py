@@ -1,14 +1,13 @@
 """Render the layer example and retain environment/frame evidence.
 
 Run from the repository root: python -m tools.render_effects /tmp/kara-review
-Requires ffmpeg with libass and Pillow; neither is a library runtime dependency.
+Uses the package CPU preview renderer.
 """
 
 import argparse
 import hashlib
 import json
 import shutil
-import subprocess
 from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw
@@ -16,38 +15,16 @@ from PIL import Image, ImageChops, ImageDraw
 from examples.output_layers import build
 from kara_templater.ass import Document, Line
 from kara_templater.fonts import load_font
+from tools.preview_frames import frame
 
 
 def render(script, destination, times):
-    # Paths stay relative to cwd, so ffmpeg filter escaping is unnecessary.
-    expression = "+".join(f"eq(n,{time // 10})" for time in times)
-    if times and tuple(times) == tuple(range(times[0], times[-1] + 10, 10)):
-        expression = f"between(n,{times[0] // 10},{times[-1] // 10})"
-    command = [
-        "ffmpeg",
-        "-hide_banner",
-        "-loglevel",
-        "info",
-        "-f",
-        "lavfi",
-        "-i",
-        "color=c=black:s=640x480:r=100:d=3",
-        "-vf",
-        f"subtitles={script}:fontsdir=fonts,select='{expression}'",
-        "-fps_mode",
-        "vfr",
-        "-y",
-        destination,
-    ]
-    process = subprocess.run(
-        command,
-        cwd=Path(destination).parent if Path(destination).is_absolute() else None,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-    Path(destination).with_suffix(".log").write_text(process.stderr)
-    process.check_returncode()
+    source = (Path(destination).parent / script).read_text(encoding="utf-8-sig")
+    for index, ms in enumerate(times, 1):
+        ink = frame(source, ms, 640, 480)
+        background = Image.new("RGBA", ink.size, "black")
+        background.alpha_composite(ink)
+        background.convert("RGB").save(destination % index)
 
 
 def main():
@@ -120,12 +97,7 @@ def main():
         "diagnostics": result.diagnostics,
         "font_file": str(font),
         "font_sha256": hashlib.sha256(font.read_bytes()).hexdigest(),
-        "ffmpeg": subprocess.check_output(
-            ["ffmpeg", "-version"], text=True
-        ).splitlines()[0],
-        "libass": subprocess.check_output(
-            ["pkg-config", "--modversion", "libass"], text=True
-        ).strip(),
+        "renderer": "kara-templater CPU preview",
         "static_comparison": {
             "max_channel_difference": maximum,
             "changed_pixels": changed,
@@ -133,7 +105,6 @@ def main():
             "passed": maximum <= 32 and changed <= 500,
         },
         "limitations": [
-            "System libass renders frames; bundled patched libass measures layout.",
             "Clip and pulse motion use the shared Scene sampling grid.",
             "Timeline boundaries use nearest 10 ms; character outlines use 1/64 px positions.",
         ],

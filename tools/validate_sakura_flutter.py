@@ -12,7 +12,15 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw
 
 from examples.scene_sakura import build
-from kara_templater import Document, Line, PathObject, Scene, Style, _metrics, load_font
+from kara_templater import (
+    Document,
+    Line,
+    PathObject,
+    Scene,
+    Style,
+    _ass_preview,
+    load_font,
+)
 from tools.validate_case_geometry import compare
 from tools.validate_engine_backgrounds import ROOT
 from tools.validate_sakura import centroid
@@ -32,7 +40,7 @@ def random_value(identity: str, key: str, low: float, high: float) -> float:
 def outline_envelope(script: str, time_ms: int) -> Image.Image:
     """Outer geometry, excluding opacity and the thin ring's interior hole."""
     mask = Image.new("L", (1280, 720))
-    for left, top, width, height, kind, _, data in _metrics.rasterize(
+    for left, top, width, height, kind, _, data in _ass_preview.rasterize(
         script, time_ms, 1280, 720, 4_000_000, 10_000
     ):
         if kind not in (0, 1) or not width or not height:

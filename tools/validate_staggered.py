@@ -13,7 +13,7 @@ from pathlib import Path
 from PIL import Image, ImageChops
 
 from examples.scene_staggered import build
-from kara_templater import Document, Line, Style, _metrics, load_font
+from kara_templater import Document, Line, Style, _ass_preview, load_font
 from tools.validate_case_geometry import compare
 from tools.validate_cues import static_intervals
 from tools.validate_engine_backgrounds import ROOT, SIZE
@@ -58,7 +58,7 @@ def reference(ms: int) -> str:
 
 def fill(script: str, ms: int, rgb: int = 0x00FFFF, role: int = 0) -> Image.Image:
     image = Image.new("L", SIZE)
-    for left, top, width, height, kind, color, coverage in _metrics.rasterize(
+    for left, top, width, height, kind, color, coverage in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10_000
     ):
         if kind != role or color >> 8 != rgb or not width or not height:

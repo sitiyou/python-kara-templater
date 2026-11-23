@@ -7,7 +7,7 @@ from array import array
 from dataclasses import dataclass
 from math import floor
 
-from . import _metrics
+from . import _ass_preview
 from ._native_types import RasterImage
 from .ass import Line
 from .raster_settings import OutputCapabilityError
@@ -183,7 +183,7 @@ def rasterize(
 ) -> RasterFrame:
     width, height = resolution
     canvas = RasterCanvas(width, height, budget=budget)
-    images = _metrics.rasterize(
+    images = _ass_preview.rasterize(
         script, time_ms, width, height, budget.max_pixels, budget.max_images
     )
     for image in images:

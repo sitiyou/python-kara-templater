@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
 from examples.scene_round import build
-from kara_templater import Document, Line, Style, _metrics, load_font
+from kara_templater import Document, Line, Style, _ass_preview, load_font
 from tools.validate_case_geometry import compare, mask
 from tools.validate_cues import static_intervals
 from tools.validate_engine_backgrounds import ROOT
@@ -54,7 +54,7 @@ def reference(ms: int, family: str, *, double_ruby_scale: bool = False) -> str:
 def colored_fill(script: str, ms: int) -> tuple[Image.Image, Image.Image]:
     color_plane = Image.new("RGB", (1280, 720))
     coverage = Image.new("L", (1280, 720))
-    for left, top, width, height, kind, color, data in _metrics.rasterize(
+    for left, top, width, height, kind, color, data in _ass_preview.rasterize(
         script, ms, 1280, 720, 4_000_000, 10_000
     ):
         if kind != 0 or not width or not height:

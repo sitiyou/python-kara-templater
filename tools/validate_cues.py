@@ -13,7 +13,16 @@ from pathlib import Path
 from PIL import Image, ImageChops
 
 from examples.scene_lyric_cues import build
-from kara_templater import Document, Line, ObjectGroup, Style, Vec2, _metrics, load_font
+from kara_templater import (
+    Document,
+    Line,
+    ObjectGroup,
+    Style,
+    Vec2,
+    _ass_preview,
+    _metrics,
+    load_font,
+)
 from tools.validate_case_geometry import compare, mask
 from tools.validate_engine_backgrounds import ROOT, SIZE
 
@@ -106,7 +115,7 @@ def inline_reference() -> str:
 
 def outline_mask(script: str, ms: int) -> Image.Image:
     result = Image.new("L", SIZE)
-    for x, y, width, height, kind, color, data in _metrics.rasterize(
+    for x, y, width, height, kind, color, data in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10_000
     ):
         if kind != 1 or not width or not height:
@@ -155,9 +164,9 @@ def static_intervals(script: str) -> list[dict[str, int | bool]]:
         active = tuple(
             line for line in lines if line.start_time <= start < line.end_time
         )
-        first = _metrics.rasterize(script, start, *SIZE, 4_000_000, 10_000)
+        first = _ass_preview.rasterize(script, start, *SIZE, 4_000_000, 10_000)
         for time in ((start + end) // 2, end - 1):
-            if _metrics.rasterize(script, time, *SIZE, 4_000_000, 10_000) != first:
+            if _ass_preview.rasterize(script, time, *SIZE, 4_000_000, 10_000) != first:
                 raise AssertionError(f"static interval changed at {time} ms")
         result.append(
             {

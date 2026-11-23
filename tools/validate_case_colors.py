@@ -14,7 +14,7 @@ from PIL import Image
 
 from examples.scene_gradient import build as gradient
 from examples.scene_sweep import build as sweep
-from kara_templater import Document, Line, Style, _metrics, load_font
+from kara_templater import Document, Line, Style, _ass_preview, load_font
 from tools.validate_engine_backgrounds import (
     BACKGROUNDS,
     ROOT,
@@ -84,7 +84,7 @@ def plain_script(case: str) -> str:
 
 def interiors(script: str, ms: int) -> dict[str, tuple[int, ...]]:
     planes = (bytearray(SIZE[0] * SIZE[1]), bytearray(SIZE[0] * SIZE[1]))
-    for left, top, width, height, kind, _, mask in _metrics.rasterize(
+    for left, top, width, height, kind, _, mask in _ass_preview.rasterize(
         script, ms, *SIZE, 4_000_000, 10_000
     ):
         if kind not in (0, 1):

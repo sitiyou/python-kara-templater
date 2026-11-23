@@ -8,6 +8,7 @@ from pathlib import Path
 
 from examples.lyric_studies import EFFECTS, build
 from kara_templater import SceneBudget
+from tools.preview_frames import encode_preview
 
 
 def main() -> None:
@@ -36,12 +37,9 @@ def main() -> None:
             "fonts": sorted({style.fontname for style in scene.document.styles.values()}),
         }
         for background, source in backgrounds.items():
-            subprocess.run([
-                "ffmpeg", "-v", "error", "-nostdin", "-y", "-f", "lavfi", "-i", source,
-                "-vf", f"ass={effect}.ass,drawtext=text={effect}:x=16:y=12:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6",
-                "-an", "-c:v", "libx264", "-crf", "20", "-pix_fmt", "yuv420p",
-                f"{effect}-{background}.mp4",
-            ], cwd=root, check=True)
+            encode_preview(result.document.dumps(), (640, 360), 60, 6.5, source,
+                           f",drawtext=text={effect}:x=16:y=12:fontsize=18:fontcolor=white:box=1:boxcolor=black@0.6",
+                           ["-an","-c:v","libx264","-crf","20","-pix_fmt","yuv420p",f"{effect}-{background}.mp4"],root)
         print(f"{effect}: {result.event_count} events / {len(data)} bytes", flush=True)
     (root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     for background in backgrounds:
