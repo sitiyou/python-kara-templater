@@ -14,6 +14,7 @@ from typing import Protocol
 
 from ._gpu_scene import DrawCommand, SceneFrames
 from ._hook_motion import ShaderInstance, Span, spans
+from ._hook_wipe import SingingWipe, singing_wipe
 from ._karaoke_motion import _SPIN_FLIP, _TILT_POP, ZoomScale
 from ._native_types import RasterImage
 from .geometry import Affine2D, Vec2
@@ -124,26 +125,35 @@ def _draw_record(
     motion: int,
     clip_motion: int,
     edge: _FeatheredSingingClip | None,
+    wipe: SingingWipe | None,
 ) -> int:
     x, y, w, h, kind, color, pixels = image
     u, v = atlas.add(w, h, pixels) if pixels else (-1, -1)
     mat = draw.gradient
     stops = _ramp_record(table, mat, kind)
+    if kind == 3 and draw.side_shading is not None:
+        depth_pixels, back = draw.side_shading
+        stops = table.add(*atlas.add(w, h, depth_pixels), back.red / 255, back.green / 255, back.blue / 255)
     feather = -1
-    if edge is not None and kind in (0, 1):
-        before = edge.unsung_fill if kind == 0 else edge.unsung_outline
-        core = edge.front_color
+    if (edge is not None or wipe is not None) and kind in (0, 1):
+        if edge is not None:
+            before = edge.unsung_fill if kind == 0 else edge.unsung_outline
+            base = edge.unsung_gradient
+        else:
+            assert wipe is not None
+            before = wipe.before.fill if kind == 0 else wipe.before.outline
+            base = wipe.gradient
+        core = edge.front_color if edge else None
         core_id = (
             -1
             if core is None
             else table.add(core.red / 255, core.green / 255, core.blue / 255)
         )
-        base = edge.unsung_gradient
         feather = table.add(
             before.red / 255,
             before.green / 255,
             before.blue / 255,
-            edge.width,
+            edge.width if edge else 0,
             core_id,
             _ramp_record(table, base, kind),
             int(base is not None and base.space == "screen"),
@@ -169,9 +179,12 @@ def _draw_record(
     )
     m = draw.transform
     transform = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty)
-    clip = (
-        -1 if draw.clip is None else table.add(*draw.clip.bounds, int(draw.clip.local))
-    )
+    clip = -1
+    if wipe is not None:
+        # Tags below -1 select which rectangle side supplies the shader wipe.
+        clip = -2 - wipe.edge
+    elif draw.clip is not None:
+        clip = table.add(*draw.clip.bounds, int(draw.clip.local))
     return table.add(geom, paint, transform, clip, draw.opacity, motion, clip_motion)
 
 
@@ -340,14 +353,21 @@ def _timeline(
             yield span.stop - origin, order, None
 
     start, end = origin / fps, (origin + count) / fps
-    stream = merge(
-        *(
-            events(i, spans(frames, leaf, fps, origin, origin + count))
-            for i, leaf in enumerate(frames.leaves)
-            if leaf.end > start - 1e-9 and leaf.start < end + 1e-9
-        ),
-        key=lambda event: event[:2],
-    )
+    streams = []
+    wipes: dict[int, SingingWipe] = {}
+    i = 0
+    while i < len(frames.leaves):
+        leaf = frames.leaves[i]
+        if leaf.end > start - 1e-9 and leaf.start < end + 1e-9:
+            if i + 1 < len(frames.leaves):
+                wipe = singing_wipe(leaf, frames.leaves[i + 1])
+                if wipe is not None:
+                    i += 1
+                    wipes[i] = wipe
+                    leaf = frames.leaves[i]
+            streams.append(events(i, spans(frames, leaf, fps, origin, origin + count)))
+        i += 1
+    stream = merge(*streams, key=lambda event: event[:2])
     active_tiles: dict[int, dict[int, list[int]]] = {}
     tile_draws: list[dict[int, list[int]]] = [{} for _ in range(cols * rows)]
     clip_records: dict[int, int] = {}
@@ -368,6 +388,7 @@ def _timeline(
                 if span.motion is None
                 else (draw.transform, span.motion.end.transform)
             )
+            wipe = wipes.get(order)
             clip_motion = clip_records.get(order, -1)
             if span.clip_keys and clip_motion < 0:
                 node = frames.leaves[order].node
@@ -379,7 +400,7 @@ def _timeline(
                         for t, rect in keys
                         for value in (
                             (node.time_origin + t) * fps - origin,
-                            table.add(*rect),
+                            rect[wipe.edge] if wipe else table.add(*rect),
                         )
                     ),
                 )
@@ -397,7 +418,7 @@ def _timeline(
                 motion = _motion_record(table, span, fps, origin, mode)
                 for image in images:
                     record = _draw_record(
-                        table, atlas, draw, image, motion, clip_motion, edge
+                        table, atlas, draw, image, motion, clip_motion, edge, wipe
                     )
                     for tile in (
                         _program_tiles(span.shader, image, cols, rows)
@@ -656,7 +677,17 @@ vec4 hook() {
         if(any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,size))) continue;
         float edgeDistance=0.;
         int clip=refAt(cmd+3);
-        if(clip>=0) {
+        bool waiting=false;
+        if(clip < -1) {
+            if(any(lessThan(local,vec2(-65536.))) || any(greaterThanEqual(local,vec2(65536.)))) continue;
+            int side=-2-clip, sweep=refAt(cmd+6), k=preceding(sweep,float(index));
+            float edge=item(k+1);
+            if(k+2<sweep+1+2*refAt(sweep) && float(index)>item(k))
+                edge=mix(edge,item(k+3),(float(index)-item(k))/(item(k+2)-item(k)));
+            float coord=(side%2==0)?local.x:local.y;
+            waiting=side<2 ? coord<edge : coord>=edge;
+            edgeDistance=side<2 ? coord-edge : edge-coord;
+        } else if(clip>=0) {
             vec2 pos=item(clip+4)>0.?local:screen;
             vec4 rect=vec4(pairAt(clip),pairAt(clip+2));
             int sweep=refAt(cmd+6);
@@ -676,11 +707,19 @@ vec4 hook() {
         vec2 mask=pairAt(g+4)+clamp(uv,vec2(0.5),size-0.5);
         float coverage=item(g+4)<0. ? 1. : textureLod(KARAMASK,mask/vec2(textureSize(KARAMASK,0)),0.).r;
         float a=coverage*item(p+3)*alpha;
-        vec3 ink=paintColor(animatedInk.r>=0. ? animatedInk : rgbAt(p),p+4,screen,local);
         int feather=refAt(p+7);
-        if(feather>=0) {
-            float phase=edgeDistance/item(feather+3);
-            if(phase<1.) {
+        vec3 ink;
+        if(refAt(p+9)==3 && refAt(p+4)>=0) {
+            int shading=refAt(p+4);
+            vec2 depthUV=pairAt(shading)+clamp(uv,vec2(0.5),size-0.5);
+            float moment=textureLod(KARAMASK,depthUV/vec2(textureSize(KARAMASK,0)),0.).r;
+            ink=mix(rgbAt(p),rgbAt(shading+2),clamp(moment/max(coverage,0.00001),0.,1.));
+        } else if(waiting && feather>=0) {
+            ink=paintColor(rgbAt(feather),feather+5,screen,local);
+        } else {
+            ink=paintColor(animatedInk.r>=0. ? animatedInk : rgbAt(p),p+4,screen,local);
+            if(feather>=0 && edgeDistance<item(feather+3)) {
+                float phase=edgeDistance/item(feather+3);
                 vec3 before=paintColor(rgbAt(feather),feather+5,screen,local);
                 ink=mix(before,ink,smoothstep(0.,1.,phase));
                 int core=refAt(feather+4);

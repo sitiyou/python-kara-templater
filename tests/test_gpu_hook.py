@@ -492,3 +492,58 @@ def test_shader_motion_can_color_the_fill_and_outline_independently(tmp_path, vu
     assert sample(0, 6) == pytest.approx((0, 255, 0), abs=3)
     assert sample(1, 16) == pytest.approx((128, 0, 0), abs=3)
     assert sample(1, 6) == pytest.approx((0, 128, 0), abs=3)
+
+
+@pytest.mark.parametrize("reverse,feather,vertical,outer_width", [
+    (False, 0, False, 3), (True, 8, False, 3), (False, 0, True, 3), (False, 0, False, 6),
+])
+def test_shader_wipe_matches_split_draws_in_playback(tmp_path, vulkan, monkeypatch, reverse, feather, vertical, outer_width):
+    from kara_templater import (
+        BLUE,
+        RED,
+        KaraokeEffects,
+        Line,
+        LyricGradient,
+        SecondaryOutline,
+        Style,
+        Track,
+        prepare_tracks,
+    )
+    from kara_templater import _gpu_hook as hook
+
+    doc = Document.create(width=160, height=96, styles=(Style(fontname="DejaVu Sans", fontsize=24, outline=2),))
+    doc.records.append(Line(text=r"{\k80}Q", start_time=400, end_time=1200))
+    scene = prepare_tracks(doc, tracks=(Track(id="vocal", vertical=vertical, effects=(KaraokeEffects(
+        singing="none", entry="none", exit="none", reverse_wipe=reverse, hook_feather=feather,
+        base_material=LyricGradient((BLUE, RED)), sung_outline=RED,
+        secondary_outline=SecondaryOutline(RED, 3), sung_secondary_outline=SecondaryOutline(BLUE, outer_width),
+    ),)),))
+    masks = []
+    original = hook._draw_record
+
+    def record(table, atlas, draw, image, *args):
+        masks.append(image[4])
+        return original(table, atlas, draw, image, *args)
+
+    monkeypatch.setattr(hook, "_draw_record", record)
+
+    def play(name):
+        scene.export(tmp_path / name, fps=10, start=0.2, duration=1.3)
+        return subprocess.check_output([
+            "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi", "-i",
+            "color=c=black:s=160x96:r=10", "-vf", f"libplacebo=custom_shader_path={name}",
+            "-frames:v", "13", "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ], cwd=tmp_path)
+
+    fused = play("wipe.hook")
+    fused_count = len(masks)
+    masks.clear()
+    monkeypatch.setattr(hook, "singing_wipe", lambda *_: None)
+    split = play("split.hook")
+    if outer_width == 3:
+        assert fused_count > 0 and len(masks) == 2 * fused_count
+    else:
+        # Only the face and primary outline share coverage.
+        assert fused_count < len(masks) < 2 * fused_count
+    assert fused[:160 * 96 * 3] != fused[-160 * 96 * 3:]
+    assert fused == split

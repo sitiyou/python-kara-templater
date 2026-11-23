@@ -193,6 +193,29 @@ def test_path_extrusion_has_connected_side_and_preserves_face_clip_and_clock(tmp
     scene.export(tmp_path / "shape.hook", fps=24)
 
 
+def test_extrusion_depth_tracks_each_contour_and_preserves_solid_coverage(tmp_path):
+    from kara_templater import Extrusion, PathObject, VectorPath
+
+    path = PathObject(
+        id="stem", path=VectorPath.rectangle(2, 12), lifetime=Lifetime(0, 1),
+        extrusion=Extrusion(Vec2(-8, 0), Color(240, 245, 235)),
+    )
+    base = Scene(Document.create()).add(path)
+    assert path.extrusion is not None
+    back = Color(100, 115, 90)
+    shaded = Scene(Document.create()).add(replace(path, extrusion=replace(path.extrusion, back_color=back)))
+    side, face = SceneFrames(shaded).at(0)
+    solid, solid_face = SceneFrames(base).at(0)
+    assert face == solid_face and side.images == solid.images
+    assert side.side_shading is not None
+    depth, back_color = side.side_shading
+    assert back_color == back
+    (x, y, w, _, _, _, alpha), = side.images
+    samples = [depth[(6 - y) * w + px - x] / alpha[(6 - y) * w + px - x] for px in (-1, -4, -8)]
+    assert samples == pytest.approx([0.5 / 8, 3.5 / 8, 7.5 / 8], abs=0.04)
+    shaded.export(tmp_path / "shaded.hook", fps=24)
+
+
 def test_lyric_extrusion_follows_body_and_ruby_without_singing_clip():
     from kara_templater import (
         Extrusion,

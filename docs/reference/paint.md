@@ -104,7 +104,7 @@ Color.hex(
 
 Piecewise linear colors at absolute script coordinates; ends clamp.
 
-[Source](../../kara_templater/paint_fields.py#L132)
+[Source](../../kara_templater/paint_fields.py#L134)
 
 ```python
 ColorRamp(
@@ -134,7 +134,7 @@ An RGB color at a finite script-space position along a paint field axis.
 
 ColorRamp requires ordered stops.
 
-[Source](../../kara_templater/paint_fields.py#L118)
+[Source](../../kara_templater/paint_fields.py#L120)
 
 ```python
 ColorStop(
@@ -156,6 +156,7 @@ A solid side swept from a drawing's hard silhouette in local script pixels.
 
 Offset is the vector from front to back. The side follows the face's
 transforms and opacity, and keeps its own color during a lyric wipe.
+back_color shades the side from color at the face to back_color at full depth.
 Zero offset gives a flat drawing. Hook output supports this appearance.
 
 [Source](../../kara_templater/paint_fields.py#L23)
@@ -164,6 +165,7 @@ Zero offset gives a flat drawing. Hook output supports this appearance.
 Extrusion(
     offset: Vec2,
     color: Color,
+    back_color: Color | None = None,
 )
 ```
 
@@ -173,6 +175,7 @@ Extrusion(
 | --- | --- | --- |
 | `offset` | `Vec2` | `required` |
 | `color` | `Color` | `required` |
+| `back_color` | `Color \| None` | `None` |
 
 ## GRAY
 
@@ -435,7 +438,7 @@ The hook shades independent fill and outline ramps continuously. Local
 space attaches color stops to the untransformed drawing. ASS compilation
 rejects paint fields. The bands() method samples the field at integer steps.
 
-[Source](../../kara_templater/paint_fields.py#L185)
+[Source](../../kara_templater/paint_fields.py#L187)
 
 ```python
 LinearGradient(
@@ -780,7 +783,7 @@ Changes to the incoming VisualState are sampled independently. Omit this
 protocol when an arbitrary callback cannot make the constancy guarantee;
 the compiler then samples its complete visible lifetime.
 
-[Source](../../kara_templater/paint_fields.py#L102)
+[Source](../../kara_templater/paint_fields.py#L104)
 
 ### PaintActivity.active_intervals
 
@@ -794,7 +797,7 @@ A half-open integer interval with resolved fill and outline colors.
 
 Paint fields return these bounded bands for standard ASS compilation.
 
-[Source](../../kara_templater/paint_fields.py#L57)
+[Source](../../kara_templater/paint_fields.py#L59)
 
 ```python
 PaintBand(
@@ -823,7 +826,7 @@ tuple declares a static field. max_bands bounds every invocation.
 Times are signed seconds from the owning object's clock origin; absolute
 breakpoints cannot precede Scene zero or exceed the object's display end.
 
-[Source](../../kara_templater/paint_fields.py#L70)
+[Source](../../kara_templater/paint_fields.py#L72)
 
 ### PaintField.axis
 
@@ -918,7 +921,7 @@ is the native mask, and component is 0 for fill, 1 for outline, 2 for
 shadow. Numeric parameters are accessible through item(data + offset).
 Optional functions can contain Metashade-generated GLSL definitions.
 
-[Source](../../kara_templater/paint_fields.py#L36)
+[Source](../../kara_templater/paint_fields.py#L38)
 
 ```python
 ShaderPaint(
@@ -944,7 +947,7 @@ Widths are script pixels. The front travels past both ends so the declared
 span is completely unsung at start and completely sung at start+duration.
 start and duration are local seconds from the owning object's clock origin.
 
-[Source](../../kara_templater/paint_fields.py#L244)
+[Source](../../kara_templater/paint_fields.py#L246)
 
 ```python
 SoftSweep(

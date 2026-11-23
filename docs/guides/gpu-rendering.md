@@ -8,6 +8,12 @@ The hook includes glyph coverage, timing, gradients, clips and motion. The
 rendering machine needs FFmpeg with libplacebo and a working Vulkan device.
 The fonts and the Python authoring environment are needed at export time.
 
+For a timed lyric wipe, the hook can draw each glyph mask once and select its
+before/after paint in the fragment shader. This also applies to matching
+secondary outlines, gradients and feathered edges. The exporter combines
+adjacent draws when they share geometry and motion and their clips meet at
+one moving edge. Different stroke widths keep their own masks.
+
 Export a prepared lyric scene with `scene.export("song.hook", fps=60)`.
 See [Export a song](karaoke-effects.md#export-a-song) for a Track-based entry point.
 The lower-level example below supplies its own fallback for a raw Scene.
@@ -116,6 +122,8 @@ from kara_templater import Color, Extrusion, Track, Vec2
 side = Extrusion(Vec2(6, 11), Color.hex("#C08087"))
 track = Track(id="lead", extrusion=side)
 ```
+
+For a shaded side, use `Extrusion(Vec2(2, 5), Color.hex("#CEDAD1"), back_color=Color.hex("#929F86"))`. The color follows depth around each contour, including holes in the glyph. Translucency and soft edges use the same side coverage as a solid extrusion.
 
 The hook sweeps the filled silhouette and its hard border along the offset
 once per distinct shape, then caches the exposed side as a coverage mask.

@@ -48,6 +48,7 @@ class DrawCommand:
     shader_paint: ShaderPaint | None = None
     time_origin: float = 0
     border: float = 0
+    side_shading: tuple[bytes, Color] | None = None
 
 
 class _ExtrusionSide(_Leaf):
@@ -72,7 +73,8 @@ def _shape_key(leaf: _Leaf, state: VisualState) -> tuple[object, ...]:
     )
     if isinstance(leaf, _ExtrusionSide):
         assert node.extrusion is not None
-        return ("extrusion", *shape, node.filled, state.border, state.blur, node.extrusion.offset)
+        return ("extrusion", *shape, node.filled, state.border, state.blur, node.extrusion.offset,
+                node.extrusion.back_color is not None)
     if isinstance(node.shader_paint, ContourStroke):
         return ("stroke", node.shader_paint.bounds)
     return (*shape, node.filled, state.border, state.blur, state.shadow, _cutout_border(node, state))
@@ -99,10 +101,11 @@ def _coverage(
     if path is None:
         return ()
     offset = node.extrusion.offset if isinstance(leaf, _ExtrusionSide) and node.extrusion else None
-    return path_coverage(path, state, node.filled, pixel_budget, node.id, sweep=offset)
+    return path_coverage(path, state, node.filled, pixel_budget, node.id, sweep=offset,
+                         shaded=bool(node.extrusion and node.extrusion.back_color is not None))
 
 
-def _sweep_mask(mask: Image.Image, offset: Vec2) -> Image.Image:
+def _sweep_mask(mask: Image.Image, offset: Vec2, depth: Image.Image | None = None) -> Image.Image:
     # Grayscale dilation by a line segment. Every sample comes from the
     # original antialiased silhouette, so coverage never accumulates opacity.
     result = mask.copy()
@@ -121,10 +124,21 @@ def _sweep_mask(mask: Image.Image, offset: Vec2) -> Image.Image:
             shifted = source.transform(source.size, Image.Transform.AFFINE,
                                        (1, 0, ix - dx, 0, 1, iy - dy), Image.Resampling.BILINEAR)
         dest = (x - 1 + ix, y - 1 + iy, r + 1 + ix, b + 1 + iy)
-        result.paste(ImageChops.lighter(result.crop(dest), shifted), dest)
+        previous = result.crop(dest)
+        swept = ImageChops.lighter(previous, shifted)
+        if depth is not None:
+            # Weight newly exposed coverage by its distance along the sweep.
+            delta = ImageChops.subtract(swept, previous)
+            weighted = delta.point([round(v * (step - 0.5) / steps) for v in range(256)])
+            depth.paste(ImageChops.add(depth.crop(dest), weighted), dest)
+        result.paste(swept, dest)
     # The face composites over this pass. Solve swept = face + side * (1-face)
     # at the antialiased edge to avoid a background-colored hairline.
     exposed = ImageChops.subtract(result, mask)
+    if depth is not None:
+        normalized = bytes(min(255, round(255 * total / area)) if area else 0
+                           for total, area in zip(depth.tobytes(), exposed.tobytes(), strict=True))
+        depth.frombytes(normalized)
     edge = bytes(
         (extra * 255 + (255 - face) // 2) // (255 - face) if extra and face else extra
         for extra, face in zip(exposed.crop(box).tobytes(), mask.crop(box).tobytes(), strict=True)
@@ -135,7 +149,7 @@ def _sweep_mask(mask: Image.Image, offset: Vec2) -> Image.Image:
 
 def path_coverage(
     path: VectorPath, state: VisualState, filled: bool, pixel_budget: int, object_id: str, *,
-    sweep: Vec2 | None = None,
+    sweep: Vec2 | None = None, shaded: bool = False,
 ) -> tuple[RasterImage, ...]:
     bounds = path_bounds(path)
     if not 0 <= state.blur <= 100:
@@ -200,7 +214,17 @@ def path_coverage(
 
     if sweep is not None:
         silhouette = backing if filled else border_mask
-        append(_sweep_mask(silhouette, sweep), 3, True)
+        depth = Image.new("L", silhouette.size) if shaded else None
+        side = _sweep_mask(silhouette, sweep, depth)
+        append(side, 3, True)
+        if depth is not None and images:
+            x, y, w, h, *_ = images[0]
+            moment = ImageChops.multiply(side, depth)
+            if sigma:
+                moment = moment.filter(ImageFilter.GaussianBlur(sigma))
+            # Premultiplied depth shares the side mask's crop and bilinear filtering.
+            data = moment.crop((x - left, y - top, x - left + w, y - top + h)).tobytes()
+            images.append((x, y, w, h, 4, 0, data))
         return tuple(images)
 
     if (state.shadow.x or state.shadow.y) and (filled or state.border):
@@ -343,7 +367,12 @@ class SceneFrames:
             self._bytes += size
         self._cache.move_to_end(key)
         tinted = []
+        shading = None
         for x, y, w, h, kind, color, data in images:
+            if kind == 4:
+                assert node.extrusion is not None and node.extrusion.back_color is not None
+                shading = (data, node.extrusion.back_color)
+                continue
             rgb = (
                 state.fill
                 if kind == 0
@@ -357,5 +386,5 @@ class SceneFrames:
         material = node.material
         assert material is None or isinstance(material, LinearGradient)
         return DrawCommand(
-            node.id, tuple(tinted), state.transform, state.opacity, material, clip, node.shader_paint, node.time_origin, state.border
+            node.id, tuple(tinted), state.transform, state.opacity, material, clip, node.shader_paint, node.time_origin, state.border, shading
         )

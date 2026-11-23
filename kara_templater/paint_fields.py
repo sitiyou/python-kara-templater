@@ -26,11 +26,13 @@ class Extrusion:
 
     Offset is the vector from front to back. The side follows the face's
     transforms and opacity, and keeps its own color during a lyric wipe.
+    back_color shades the side from color at the face to back_color at full depth.
     Zero offset gives a flat drawing. Hook output supports this appearance.
     """
 
     offset: Vec2
     color: Color
+    back_color: Color | None = None
 
 
 @dataclass(frozen=True)
