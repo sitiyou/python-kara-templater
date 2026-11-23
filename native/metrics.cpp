@@ -7,6 +7,7 @@
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
 #include FT_SYNTHESIS_H
+#include FT_TRUETYPE_TABLES_H
 #include <algorithm>
 #include <cmath>
 #include <cstring>
@@ -29,6 +30,8 @@ struct Face {
   std::string data;
   FT_Face ft = nullptr;
   hb_font_t *hb = nullptr;
+  int ascender = 0;
+  int descender = 0;
   ~Face() {
     if (hb)
       hb_font_destroy(hb);
@@ -36,6 +39,18 @@ struct Face {
       FT_Done_Face(ft);
   }
   void initialize() {
+    // ASS script pixels scale the Windows cell height, which can exceed the em.
+    ascender = ft->ascender;
+    descender = ft->descender;
+    const auto *os2 = static_cast<const TT_OS2 *>(FT_Get_Sfnt_Table(ft, ft_sfnt_os2));
+    if (os2 && os2->version != 0xffff) {
+      const int top = static_cast<FT_Short>(os2->usWinAscent);
+      const int bottom = static_cast<FT_Short>(os2->usWinDescent);
+      if (top + bottom > 0) {
+        ascender = top;
+        descender = -bottom;
+      }
+    }
     hb_face_t *face = hb_ft_face_create_referenced(ft);
     hb = hb_font_create(face);
     hb_face_destroy(face);
@@ -44,7 +59,7 @@ struct Face {
   const char *family() const { return ft->family_name ? ft->family_name : ""; }
   const char *style() const { return ft->style_name ? ft->style_name : ""; }
   double height() const {
-    return std::max<int>(1, ft->ascender - ft->descender);
+    return std::max(1, ascender - descender);
   }
 };
 using FontKey = std::tuple<std::string, bool, bool, Code>;
@@ -334,8 +349,8 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
       };
       std::vector<Run> runs;
       Face *primary = db.match(family, bold, italic, 0);
-      double asc = primary->ft->ascender / primary->height() * sy;
-      double desc = -primary->ft->descender / primary->height() * sy;
+      double asc = primary->ascender / primary->height() * sy;
+      double desc = -primary->descender / primary->height() * sy;
       for (size_t i = 0; i < n; i++) {
         Face *face = FT_Get_Char_Index(primary->ft, line[i])
                          ? primary
@@ -353,8 +368,8 @@ static PyObject *measure(PyObject *module, PyObject *args, bool shapes) {
             runs.back().script = script;
         } else
           runs.push_back({i, i + 1, face, script});
-        asc = std::max(asc, face->ft->ascender / face->height() * sy);
-        desc = std::max(desc, -face->ft->descender / face->height() * sy);
+        asc = std::max(asc, face->ascender / face->height() * sy);
+        desc = std::max(desc, -face->descender / face->height() * sy);
       }
       asc = subpixel(asc);
       desc = subpixel(desc);
