@@ -19,6 +19,7 @@ from kara_templater import (
     RectangleClip,
     SceneBudget,
     SceneCompileError,
+    SecondaryOutline,
     Style,
     Track,
     prepare_tracks,
@@ -798,8 +799,53 @@ def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_
         assert evaluator.at(target.node_id, time).scale.x == pytest.approx(baseline * factor)
 
 
+@pytest.mark.parametrize("sung_width", [None, 0, 6])
+def test_secondary_outline_adds_to_body_and_ruby_primary_width(sung_width):
+    rim = SecondaryOutline(Color(20, 40, 60), width=3)
+    sung_rim = replace(rim, width=sung_width) if sung_width is not None else None
+    scene = subject(entry="none", exit="none", singing="none",
+                    secondary_outline=rim, sung_secondary_outline=sung_rim)
+    line = scene.lines[0]
+    nodes = {node.id: node for node in _walk(line)}
+    assert line.query("ruby")
+    for target in line.query("character", "ruby"):
+        face = nodes[target.node_id]
+        outer = nodes[target.node_id + "/secondary-outline"]
+        assert outer.state.border == face.state.border + 3
+        assert outer.layer < face.layer
+        sung = [nodes[name] for name in target.aliases if "/highlight:" in name and name.endswith("/secondary-outline")]
+        if sung_width == 0:
+            assert not sung
+        else:
+            assert len(sung) == 1
+            assert sung[0].state.border == face.state.border + (3 if sung_width is None else sung_width)
+
+
+def test_secondary_outline_changes_color_with_glow_in_ass_and_hook(tmp_path):
+    from kara_templater import Glow
+    from kara_templater._raster import rasterize
+
+    before, after = Color(182, 50, 86), Color(33, 150, 213)
+    halo = Glow(Color(38, 210, 30), border=10, blur=2)
+    scene = subject(text=r"{\k100}Q", entry="none", exit="none", singing="none",
+                    secondary_outline=SecondaryOutline(before, width=4),
+                    sung_secondary_outline=SecondaryOutline(after, width=6),
+                    glow=halo, base_glow=halo)
+    ass = scene.ass.compile(native_tweens=True).document.dumps()
+    for time, waiting, sung in ((800, True, False), (1500, True, True), (2200, False, True)):
+        frame = rasterize(ass, time, (640, 360)).rgba
+        pixels = set(zip(*[iter(frame)] * 4, strict=True))
+        assert ((182, 50, 86, 255) in pixels) == waiting
+        assert ((33, 150, 213, 255) in pixels) == sung
+        assert any(g > 150 and r < 80 and b < 80 and a > 80 for r, g, b, a in pixels)
+    path = tmp_path / "double-outline.hook"
+    scene.export(path, fps=24, start=1, duration=1)
+    assert path.stat().st_size > 0
+
+
 @pytest.mark.parametrize("motion, front", [("none", "scanline"), ("utopia", "utopia_scanline")])
-def test_scanline_colors_the_visible_second_outline(motion, front):
+@pytest.mark.parametrize("native_rim", [False, True])
+def test_scanline_colors_the_visible_second_outline(motion, front, native_rim):
     from kara_templater import Glow
     from kara_templater._raster import rasterize
 
@@ -807,8 +853,9 @@ def test_scanline_colors_the_visible_second_outline(motion, front):
 
     def render(singing):
         glow = Glow(rim, border=7)
+        options = {"secondary_outline": SecondaryOutline(rim, width=5)} if native_rim else {"base_glow": glow, "glow": glow}
         scene = subject(text=r"{\k100}Q", singing=singing, entry="none", exit="none",
-                        base_glow=glow, glow=glow, scanline_width=16, scanline_softness=0,
+                        **options, scanline_width=16, scanline_softness=0,
                         scanline_color=Color(0, 255, 255))
         return rasterize(scene.ass.compile(native_tweens=True).document.dumps(), 1500, (640, 360)).rgba
 

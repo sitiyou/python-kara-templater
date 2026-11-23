@@ -5,7 +5,7 @@ from math import cos, floor, log, pi, sin, sqrt
 from typing import Literal
 
 from ._karaoke_motion import zoom_pulse
-from .composition import Color, Paint
+from .composition import Color, Glow, Paint
 from .cues import CueContent, CueContext, _SharedGradientCue
 from .geometry import Contour, CubicSegment, LineSegment, Vec2, VectorPath, finite
 from .lyric_highlights import LyricGradient
@@ -86,15 +86,30 @@ def _gradient_shape(
 def _decorated_shape(
     shape: PathObject, paint: Paint, size: float, width: float, context: CueContext
 ) -> tuple[PathObject, ...]:
-    glow = paint.glow
-    if glow is None or glow.opacity == 0:
-        return (shape,)
     scale = size / (context.role_font_size or _font_size(context))
+    layers = [shape]
+    rim = paint.secondary_outline
+    extra_radius = _scaled_radius(rim.width, scale, width) if rim else 0
+    if rim and extra_radius:
+        layers.insert(0, replace(shape, id=shape.id + "/secondary-outline", filled=False,
+                                 material=None, clip=None,
+                                 state=replace(shape.state, fill=rim.color, outline=rim.color,
+                                               border=shape.state.border + extra_radius)))
+    glow = paint.glow
+    if glow and glow.opacity:
+        halo = _cue_halo(shape, paint, glow, scale, width)
+        if halo is not None:
+            layers.insert(0, halo)
+    # Only the outermost contour casts the cue shadow.
+    return (layers[0], *(replace(layer, state=replace(layer.state, shadow=Vec2())) for layer in layers[1:]))
+
+
+def _cue_halo(shape: PathObject, paint: Paint, glow: Glow, scale: float, width: float) -> PathObject | None:
     extra = max(0, glow.border - paint.border)
     extra_radius = _scaled_radius(extra, scale, width)
     blur = floor(glow.blur * scale + 0.5)
     if not extra_radius and not blur:
-        return (shape,)
+        return None
     path = shape.path
     border = shape.state.border + extra_radius
     if blur:
@@ -107,10 +122,10 @@ def _decorated_shape(
             if pen is not None:
                 contours.extend(pen.contours)
         if not contours:
-            return (shape,)
+            return None
         path = VectorPath(tuple(contours))
         border = 0
-    backing = replace(
+    return replace(
         shape,
         id=shape.id + "/outer",
         path=path,
@@ -127,7 +142,6 @@ def _decorated_shape(
             opacity=shape.state.opacity * glow.opacity,
         ),
     )
-    return backing, replace(shape, state=replace(shape.state, shadow=Vec2()))
 
 
 def _volume_flash(start: float, cycle: float, transition: float) -> tuple[AnimationClip, ...]:

@@ -676,7 +676,7 @@ crossing a shaping cluster are rejected when independent placement is needed.
 vertical stacks cells downward around x=0, with readings on the right.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/scene_lyrics.py#L423)
+[Source](../../kara_templater/scene_lyrics.py#L424)
 
 ```python
 layout_document_lyrics(
@@ -737,6 +737,7 @@ Measure structured or parsed lyrics using Document styles and resolution.
 
 studio_spacing measures character cells from ink width, bearings and the primary
 outline before applying minimum outline clearance. The default uses shaped advances.
+secondary_width reserves additional hard outline outside each primary stroke.
 palt applies the horizontal proportional metrics in each selected body or ruby font.
 ruby_gap sets the vertical clearance between the hard ink bounds of a
 reading group and its body before animation. Negative values allow overlap.
@@ -745,7 +746,7 @@ and reading cells horizontally, in script pixels.
 No ASS event is required or synthesized. Singing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/scene_lyrics.py#L465)
+[Source](../../kara_templater/scene_lyrics.py#L466)
 
 ```python
 layout_lyrics(
@@ -762,6 +763,7 @@ layout_lyrics(
     vertical: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
+    secondary_width: float = 0,
 ) -> LyricLayout
 ```
 

@@ -18,7 +18,7 @@ Use `--check` to verify that committed pages match the current public API.
 | [Track authoring](tracks.md) | 26 |
 | [Text measurement and layout](text.md) | 28 |
 | [Geometry and paths](geometry.md) | 29 |
-| [Colors and appearance](paint.md) | 33 |
+| [Colors and appearance](paint.md) | 34 |
 | [Lyric cues](cues.md) | 13 |
 | [Particles and references](particles.md) | 14 |
 | [Coverage and raster output](coverage.md) | 7 |
@@ -26,7 +26,7 @@ Use `--check` to verify that committed pages match the current public API.
 
 ## Symbol index
 
-235 public exports.
+236 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [Animation](animation.md#animation)
@@ -178,6 +178,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [SceneReferenceError](scenes.md#scenereferenceerror)
 - [SceneResult](scenes.md#sceneresult)
 - [ScopeOpacity](coverage.md#scopeopacity)
+- [SecondaryOutline](paint.md#secondaryoutline)
 - [Segment](text.md#segment)
 - [ShaderMotion](animation.md#shadermotion)
 - [ShaderPaint](paint.md#shaderpaint)

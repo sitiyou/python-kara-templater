@@ -60,7 +60,7 @@ the short first note with the held final note.
 ```python
 from kara_templater import (
     Color, Document, FadeIn, FadeOut, Glow, Layout, Line, LyricHighlights,
-    LyricRule, LyricSweep, ScalePulse, StatePatch, Style, Track, Vec2, prepare_tracks,
+    LyricRule, ScalePulse, SecondaryOutline, StatePatch, Style, Track, Vec2, prepare_tracks,
 )
 
 document = Document.create(width=640, height=360, styles=(
@@ -76,25 +76,21 @@ motion = (
     LyricRule("syllable", "singing", ScalePulse(peak=1.12, peak_at=0.36)),
     LyricRule("line", "exit", FadeOut(), duration=0.22),
 )
-rim = StatePatch(outline=Color.hex("#D4B6FF"), border=5)
 halo = Glow(Color.hex("#8054CD"), border=8, blur=4, opacity=0.75)
-back = LyricHighlights.from_singing(rim, base_paint=rim, glow=halo, base_glow=halo)
-face = LyricHighlights.from_singing(StatePatch(fill=Color.hex("#FF984A")), hook_feather=14)
+paint = LyricHighlights.from_singing(
+    StatePatch(fill=Color.hex("#FF984A")),
+    secondary_outline=SecondaryOutline(Color.hex("#D4B6FF"), width=3),
+    glow=halo, base_glow=halo, hook_feather=14,
+)
 layout = Layout(rows=2, position=Vec2(42, 110))
-
-scene = prepare_tracks(document, tracks=(
-    Track(id="rim", layout=layout, effects=(back, *motion)),
-    Track(id="face", layout=layout, reserved_border=5, effects=(face, *motion)),
-))
+scene = prepare_tracks(document, tracks=(Track(id="main", layout=layout, effects=(paint, *motion)),))
 scene.export("karaoke.hook", fps=60)
 ```
 
-The preview above shows compiled ASS rendered with libass. The two tracks draw the same timed lyrics at the same positions, back layer
-first. Both views reserve the outer 5 px hard rim so their glyphs stay aligned. The face retains the source style's 2 px outline. Tune `width` to change
-how much of the letter contains intermediate colors; tune `halo.blur` to change
-how far the light spreads outside it. The sizes above accompany a 60 px font.
-For an existing song, load its Document and select the same main-vocal sources
-for both views. Export a verse to check the feather and pulse together.
+The preview shows the lavender rim outside a 2 px primary outline.
+The track reserves the full 5 px radius for lyric layout. Adjust `hook_feather`
+to change the width of the color transition and `halo.blur` to change how far
+the light spreads. The sizes above accompany a 60 px font.
 
 ## Choose the singing motion
 
@@ -236,7 +232,7 @@ move independently after birth. They are emitted from body text, not ruby.
   the current contiguous run; a zoom-pulse scanline uses the moving glyph’s advance.
 - In the default `color` mode, `scanline_color` sets the band color for both fill and outline (default theme shine, derived from the effective sung fill). `scanline_softness` sets the inward falloff on each side, default 8 px at 1080p. Zero gives a hard band. For an ordinary single-pass wipe using solid colors or linear gradients on a shared axis and coordinate space, the soft band interpolates both the fill and outline RGB inside the original glyph silhouette. Each channel can combine up to 16 distinct stop positions across the brushes. During Utopia and zoom pulses the adjustment follows the transformed glyph, preserving the original stroke above and below its fill. More stops, mixed-axis or custom materials, overlapping passes and a separate hook feather use clipped color overlays.
 - When a unit gets its timing from its reading, the main text keeps its ordinary color wipe and the bright band follows the kana. Set `ruby_scanline="both"` to also light the main text. Consecutive reading checkpoints divide the main text’s wipe into equal distances. To give each visible kana an equal share of the main wipe, set `ruby_reading_units=True`. For example, with timed parts おおぞ and ら, the main wipe reaches three quarters at their boundary. An empty part holds the main wipe in place. For a horizontal reading shared by two main glyphs, the wipe changes glyphs halfway through the reading’s progress, even when one glyph is wider. A zero-duration checkpoint colors its share of the main text immediately. A zero-duration kana at the very start of the reading stays in its waiting color on the onset frame and switches on the next ASS tick. With `no_wipe`, the whole annotated reading switches together at its end. If the first of two readings lasts 100 ms and the second lasts 400 ms, the main text reaches its midpoint at 100 ms. Within each timed reading, the wipe gives each shaped character an equal share of that interval. Utopia and zoom pulse each kana on its own interval. When a reading spans several main characters, each main character pulses as the wipe crosses it. A combining dakuten stays with its kana. An empty timed reading (`#|`) introduces a rest. The band reaches the previous kana’s edge, disappears during the rest, and returns at the next kana when singing resumes. Custom rules bound to the reading’s singing interval still receive the authored interval.
-- For a second outline that changes color under the sweep, supply both `base_glow` and `glow` with zero blur and a border wider than the main outline. With a single pass, the band crosses this outer stroke during ordinary wipes and during Utopia or zoom pulses. The brightness and follow modes use the outer stroke’s own waiting and sung colors.
+- Set `secondary_outline=SecondaryOutline(Color.hex("#473264"), width=2)` for a solid 2 px ring beyond the primary border on body text and ruby. Both singing states inherit it. Set `sung_secondary_outline` to change its color or thickness under the wipe, or use a zero width to hide the sung ring. The separate `base_glow` and `glow` layers draw behind both outlines. With a single pass, the band crosses this outer stroke during ordinary wipes and during Utopia or zoom pulses. The brightness and follow modes use the outer stroke’s own waiting and sung colors.
 - With Utopia or zoom pulse, each sung kana carries its own scanline across its font advance. The band disappears at the exact handoff and returns on the incoming kana. A hard scanline repaints the reading with the host character’s primary outline width. In color and role modes a matching hard secondary rim on both sides of the wipe contributes its full width too. A feathered adjustment retains the reading’s own coverage. If an opaque reading has a thicker outline than the host (including a hard secondary outline present and opaque both before and after singing), the color or role band leaves the outer ink in its lyric color when the two radii differ by at least 1.5 script pixels.
 
 - Set `reverse_wipe=True` to sweep each timed unit from its right edge. Each reading keeps its own start time, and the scanline follows the reversed front. For example, a single timed word sweeps across all its letters from right to left. Two separately timed words still sing in their authored order.

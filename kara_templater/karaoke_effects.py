@@ -24,7 +24,7 @@ from ._karaoke_sprites import (
     star_burst,
 )
 from .appearance import _DEFAULT_SUNG, _DEFAULT_UNSUNG, _EMPTY_THEME, KaraokeTheme
-from .composition import Color, Glow
+from .composition import Color, Glow, SecondaryOutline
 from .document_text import SingingSpan
 from .geometry import Vec2, finite
 from .lyric_highlights import (
@@ -885,8 +885,8 @@ def _hard_rims(
     nodes: dict[str, SceneObject], glyph: SceneObject, sung_id: str,
 ) -> tuple[TextObject | None, TextObject | None]:
     return (
-        _hard_rim(nodes.get(sung_id + "/glow"), glyph.state.border),
-        _hard_rim(nodes.get(glyph.id + "/glow"), glyph.state.border),
+        _hard_rim(nodes.get(sung_id + "/secondary-outline") or nodes.get(sung_id + "/glow"), glyph.state.border),
+        _hard_rim(nodes.get(glyph.id + "/secondary-outline") or nodes.get(glyph.id + "/glow"), glyph.state.border),
     )
 
 
@@ -976,6 +976,8 @@ class KaraokeEffects:
     this engine. It is a visual recipe, not an importer or pixel-identical renderer.
     Use ordinary LyricRule/custom effects alongside it. Apply once per line, before
     another highlight factory; this recipe owns the base/sung appearance and masks.
+    secondary_outline adds a solid outer stroke to both states, independently of glow.
+    sung_secondary_outline overrides its sung color and width.
     dual_outline derives contrasting outlines for unspecified roles.
     Decorations use seeded glyph-local trajectories; ruby receives text transitions
     and sweeps but not particles or outline flash. max_particles bounds the number
@@ -1005,6 +1007,8 @@ class KaraokeEffects:
     base_material: LyricMaterial = None
     glow: LyricGlow = None
     base_glow: LyricGlow = None
+    secondary_outline: SecondaryOutline | None = None
+    sung_secondary_outline: SecondaryOutline | None = None
     particle_color: Color | tuple[Color, Color] | Literal["follow_before", "follow_after", "follow_mix", "illustrated"] | None = None
     particle_layers: Literal["solid", "stroke", "decor", "all"] = "solid"
     particle_glow_concentration: int = 0
@@ -1031,6 +1035,10 @@ class KaraokeEffects:
     dual_outline: bool = False
     stroke_flash: bool = False
     id: str = "karaoke"
+
+    @property
+    def _secondary_width(self) -> float:
+        return max((rim.width for rim in (self.secondary_outline, self.sung_secondary_outline) if rim), default=0)
 
     @property
     def _hard_border(self) -> float:
@@ -1209,6 +1217,7 @@ class KaraokeEffects:
             base_material=self.base_material,
             glow=self.glow,
             base_glow=self.base_glow,
+            secondary_outline=self.secondary_outline, sung_secondary_outline=self.sung_secondary_outline,
             hook_feather=self.hook_feather,
             front_color=self.front_color,
         )
@@ -1486,9 +1495,10 @@ class KaraokeEffects:
                 border = min(0.25, piece.state.border / em) if strokes else 0
                 halo = painted.get(identity + "/glow")
                 rim = None
-                if strokes and halo and not halo.state.blur and halo.state.border > piece.state.border:
-                    extra = min(0.25, (halo.state.border - piece.state.border) / em)
-                    rim = Glow(halo.state.outline, border=border + extra, opacity=halo.state.opacity)
+                outer = _hard_rim(painted.get(identity + "/secondary-outline") or halo, piece.state.border)
+                if strokes and outer:
+                    extra = min(0.25, (outer.state.border - piece.state.border) / em)
+                    rim = Glow(outer.state.outline, border=border + extra, opacity=outer.state.opacity)
                 soft = None
                 offset = Vec2()
                 if decor:
@@ -1658,7 +1668,7 @@ class KaraokeEffects:
                             replacements[alias] = replace(ink, scale_border=True)
                 if not entering and kind in {"char_fade", "spin_flip"}:
                     start = line.lifetime.end - total * (1 - self.stagger) + fade_offsets[target.node_id]
-                    for ink in (node, nodes.get(node.id + "/glow")):
+                    for ink in (node, nodes.get(node.id + "/secondary-outline"), nodes.get(node.id + "/glow")):
                         if isinstance(ink, TextObject):
                             replacements[ink.id] = _fade_underpaint(replacements.get(ink.id, ink), start)
                     continue

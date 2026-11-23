@@ -6,11 +6,11 @@ from kara_templater import (
     CueMarker,
     CuePreset,
     Document,
-    Glow,
     KaraokeEffects,
     KaraokeRows,
     Line,
     LyricScene,
+    SecondaryOutline,
     SignalCue,
     Style,
     Track,
@@ -64,8 +64,8 @@ def build() -> LyricScene:
                 },
                 effects=(KaraokeEffects(
                     singing="none",
-                    base_glow=Glow(color=Color.hex("#9675BD"), border=5),
-                    glow=Glow(color=Color.hex("#FFCB86"), border=5),
+                    secondary_outline=SecondaryOutline(Color.hex("#9675BD"), width=3),
+                    sung_secondary_outline=SecondaryOutline(Color.hex("#FFCB86"), width=3),
                 ),),
             ),
             Track(
@@ -84,7 +84,7 @@ def build() -> LyricScene:
                 },
                 effects=(KaraokeEffects(
                     singing="none", sung=Color.hex("#23CEAE"),
-                    glow=Glow(color=Color.hex("#436C9C"), border=5),
+                    sung_secondary_outline=SecondaryOutline(Color.hex("#436C9C"), width=3),
                 ),),
             ),
         ),

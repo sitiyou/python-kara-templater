@@ -284,6 +284,7 @@ def _clear_outlines(
     gap: float | None,
     reserved_border: float,
     right_to_left: bool,
+    secondary_width: float = 0,
 ) -> tuple[PositionedText, ...]:
     if gap is None:
         return items
@@ -297,7 +298,7 @@ def _clear_outlines(
             if right_to_left:
                 # The cell will move across the row but the ink stays upright.
                 ink = replace(ink, left=2 * item.bounds.center - ink.right)
-            border = max(reserved_border, item.object.state.border)
+            border = max(reserved_border, item.object.state.border + secondary_width)
             if previous_edge is not None and (border or previous_border):
                 shift = max(shift, previous_edge + gap - (ink.left - border))
             previous_border = border
@@ -310,7 +311,7 @@ def _clear_outlines(
 
 def _reading_row(
     readings: list[DocumentLayout], gap: float | None,
-    reserved_border: float, right_to_left: bool,
+    reserved_border: float, right_to_left: bool, secondary_width: float,
 ) -> list[DocumentLayout]:
     """Apply outline clearance across all timing fragments of a horizontal annotation."""
     cells: list[PositionedText] = []
@@ -318,7 +319,7 @@ def _reading_row(
     for reading in readings:
         cells.extend(_shift(c, cursor) for c in reading.characters)
         cursor += reading.bounds.width
-    cells_with_clearance = _clear_outlines(tuple(cells), gap, reserved_border, right_to_left)
+    cells_with_clearance = _clear_outlines(tuple(cells), gap, reserved_border, right_to_left, secondary_width)
     result: list[DocumentLayout] = []
     start = 0
     for reading in readings:
@@ -476,11 +477,13 @@ def layout_lyrics(
     vertical: bool = False,
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
+    secondary_width: float = 0,
 ) -> LyricLayout:
     """Measure structured or parsed lyrics using Document styles and resolution.
 
     studio_spacing measures character cells from ink width, bearings and the primary
     outline before applying minimum outline clearance. The default uses shaped advances.
+    secondary_width reserves additional hard outline outside each primary stroke.
     palt applies the horizontal proportional metrics in each selected body or ruby font.
     ruby_gap sets the vertical clearance between the hard ink bounds of a
     reading group and its body before animation. Negative values allow overlap.
@@ -489,8 +492,8 @@ def layout_lyrics(
     No ASS event is required or synthesized. Singing intervals retain their full
     seconds precision; record indices, if present, are provenance only.
     """
-    finite(ruby_gap, reserved_border, min_outline_gap or 0)
-    if reserved_border < 0 or (min_outline_gap is not None and min_outline_gap < 0):
+    finite(ruby_gap, reserved_border, secondary_width, min_outline_gap or 0)
+    if secondary_width < 0 or reserved_border < 0 or (min_outline_gap is not None and min_outline_gap < 0):
         raise ValueError("outline clearance must be nonnegative")
 
     def validate_text(source: DocumentText) -> None:
@@ -547,7 +550,7 @@ def layout_lyrics(
     if guide_symbols and body.characters:
         body = _place_guides(body, guide_symbols)
     if min_outline_gap is not None and not vertical:
-        body_cells = _clear_outlines(body.characters, min_outline_gap, reserved_border, right_to_left)
+        body_cells = _clear_outlines(body.characters, min_outline_gap, reserved_border, right_to_left, secondary_width)
         body = replace(body, characters=body_cells, bounds=_union(tuple(c.bounds for c in body_cells)))
     rubies: list[PositionedRuby] = []
     for ui, unit in enumerate(lyrics.units):
@@ -642,7 +645,7 @@ def layout_lyrics(
             continue
         box = body.range_bounds(start, end)
         readings = [rubies[i].layout for i in indices]
-        readings = _reading_row(readings, min_outline_gap, reserved_border, right_to_left) if readings else []
+        readings = _reading_row(readings, min_outline_gap, reserved_border, right_to_left, secondary_width) if readings else []
         width = _union(tuple(r.bounds for r in readings)).width if readings else 0.0
         spillback = any(s.ruby and s.ruby.mode == "spill" for unit in units for s in unit.segments)
         if spill is not None and spill > 0:
@@ -656,7 +659,7 @@ def layout_lyrics(
             if start <= item.start and item.end <= end:
                 characters[i] = _shift(item, shift)
                 if indices and item.ink_bounds is not None:
-                    border = max(reserved_border, item.object.state.border)
+                    border = max(reserved_border, item.object.state.border + secondary_width)
                     body_top = min(body_top, item.ink_bounds.top - border)
             elif item.start < end and item.end > start:
                 raise LayoutCapabilityError(
@@ -672,7 +675,7 @@ def layout_lyrics(
             (
                 item.ink_bounds.top
                 + item.ink_bounds.height
-                + max(reserved_border, item.object.state.border)
+                + max(reserved_border, item.object.state.border + secondary_width)
                 - reading.bounds.top
                 - reading.bounds.height
                 for reading in readings

@@ -35,6 +35,7 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 - [PaintField](#paintfield)
 - [PaintPair](#paintpair)
 - [RED](#red)
+- [SecondaryOutline](#secondaryoutline)
 - [ShaderPaint](#shaderpaint)
 - [SoftSweep](#softsweep)
 - [WHITE](#white)
@@ -250,6 +251,7 @@ Highlight(
     end: Literal['hold', 'hide'] = 'hold',
     glow: LyricGlow = None,
     material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
+    secondary_outline: SecondaryOutline | None = None,
 )
 ```
 
@@ -266,6 +268,7 @@ Highlight(
 | `end` | `Literal['hold', 'hide']` | `'hold'` |
 | `glow` | `LyricGlow` | `None` |
 | `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
+| `secondary_outline` | `SecondaryOutline \| None` | `None` |
 
 ### Highlight.regions
 
@@ -288,7 +291,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L1117)
+[Source](../../kara_templater/lyric_highlights.py#L1148)
 
 ```python
 HighlightArrival(
@@ -552,7 +555,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L630)
+[Source](../../kara_templater/lyric_highlights.py#L632)
 
 ```python
 LyricHighlights(
@@ -568,6 +571,7 @@ LyricHighlights(
     edge_duration: float = 0.02,
     blend_glow: bool = True,
     front_color: Color | None = None,
+    secondary_outline: SecondaryOutline | None = None,
 )
 ```
 
@@ -586,6 +590,7 @@ LyricHighlights(
 | `edge_duration` | `float` | `0.02` |
 | `blend_glow` | `bool` | `True` |
 | `front_color` | `Color \| None` | `None` |
+| `secondary_outline` | `SecondaryOutline \| None` | `None` |
 
 ### LyricHighlights.__call__
 
@@ -604,6 +609,8 @@ LyricHighlights.__call__(
 
 Sweep source singing across body/ruby without authoring clip geometry.
 
+secondary_outline surrounds both states. sung_secondary_outline overrides the sung rim.
+Both use the clip strategy and can be combined with glow.
 With reverse=True, each timed unit fills from its right edge.
 With wipe=False, each timed unit switches paint at completion.
 Singing progress uses undecorated measured text bounds. For a single
@@ -638,6 +645,8 @@ LyricHighlights.from_singing(
     ruby_reading_units: bool = False,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
+    secondary_outline: SecondaryOutline | None = None,
+    sung_secondary_outline: SecondaryOutline | None = None,
     base_paint: StatePatch | None = None,
     base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
@@ -738,7 +747,7 @@ Resolved fill, outline, border width, opacity, and optional glow for one drawing
 
 Distances use script pixels and opacity uses 0 through 1.
 
-[Source](../../kara_templater/composition.py#L91)
+[Source](../../kara_templater/composition.py#L105)
 
 ```python
 Paint(
@@ -747,6 +756,7 @@ Paint(
     border: float = 0,
     opacity: float = 1,
     glow: Glow | None = None,
+    secondary_outline: SecondaryOutline | None = None,
 )
 ```
 
@@ -759,6 +769,7 @@ Paint(
 | `border` | `float` | `0` |
 | `opacity` | `float` | `1` |
 | `glow` | `Glow \| None` | `None` |
+| `secondary_outline` | `SecondaryOutline \| None` | `None` |
 
 ## PaintActivity
 
@@ -874,6 +885,28 @@ Public constant:
 ```python
 RED = Color(red=255, green=0, blue=0)
 ```
+
+## SecondaryOutline
+
+A solid outer lyric stroke. Width adds script pixels beyond the primary outline.
+
+A zero width hides the stroke. Its color is independent of fill, primary outline and glow.
+
+[Source](../../kara_templater/composition.py#L91)
+
+```python
+SecondaryOutline(
+    color: Color,
+    width: float,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `color` | `Color` | `required` |
+| `width` | `float` | `required` |
 
 ## ShaderPaint
 

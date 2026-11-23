@@ -60,6 +60,8 @@ Includes the Studio animation-menu families, independently implemented on
 this engine. It is a visual recipe, not an importer or pixel-identical renderer.
 Use ordinary LyricRule/custom effects alongside it. Apply once per line, before
 another highlight factory; this recipe owns the base/sung appearance and masks.
+secondary_outline adds a solid outer stroke to both states, independently of glow.
+sung_secondary_outline overrides its sung color and width.
 dual_outline derives contrasting outlines for unspecified roles.
 Decorations use seeded glyph-local trajectories; ruby receives text transitions
 and sweeps but not particles or outline flash. max_particles bounds the number
@@ -93,6 +95,8 @@ KaraokeEffects(
     base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
+    secondary_outline: SecondaryOutline | None = None,
+    sung_secondary_outline: SecondaryOutline | None = None,
     particle_color: Color | tuple[Color, Color] | Literal['follow_before', 'follow_after', 'follow_mix', 'illustrated'] | None = None,
     particle_layers: Literal['solid', 'stroke', 'decor', 'all'] = 'solid',
     particle_glow_concentration: int = 0,
@@ -140,6 +144,8 @@ KaraokeEffects(
 | `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `glow` | `LyricGlow` | `None` |
 | `base_glow` | `LyricGlow` | `None` |
+| `secondary_outline` | `SecondaryOutline \| None` | `None` |
+| `sung_secondary_outline` | `SecondaryOutline \| None` | `None` |
 | `particle_color` | `Color \| tuple[Color, Color] \| Literal['follow_before', 'follow_after', 'follow_mix', 'illustrated'] \| None` | `None` |
 | `particle_layers` | `Literal['solid', 'stroke', 'decor', 'all']` | `'solid'` |
 | `particle_glow_concentration` | `int` | `0` |
@@ -1353,7 +1359,7 @@ cues visible in this half-open interval of absolute seconds. Strict rows with bo
 and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
 or references them from visible objects.
 
-[Source](../../kara_templater/orchestration.py#L521)
+[Source](../../kara_templater/orchestration.py#L523)
 
 ```python
 prepare_tracks(

@@ -89,6 +89,20 @@ def _appearance_values(color, border, opacity):
 
 
 @dataclass(frozen=True)
+class SecondaryOutline:
+    """A solid outer lyric stroke. Width adds script pixels beyond the primary outline.
+
+    A zero width hides the stroke. Its color is independent of fill, primary outline and glow.
+    """
+
+    color: Color
+    width: float
+
+    def __post_init__(self) -> None:
+        _appearance_values(self.color, self.width, 1)
+
+
+@dataclass(frozen=True)
 class Paint:
     """Resolved fill, outline, border width, opacity, and optional glow for one drawing.
 
@@ -100,6 +114,7 @@ class Paint:
     border: float = 0
     opacity: float = 1
     glow: Glow | None = None
+    secondary_outline: SecondaryOutline | None = None
 
     def __post_init__(self) -> None:
         _appearance_values(self.fill, self.border, self.opacity)
@@ -107,3 +122,5 @@ class Paint:
             self.glow is not None and not isinstance(self.glow, Glow)
         ):
             raise ValueError("invalid outline or glow")
+        if self.secondary_outline is not None and not isinstance(self.secondary_outline, SecondaryOutline):
+            raise TypeError("secondary_outline must be a SecondaryOutline")

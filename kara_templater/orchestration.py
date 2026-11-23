@@ -366,8 +366,10 @@ def _cue_presets(
                 before, after = context.colors.before, context.colors.after
                 colors = PaintPair(
                     replace(before, fill=recipe.unsung, outline=recipe.unsung_outline or before.outline,
+                                secondary_outline=recipe.secondary_outline,
                                 glow=recipe.base_glow if isinstance(recipe.base_glow, Glow) else None),
                     replace(after, fill=recipe.sung, outline=recipe.sung_outline or after.outline,
+                                secondary_outline=recipe.sung_secondary_outline or recipe.secondary_outline,
                                 glow=recipe.glow if isinstance(recipe.glow, Glow) else None),
                 )
                 material = _style_material(recipe.material, role_style)
@@ -429,18 +431,18 @@ def _reserved_animations(bindings: tuple[_LyricBinding, ...]) -> Lifetime | None
     )
 
 
-def _row_metrics(layout: LyricLayout, bounds: Box, border: float) -> _RowMetrics | None:
+def _row_metrics(layout: LyricLayout, bounds: Box, border: float, secondary_width: float) -> _RowMetrics | None:
     body = layout.body
     if not body.characters:
         return None
     glyph = body.characters[0]
     baseline = glyph.bounds.top + (glyph.baseline or 0) * glyph.object.state.scale.y
-    pad = max(border, *(c.object.state.border for c in body.characters))
+    pad = max(border, *(c.object.state.border + secondary_width for c in body.characters))
     body_top = body.bounds.top - pad
     top = min(body_top, bounds.top)
     for ruby in layout.ruby:
         for reading in ruby.layout.characters:
-            top = min(top, reading.bounds.top - max(border, reading.object.state.border))
+            top = min(top, reading.bounds.top - max(border, reading.object.state.border + secondary_width))
     bottom = max(body.bounds.top + body.bounds.height + pad, bounds.top + bounds.height)
     return _RowMetrics(baseline, baseline - body_top, bottom - baseline, body_top - top)
 
@@ -458,7 +460,7 @@ def _preview_slice(
         if (type(effect) is not KaraokeEffects or effect.entry not in {"none", "fade", "tilt_pop"}
                 or effect.exit not in {"none", "fade", "spin_flip"}
                 or effect.singing not in {"none", "zoom_pulse"}
-                or effect.decoration != "none" or effect.stroke_flash or effect.glow or effect.base_glow
+                or effect.decoration != "none" or effect.stroke_flash or effect.glow or effect.base_glow or effect._secondary_width
                 or any(m is not None and type(m) is not LyricGradient for m in (effect.material, effect.base_material))):
             return slice(0, None)
         entry += _transition_window(effect.entry, effect.entry_duration, entering=True)
@@ -601,6 +603,8 @@ def prepare_tracks(
                 if isinstance(effect, (LyricHighlights, KaraokeEffects))
             ]
         )
+        secondary_width = max((e._secondary_width for e in track.effects
+                               if isinstance(e, (LyricHighlights, KaraokeEffects))), default=0)
         recipe = next((e for e in track.effects if isinstance(e, KaraokeEffects)), None)
         for track_index, source in enumerate(selected, start=selection.start):
             identity = f"track:{quote(track.id, safe='')}/{source.id}"
@@ -637,7 +641,7 @@ def prepare_tracks(
                 id=identity,
                 display=display,
                 min_outline_gap=track.min_outline_gap,
-                reserved_border=border,
+                reserved_border=border, secondary_width=secondary_width,
                 ruby_gap=track.ruby_gap,
                 studio_spacing=studio_spacing,
                 palt=track.palt,
@@ -819,7 +823,7 @@ def prepare_tracks(
                     em_size=line.query("line")[0].em_size,
                     _vertical=track.vertical,
                     _lyric_width=bare.bounds.width if cue_bounds else None,
-                    _row_metrics=None if track.vertical else _row_metrics(line.layout, bounds, border),
+                    _row_metrics=None if track.vertical else _row_metrics(line.layout, bounds, border, secondary_width),
                     _adaptive_handoff=track.tail is None,
                     entrance=entrance,
                     exit=exit,

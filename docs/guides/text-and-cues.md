@@ -78,14 +78,12 @@ countdown step. Each column grows during its fill step and settles over 0.30 s,
 using the same curve level as the sung text.
 
 To reuse a fixed role palette across tracks, pass a `PaintPair` to
-`CuePreset(colors=...)`. The vector cues read its fill, outline, opacity and static glow. For a second
-hard outline, use a `Glow` with zero blur and an outer radius larger than the
-main outline. For example, with a 2 px main outline, `Glow(border=8, blur=0)`
-adds a 6 px outer ring to the lyric. The cue scales that extra width to its
-own size. A positive blur softens a ring around the contour, even with both
-outline widths set to zero. Its layout slot stays fixed when the ring changes color. On a
-`KaraokeEffects` recipe, `base_glow` supplies the unsung layer and `glow`
-the sung layer. Explicit cue colors override their respective channels.
+`CuePreset(colors=...)`. The vector cues read its fill, primary outline, secondary outline, opacity
+and static glow. A `SecondaryOutline(color, width=6)` adds 6 script pixels
+outside the lyric’s primary outline. The cue scales this width to its own size.
+Use `sung_secondary_outline` on the lyric recipe to change the outer ring
+as each column fills. Lamps inherit the sung ring throughout the countdown.
+`base_glow` and `glow` independently supply the unsung and sung halo.
 For a sung gradient use `KaraokeEffects(material=LyricGradient(colors, axis="x"))`.
 Leading inline volume columns share the first nonblank singer’s horizontal ramp.
 When the line changes styles, the columns extend only to that singer’s last advance.

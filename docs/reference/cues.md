@@ -102,7 +102,7 @@ CueContext(
     origin: EventOrigin,
     host: TextObject | None = None,
     host_em: float | None = None,
-    colors: PaintPair = PaintPair(before=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None), after=Paint(fill=Color(red=255, green=90, blue=111), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None)),
+    colors: PaintPair = PaintPair(before=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None), after=Paint(fill=Color(red=255, green=90, blue=111), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None)),
     zoom_pulse_curve_level: int | None = None,
     role_em: float | None = None,
     gradient: LyricGradient | None = None,
@@ -122,7 +122,7 @@ CueContext(
 | `origin` | `EventOrigin` | `required` |
 | `host` | `TextObject \| None` | `None` |
 | `host_em` | `float \| None` | `None` |
-| `colors` | `PaintPair` | `PaintPair(before=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None), after=Paint(fill=Color(red=255, green=90, blue=111), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None))` |
+| `colors` | `PaintPair` | `PaintPair(before=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None), after=Paint(fill=Color(red=255, green=90, blue=111), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None))` |
 | `zoom_pulse_curve_level` | `int \| None` | `None` |
 | `role_em` | `float \| None` | `None` |
 | `gradient` | `LyricGradient \| None` | `None` |
@@ -330,7 +330,7 @@ transition fraction of its step. Pass a custom path in the unit square to
 use a drawn symbol with the same layout and clock. spacing adds script pixels between lamps.
 Set countdown in seconds to keep all lamps lit before the active steps.
 
-[Source](../../kara_templater/karaoke_cues.py#L357)
+[Source](../../kara_templater/karaoke_cues.py#L371)
 
 ```python
 SignalCue(
@@ -428,7 +428,7 @@ and idle before the active portion. height and border use script pixels. Omit he
 align aligns the column tops, centers or bottoms.
 An omitted border scales the host outline, capped at a quarter of the column width.
 
-[Source](../../kara_templater/karaoke_cues.py#L145)
+[Source](../../kara_templater/karaoke_cues.py#L159)
 
 ```python
 VolumeCue(

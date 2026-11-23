@@ -9,7 +9,7 @@ from math import ceil
 from statistics import NormalDist
 from typing import Literal
 
-from .composition import _ASS_BLUR_TO_SIGMA, Color, Glow
+from .composition import _ASS_BLUR_TO_SIGMA, Color, Glow, SecondaryOutline
 from .coverage_animation import Coverage, CoveragePartition, GlowFunction
 from .document_lyrics import LyricUnit
 from .document_text import SingingSpan
@@ -221,6 +221,7 @@ class Highlight:
     end: Literal["hold", "hide"] = "hold"
     glow: LyricGlow = None
     material: LyricMaterial = None
+    secondary_outline: SecondaryOutline | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -267,6 +268,7 @@ class _SingingHighlights:
     segment_colors: Mapping[tuple[int, int], Color] | None = None
 
     ruby_fill: Color | None = None
+    secondary_outline: SecondaryOutline | None = None
 
     def interval(self, start: float, end: float) -> TimeSpan:
         return TimeSpan(start if self.wipe else end, end)
@@ -314,7 +316,7 @@ class _SingingHighlights:
                 self._passes(line.layout, unit, _sweep_axis(box, line.layout._vertical)),
                 self.paint,
                 glow=self.glow,
-                material=self.material,
+                material=self.material, secondary_outline=self.secondary_outline,
                 repeat="reset",
             )
             for index, unit in enumerate(line.layout.lyrics.units)
@@ -341,7 +343,7 @@ class _SingingHighlights:
                 parts.append(_SegmentHighlight(
                     f"{highlight.id}:{i}", highlight.unit, (HighlightPass(clock, region, reverse=self.reverse),),
                     replace(highlight.paint, fill=color) if color else highlight.paint,
-                    glow=highlight.glow, material=highlight.material,
+                    glow=highlight.glow, material=highlight.material, secondary_outline=highlight.secondary_outline,
                     reading=segment.singing, axis=axis,
                 ))
             if len(set(colors)) == 1:
@@ -385,8 +387,8 @@ def _owners(
             continue
         if mode == "union":
             if any(
-                (h.paint, h.glow, h.material)
-                != (active[0].paint, active[0].glow, active[0].material) for h in active
+                (h.paint, h.glow, h.material, h.secondary_outline)
+                != (active[0].paint, active[0].glow, active[0].material, active[0].secondary_outline) for h in active
             ):
                 raise ValueError(
                     "union highlights require identical appearance at overlaps"
@@ -396,8 +398,8 @@ def _owners(
             top = max(h.priority for h in active)
             highest = tuple(h for h in active if h.priority == top)
             if any(
-                (h.paint, h.glow, h.material)
-                != (highest[0].paint, highest[0].glow, highest[0].material)
+                (h.paint, h.glow, h.material, h.secondary_outline)
+                != (highest[0].paint, highest[0].glow, highest[0].material, highest[0].secondary_outline)
                 for h in highest
             ):
                 raise ValueError("conflicting equal-priority highlights")
@@ -658,18 +660,27 @@ class LyricHighlights:
     edge_duration: float = _EDGE_SECONDS
     blend_glow: bool = True
     front_color: Color | None = None
+    secondary_outline: SecondaryOutline | None = None
+
+    @property
+    def _secondary_width(self) -> float:
+        known = (self.highlights,) if isinstance(self.highlights, _SingingHighlights) else self.highlights
+        rims = [self.secondary_outline]
+        if isinstance(known, tuple):
+            rims.extend(h.secondary_outline for h in known)
+        return max((rim.width for rim in rims if rim), default=0)
 
     @property
     def _hard_border(self) -> float:
         borders = [_hard_glow_border(self.glow)]
         if not self.base_paint.blur:
-            borders.append(self.base_paint.border or 0)
+            borders.append((self.base_paint.border or 0) + (self.secondary_outline.width if self.secondary_outline else 0))
         highlights = self.highlights
         known = (highlights,) if isinstance(highlights, _SingingHighlights) else highlights
         if isinstance(known, tuple):
             for h in known:
                 if not h.paint.blur:
-                    borders.append(h.paint.border or 0)
+                    borders.append((h.paint.border or 0) + (h.secondary_outline.width if h.secondary_outline else 0))
                 borders.append(_hard_glow_border(h.glow))
         return max(borders)
 
@@ -683,6 +694,8 @@ class LyricHighlights:
         ruby_reading_units: bool = False,
         glow: LyricGlow = None,
         base_glow: LyricGlow = None,
+        secondary_outline: SecondaryOutline | None = None,
+        sung_secondary_outline: SecondaryOutline | None = None,
         base_paint: StatePatch | None = None,
         base_material: LyricMaterial = None,
         material: LyricMaterial = None,
@@ -697,6 +710,8 @@ class LyricHighlights:
     ) -> LyricHighlights:
         """Sweep source singing across body/ruby without authoring clip geometry.
 
+        secondary_outline surrounds both states. sung_secondary_outline overrides the sung rim.
+        Both use the clip strategy and can be combined with glow.
         With reverse=True, each timed unit fills from its right edge.
         With wipe=False, each timed unit switches paint at completion.
         Singing progress uses undecorated measured text bounds. For a single
@@ -723,7 +738,9 @@ class LyricHighlights:
         to reveal text instead of recoloring an already visible baseline.
         """
         return cls(
-            highlights=_SingingHighlights(paint, glow, material, wipe, reverse, ruby_reading_units, segment_colors, ruby_fill),
+            highlights=_SingingHighlights(paint, glow, material, wipe, reverse, ruby_reading_units, segment_colors, ruby_fill,
+                                         sung_secondary_outline or secondary_outline),
+            secondary_outline=secondary_outline,
             edge_duration=edge_duration, blend_glow=blend_glow,
             glow=base_glow,
             base_material=base_material,
@@ -897,6 +914,15 @@ class LyricHighlights:
             )
             # One shared spatial margin keeps body/glow ownership disjoint.
             states = (self.base_paint.interpolate(node.state, 1), *(h.paint.interpolate(node.state, 1) for h in chosen))
+            rims = (self.secondary_outline, *(h.secondary_outline for h in chosen))
+            has_rim = any(rim and rim.width for rim in rims)
+            if has_rim and self.strategy == "coverage":
+                raise ValueError("secondary outlines require clip strategy")
+            has_backing = has_rim or base_glow is not None or any(h.glow for h in chosen)
+            if self.strategy == "clip" and has_backing and any(
+                clip.animation.channels & {"fill", "outline", "border", "blur", "shadow"} for clip in node.animations
+            ):
+                raise ValueError("compose existing paint animations with glow or secondary outline explicitly")
             sung_glow = chosen[0].glow
             before_alpha = states[0].opacity * base_glow.opacity if isinstance(base_glow, Glow) else 0
             after_alpha = states[1].opacity * sung_glow.opacity if isinstance(sung_glow, Glow) else 0
@@ -908,8 +934,8 @@ class LyricHighlights:
             padding = (
                 max(
                     *(
-                        state.border + 4 * state.blur + abs(state.shadow.x) + 4
-                        for state in states
+                        state.border + (rim.width if rim else 0) + 4 * state.blur + abs(state.shadow.x) + 4
+                        for state, rim in zip(states, rims, strict=True)
                     ),
                     *(
                         glow.border + 4 * glow.blur + 4
@@ -1024,16 +1050,21 @@ class LyricHighlights:
                             ),
                         )
                     pieces.append(piece)
+                    rim = self.secondary_outline if highlight is None else highlight.secondary_outline
                     glow = base_glow if highlight is None else highlight.glow
+                    if rim and rim.width:
+                        rim_clip = plain_clip
+                        if isinstance(piece.clip, _FeatheredSingingClip) and self.secondary_outline and self.secondary_outline.width:
+                            rim_clip = replace(piece.clip, unsung_fill=self.secondary_outline.color,
+                                               unsung_outline=self.secondary_outline.color, unsung_gradient=None,
+                                               front_color=None)
+                        pieces.append(replace(
+                            piece.copy(id=f"{piece.id}/secondary-outline"),
+                            extrusion=None, material=None, filled=False, layer=piece.layer - 1, clip=rim_clip,
+                            state=replace(piece.state, fill=rim.color, outline=rim.color, blur=0,
+                                          border=piece.state.border + rim.width, shadow=Vec2()),
+                        ))
                     if self.strategy == "clip" and isinstance(glow, Glow):
-                        if any(
-                            clip.animation.channels
-                            & frozenset(("fill", "outline", "border", "blur", "shadow"))
-                            for clip in piece.animations
-                        ):
-                            raise ValueError(
-                                "compose existing paint animations with glow explicitly"
-                            )
                         halo = piece.copy(id=f"{piece.id}/glow")
                         halo = replace(
                             halo,
@@ -1049,7 +1080,7 @@ class LyricHighlights:
                             and isinstance(base_glow, Glow)
                             else plain_clip,
                             material=None,
-                            layer=piece.layer - 1,
+                            layer=piece.layer - 1 - int(has_rim),
                             state=replace(
                                 piece.state,
                                 fill=glow.color,

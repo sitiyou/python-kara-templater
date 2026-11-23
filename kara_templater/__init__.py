@@ -29,6 +29,7 @@ from .composition import (
     Color,
     Glow,
     Paint,
+    SecondaryOutline,
 )
 from .coverage_animation import Coverage, CoveragePartition, GlowFunction, ScopeOpacity
 from .cues import (
@@ -322,6 +323,7 @@ __all__ = [
     "GeometryAnimation",
     "GeometryError",
     "Glow",
+    "SecondaryOutline",
     "GlowFunction",
     "ImportSettings",
     "ImportedKaraoke",
