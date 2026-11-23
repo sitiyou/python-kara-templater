@@ -165,7 +165,7 @@ def build() -> Scene:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    result = build().compile()
+    result = build().ass.compile()
     output = parser.parse_args().output
     result.document.save(output)
     print(

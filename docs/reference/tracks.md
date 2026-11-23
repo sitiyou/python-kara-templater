@@ -72,7 +72,7 @@ and soft fronts raise SceneCompileError on ASS export. Hook export uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L910)
+[Source](../../kara_templater/karaoke_effects.py#L960)
 
 ```python
 KaraokeEffects(
@@ -497,7 +497,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L185)
+[Source](../../kara_templater/orchestration.py#L194)
 
 ```python
 LinePlan(
@@ -538,7 +538,7 @@ requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
 
-[Source](../../kara_templater/lyric_line.py#L91)
+[Source](../../kara_templater/lyric_line.py#L92)
 
 ```python
 LyricAnimationContext(
@@ -665,7 +665,7 @@ it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original singing clocks or create animation events.
 
-[Source](../../kara_templater/lyric_line.py#L286)
+[Source](../../kara_templater/lyric_line.py#L287)
 
 ```python
 LyricLine(
@@ -889,7 +889,7 @@ Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
 
-[Source](../../kara_templater/lyric_line.py#L133)
+[Source](../../kara_templater/lyric_line.py#L134)
 
 ```python
 LyricRule(
@@ -935,7 +935,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L196)
+[Source](../../kara_templater/orchestration.py#L205)
 
 ```python
 LyricScene(
@@ -967,23 +967,11 @@ LyricScene.add(
 ) -> Self
 ```
 
-### LyricScene.compile
+### LyricScene.ass
 
-Compile a new ASS Document and reports under explicit Scene budgets.
+Access native ASS export for this scene.
 
-ASS supports native motion and hard clips. Frame sampling, paint fields,
-feathered wipes and coverage groups raise SceneCompileError.
-on_estimate runs after preflight and before frame callbacks; raising
-cancels compilation without changing the scene or source document.
-
-```python
-LyricScene.compile(
-    *,
-    budget: SceneBudget | None = None,
-    native_tweens: bool = True,
-    on_estimate: Callable[[SceneEstimate], None] | None = None,
-) -> SceneResult
-```
+Type: `AssOutput`.
 
 ### LyricScene.evaluator
 
@@ -993,19 +981,36 @@ Construct a seekable world-space evaluator for this scene hierarchy and its refe
 LyricScene.evaluator() -> SceneEvaluator
 ```
 
-### LyricScene.export_hook
+### LyricScene.export
 
 Write a standalone libplacebo .hook for a constant-frame-rate video.
 
-Export animation parameters and sample unsupported intervals on the fps grid.
+Export animation parameters. Unsupported animations raise a compile error.
 Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
 SDR video with matching aspect ratio. Includes glyph masks and effects.
 
 ```python
-LyricScene.export_hook(
+LyricScene.export(
     path: str | pathlib.Path,
+    *,
+    fps: int = 60,
+    start: float = 0,
+    duration: float | None = None,
+) -> None
+```
+
+### LyricScene.export_resources
+
+Publish binary textures and GLSL for a preview host to a new directory.
+
+The clock and rendering contract match export(). Each .bin contains a
+row-aligned texture with dimensions given by textures.json.
+
+```python
+LyricScene.export_resources(
+    directory: str | pathlib.Path,
     *,
     fps: int = 60,
     start: float = 0,
@@ -1018,6 +1023,14 @@ LyricScene.export_hook(
 The bound lyric lines in track/source order.
 
 Type: `tuple[LyricLine, ...]`.
+
+### LyricScene.prepare_hook
+
+Snapshot the scene for repeated window exports with a shared glyph cache.
+
+```python
+LyricScene.prepare_hook() -> PreparedHook
+```
 
 ### LyricScene.replace_source
 
@@ -1038,7 +1051,7 @@ singing intervals remain in lyrics; display is the original ASS visibility.
 An optional chapter groups consecutive sources. The first selected line of a
 chapter starts a fresh row rotation by default, even without a visible cue.
 
-[Source](../../kara_templater/orchestration.py#L57)
+[Source](../../kara_templater/orchestration.py#L64)
 
 ```python
 LyricSource(
@@ -1113,7 +1126,7 @@ Line/syllable centers use body text, so ruby/glow do not shift the pivot.
 source_style is the body cluster's active ASS style, inherited by its readings.
 A factory changing a target's local coordinate origin must update center too.
 
-[Source](../../kara_templater/lyric_line.py#L52)
+[Source](../../kara_templater/lyric_line.py#L53)
 
 ```python
 LyricTarget(
@@ -1231,6 +1244,7 @@ and prefers at least 0.2 seconds of hold. On a shared row, trim excess preview,
 then hold, then scale display-anchored transitions to fit. An explicit tail
 retains rigid animation durations. Singing and authored cue times stay fixed. The visual
 effects receive the measured, unpositioned line once before allocation.
+extrusion gives body and ruby a common solid side in local script pixels.
 LyricRule entries declare timing; callable entries decorate the line in order.
 Rule factories resolve once before decoration and bind to final target aliases.
 Authored visual intervals join occupancy; rule binding follows allocation.
@@ -1249,7 +1263,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L121)
+[Source](../../kara_templater/orchestration.py#L128)
 
 ```python
 Track(
@@ -1275,6 +1289,7 @@ Track(
     right_to_left: bool = False,
     reverse_timing: bool | Callable[[LyricSource], bool] = False,
     palt: bool = False,
+    extrusion: Extrusion | None = None,
 )
 ```
 
@@ -1303,6 +1318,7 @@ Track(
 | `right_to_left` | `bool` | `False` |
 | `reverse_timing` | `bool \| Callable[[LyricSource], bool]` | `False` |
 | `palt` | `bool` | `False` |
+| `extrusion` | `Extrusion \| None` | `None` |
 
 ## lyric_effects
 
@@ -1332,8 +1348,12 @@ bpm supplies a fixed song tempo for automatic cue timing.
 inputs adds structured LyricSource values alongside parsed ASS sources.
 These have no ASS record ownership and must be supplied again to regenerate
 them. The caller's Document and reusable declarations are not mutated.
+preview_interval limits the returned plans and objects to lines or independent
+cues visible in this half-open interval of absolute seconds. Strict rows with bounded catalog effects retain neighboring handoffs
+and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
+or references them from visible objects.
 
-[Source](../../kara_templater/orchestration.py#L428)
+[Source](../../kara_templater/orchestration.py#L521)
 
 ```python
 prepare_tracks(
@@ -1344,5 +1364,6 @@ prepare_tracks(
     inputs: tuple[LyricSource, ...] = (),
     theme: KaraokeTheme = KaraokeTheme(sung=None, unsung=None, sung_outline=None, unsung_outline=None, shine=None),
     bpm: float | None = None,
+    preview_interval: tuple[float, float] | None = None,
 ) -> LyricScene
 ```

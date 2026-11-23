@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field, replace
+from functools import cached_property
 from typing import Literal, Self
 
 from .characters import LayoutCapabilityError
@@ -639,12 +640,8 @@ class LyricLine(ObjectGroup):
         )
         return self._without_selected_ancestors(selected)
 
-    def _without_selected_ancestors(
-        self, selected: tuple[LyricTarget, ...]
-    ) -> tuple[LyricTarget, ...]:
-        selected_nodes = {
-            name for target in selected for name in (target.node_id, *target.aliases)
-        }
+    @cached_property
+    def _parent_ids(self) -> dict[str, str]:
         parents: dict[str, str] = {}
 
         def visit(group: ObjectGroup) -> None:
@@ -656,6 +653,16 @@ class LyricLine(ObjectGroup):
         visit(self)
         for cue in self.independent:
             visit(cue)
+
+        return parents
+
+    def _without_selected_ancestors(
+        self, selected: tuple[LyricTarget, ...]
+    ) -> tuple[LyricTarget, ...]:
+        selected_nodes = {
+            name for target in selected for name in (target.node_id, *target.aliases)
+        }
+        parents = self._parent_ids
 
         def has_selected_parent(node_id: str) -> bool:
             while node_id in parents:
@@ -769,6 +776,8 @@ class LyricLine(ObjectGroup):
         return self._bind(self._resolve(rules))
 
     def _bind(self, bindings: tuple[_LyricBinding, ...]) -> LyricLine:
+        if not bindings:
+            return self
         nodes: dict[str, SceneObject] = {}
 
         def collect(node: SceneObject) -> None:
@@ -787,14 +796,17 @@ class LyricLine(ObjectGroup):
                 additions.setdefault(node.id, []).append(binding.clip(node))
 
         def apply(node: SceneObject) -> SceneObject:
-            animations = (*node.animations, *additions.get(node.id, ()))
+            extra = additions.get(node.id)
             if isinstance(node, ObjectGroup):
+                children = tuple(apply(child) for child in node.children)
+                if not extra and all(a is b for a, b in zip(children, node.children, strict=True)):
+                    return node
                 return replace(
                     node,
-                    animations=animations,
-                    children=tuple(apply(child) for child in node.children),
+                    animations=(*node.animations, *extra) if extra else node.animations,
+                    children=children,
                 )
-            return replace(node, animations=animations)
+            return replace(node, animations=(*node.animations, *extra)) if extra else node
 
         result = apply(self)
         assert isinstance(result, LyricLine)

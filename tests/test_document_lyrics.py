@@ -386,7 +386,7 @@ def test_timed_vector_guide_preserves_ruby_and_singing_in_ass_exports(tmp_path):
     assert glyph.ink_bounds.width == pytest.approx(0.6 * glyph.object.font_size)
     assert layout.ruby[0].body_start == 0
     assert layout.body.singing == tuple(s.singing for u in doc.lyrics_at(index).units for s in u.segments)
-    output = scene.compile().document
+    output = scene.ass.compile().document
     rows = [row for row in output.lines if not row.comment]
     assert all("◆" not in row.text for row in rows)
     assert any(r"\p1" in row.text for row in rows)
@@ -413,7 +413,7 @@ def test_anchored_guides_stay_unsung_on_the_shared_onset():
         id="lyrics", guide_symbols={"◆": VectorGuide(VectorPath.rectangle(0.7, 0.3))},
         effects=(KaraokeEffects(entry="none", exit="none", singing="none", sung=Color(255, 0, 0)),),
     ),))
-    script = scene.compile(native_tweens=True).document.dumps()
+    script = scene.ass.compile(native_tweens=True).document.dumps()
     def has_red(ms):
         frame = rasterize(script, ms, (640, 360)).rgba
         return any(r > 180 and g < 80 and a > 180
@@ -446,7 +446,7 @@ def test_vertical_track_catalog_wipes_down_across_two_cells_and_rotated_text():
                            unsung=Color(255, 255, 255), sung=Color(255, 0, 0))
     scene = prepare_tracks(doc, tracks=(Track(id="main", vertical=True, effects=(recipe,)),))
     assert scene.plans[0].line.layout.body.characters[1].object.state.rotation == 90
-    ass = scene.compile(native_tweens=True).document.dumps()
+    ass = scene.ass.compile(native_tweens=True).document.dumps()
     def last_red_row(ms):
         raster = rasterize(ass, ms, (doc.meta.res_x, doc.meta.res_y))
         return max((i // (4 * doc.meta.res_x) for i in range(0, len(raster.rgba), 4)
@@ -491,7 +491,7 @@ def test_native_vertical_wipe_rounds_the_front_at_the_half_pixel_crossing():
     glyph = plan.line.layout.body.characters[0]
     cell = glyph.bounds
     x = round(plan.placement.position.x + cell.center)
-    ass = scene.compile(native_tweens=True).document.dumps()
+    ass = scene.ass.compile(native_tweens=True).document.dumps()
     for ms in range(1400, 1451, 10):
         front = round(plan.placement.position.y + cell.top + (ms - 1000) * cell.height / 1000)
         frame = rasterize(ass, ms, (doc.meta.res_x, doc.meta.res_y))

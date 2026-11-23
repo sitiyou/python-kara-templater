@@ -51,8 +51,8 @@ def values_and_render(document: Document, item: KaraokeItem, track: Track) -> No
     assert_type(there_and_back(peak_at=0.2), BackRate)
     prepared = prepare_tracks(document, tracks=(track,))
     assert_type(prepared, LyricScene)
-    assert_type(prepared.compile(), SceneResult)
+    assert_type(prepared.ass.compile(), SceneResult)
     assert_type(
-        prepared.compile().event_origins, tuple[tuple[Line, EventOrigin | None], ...]
+        prepared.ass.compile().event_origins, tuple[tuple[Line, EventOrigin | None], ...]
     )
     assert_type(layout_line(item.source, style=Style()).box.width, float)

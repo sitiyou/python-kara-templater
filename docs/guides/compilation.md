@@ -3,7 +3,7 @@
 These reports describe standard ASS event generation. For standalone shaders
 and playback options, see [Choose an output](choosing-output.md).
 
-Scene.compile returns a SceneResult containing the output Document, per-object
+Scene.ass.compile returns a SceneResult containing the output Document, per-object
 reports, event_count, peak_active, byte_count, estimated_events,
 max_time_quantization, diagnostics, and generated event_origins. Preparation and
 compilation preserve caller-owned source objects.

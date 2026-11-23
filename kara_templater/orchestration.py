@@ -27,7 +27,7 @@ from .document_lyrics import DocumentLyrics, parse_document_lyrics
 from .document_text import DocumentText
 from .geometry import Vec2, finite
 from .import_ass import SOURCE_PREFIX, SourceBinding, source_marker, source_prefix
-from .karaoke_effects import KaraokeEffects
+from .karaoke_effects import KaraokeEffects, _transition_window
 from .lyric_highlights import LyricGradient, LyricHighlights, _style_material
 from .lyric_layout import (
     KaraokeRows,
@@ -41,8 +41,15 @@ from .lyric_layout import (
 from .lyric_line import LyricLine, LyricRule, _LyricBinding
 from .lyric_particles import LyricParticles
 from .model import Box
+from .paint_fields import Extrusion
 from .scene import Lifetime, ObjectGroup, Scene, SceneObject
-from .scene_animation import StateAnimation, StateFunction, TimeSpan
+from .scene_animation import (
+    ShaderMotion,
+    StateAnimation,
+    StateFunction,
+    TimeSpan,
+    Transform,
+)
 from .scene_lyrics import (
     LyricLayout,
     StudioSpacing,
@@ -129,6 +136,7 @@ class Track:
     then hold, then scale display-anchored transitions to fit. An explicit tail
     retains rigid animation durations. Singing and authored cue times stay fixed. The visual
     effects receive the measured, unpositioned line once before allocation.
+    extrusion gives body and ruby a common solid side in local script pixels.
     LyricRule entries declare timing; callable entries decorate the line in order.
     Rule factories resolve once before decoration and bind to final target aliases.
     Authored visual intervals join occupancy; rule binding follows allocation.
@@ -169,6 +177,7 @@ class Track:
     right_to_left: bool = False
     reverse_timing: bool | Callable[[LyricSource], bool] = False
     palt: bool = False
+    extrusion: Extrusion | None = None
 
     def __post_init__(self) -> None:
         finite(self.preview, self.tail or 0, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
@@ -315,7 +324,10 @@ def _visual_spans(line: LyricLine) -> tuple[TimeSpan, ...]:
     return tuple(spans)
 
 
-def _stamp(node: SceneObject, source: str, track: str) -> SceneObject:
+def _stamp(
+    node: SceneObject, source: str, track: str,
+    extrusion: Extrusion | None = None, glyphs: frozenset[str] = frozenset(),
+) -> SceneObject:
     previous = node.origin
     origin = EventOrigin(
         (SourceRef(source),)
@@ -328,8 +340,10 @@ def _stamp(node: SceneObject, source: str, track: str) -> SceneObject:
         return replace(
             node,
             origin=origin,
-            children=tuple(_stamp(child, source, track) for child in node.children),
+            children=tuple(_stamp(child, source, track, extrusion, glyphs) for child in node.children),
         )
+    if extrusion is not None and node.id in glyphs:
+        return replace(node, origin=origin, extrusion=extrusion)
     return replace(node, origin=origin)
 
 
@@ -377,6 +391,12 @@ def _cue_presets(
 
 
 def _animation_prefix(animation: StateAnimation, fraction: float) -> StateAnimation:
+    from ._karaoke_motion import ZoomScale
+
+    if isinstance(animation, Transform) and isinstance(animation.scale, ZoomScale):
+        return replace(animation, scale=replace(animation.scale, duration=animation.scale.duration * fraction))
+    if isinstance(animation, ShaderMotion):
+        return replace(animation, progress_scale=animation.progress_scale * fraction)
     return StateFunction(lambda base, t: animation.sample(base, t * fraction), animation.channels)
 
 
@@ -425,6 +445,79 @@ def _row_metrics(layout: LyricLayout, bounds: Box, border: float) -> _RowMetrics
     return _RowMetrics(baseline, baseline - body_top, bottom - baseline, body_top - top)
 
 
+def _preview_slice(
+    sources: list[LyricSource], track: Track, layout: Layout | KaraokeRows, window: Lifetime,
+) -> slice:
+    """Keep strict row rotation, co-visible row heights and adjacent handoffs."""
+    if (type(layout) is not Layout or layout.policy != "strict" or layout.reset_after is not None
+            or track.tail is not None or track.cues or track.guide_symbols or track.vertical
+            or track.reverse_timing or not isinstance(track.tags, frozenset) or len(track.effects) > 1):
+        return slice(0, None)
+    entry = exit = release = 0.0
+    for effect in track.effects:
+        if (type(effect) is not KaraokeEffects or effect.entry not in {"none", "fade", "tilt_pop"}
+                or effect.exit not in {"none", "fade", "spin_flip"}
+                or effect.singing not in {"none", "zoom_pulse"}
+                or effect.decoration != "none" or effect.stroke_flash or effect.glow or effect.base_glow
+                or any(m is not None and type(m) is not LyricGradient for m in (effect.material, effect.base_material))):
+            return slice(0, None)
+        entry += _transition_window(effect.entry, effect.entry_duration, entering=True)
+        exit += _transition_window(effect.exit, effect.exit_duration, entering=False)
+        release += 0.30 if effect.singing == "zoom_pulse" else 0
+    lanes: dict[int, list[int]] = {}
+    windows: list[tuple[float, float]] = []
+    singing: list[tuple[float, float]] = []
+    styles: set[str] = set()
+    row = 0
+    for i, source in enumerate(sources):
+        body = source.lyrics.body
+        if source.record_index is not None or body.cues or not body.text.strip():
+            return slice(0, None)
+        styles.update(run.appearance.style for run in body.runs)
+        # With automatic row gaps the global maximum body font size affects
+        # even windows that contain just one line. Keep the full batch if it varies.
+        if layout.gap is None and len(styles) > 1:
+            return slice(0, None)
+        spans = [seg.singing for unit in source.lyrics.units for seg in unit.segments]
+        if not spans:
+            return slice(0, None)
+        lo, hi = min(s.start for s in spans), max(s.end for s in spans)
+        singing.append((lo, hi))
+        windows.append((min(source.display.start - track.preview, lo - max(track.preview, entry)),
+                        max(source.display.end, hi + 1) + exit + release + entry))
+        if layout.reset_on_lead and source.chapter is not None and (i == 0 or source.chapter != sources[i - 1].chapter):
+            row = 0
+        lanes.setdefault(row, []).append(i)
+        row = (row + 1) % layout.rows
+    # Same-row neighbors must retain their singing intervals. This tightens
+    # the visibility bounds even before shaping or exact adaptive handoff.
+    for indices in lanes.values():
+        for prev, nxt in zip(indices, indices[1:], strict=False):
+            windows[prev] = (windows[prev][0], min(windows[prev][1], singing[nxt][0]))
+            windows[nxt] = (max(windows[nxt][0], singing[prev][1]), windows[nxt][1])
+    needed = {i for i, (a, b) in enumerate(windows) if a < window.end and window.start < b}
+    if not needed:
+        return slice(0, 0)
+    if layout.gap is None:
+        # A row's vertical offset depends only on overlapping lower-numbered
+        # rows. Walk those dependencies in descending row order.
+        for row in sorted(lanes, reverse=True):
+            peers = [windows[i] for i in lanes[row] if i in needed]
+            for lower, indices in lanes.items():
+                if lower < row:
+                    needed.update(i for i in indices if any(
+                        windows[i][0] < b and a < windows[i][1] for a, b in peers
+                    ))
+    neighbors = set(needed)
+    for indices in lanes.values():
+        for j, i in enumerate(indices):
+            if i in needed:
+                neighbors.update(indices[max(0, j - 1):j + 2])
+    earliest = min(neighbors)
+    first = max(i for i in lanes[0] if i <= earliest)
+    return slice(first, max(neighbors) + 1)
+
+
 def prepare_tracks(
     document: Document,
     *,
@@ -433,6 +526,7 @@ def prepare_tracks(
     inputs: tuple[LyricSource, ...] = (),
     theme: KaraokeTheme = _EMPTY_THEME,
     bpm: float | None = None,
+    preview_interval: tuple[float, float] | None = None,
 ) -> LyricScene:
     """Measure, allocate and bind independent tracks into one ordinary Scene.
 
@@ -445,7 +539,12 @@ def prepare_tracks(
     inputs adds structured LyricSource values alongside parsed ASS sources.
     These have no ASS record ownership and must be supplied again to regenerate
     them. The caller's Document and reusable declarations are not mutated.
+    preview_interval limits the returned plans and objects to lines or independent
+    cues visible in this half-open interval of absolute seconds. Strict rows with bounded catalog effects retain neighboring handoffs
+    and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
+    or references them from visible objects.
     """
+    window = Lifetime(*preview_interval) if preview_interval is not None else None
     _validate_bpm(bpm)
     if not owner:
         raise ValueError("lyric scene owner cannot be empty")
@@ -486,6 +585,9 @@ def prepare_tracks(
                 default=source.display.start,
             ),
         )
+        selection = _preview_slice(selected, track, layout, window) if window else slice(0, None)
+        original = selected
+        selected = selected[selection]
         view = Document([*source_document.records, *track.styles], source_document.meta)
         allocation_inputs: list[LayoutLine] = []
         prepared: dict[str, LyricLine] = {}
@@ -500,7 +602,7 @@ def prepare_tracks(
             ]
         )
         recipe = next((e for e in track.effects if isinstance(e, KaraokeEffects)), None)
-        for track_index, source in enumerate(selected):
+        for track_index, source in enumerate(selected, start=selection.start):
             identity = f"track:{quote(track.id, safe='')}/{source.id}"
             reverse = track.reverse_timing(source) if callable(track.reverse_timing) else track.reverse_timing
             lyrics = source.lyrics._reverse_timing() if reverse else source.lyrics
@@ -545,10 +647,11 @@ def prepare_tracks(
             role_style = next((g.source_style for g in bare.body.characters if g.object.text.strip()), None)
             local_presets = _cue_presets(track.cues, recipe, role_style, palette, bpm)
             cued = bind_lyric_cues(bare, local_presets, bpm=bpm)
-            bindings = LyricLine.from_layout(
+            line = LyricLine.from_layout(
                 cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
                 track_index=track_index,
-            )._resolve(
+            )
+            bindings = line._resolve(
                 tuple(
                     effect for effect in track.effects if isinstance(effect, LyricRule)
                 )
@@ -576,11 +679,12 @@ def prepare_tracks(
                 display = Lifetime(
                     min(display.start, reserved.start), max(display.end, reserved.end)
                 )
-            cued = bind_lyric_cues(_retime(bare, display), local_presets, bpm=bpm)
-            line = LyricLine.from_layout(
-                cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
-                track_index=track_index,
-            )
+            if display != bare.body.lifetime:
+                cued = bind_lyric_cues(_retime(bare, display), local_presets, bpm=bpm)
+                line = LyricLine.from_layout(
+                    cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
+                    track_index=track_index,
+                )
             line = replace(line, _at_placement=())
             # Catalog paint, singing releases and particle tails may be clipped
             # with their host. Keep independently authored effects and cues fixed.
@@ -669,7 +773,8 @@ def prepare_tracks(
                 min(display.start, line.lifetime.start),
                 max(display.end, line.lifetime.end),
             )
-            line = line.with_display(display)
+            if line.lifetime != display:
+                line = line.with_display(display)
             prepared[identity] = line
             cue_bounds = tuple(
                 Box(
@@ -723,7 +828,7 @@ def prepare_tracks(
                     cues=source.lyrics.body.cues,
                     lead=bool(source.lyrics.body.cues) or (
                         source.chapter is not None and (
-                            track_index == 0 or source.chapter != selected[track_index - 1].chapter
+                            track_index == 0 or source.chapter != original[track_index - 1].chapter
                         )
                     ),
                     reserved=reserved,
@@ -740,7 +845,25 @@ def prepare_tracks(
         by_id = {placement.id: placement for placement in placements}
         for source, item in zip(selected, batch, strict=True):
             placement = by_id[item.id]
-            line = prepared[item.id].with_display(placement.display)
+            line = prepared[item.id]
+            if source.record_index is not None:
+                scene.replace_source(source.record_index)
+                record = source_document.records[source.record_index]
+                assert isinstance(record, Line)
+                source_document.records[source.record_index] = replace(
+                    record,
+                    effect=source_marker(
+                        owner,
+                        SourceBinding(source.record_index, source.id, source.effect),
+                    ),
+                )
+            if window is not None and not any(
+                lifetime.start < window.end and window.start < lifetime.end
+                for lifetime in (placement.display, *(cue.lifetime for cue in line.independent))
+            ):
+                continue
+            if line.lifetime != placement.display:
+                line = line.with_display(placement.display)
             entry_scale = exit_scale = 1.0
             if item._adaptive_handoff:
                 if item.entrance:
@@ -756,7 +879,9 @@ def prepare_tracks(
                     line.state, position=line.state.position + placement.position
                 ),
             )
-            stamped = _stamp(line, source.id, track.id)
+            glyphs = (frozenset(t.node_id for t in line.query("character", "ruby"))
+                      if track.extrusion else frozenset())
+            stamped = _stamp(line, source.id, track.id, track.extrusion, glyphs)
             assert isinstance(stamped, LyricLine)
             independent = tuple(
                 _stamp(
@@ -799,17 +924,6 @@ def prepare_tracks(
                                       duration=duration, offset=binding.offset * scale, hold=hold))
             line = line._bind(tuple(fitted))
             scene.add(*line.objects)
-            if source.record_index is not None:
-                scene.replace_source(source.record_index)
-                record = source_document.records[source.record_index]
-                assert isinstance(record, Line)
-                source_document.records[source.record_index] = replace(
-                    record,
-                    effect=source_marker(
-                        owner,
-                        SourceBinding(source.record_index, source.id, source.effect),
-                    ),
-                )
             plans.append(LinePlan(track.id, source, item, placement, line))
     for source in sources:
         index = source.record_index

@@ -69,10 +69,10 @@ def test_missing_and_cyclic_references_fail_before_callbacks():
         ),
     )
     with pytest.raises(SceneCompileError, match="missing visual dependency"):
-        Scene(Document.create()).add(a).compile()
+        Scene(Document.create()).add(a).ass.compile()
     b = text("b", reference=FollowObject("a", delay=1))
     with pytest.raises(SceneCompileError, match="dependency cycle"):
-        Scene(Document.create()).add(a, b).compile()
+        Scene(Document.create()).add(a, b).ass.compile()
     group = ObjectGroup(
         id="group",
         lifetime=Lifetime(0, 3),
@@ -80,7 +80,7 @@ def test_missing_and_cyclic_references_fail_before_callbacks():
         children=(text("child"),),
     )
     with pytest.raises(SceneCompileError, match="dependency cycle"):
-        Scene(Document.create()).add(group).compile()
+        Scene(Document.create()).add(group).ass.compile()
 
 
 def test_custom_reference_declares_inputs_channels_and_breakpoints():

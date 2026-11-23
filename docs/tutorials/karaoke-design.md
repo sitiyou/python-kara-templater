@@ -52,9 +52,5 @@ using a combination throughout a song. Particle density is per timed glyph, so
 an English word containing several independently drawable letters can emit more
 particles than one Japanese character with the same duration.
 
-The [catalog renderer](../../tools/render_karaoke_catalog.py) contains the exact
-four configurations and produces each as a standalone video. Its previews use
-original text, not downloaded reference footage. Reference motion was inspected
-using the local Studio QPainter fallback; different font/rasterizer output and
-our documented timing differences mean these are visual-family adaptations.
+Try these combinations in the [karaoke catalog example](../../examples/karaoke_catalog.py).
 

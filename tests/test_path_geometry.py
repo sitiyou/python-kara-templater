@@ -113,10 +113,10 @@ def test_text_outline_matches_nominal_ink_and_preserves_source(alignment: int):
     assert path.state is node.state and path.lifetime is node.lifetime
     assert path.origin is node.origin
     actual = rasterize(
-        Scene(document()).add(path).compile().document.dumps(), 0, (640, 360)
+        Scene(document()).add(path).ass.compile().document.dumps(), 0, (640, 360)
     )
     expected = rasterize(
-        Scene(document()).add(node).compile().document.dumps(), 0, (640, 360)
+        Scene(document()).add(node).ass.compile().document.dumps(), 0, (640, 360)
     )
     aa, ea = actual.rgba[3::4], expected.rgba[3::4]
     # Curves converted from native outlines use different raster hinting than text.
@@ -132,7 +132,7 @@ def test_vector_replacement_retains_clip_clock_and_hollow_center():
     node = TextObject(id="slot", text=" ", lifetime=Lifetime(0, 3), clock_start=1,
                       clip=clip, filled=False, state=VisualState(position=Vec2(20, 20), border=2))
     guide = text_to_path(node, path=VectorPath.rectangle(32, 32))
-    script = Scene(document()).add(guide).compile(native_tweens=True).document.dumps()
+    script = Scene(document()).add(guide).ass.compile(native_tweens=True).document.dumps()
     for ms, visible in ((2200, True), (500, False), (1500, True)):
         alpha = rasterize(script, ms, (640, 360)).rgba[3::4]
         assert bool(alpha[19 * 640 + 24]) == visible
@@ -184,7 +184,7 @@ def test_ass_rejects_geometry_before_callback_execution():
         deform=PathFunction(fail, max_points=5000),
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(document()).add(node).compile()
+        Scene(document()).add(node).ass.compile()
 
 
 def test_geometry_sampler_morph_and_timing():

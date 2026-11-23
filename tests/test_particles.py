@@ -104,7 +104,7 @@ def test_move_along_native_linear_and_curve_tangent():
         path=VectorPath.rectangle(2, 2),
         animations=(AnimationClip(0, 2, motion),),
     )
-    result = Scene(Document.create()).add(node).compile()
+    result = Scene(Document.create()).add(node).ass.compile()
     assert result.event_count == 1
     assert result.objects[0].strategy == "native-move"
     assert node.at(1).position == Vec2(50, 0)

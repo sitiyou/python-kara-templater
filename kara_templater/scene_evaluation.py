@@ -25,6 +25,12 @@ class SceneReferenceError(ValueError):
 
 
 def compose_states(parent: VisualState, child: VisualState) -> VisualState:
+    if (parent.scale.x == parent.scale.y == 1 and parent.rotation == 0
+            and parent.skew.x == parent.skew.y == 0):
+        if parent.position.x == parent.position.y == 0 and parent.opacity == 1:
+            return child
+        return replace(child, position=parent.position + child.position,
+                       opacity=parent.opacity * child.opacity)
     position = parent.transform.apply(child.position)
     # Preserve the existing decomposed channels when no shear is introduced.
     if (

@@ -56,10 +56,10 @@ def test_every_menu_choice_compiles_and_retains_source_timing(field, name):
     ] == pytest.approx([1.4, 1.75, 1.75, 2.1, 2.1, 2.8, 2.8, 4.2])
     native = name in {"none", "fade", "no_wipe"}
     if native:
-        assert scene.compile().event_count > 0
+        assert scene.ass.compile().event_count > 0
     else:
         with pytest.raises(SceneCompileError, match="ASS does not support"):
-            scene.compile()
+            scene.ass.compile()
     assert scene.lines[0].layout.lyrics == original
     frames = SceneFrames(scene)
     assert frames.at(1.6)
@@ -137,7 +137,7 @@ def test_char_fade_changes_with_playback_time_inside_one_sampling_interval():
     scene = subject(text=r"{\k50}H", end=1500, entry="char_fade", exit="char_fade",
                     singing="none", entry_duration=0.6, exit_duration=0.6)
     line, = scene.lines
-    script = scene.compile(native_tweens=True, budget=SceneBudget(fps=25)).document.dumps()
+    script = scene.ass.compile(native_tweens=True, budget=SceneBudget(fps=25)).document.dumps()
 
     def coverage(ms):
         return sum(rasterize(script, ms, (640, 360)).rgba[3::4])
@@ -518,7 +518,7 @@ def test_character_fade_composites_the_waiting_and_sung_colors():
                     exit="char_fade", exit_duration=0.6, singing="none",
                     unsung=Color(0, 0, 255), sung=Color(255, 0, 0),
                     unsung_outline=Color(0, 0, 0), sung_outline=Color(0, 0, 0))
-    script = scene.compile(native_tweens=True).document.dumps()
+    script = scene.ass.compile(native_tweens=True).document.dumps()
     end = round(1000 * scene.lines[0].lifetime.end)
 
     def two_inks(ms):
@@ -662,7 +662,7 @@ def test_no_wipe_is_instant_including_zero_length_notes():
         singing="no_wipe",
         unsung=Color(100, 100, 100),
     )
-    assert scene.compile(native_tweens=True).event_count > 0
+    assert scene.ass.compile(native_tweens=True).event_count > 0
     target = scene.lines[0].query("character")[0]
     nodes = {n.id: n for n in _walk(scene.lines[0])}
     before = nodes[target.node_id]
@@ -810,7 +810,7 @@ def test_scanline_colors_the_visible_second_outline(motion, front):
         scene = subject(text=r"{\k100}Q", singing=singing, entry="none", exit="none",
                         base_glow=glow, glow=glow, scanline_width=16, scanline_softness=0,
                         scanline_color=Color(0, 255, 255))
-        return rasterize(scene.compile(native_tweens=True).document.dumps(), 1500, (640, 360)).rgba
+        return rasterize(scene.ass.compile(native_tweens=True).document.dumps(), 1500, (640, 360)).rgba
 
     plain, band = render(motion), render(front)
     outer = [i for i in range(0, len(plain), 4) if plain[i:i + 4] == bytes((182, 50, 86, 255))]
@@ -1050,7 +1050,7 @@ def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass():
         scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
                         singing="none", ruby_scanline="both", sung_outline=Color(30, 40, 50),
                         scanline_color=Color(0, 255, 255), scanline_width=16, scanline_softness=4)
-        return rasterize(scene.compile().document.dumps(), ms, (640, 360)).rgba
+        return rasterize(scene.ass.compile().document.dumps(), ms, (640, 360)).rgba
 
     short = frame(r"{\k10}空|そ{\k40}#|ら", 1100)
     equal = frame(r"{\k25}空|そ{\k25}#|ら", 1250)
@@ -1066,7 +1066,7 @@ def test_reading_clock_spends_half_the_note_on_each_host_glyph(reverse):
                     singing="none", ruby_reading_units=True, reverse_wipe=reverse,
                     sung=Color(255, 0, 0), unsung=Color(0, 0, 255),
                     sung_outline=Color(255, 0, 0), unsung_outline=Color(0, 0, 255))
-    ass = scene.compile(native_tweens=True).document.dumps()
+    ass = scene.ass.compile(native_tweens=True).document.dumps()
     frame = rasterize(ass, 1500, (640, 360)).rgba
     bottom = max(i // (640 * 4) for i in range(3, len(frame), 4) if frame[i])
     # At the handoff one complete glyph should be red and the other blue.
@@ -1114,7 +1114,7 @@ def test_ruby_character_clock_holds_body_at_three_quarters_through_empty_part():
     def body(text, times):
         scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
                         singing="none", ruby_reading_units=True, sung_outline=Color(30, 40, 50))
-        ass = scene.compile(native_tweens=True).document.dumps()
+        ass = scene.ass.compile(native_tweens=True).document.dumps()
         frames = [rasterize(ass, ms, (640, 360)).rgba for ms in times]
         # Ruby and body occupy separate rows. Compare the body including both outlines.
         bottom = max(i // (640 * 4) for i in range(3, len(frames[0]), 4) if frames[0][i])
@@ -1140,7 +1140,7 @@ def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, 
     recipe = KaraokeEffects(entry="none", exit="none", singing="none", reverse_wipe=reverse, sung=Color(255, 0, 0),
                             unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
     scene = prepare_tracks(doc, tracks=(Track(id="main", preview=0, tail=1, effects=(recipe,)),))
-    script = scene.compile().document.dumps()
+    script = scene.ass.compile().document.dumps()
 
     def red_pixels(script, ms):
         rgba = rasterize(script, ms, (640, 360)).rgba
@@ -1167,7 +1167,7 @@ def test_ruby_color_switch_at_the_annotation_boundary(tmp_path, mode, ticks, exp
                    for i in range(0, len(ruby), 4))
 
     times = (1000, 1200 if ticks else 1010, 1500)
-    script = scene.compile().document.dumps()
+    script = scene.ass.compile().document.dumps()
     assert tuple(ruby_has_red(script, ms) for ms in times) == expected
 
 
@@ -1279,7 +1279,7 @@ def test_track_reverses_windows_before_cues_readings_and_rule_binding(tmp_path):
     assert reverse.independent[0].lifetime.end == 1.5
     assert forward.independent[0].lifetime.end == 5.5
     assert scene.plans[0].source.lyrics.units[-1].segments[0].singing.start == 2.5
-    assert scene.compile(native_tweens=True).event_count > 0
+    assert scene.ass.compile(native_tweens=True).event_count > 0
 
 
 @pytest.mark.parametrize("reverse", [False, True])
@@ -1295,7 +1295,7 @@ def test_rtl_cells_keep_glyphs_upright_and_wipe_from_the_first_sung_side(tmp_pat
     first, second = line.layout.body.characters
     assert first.object.text == "H" and first.bounds.left > second.bounds.left
     assert first.object.state.scale.x > 0 and second.object.state.scale.x > 0
-    script = scene.compile().document.dumps()
+    script = scene.ass.compile().document.dumps()
     rgba = rasterize(script, 1250, (320, 180)).rgba
     pixels = list(zip(rgba[::4], rgba[1::4], rgba[2::4], rgba[3::4], strict=True))
     red = [i % 320 for i, c in enumerate(pixels) if c == (255, 0, 0, 255)]
@@ -1338,7 +1338,7 @@ def test_utopia_keeps_canvas_band_width_during_the_note():
     recipe = KaraokeEffects(entry="none", exit="none", singing="utopia_scanline",
                             scanline_width=32, scanline_softness=0, scanline_color=Color(0, 255, 255))
     scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
-    ass = scene.compile(native_tweens=True).document.dumps()
+    ass = scene.ass.compile(native_tweens=True).document.dumps()
     for ms in (1250, 1450, 1700):
         rgba = rasterize(ass, ms, (640, 360)).rgba
         bright = {i // 4 % 640 for i in range(0, len(rgba), 4)

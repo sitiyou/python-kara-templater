@@ -59,7 +59,7 @@ def main() -> None:
         lifetime=Lifetime(2, 3),
         state=replace(glyph.state, opacity=0.8),
     )
-    result = Scene(document).add(glyph, ramp, after).compile(native_tweens=True)
+    result = Scene(document).add(glyph, ramp, after).ass.compile(native_tweens=True)
     assert any(item.strategy == "native-tween" for item in result.objects)
     result.document.save(output / "native.ass")
     reference = Document.create(width=640, height=480, styles=(style,))

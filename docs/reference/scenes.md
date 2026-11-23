@@ -6,12 +6,12 @@ Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile
 
 ## Contents
 
-- [CoverageEstimate](#coverageestimate)
 - [Lifetime](#lifetime)
 - [NativeEvent](#nativeevent)
 - [ObjectGroup](#objectgroup)
 - [ObjectReport](#objectreport)
 - [PathObject](#pathobject)
+- [PreparedHook](#preparedhook)
 - [RectangleClip](#rectangleclip)
 - [RectangleFunction](#rectanglefunction)
 - [RectangleKeyframes](#rectanglekeyframes)
@@ -26,34 +26,6 @@ Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile
 - [TextObject](#textobject)
 - [VectorClip](#vectorclip)
 - [VisualNode](#visualnode)
-- [compile_scene](#compile_scene)
-
-## CoverageEstimate
-
-Callback-free coverage work counts, before pixels or ASS rectangles exist.
-
-frames includes declared breakpoints; target_samples is frames times drawable
-leaves. Neither predicts encoded event count, memory use, or elapsed time.
-
-[Source](../../kara_templater/scene_output.py#L116)
-
-```python
-CoverageEstimate(
-    id: str,
-    frames: int,
-    target_samples: int,
-    max_channel_error: int,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `id` | `str` | `required` |
-| `frames` | `int` | `required` |
-| `target_samples` | `int` | `required` |
-| `max_channel_error` | `int` | `required` |
 
 ## Lifetime
 
@@ -62,7 +34,7 @@ An absolute half-open seconds interval with 0 <= start < end.
 Parent lifetimes further restrict child visibility without changing local
 animation clocks.
 
-[Source](../../kara_templater/scene.py#L34)
+[Source](../../kara_templater/scene.py#L35)
 
 ```python
 Lifetime(
@@ -95,7 +67,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L536)
+[Source](../../kara_templater/scene.py#L545)
 
 ```python
 NativeEvent(
@@ -120,7 +92,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
 
-[Source](../../kara_templater/scene.py#L444)
+[Source](../../kara_templater/scene.py#L453)
 
 ```python
 ObjectGroup(
@@ -209,11 +181,9 @@ Type: `float`.
 
 ## ObjectReport
 
-Per-object output strategy, event count, source origin, sample interval, and observed geometry/band costs.
+ASS lowering strategy, source origin, event count and observed geometry costs.
 
-Optional metrics apply only to relevant strategies.
-
-[Source](../../kara_templater/scene_output.py#L142)
+[Source](../../kara_templater/scene_output.py#L123)
 
 ```python
 ObjectReport(
@@ -221,12 +191,8 @@ ObjectReport(
     strategy: str,
     events: int,
     origin: EventOrigin | None,
-    sample_interval: float | None = None,
     peak_path_points: int | None = None,
-    peak_bands: int | None = None,
     peak_clip_points: int | None = None,
-    sample_times: tuple[float, ...] = (),
-    max_channel_error: int = 0,
 )
 ```
 
@@ -238,12 +204,8 @@ ObjectReport(
 | `strategy` | `str` | `required` |
 | `events` | `int` | `required` |
 | `origin` | `EventOrigin \| None` | `required` |
-| `sample_interval` | `float \| None` | `None` |
 | `peak_path_points` | `int \| None` | `None` |
-| `peak_bands` | `int \| None` | `None` |
 | `peak_clip_points` | `int \| None` | `None` |
-| `sample_times` | `tuple[float, ...]` | `()` |
-| `max_channel_error` | `int` | `0` |
 
 ## PathObject
 
@@ -253,7 +215,7 @@ Coordinates are local to its local origin and parent transforms. Set filled=Fals
 for an outline-only drawing. The border radius uses script pixels by default.
 With scale_border=True the radius is measured in local path coordinates.
 
-[Source](../../kara_templater/scene.py#L405)
+[Source](../../kara_templater/scene.py#L412)
 
 ```python
 PathObject(
@@ -272,6 +234,8 @@ PathObject(
     deform: GeometryAnimation | None = None,
     filled: bool = True,
     scale_border: bool = False,
+    shader_paint: ShaderPaint | None = None,
+    extrusion: Extrusion | None = None,
 )
 ```
 
@@ -293,6 +257,8 @@ PathObject(
 | `deform` | `GeometryAnimation \| None` | `None` |
 | `filled` | `bool` | `True` |
 | `scale_border` | `bool` | `False` |
+| `shader_paint` | `ShaderPaint \| None` | `None` |
+| `extrusion` | `Extrusion \| None` | `None` |
 
 ### PathObject.animate
 
@@ -354,13 +320,65 @@ Absolute seconds origin for local animation, geometry and paint clocks.
 
 Type: `float`.
 
+## PreparedHook
+
+Reusable snapshot for sequential exports at arbitrary positions and frame rates.
+
+Prepare a new snapshot after changing the scene. Window exports share measured
+masks and the resolved object hierarchy. Each output has its own playback clock.
+
+[Source](../../kara_templater/scene.py#L630)
+
+```python
+PreparedHook(
+    scene: Scene,
+)
+```
+
+### PreparedHook.export
+
+Write a standalone libplacebo .hook for a constant-frame-rate video.
+
+Export animation parameters. Unsupported animations raise a compile error.
+Start is frame-aligned in seconds. mpv uses media PTS;
+the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
+subsequent frames pass through. Render at the exported fps on an opaque
+SDR video with matching aspect ratio. Includes glyph masks and effects.
+
+```python
+PreparedHook.export(
+    path: str | pathlib.Path,
+    *,
+    fps: int = 60,
+    start: float = 0,
+    duration: float | None = None,
+) -> None
+```
+
+### PreparedHook.export_resources
+
+Publish binary textures and GLSL for a preview host to a new directory.
+
+The clock and rendering contract match export(). Each .bin contains a
+row-aligned texture with dimensions given by textures.json.
+
+```python
+PreparedHook.export_resources(
+    directory: str | pathlib.Path,
+    *,
+    fps: int = 60,
+    start: float = 0,
+    duration: float | None = None,
+) -> None
+```
+
 ## RectangleClip
 
 A positive-area normal or inverse rectangle in screen or object-local space.
 
 Optional deformation evaluates local seconds and can produce an empty mask.
 
-[Source](../../kara_templater/scene.py#L152)
+[Source](../../kara_templater/scene.py#L153)
 
 ```python
 RectangleClip(
@@ -392,7 +410,7 @@ Pure signed-local-seconds rectangle bounds; None denotes an empty mask.
 
 The owning object validates breakpoint times against its absolute clock.
 
-[Source](../../kara_templater/scene.py#L55)
+[Source](../../kara_templater/scene.py#L56)
 
 ```python
 RectangleFunction(
@@ -428,7 +446,7 @@ the first is the left limit and the second takes effect at that time.
 Zero width or height is an empty mask, with its coordinates retained for
 interpolation. The owning object validates absolute breakpoint times.
 
-[Source](../../kara_templater/scene.py#L82)
+[Source](../../kara_templater/scene.py#L83)
 
 ```python
 RectangleKeyframes(
@@ -477,7 +495,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L554)
+[Source](../../kara_templater/scene.py#L563)
 
 ```python
 Scene(
@@ -507,23 +525,11 @@ Scene.add(
 ) -> Self
 ```
 
-### Scene.compile
+### Scene.ass
 
-Compile a new ASS Document and reports under explicit Scene budgets.
+Access native ASS export for this scene.
 
-ASS supports native motion and hard clips. Frame sampling, paint fields,
-feathered wipes and coverage groups raise SceneCompileError.
-on_estimate runs after preflight and before frame callbacks; raising
-cancels compilation without changing the scene or source document.
-
-```python
-Scene.compile(
-    *,
-    budget: SceneBudget | None = None,
-    native_tweens: bool = True,
-    on_estimate: Callable[[SceneEstimate], None] | None = None,
-) -> SceneResult
-```
+Type: `AssOutput`.
 
 ### Scene.evaluator
 
@@ -533,24 +539,49 @@ Construct a seekable world-space evaluator for this scene hierarchy and its refe
 Scene.evaluator() -> SceneEvaluator
 ```
 
-### Scene.export_hook
+### Scene.export
 
 Write a standalone libplacebo .hook for a constant-frame-rate video.
 
-Export animation parameters and sample unsupported intervals on the fps grid.
+Export animation parameters. Unsupported animations raise a compile error.
 Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
 SDR video with matching aspect ratio. Includes glyph masks and effects.
 
 ```python
-Scene.export_hook(
+Scene.export(
     path: str | pathlib.Path,
     *,
     fps: int = 60,
     start: float = 0,
     duration: float | None = None,
 ) -> None
+```
+
+### Scene.export_resources
+
+Publish binary textures and GLSL for a preview host to a new directory.
+
+The clock and rendering contract match export(). Each .bin contains a
+row-aligned texture with dimensions given by textures.json.
+
+```python
+Scene.export_resources(
+    directory: str | pathlib.Path,
+    *,
+    fps: int = 60,
+    start: float = 0,
+    duration: float | None = None,
+) -> None
+```
+
+### Scene.prepare_hook
+
+Snapshot the scene for repeated window exports with a shared glyph cache.
+
+```python
+Scene.prepare_hook() -> PreparedHook
 ```
 
 ### Scene.replace_source
@@ -620,17 +651,13 @@ SceneCompileError(
 
 ## SceneEstimate
 
-Immutable compilation preflight delivered before frame callbacks.
+Estimated ASS event count before emission.
 
-estimated_events counts generated ASS records. The coverage tuple is empty
-because the ASS compiler rejects coverage groups during preflight.
-
-[Source](../../kara_templater/scene_output.py#L130)
+[Source](../../kara_templater/scene_output.py#L116)
 
 ```python
 SceneEstimate(
     estimated_events: int,
-    coverage: tuple[CoverageEstimate, ...],
 )
 ```
 
@@ -639,13 +666,12 @@ SceneEstimate(
 | Name | Type | Default |
 | --- | --- | --- |
 | `estimated_events` | `int` | `required` |
-| `coverage` | `tuple[CoverageEstimate, ...]` | `required` |
 
 ## SceneEvaluator
 
 Immutable object snapshot; no previous-frame state or cross-call cache.
 
-[Source](../../kara_templater/scene_evaluation.py#L70)
+[Source](../../kara_templater/scene_evaluation.py#L76)
 
 ```python
 SceneEvaluator(
@@ -715,7 +741,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/scene_output.py#L161)
+[Source](../../kara_templater/scene_output.py#L135)
 
 ```python
 SceneResult(
@@ -758,7 +784,7 @@ Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
 
-[Source](../../kara_templater/scene.py#L363)
+[Source](../../kara_templater/scene.py#L368)
 
 ```python
 TextObject(
@@ -782,6 +808,8 @@ TextObject(
     alignment: int = 7,
     encoding: int = 1,
     scale_border: bool = False,
+    shader_paint: ShaderPaint | None = None,
+    extrusion: Extrusion | None = None,
     filled: bool = True,
 )
 ```
@@ -809,6 +837,8 @@ TextObject(
 | `alignment` | `int` | `7` |
 | `encoding` | `int` | `1` |
 | `scale_border` | `bool` | `False` |
+| `shader_paint` | `ShaderPaint \| None` | `None` |
+| `extrusion` | `Extrusion \| None` | `None` |
 | `filled` | `bool` | `True` |
 
 ### TextObject.animate
@@ -868,7 +898,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L186)
+[Source](../../kara_templater/scene.py#L191)
 
 ```python
 VectorClip(
@@ -899,7 +929,7 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L208)
+[Source](../../kara_templater/scene.py#L213)
 
 ```python
 VisualNode(
@@ -981,19 +1011,3 @@ VisualNode.copy(
 Absolute seconds origin for local animation, geometry and paint clocks.
 
 Type: `float`.
-
-## compile_scene
-
-Return a new Document. Source records and caller-owned nodes never mutate.
-
-[Source](../../kara_templater/scene_output.py#L1381)
-
-```python
-compile_scene(
-    scene: Scene,
-    *,
-    budget: SceneBudget | None = None,
-    native_tweens: bool = True,
-    on_estimate: Callable[[SceneEstimate], None] | None = None,
-) -> SceneResult
-```

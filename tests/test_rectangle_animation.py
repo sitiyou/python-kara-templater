@@ -33,7 +33,7 @@ def test_rectangle_callback_validation_and_preflight():
 
     node = shape(RectangleClip(0, 0, 1, 1, deform=RectangleFunction(sample)))
     with pytest.raises(ValueError, match="frame sampling"):
-        Scene(Document.create()).add(node).compile()
+        Scene(Document.create()).add(node).ass.compile()
     assert not calls
     with pytest.raises(ValueError, match="breakpoint"):
         shape(RectangleClip(0, 0, 1, 1, deform=RectangleFunction(sample, (3,))))

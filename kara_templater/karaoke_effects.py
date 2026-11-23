@@ -7,12 +7,26 @@ from itertools import groupby, pairwise
 from math import ceil, floor, pi, pow, sin, sqrt
 from typing import Literal, get_args
 
-from ._karaoke_motion import HALO_STROKES, glow_scale, stretch, transition, zoom_pulse
-from ._karaoke_sprites import _ParticlePaint, ornament, painted_particle, star_burst
+from ._contour_stroke import contour_stroke
+from ._karaoke_motion import (
+    HALO_STROKES,
+    ZoomScale,
+    glow_scale,
+    stretch,
+    transition,
+    zoom_pulse,
+)
+from ._karaoke_sprites import (
+    _ParticlePaint,
+    _ParticleTint,
+    ornament,
+    painted_particle,
+    star_burst,
+)
 from .appearance import _DEFAULT_SUNG, _DEFAULT_UNSUNG, _EMPTY_THEME, KaraokeTheme
 from .composition import Color, Glow
 from .document_text import SingingSpan
-from .geometry import Vec2, VectorPath, finite
+from .geometry import Vec2, finite
 from .lyric_highlights import (
     HighlightArrival,
     LyricGlow,
@@ -30,10 +44,15 @@ from .lyric_line import (
     _line_x,
 )
 from .model import Box
-from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField, _mix
+from .paint_fields import (
+    ColorRamp,
+    ColorStop,
+    LinearGradient,
+    PaintField,
+    _mix,
+)
 from .parameters import Glyph, LengthExpr, _width
 from .particles import ParticleContext
-from .path_geometry import flatten, stroke
 from .scene import (
     Lifetime,
     ObjectGroup,
@@ -46,7 +65,7 @@ from .scene import (
 )
 from .scene_animation import (
     ScalePulse,
-    StateFunction,
+    ShaderMotion,
     StatePatch,
     TimeSpan,
     Transform,
@@ -166,6 +185,8 @@ def _insert(
     line: LyricLine, additions: dict[str, list[SceneObject]], *, reserve: bool = True,
     replacements: dict[str, TextObject] | None = None,
 ) -> LyricLine:
+    if not additions and not replacements:
+        return line
     windows = tuple(
         TimeSpan(node.lifetime.start, node.lifetime.end)
         for nodes in additions.values()
@@ -208,6 +229,10 @@ def _stretch_halo(
     duration: float,
     shine: Color,
 ) -> Iterator[TextObject]:
+    path = outline_text(node).path
+    if path is None:
+        return
+    paint = contour_stroke(path, 0.75 * em * max(width for width, _ in HALO_STROKES))
     motion = stretch(entering, pivot)
     for width, strength in HALO_STROKES:
 
@@ -225,6 +250,7 @@ def _stretch_halo(
         copy = replace(
             node,
             id=f"{prefix}:{width}",
+            shader_paint=paint,
             scale_border=True,
             filled=False,
             layer=node.layer - 1,
@@ -245,9 +271,12 @@ def _stretch_halo(
             ),
         )
         yield copy.animate(
-            StateFunction(
-                sample, frozenset({"position", "scale", "opacity", "border"})
-            ),
+            replace(motion, function=sample, channels=motion.channels | {"border"},
+                    parameters=(*motion.parameters, em*width/2),
+                    source=motion.source + """
+                        pen=item(data+3)*(entering?1.2-0.5*q:0.7+0.8*q);
+                        alpha*=entering?pow(1.-q,1.5):0.9*sin(3.14159265*q);
+                    """),
             duration=duration,
         )
 
@@ -447,13 +476,34 @@ class _SingingPulse:
         def anchor(_line: LyricLine, _target: LyricTarget) -> tuple[TimeSpan, ...]:
             return (self.note,)
 
-        def remaining(base: VisualState, progress: float) -> VisualState:
-            elapsed = skip + progress * (self.duration - skip)
-            return self.animation.sample(base, elapsed / self.duration)
-
+        animation = self.animation
+        remaining: ShaderMotion | Transform | ScalePulse = animation
+        if skip:
+            pivot = animation.pivot or Vec2()
+            if isinstance(animation, ScalePulse):
+                # Utopia's attack/release is linear on either side of peak_at.
+                body = "float k=min(p/item(data+2),(1.-p)/(1.-item(data+2))); float factor=mix(1.,item(data+3),k);"
+                parameters = (pivot.x, pivot.y, animation.peak_at, animation.peak)
+            else:
+                zoom = animation.scale
+                assert isinstance(zoom, ZoomScale)
+                body = """
+                    float t=p*item(data+3), note=item(data+2);
+                    float d=t<=note?1.-t/note:min(1.,(t-note)/0.30);
+                    float factor=1.+0.10*(1.-pow(clamp(d,0.,1.),item(data+4)));
+                """
+                parameters = (pivot.x, pivot.y, zoom.note, zoom.duration, zoom.exponent)
+            remaining = ShaderMotion(
+                animation.sample, animation.channels,
+                body + """
+                    mat2 before=basisOf(scale,skew,angle);
+                    scale*=factor;
+                    pos+=(before-basisOf(scale,skew,angle))*pairAt(data);
+                """, parameters, progress_offset=skip/self.duration,
+                progress_scale=1-skip/self.duration,
+            )
         return LyricRule(
-            target, anchor,
-            StateFunction(remaining, self.animation.channels) if skip else self.animation,
+            target, anchor, remaining,
             duration=self.duration - skip, offset=skip, hold=isinstance(self.animation, ScalePulse),
         )
 
@@ -1342,6 +1392,8 @@ class KaraokeEffects:
     def _burst_plans(
         self, line: LyricLine, nodes: dict[str, SceneObject]
     ) -> Iterator[_Burst]:
+        if self.decoration == "none" and self.entry not in _TRANSITION_COUNTS and self.exit not in _TRANSITION_COUNTS:
+            return
         targets = line.query("character")
         sung_end = max(
             (span.end + target.delay for target in targets for span in target.singing),
@@ -1404,7 +1456,7 @@ class KaraokeEffects:
 
     def _follow_particle_ink(
         self, line: LyricLine,
-    ) -> tuple[dict[str, tuple[_ParticlePaint, ...]], Callable[[VisualState], VisualState] | None]:
+    ) -> tuple[dict[str, tuple[_ParticlePaint, ...]], _ParticleTint | None]:
         """Resolve solid character palettes and the line sparkle's position-dependent color."""
         followed: dict[str, tuple[_ParticlePaint, ...]] = {}
         role_tint = None
@@ -1450,14 +1502,7 @@ class KaraokeEffects:
             followed[target.node_id] = tuple(inks)
             centers.append((glyph.bounds.center, inks[0].fill))
         if self.particle_color != "follow_mix" and len({ink for _, ink in centers}) > 1:
-            def role_at(state: VisualState) -> VisualState:
-                ink = centers[0][1]
-                for center, candidate in centers:
-                    if state.position.x < center:
-                        break
-                    ink = candidate
-                return replace(state, fill=ink)
-            role_tint = role_at
+            role_tint = _ParticleTint.from_roles(tuple(centers))
         return followed, role_tint
 
     def _particles(
@@ -1525,7 +1570,7 @@ class KaraokeEffects:
                 center,
                 line.origin,
             )
-            fields: tuple[Callable[[VisualState], VisualState] | None, ...] = ()
+            fields: tuple[_ParticleTint | None, ...] = ()
             if kind == "sparkle" and palette in ("follow_before", "follow_after"):
                 fields = (role_tint,)
             elif palette in ("follow_before", "follow_after", "follow_mix") and self.particle_layers != "solid":
@@ -1681,8 +1726,17 @@ class KaraokeEffects:
                             opacity=0.82 ** abs(echo_index),
                         ),
                     )
+                    motion = Transform(offset=travel, opacity=envelope, scale=scale, pivot=target.center)
                     echo = echo.animate(
-                        Transform(offset=travel, opacity=envelope, scale=scale, pivot=target.center),
+                        ShaderMotion(motion.sample, motion.channels, """
+                            bool enter=item(data+2)>0.;
+                            float q=smoothstep(0.,1.,p), sx=1.+0.6*(enter?1.-q:q);
+                            mat2 before=basisOf(scale,skew,angle);
+                            scale.x*=sx;
+                            pos+=(before-basisOf(scale,skew,angle))*pairAt(data);
+                            pos.x+=item(data+3)*(enter?1.-0.25*q:1.+0.9*q)*sx;
+                            alpha*=enter?(1.-q)*sqrt(max(0.,1.-q)):sin(3.14159265*q);
+                        """,(target.center.x,target.center.y,float(entering),distance)),
                         duration=travel_duration,
                     )
                     additions.setdefault(node.id, []).append(echo)
@@ -1947,11 +2001,8 @@ class KaraokeEffects:
             if outline.path is None:
                 continue
             pen = max(2 * node.state.border, (target.em_size or node.font_size) * 0.03)
-            path = VectorPath(tuple(
-                part for contour in outline.path.contours
-                if (ribbon := stroke(flatten(contour), pen)) is not None
-                for part in ribbon.contours
-            ))
+            path = outline.path
+            paint = contour_stroke(path, 0.8 * pen)
 
             for index, span in enumerate(line.layout.lyrics.units[unit]._body_singing()):
                 onset = span.start + target.delay
@@ -1962,10 +2013,12 @@ class KaraokeEffects:
 
                 def flash(base: VisualState, p: float, width: float = pen, window: float = duration) -> VisualState:
                     level = max(0, 1 - p * window / 0.24)
-                    return replace(base, opacity=0.85 * level, border=0.3 * width * level)
+                    return replace(base, opacity=0.85 * level, border=width * (0.5 + 0.3 * level))
 
                 copy = PathObject(
                     id=f"{node.id}/{self.id}:flash:{index}",
+                    shader_paint=paint,
+                    filled=False,
                     lifetime=Lifetime(onset, end),
                     origin=node.origin,
                     # Draw after this glyph's hard scanline and before foreground ornaments.
@@ -1974,7 +2027,10 @@ class KaraokeEffects:
                                   outline=self.shine or node.state.outline, border=0, blur=0, shadow=Vec2()),
                     path=path,
                 ).animate(
-                    StateFunction(flash, frozenset({"opacity", "border"})),
+                    ShaderMotion(flash, frozenset({"opacity", "border"}), """
+                        float level=max(0.,1.-p*item(data+1)/0.24);
+                        alpha=0.85*level; pen=item(data)*(0.5+0.3*level);
+                    """,(pen,duration)),
                     duration=duration,
                 )
                 additions.setdefault(node.id, []).append(copy)

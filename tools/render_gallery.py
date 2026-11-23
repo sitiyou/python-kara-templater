@@ -13,7 +13,7 @@ import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from examples.scene_whole_song import CASES, Case
+from examples.scene_cues import build
 from kara_templater import load_font
 from tools.preview_frames import encode_preview
 
@@ -43,7 +43,6 @@ def digest(path: Path) -> str:
 
 
 def render(
-    case: Case,
     output: Path,
     assets: Path,
     *,
@@ -51,13 +50,13 @@ def render(
     fps: int,
     duration: float,
 ) -> GalleryArtifact:
-    """Compile one fixture, then ask FFmpeg to render that exact ASS."""
-    scene = case.factory()
-    result = scene.compile()
-    subtitle = output / f"{case.name}.ass"
+    """Compile one fixture, then encode its CPU preview with FFmpeg."""
+    scene = build()
+    result = scene.ass.compile()
+    subtitle = output / "word-backgrounds.ass"
     result.document.save(subtitle)
     ass_digest = digest(subtitle)
-    destination = assets / f"{case.name}.gif"
+    destination = assets / "word-backgrounds.gif"
     size = f"{scene.document.meta.res_x}x{scene.document.meta.res_y}"
     graph = (f",scale={width}:-2:flags=lanczos,split[frames][colors];"
              "[colors]palettegen[palette];[frames][palette]paletteuse=dither=bayer:bayer_scale=3")
@@ -66,9 +65,9 @@ def render(
                    graph, ["-loop", "0", str(destination)], output)
     if digest(subtitle) != ass_digest:
         raise RuntimeError("preview generation changed the exported ASS")
-    source = ROOT / (case.factory.__module__.replace(".", "/") + ".py")
+    source = ROOT / (build.__module__.replace(".", "/") + ".py")
     return GalleryArtifact(
-        case.name,
+        "word-backgrounds",
         str(source.relative_to(ROOT)),
         digest(source),
         ass_digest,
@@ -86,7 +85,7 @@ def render(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--case", choices=[case.name for case in CASES], action="append"
+        "--case", choices=("word-backgrounds",), default="word-backgrounds"
     )
     parser.add_argument("--output", type=Path, default=ROOT / "build/gallery")
     parser.add_argument("--assets", type=Path, default=ROOT / "docs/examples/assets")
@@ -108,19 +107,8 @@ def main() -> None:
     version = subprocess.run(
         ["ffmpeg", "-version"], capture_output=True, text=True, check=True
     ).stdout.splitlines()[0]
-    artifacts = []
-    selected = args.case or ["word-backgrounds"]
-    for case in CASES:
-        if case.name not in selected:
-            continue
-        artifact = render(
-            case, output, assets, width=args.width, fps=args.fps, duration=args.duration
-        )
-        artifacts.append(asdict(artifact))
-        print(
-            f"{artifact.name}: {artifact.events} events, {artifact.gif_bytes} GIF bytes",
-            flush=True,
-        )
+    artifact = render(output, assets, width=args.width, fps=args.fps, duration=args.duration)
+    print(f"{artifact.name}: {artifact.events} events, {artifact.gif_bytes} GIF bytes")
     (output / "report.json").write_text(
         json.dumps(
             {
@@ -129,7 +117,7 @@ def main() -> None:
                 "fonts": {
                     path.name: digest(path) for path in sorted(fonts.glob("*.ttf"))
                 },
-                "artifacts": artifacts,
+                "artifacts": [asdict(artifact)],
             },
             indent=2,
         )

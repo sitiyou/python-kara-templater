@@ -20,7 +20,7 @@ def test_cancel_before_output_without_mutating_sources():
         raise RuntimeError("cancel export")
 
     with pytest.raises(RuntimeError, match="cancel export"):
-        scene.compile(on_estimate=cancel)
+        scene.ass.compile(on_estimate=cancel)
     assert document.dumps() == original
     assert tuple(scene.objects) == (node,)
-    assert scene.compile().event_count == 1
+    assert scene.ass.compile().event_count == 1

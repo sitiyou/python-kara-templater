@@ -8,7 +8,7 @@ The hook includes glyph coverage, timing, gradients, clips and motion. The
 rendering machine needs FFmpeg with libplacebo and a working Vulkan device.
 The fonts and the Python authoring environment are needed at export time.
 
-Export a prepared lyric scene with `scene.export_hook("song.hook", fps=60)`.
+Export a prepared lyric scene with `scene.export("song.hook", fps=60)`.
 See [Export a song](karaoke-effects.md#export-a-song) for a Track-based entry point.
 The lower-level example below supplies its own fallback for a raw Scene.
 
@@ -31,7 +31,7 @@ scene = Scene(fallback).add(TextObject(
     ))),
 ))
 fallback.save("song.ass")
-scene.export_hook("song.hook", fps=60)
+scene.export("song.hook", fps=60)
 ```
 
 The [gradient example](../../examples/gpu_gradient.py) writes both files.
@@ -49,7 +49,7 @@ the lyrics twice. Audio stream copy requires a compatible output container.
 ## Extract a scene interval
 
 ```python
-scene.export_hook("chorus.hook", fps=60, start=36, duration=8)
+scene.export("chorus.hook", fps=60, start=36, duration=8)
 ```
 
 ```sh
@@ -85,16 +85,14 @@ pivot. All instances use the same shader.
 Use `linear_rate`, `smooth_rate`, or `smoother_rate` for built-in easing. A
 custom piecewise-linear easing such as
 `FadeIn(rate=ProgressCurve(((0, 0), (0.3, 0.8), (1, 1))).at)` stores its
-normalized knots once across instances and durations. An arbitrary Python
-easing on these motions can store a scalar sample track on the export grid;
-identical tracks share storage. Curves outside [0, 1], other animation types,
-references, and overlapping motions that need state capture use the Scene
-evaluator for the affected leaf and interval. Arbitrary rectangle callbacks
-also need evaluation while the object is visible.
+normalized knots once across instances and durations. The built-in quadratic easings also run directly on the GPU.
+Unsupported animation, reference or clip callbacks raise a SceneCompileError
+with the object, time and source location. Use a GPU motion for custom equations.
 
 The shader draws text/static paths in layer order, with affine transforms,
 opacity, ordinary rectangle clips and continuous fill/outline linear gradients
-(up to 16 stops). At export, aggdraw rasterizes the positioned contours and Pillow applies the mask blur. Antialiasing and soft edges can differ from ASS playback. A fade on outlined
+(up to 16 stops). Static glyphs and paths use aggdraw for fills and the FreeType round stroker for fixed borders. Pillow applies blur to the coverage masks.
+Dynamic stroke flashes and stretch halos share shaped contour segments. The shader computes round stroke coverage from the current pen radius. A fade on outlined
 text can reuse two native masks. The shader selects the translucent border
 when the fill fades so that the border does not show through the letter.
 Use standard ASS compilation for native events; inherited/vector/inverse clips,
@@ -105,3 +103,67 @@ can produce large files; compress the hook for transport and extract it before
 rendering. The command texture uses exact float indices (up to 2²⁴ scalar
 entries). The coverage atlas is 2048 pixels wide and up to 8192 pixels high.
 Split into frame-aligned intervals if a scene reaches a limit.
+
+## Extruded lettering and shapes
+
+Give a track, text object or path object an `Extrusion` for a solid colored side.
+The offset points from the front face to the back in local script pixels.
+For example, this track puts the back six pixels right and eleven pixels down.
+
+```python
+from kara_templater import Color, Extrusion, Track, Vec2
+
+side = Extrusion(Vec2(6, 11), Color.hex("#C08087"))
+track = Track(id="lead", extrusion=side)
+```
+
+The hook sweeps the filled silhouette and its hard border along the offset
+once per distinct shape, then caches the exposed side as a coverage mask.
+An outline-only path sweeps just its stroke. Transforms and fades move the
+face and side together. Within a scene layer all sides draw before the faces.
+A track applies the side to body and ruby and keeps singing paint on the face.
+Layout uses the front face's ordinary metrics. This appearance supports hook
+output, and an explicit ASS export reports the unsupported extrusion.
+
+## Author a GPU motion
+
+A `ShaderMotion` supplies a reusable GLSL function body, numeric instance
+parameters, and a Python evaluator for state capture. The program receives
+normalized clip progress `p`, local affine channels, opacity `alpha`, and
+normalized RGB vectors `fill` and `outline`. Declare the color channels the
+program writes.
+Use `item(data + i)` to read the ith numeric parameter. The renderer composes
+the result with parent and child transforms before testing the coverage mask.
+
+For Python-generated GLSL, install Metashade and generate helper functions
+once in the template module. Pass the generated text as `functions` on
+`ShaderMotion`. Use unique function names across a template. For example:
+
+```python
+from io import StringIO
+from dataclasses import replace
+from metashade.targets.glsl.frag import Generator
+from kara_templater import ShaderMotion
+
+out = StringIO()
+sh = Generator(out, glsl_version="")
+with sh.function("karaSparkFade", sh.Float)(phase=sh.Float):
+    with sh.if_(sh.phase < sh.Float(0.5)):
+        sh.return_(sh.Float(1.0))
+    sh.return_((sh.Float(1.0) - sh.phase) * 2.0)
+
+fade = ShaderMotion(
+    lambda base, p: replace(base, opacity=base.opacity * min(1, 2*(1-p))),
+    frozenset({"opacity"}),
+    "alpha *= karaSparkFade(p);",
+    functions=out.getvalue(),
+)
+```
+
+## Repeated window exports
+
+For a preview host that requests multiple time windows, call
+`prepared = scene.prepare_hook()` once after building the scene.
+`prepared.export_resources(directory, start=..., duration=..., fps=...)`
+reuses the resolved hierarchy and glyph coverage across sequential requests,
+including backward seeks. Create a new snapshot when the scene changes.

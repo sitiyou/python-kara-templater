@@ -27,6 +27,7 @@ from .scene import (
     SceneObject,
     _CellWipeClip,
     _ColorStripClip,
+    _LyricPaintClip,
 )
 from .scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
 from .scene_lyrics import LyricLayout, _after_onset
@@ -929,6 +930,8 @@ class LyricHighlights:
                     base, owner=None if highlight is None else highlight.id
                 )
                 piece = node.copy(id=identity)
+                if highlight is not None:
+                    piece = replace(piece, extrusion=None)
                 if highlight is None:
                     piece = replace(
                         piece, state=self.base_paint.interpolate(piece.state, 1), material=before_material,
@@ -954,7 +957,7 @@ class LyricHighlights:
                                 if index == 0
                                 else f"{identity}/region:{index}"
                             ),
-                            clip=RectangleClip(
+                            clip=_LyricPaintClip(
                                 0,
                                 0,
                                 1,
@@ -1034,6 +1037,7 @@ class LyricHighlights:
                         halo = piece.copy(id=f"{piece.id}/glow")
                         halo = replace(
                             halo,
+                            extrusion=None,
                             clip=replace(
                                 piece.clip,
                                 unsung_fill=base_glow.color,

@@ -115,7 +115,7 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
     )
     original = source.dumps()
     tracks = (Track(id="main"),)
-    result = prepare_tracks(source, tracks=tracks, owner="a:b%").compile()
+    result = prepare_tracks(source, tracks=tracks, owner="a:b%").ass.compile()
     assert source.dumps() == original
     restored_scene = prepare_tracks(
         Document.parse(result.document.dumps()), tracks=tracks, owner="a:b%"
@@ -127,7 +127,7 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
     saved = result.document.records[plan.source.record_index]
     assert isinstance(saved, Line) and saved.comment
     assert saved.text == source.lines[0].text
-    again = restored_scene.compile()
+    again = restored_scene.ass.compile()
     assert again.document.dumps() == result.document.dumps()
     assert any(
         line.text == "plain subtitle" and not line.comment
@@ -135,7 +135,7 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
     )
     assert any(line.effect == "notes" and line.comment for line in again.document.lines)
     restored = (
-        prepare_tracks(again.document, tracks=(), owner="a:b%").compile().document
+        prepare_tracks(again.document, tracks=(), owner="a:b%").ass.compile().document
     )
     assert any(
         line.text == source.lines[0].text
@@ -151,11 +151,11 @@ def test_identical_sources_get_distinct_stable_ids():
     scene = prepare_tracks(source, tracks=tracks)
     ids = tuple(plan.source.id for plan in scene.plans)
     assert len(set(ids)) == 2
-    result = scene.compile()
+    result = scene.ass.compile()
     again = prepare_tracks(Document.parse(result.document.dumps()), tracks=tracks)
     assert tuple(plan.source.id for plan in again.plans) == ids
     assert len(again.replace_records) == 2
-    assert again.compile().document.dumps() == result.document.dumps()
+    assert again.ass.compile().document.dumps() == result.document.dumps()
 
 
 def test_windows_margins_and_style_selection():

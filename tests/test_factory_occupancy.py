@@ -195,10 +195,10 @@ def test_attached_decoration_reserves_visible_tail_but_external_visual_does_not(
     from kara_templater._raster import rasterize
 
     attached_only = Scene(source, replace_records={len(source.records) - 1}).add(line)
-    output = attached_only.compile(budget=SceneBudget(fps=10)).document.dumps()
+    output = attached_only.ass.compile(budget=SceneBudget(fps=10)).document.dumps()
     assert any(rasterize(output, 2300, (96, 64)).rgba[3::4])
     assert not any(rasterize(output, 2500, (96, 64)).rgba[3::4])
-    scene.compile(budget=SceneBudget(fps=10, max_events=100_000))
+    scene.ass.compile(budget=SceneBudget(fps=10, max_events=100_000))
     assert len(calls) == 1
     assert source.dumps() == original
 

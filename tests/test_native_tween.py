@@ -77,9 +77,9 @@ def rgba(script: str, ms: int) -> Image.Image:
 
 def test_continuous_tween_matches_handwritten_ass_and_reduces_cost():
     scene = Scene(Document.create(width=640, height=360)).add(subject())
-    native = scene.compile(native_tweens=True, budget=SceneBudget(max_events=1))
+    native = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=1))
     assert native.event_count == native.estimated_events == 1
-    assert scene.compile().event_count == 1
+    assert scene.ass.compile().event_count == 1
     assert native.objects[0].strategy == "native-tween"
     reference = Document.create(
         width=640,
@@ -103,7 +103,7 @@ def test_continuous_tween_matches_handwritten_ass_and_reduces_cost():
         actual = rgba(script, ms)
         expected = rgba(reference.dumps(), ms)
         assert ImageChops.difference(actual, expected).getbbox(alpha_only=False) is None
-    assert native.document.dumps() == scene.compile(native_tweens=True).document.dumps()
+    assert native.document.dumps() == scene.ass.compile(native_tweens=True).document.dumps()
 
 
 @pytest.mark.parametrize(
@@ -142,7 +142,7 @@ def test_ineligible_tweens_require_sampling(change: str):
         else node
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(Document.create()).add(root).compile()
+        Scene(Document.create()).add(root).ass.compile()
 
 
 def test_sequential_and_parallel_path_tweens_preserve_capture_and_birth_clock():
@@ -162,7 +162,7 @@ def test_sequential_and_parallel_path_tweens_preserve_capture_and_birth_clock():
         animations=tuple(reversed(clips)),
     )
     scene = Scene(Document.create(width=640, height=360)).add(node)
-    result = scene.compile(native_tweens=True, budget=SceneBudget(max_events=1))
+    result = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=1))
     assert result.event_count == 1
     assert result.objects[0].strategy == "native-tween"
     reference = Document.create(
@@ -240,10 +240,10 @@ def test_common_fades_on_parent_match_continuous_handwritten_ass():
         FadeOut(), at=1.6, duration=0.4
     )
     scene = Scene(Document.create(width=640, height=360)).add(parent)
-    native = scene.compile(native_tweens=True, budget=SceneBudget(max_events=1))
+    native = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=1))
     assert native.event_count == 1
     assert native.objects[0].strategy == "native-tween"
-    assert scene.compile().event_count == 1
+    assert scene.ass.compile().event_count == 1
     reference = Document.create(
         width=640,
         height=360,
@@ -282,12 +282,12 @@ def test_inherited_opacity_products_and_delayed_reveal_require_sampling():
     scene = Scene(Document.create()).add(parent)
     assert scene.evaluator().at("word", 0.5).opacity == 0.25
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        scene.compile()
+        scene.ass.compile()
     delayed = TextObject(id="late", text="W", lifetime=Lifetime(0, 2)).animate(
         FadeIn(), at=0.5, duration=0.5
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(Document.create()).add(delayed).compile()
+        Scene(Document.create()).add(delayed).ass.compile()
 
 
 def test_linear_nested_sequence_keeps_native_interpolation_and_released_scope_does_not():
@@ -310,7 +310,7 @@ def test_linear_nested_sequence_keeps_native_interpolation_and_released_scope_do
     result = (
         Scene(Document.create(width=640, height=360))
         .add(node)
-        .compile(native_tweens=True)
+        .ass.compile(native_tweens=True)
     )
     assert result.objects[0].strategy == "native-tween"
     assert result.event_count == 1
@@ -340,7 +340,7 @@ def test_linear_nested_sequence_keeps_native_interpolation_and_released_scope_do
         )
     released = replace(node, animations=(replace(node.animations[0], hold=False),))
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(Document.create()).add(released).compile()
+        Scene(Document.create()).add(released).ass.compile()
 
 
 def test_instant_opacity_changes_require_sampling():
@@ -363,6 +363,6 @@ def test_instant_opacity_changes_require_sampling():
     document = Document.create(width=640, height=360)
     scene = Scene(document).add(node)
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        scene.compile()
+        scene.ass.compile()
     assert node.at(0.99).opacity == 0.2
     assert node.at(1).opacity == 0.8

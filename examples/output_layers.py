@@ -1,11 +1,8 @@
 """Compare character-arrival, simultaneous-character and syllable animations.
 
-python -m examples.output_layers build/layers.ass
 All three rows bind the same custom animation and use ordinary Scene compilation.
 """
 
-import argparse
-from pathlib import Path
 
 from kara_templater import (
     Color,
@@ -23,7 +20,6 @@ from kara_templater import (
     LyricScene,
     Region,
     ScalePulse,
-    SceneResult,
     StatePatch,
     Style,
     TimeSpan,
@@ -102,16 +98,3 @@ def build(
         ),
         owner="pulse-comparison",
     )
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    args = parser.parse_args()
-    result: SceneResult = build().compile()
-    result.document.save(args.output)
-    print(f"{result.event_count} events; {result.peak_active} active; {args.output}")
-
-
-if __name__ == "__main__":
-    main()

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, replace
-from math import pi, sin
+from functools import cached_property
+from math import cos, pi, radians, sin
 from typing import Literal, Protocol, runtime_checkable
 
 from .composition import Color
@@ -114,10 +115,8 @@ class VisualState:
     def __post_init__(self) -> None:
         if not isinstance(self.fill, Color) or not isinstance(self.outline, Color):
             raise TypeError("visual fill and outline must be Color values")
-        if any(
-            not isinstance(value, Vec2)
-            for value in (self.position, self.scale, self.skew, self.shadow)
-        ):
+        if not (isinstance(self.position, Vec2) and isinstance(self.scale, Vec2)
+                and isinstance(self.skew, Vec2) and isinstance(self.shadow, Vec2)):
             raise TypeError(
                 "visual position, scale, skew and shadow must be Vec2 values"
             )
@@ -130,12 +129,15 @@ class VisualState:
         """Whether this linear map collapses filled geometry to zero area."""
         return self.scale.x == 0 or self.scale.y == 0 or self.skew.x * self.skew.y == 1
 
-    @property
+    @cached_property
     def transform(self) -> Affine2D:
         """Local shear, axis scale, clockwise rotation, then translation."""
-        x = Vec2(self.scale.x, self.skew.y * self.scale.y).rotated(self.rotation)
-        y = Vec2(self.skew.x * self.scale.x, self.scale.y).rotated(self.rotation)
-        return Affine2D(x.x, x.y, y.x, y.y, self.position.x, self.position.y)
+        theta = radians(self.rotation)
+        c, s = cos(theta), sin(theta)
+        sx, sy = self.scale.x, self.scale.y
+        return Affine2D(c*sx - s*self.skew.y*sy, s*sx + c*self.skew.y*sy,
+                        c*self.skew.x*sx - s*sy, s*self.skew.x*sx + c*sy,
+                        self.position.x, self.position.y)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -285,6 +287,9 @@ class Transform:
             if self.opacity is None or isinstance(self.opacity, (int, float))
             else self.opacity(progress)
         )
+        if scale is None and rotation is None:
+            return replace(base, position=base.position if offset is None else base.position + offset,
+                           opacity=base.opacity if opacity is None else base.opacity * opacity)
         factor = scale if isinstance(scale, Vec2) else Vec2(1, 1) * (
             1 if scale is None else scale
         )
@@ -576,7 +581,7 @@ class StateFunction:
     """Custom pure evaluator. Declare written channels for conflict detection.
 
     Randomness must be tied to object identity, not callback invocation order.
-    Hook export samples this function. ASS export rejects custom frame callbacks.
+    Standalone outputs require a compilable animation declaration.
     """
 
     function: Callable[[VisualState, float], VisualState]
@@ -588,6 +593,35 @@ class StateFunction:
         if not isinstance(value, VisualState):
             raise TypeError("state function must return VisualState")
         return value
+
+
+@dataclass(frozen=True)
+class ShaderMotion(StateFunction):
+    """Affine GPU animation with a seekable Python evaluator for state capture.
+
+    The GLSL body receives normalized progress p, parameters at data via item(),
+    and mutable local channels pos, scale, skew, angle (degrees), alpha, pen
+    (outline radius), fill and outline (RGB in 0..1).
+    basisOf(scale, skew, angle) returns the local linear transform.
+    Supply the same motion in function for evaluation at authored boundaries.
+    """
+
+    source: str = ""
+    parameters: tuple[float, ...] = ()
+    progress_scale: float = 1.0
+    progress_offset: float = 0.0
+    functions: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.source.strip() or "//!" in self.source + self.functions:
+            raise ValueError("shader motion requires a GLSL function body")
+        if self.channels - {"position", "scale", "skew", "rotation", "opacity", "border", "fill", "outline"}:
+            raise ValueError("shader motion supports affine channels, border, opacity, fill and outline")
+        finite(self.progress_scale, self.progress_offset, *self.parameters)
+
+    def sample(self, base: VisualState, progress: float) -> VisualState:
+        """Evaluate the same local motion at a scene clock boundary."""
+        return self.function(base, self.progress_offset + progress * self.progress_scale)
 
 
 @dataclass(frozen=True)
@@ -641,6 +675,8 @@ def merge_channels(
     base: VisualState, value: VisualState, channels: frozenset[Channel]
 ) -> VisualState:
     """Ignore undeclared writes, so a custom animation cannot hijack other tracks."""
+    if base is value:
+        return base
     return VisualState(
         value.position if "position" in channels else base.position,
         value.scale if "scale" in channels else base.scale,
@@ -676,7 +712,11 @@ def evaluate_clips(
     Held values are taken over by later clips. Released values restore the
     underlying state after the clip ends. Nonoverlapping channels run in parallel.
     """
-    ordered = tuple(sorted(clips, key=lambda clip: clip.start))
+    if not clips:
+        return base
+    at = local_seconds(time, 0)
+    ordered = sorted((clip for clip in clips if local_seconds(clip.start, 0) <= at),
+                     key=lambda clip: clip.start)
     captured: list[VisualState] = []
 
     def evaluate_prefix(at: float, count: int) -> VisualState:

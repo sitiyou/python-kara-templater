@@ -60,7 +60,7 @@ def test_onset_copies_have_independent_fades_and_exact_offsets():
     assert decorated.query("character") == line.query("character")
     assert decorated.layout.lyrics == line.layout.lyrics
     assert line.lifetime.end == 1.5
-    compiled = Scene(doc).add(decorated).compile(native_tweens=True)
+    compiled = Scene(doc).add(decorated).ass.compile(native_tweens=True)
     echo_reports = [r for r in compiled.objects if "/echo:" in r.id]
     assert len(echo_reports) == 2
     assert all(r.events == 1 for r in echo_reports)
@@ -73,7 +73,7 @@ def test_repeats_and_delayed_copies_retain_original_singing_clocks():
     copies = [node for node in objects(decorated) if "/echo:" in node.id]
     assert [node.lifetime.start for node in copies] == [1.3, 1.8]
     assert decorated.query("character")[0].singing == line.query("character")[0].singing
-    assert Scene(doc).add(decorated).compile(native_tweens=True).event_count > 0
+    assert Scene(doc).add(decorated).ass.compile(native_tweens=True).event_count > 0
     with pytest.raises(ValueError, match="budget exceeded before copying"):
         LyricEcho(count=3, max_copies=5)(delayed)
     with pytest.raises(ValueError, match="duplicate lyric echo"):
@@ -96,7 +96,7 @@ def test_composed_highlight_and_echo_reserve_track_tail_without_manual_timing():
     assert len(copies) == 3
     assert all(node.clip is None and node.material is None for node in copies)
     assert all(node.state.fill == RED for node in copies)
-    result = scene.compile(native_tweens=True)
+    result = scene.ass.compile(native_tweens=True)
     assert sum(r.events for r in result.objects if "/echo:" in r.id) == 3
 
 

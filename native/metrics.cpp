@@ -6,6 +6,7 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
+#include FT_STROKER_H
 #include FT_SYNTHESIS_H
 #include FT_TRUETYPE_TABLES_H
 #include <algorithm>
@@ -444,10 +445,98 @@ static PyObject *shape(PyObject *m, PyObject *a) { return measure(m, a, true); }
 static PyObject *extents(PyObject *m, PyObject *a) {
   return measure(m, a, false);
 }
+// Coordinates arrive in bitmap-local, y-up pixels. FreeType's round join
+// bounds the stroke at cusps even when the adjacent tangents nearly reverse.
+static PyObject *round_stroke(PyObject *module, PyObject *args) {
+  int width, height;
+  double radius;
+  PyObject *contours;
+  if (!PyArg_ParseTuple(args, "iidO!", &width, &height, &radius, &PyList_Type, &contours))
+    return nullptr;
+  if (width <= 0 || height <= 0 || !std::isfinite(radius) || radius <= 0 ||
+      radius > 32767 || Py_ssize_t(width) > PY_SSIZE_T_MAX / height) {
+    PyErr_SetString(PyExc_ValueError, "invalid stroke bitmap dimensions or radius");
+    return nullptr;
+  }
+  try {
+    auto ft = fonts(module).ft;
+    FT_Stroker raw;
+    if (FT_Stroker_New(ft, &raw))
+      throw std::bad_alloc();
+    std::unique_ptr<FT_StrokerRec_, decltype(&FT_Stroker_Done)> stroke(raw, FT_Stroker_Done);
+    FT_Stroker_Set(raw, std::lround(radius * 64), FT_STROKER_LINECAP_ROUND,
+                   FT_STROKER_LINEJOIN_ROUND, 0);
+    for (Py_ssize_t i = 0; i < PyList_GET_SIZE(contours); ++i) {
+      auto contour = PyList_GET_ITEM(contours, i);
+      if (!PyList_Check(contour) || PyList_GET_SIZE(contour) < 2)
+        throw std::invalid_argument("expected a contour with segments");
+      for (Py_ssize_t j = 0; j < PyList_GET_SIZE(contour); ++j) {
+        auto segment = PyList_GET_ITEM(contour, j);
+        if (!PyTuple_Check(segment))
+          throw std::invalid_argument("expected stroke coordinates");
+        auto n = PyTuple_GET_SIZE(segment);
+        if (n != 2 && !(j && n == 6))
+          throw std::invalid_argument("expected a line or cubic stroke segment");
+        FT_Vector points[3];
+        for (Py_ssize_t k = 0; k < n; k += 2) {
+          auto coord = [&](Py_ssize_t index) {
+            double v = PyFloat_AsDouble(PyTuple_GET_ITEM(segment, index));
+            if (PyErr_Occurred() || !std::isfinite(v) || std::abs(v) > 16777215)
+              throw std::invalid_argument("invalid stroke coordinate");
+            return std::lround(v * 64);
+          };
+          points[k / 2] = {coord(k), coord(k + 1)};
+        }
+        FT_Error error;
+        if (j == 0)
+          error = FT_Stroker_BeginSubPath(raw, points, false);
+        else if (n == 2)
+          error = FT_Stroker_LineTo(raw, points);
+        else
+          error = FT_Stroker_CubicTo(raw, points, points + 1, points + 2);
+        if (error)
+          throw std::runtime_error("cannot stroke contour segment");
+      }
+      if (FT_Stroker_EndSubPath(raw))
+        throw std::runtime_error("cannot close stroke contour");
+    }
+    unsigned points, paths;
+    if (FT_Stroker_GetCounts(raw, &points, &paths) ||
+        points > FT_OUTLINE_POINTS_MAX || paths > FT_OUTLINE_CONTOURS_MAX)
+      throw std::invalid_argument("stroke exceeds FreeType outline limits");
+    FT_Outline outline{};
+    if (FT_Outline_New(ft, points, paths, &outline))
+      throw std::bad_alloc();
+    outline.n_points = outline.n_contours = 0;
+    FT_Stroker_Export(raw, &outline);
+    auto result = PyBytes_FromStringAndSize(nullptr, Py_ssize_t(width) * height);
+    if (result) {
+      FT_Bitmap bitmap{};
+      bitmap.width = bitmap.pitch = width;
+      bitmap.rows = height;
+      bitmap.pixel_mode = FT_PIXEL_MODE_GRAY;
+      bitmap.num_grays = 256;
+      bitmap.buffer = reinterpret_cast<unsigned char *>(PyBytes_AS_STRING(result));
+      std::memset(bitmap.buffer, 0, PyBytes_GET_SIZE(result));
+      if (FT_Outline_Get_Bitmap(ft, &outline, &bitmap)) {
+        Py_CLEAR(result);
+        PyErr_SetString(PyExc_ValueError, "cannot rasterize round stroke");
+      }
+    }
+    FT_Outline_Done(ft, &outline);
+    return result;
+  } catch (const std::bad_alloc &) {
+    return PyErr_NoMemory();
+  } catch (const std::exception &e) {
+    PyErr_SetString(PyExc_ValueError, e.what());
+    return nullptr;
+  }
+}
 static void cleanup(void *m) {
   delete *static_cast<Fonts **>(PyModule_GetState(static_cast<PyObject *>(m)));
 }
 static PyMethodDef methods[] = {
+    {"round_stroke", round_stroke, METH_VARARGS, nullptr},
     {"add_font", add_font, METH_VARARGS, nullptr},
     {"text_extents", extents, METH_VARARGS, nullptr},
     {"text_shape", shape, METH_VARARGS, nullptr},

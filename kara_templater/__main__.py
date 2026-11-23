@@ -14,7 +14,7 @@ from .scene_output import SceneBudget
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Generate standard ASS from lyric Tracks or Scenes"
+        description="Export lyric Tracks or Scenes as a standalone libplacebo hook"
     )
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
@@ -51,6 +51,8 @@ def main() -> None:
     )
     parser.add_argument("--fade-in-ms", type=int, default=0)
     parser.add_argument("--fade-out-ms", type=int, default=0)
+    parser.add_argument("--ass", action="store_true", help="export native ASS")
+    parser.add_argument("--fps", type=int, default=60, help="hook frame rate")
     parser.add_argument("--max-events", type=int, default=10000)
     parser.add_argument("--max-bytes", type=int, default=10 * 1024 * 1024)
     parser.add_argument("--max-active", type=int, default=1000)
@@ -139,7 +141,10 @@ def main() -> None:
         if scene is None:
             assert tracks is not None
             scene = prepare_tracks(document, tracks=tracks, owner=owner)
-        result = scene.compile(budget=budget)
+        if not args.ass:
+            scene.export(args.output, fps=args.fps)
+            return
+        result = scene.ass.compile(budget=budget)
         result.document.save(args.output)
         print(
             f"Generated {result.event_count} events ({result.peak_active} active, {result.byte_count} bytes)"

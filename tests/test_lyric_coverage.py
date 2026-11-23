@@ -102,7 +102,7 @@ def test_unselected_sources_are_preserved():
     document = source()
     unselected = prepare_tracks(
         document, tracks=(track(source=lambda source: False),)
-    ).compile(budget=BUDGET)
+    ).ass.compile(budget=BUDGET)
     assert unselected.event_count == 0
     assert any(
         not event.comment and event.text == document.lines[0].text

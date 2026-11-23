@@ -279,7 +279,7 @@ Source dependencies, not a claim that one segment owns an event's time.
 A body glyph can depend on every segment in its unit. Explicit tracks are
 independent of source segments; their IDs are recorded separately.
 
-[Source](../../kara_templater/sources.py#L58)
+[Source](../../kara_templater/sources.py#L28)
 
 ```python
 EventOrigin(
@@ -546,7 +546,7 @@ Address within an item, stable while its source structure is unchanged.
 Item order, layout and effects do not affect addresses. Editing/reordering
 units or segments creates a new source structure; indices are not edit IDs.
 
-[Source](../../kara_templater/sources.py#L81)
+[Source](../../kara_templater/sources.py#L51)
 
 ```python
 SourceRef(
@@ -827,7 +827,7 @@ Static units appear at unit level and have no segment visits. Times never
 sort or filter the source; simultaneous lines and repeated readings retain
 distinct addresses. IDs are validated before any visits are yielded.
 
-[Source](../../kara_templater/sources.py#L141)
+[Source](../../kara_templater/sources.py#L111)
 
 ```python
 walk_karaoke(

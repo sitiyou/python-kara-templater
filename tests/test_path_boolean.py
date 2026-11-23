@@ -131,7 +131,7 @@ def raster(path, *, border=0):
                 state=VisualState(position=Vec2(30, 30), border=border),
             )
         )
-    return rasterize(scene.compile().document.dumps(), 0, (240, 180)).rgba
+    return rasterize(scene.ass.compile().document.dumps(), 0, (240, 180)).rgba
 
 
 def test_stitched_contours_have_no_internal_stroke_edges_or_fill_seams():

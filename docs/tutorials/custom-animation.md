@@ -17,7 +17,7 @@ from kara_templater import (
     Lifetime,
     PathObject,
     Scene,
-    StateFunction,
+    ShaderMotion,
     Vec2,
     VectorPath,
     VisualState,
@@ -41,7 +41,8 @@ def spark(identity: str, position: Vec2, birth: float) -> PathObject:
         state=VisualState(position=position, fill=PINK),
         animations=(AnimationClip(
             0, 2,
-            StateFunction(drift, frozenset(("position", "rotation", "opacity"))),
+            ShaderMotion(drift, frozenset(("position", "rotation", "opacity")),
+                         "pos += vec2(300.*p,30.*sin(6.28318531*p)); angle=360.*p; alpha=1.-p;"),
         ),),
     )
 
@@ -49,7 +50,7 @@ def spark(identity: str, position: Vec2, birth: float) -> PathObject:
 scene = Scene(Document.create(width=640, height=360)).add(
     *(spark(f"spark:{i}", Vec2(100, 100 + i * 35), i * 0.1) for i in range(4))
 )
-scene.export_hook("sparks.hook", fps=60)
+scene.export("sparks.hook", fps=60)
 ```
 
 `spark` is an ordinary factory. Each call constructs an independently editable
@@ -70,4 +71,4 @@ For randomized particles, switch to [emit_particles](../guides/particles.md) and
 named random channels. For a lyric sweep, bind [Document text](../guides/text-and-cues.md)
 or prepare [Tracks](../guides/tracks.md), then add the same objects to that Scene.
 
-Hook export samples this custom motion at the export frame rate.
+The hook runs the GLSL body at the current clip progress. The Python evaluator supplies state at clip boundaries.

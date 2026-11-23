@@ -1,13 +1,13 @@
 # Command-line interface
 
-The CLI loads input ASS into a Document and saves compiled standard ASS. Use a
+The CLI loads input ASS into a Document and exports a standalone libplacebo hook. Use a
 Python Scene script for unrestricted authoring, or Track configuration for
 applying reusable styling to imported lyrics.
 
 ## Preset styling
 
 ```sh
-kara-templater input.ass output.ass --after '#33ddff'
+kara-templater input.ass output.hook --after '#33ddff'
 ```
 
 The source secondary color is unsung and primary color sung unless overridden
@@ -26,7 +26,7 @@ highlight masks. Whole-scene budgets apply to the generated events.
 Fade durations reserve time outside singing; insufficient time before zero is
 an error rather than a silently shortened animation.
 
-The CLI uses the [standard ASS compiler](compilation.md).
+Add `--ass` to invoke the [standard ASS compiler](compilation.md). Hook export defaults to 60 fps. Set `--fps` to the delivery frame rate.
 
 ## Track configurations
 
@@ -46,7 +46,7 @@ tracks = (
 )
 ```
 
-Run `kara-templater input.ass output.ass --effect my_tracks.py`.
+Run `kara-templater input.ass output.hook --effect my_tracks.py`.
 Configure selection, layout, preview/tail, colors and animations in the Track
 declarations. Each Track is an independent lyric stream, with layout expressed
 by its allocator. The CLI binds these declarations into one Scene and invokes

@@ -13,12 +13,12 @@ Use `--check` to verify that committed pages match the current public API.
 | Topic | Symbols |
 | --- | --- |
 | [Documents and lyric input](documents.md) | 27 |
-| [Scenes and compilation](scenes.md) | 21 |
-| [Animation and timing](animation.md) | 33 |
+| [Scenes and compilation](scenes.md) | 20 |
+| [Animation and timing](animation.md) | 34 |
 | [Track authoring](tracks.md) | 26 |
 | [Text measurement and layout](text.md) | 28 |
 | [Geometry and paths](geometry.md) | 29 |
-| [Colors and appearance](paint.md) | 31 |
+| [Colors and appearance](paint.md) | 33 |
 | [Lyric cues](cues.md) | 13 |
 | [Particles and references](particles.md) | 14 |
 | [Coverage and raster output](coverage.md) | 7 |
@@ -26,7 +26,7 @@ Use `--check` to verify that committed pages match the current public API.
 
 ## Symbol index
 
-233 public exports.
+235 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [Animation](animation.md#animation)
@@ -47,7 +47,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [ColorStop](paint.md#colorstop)
 - [Contour](geometry.md#contour)
 - [Coverage](coverage.md#coverage)
-- [CoverageEstimate](scenes.md#coverageestimate)
 - [CoveragePartition](coverage.md#coveragepartition)
 - [CubicSegment](geometry.md#cubicsegment)
 - [CueContent](cues.md#cuecontent)
@@ -68,6 +67,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [DriftOut](animation.md#driftout)
 - [Emission](particles.md#emission)
 - [EventOrigin](documents.md#eventorigin)
+- [Extrusion](paint.md#extrusion)
 - [FadeIn](animation.md#fadein)
 - [FadeOut](animation.md#fadeout)
 - [FollowObject](particles.md#followobject)
@@ -154,6 +154,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [Polyline](geometry.md#polyline)
 - [PositionedRuby](text.md#positionedruby)
 - [PositionedText](text.md#positionedtext)
+- [PreparedHook](scenes.md#preparedhook)
 - [ProgressCurve](native.md#progresscurve)
 - [RED](paint.md#red)
 - [RasterEstimate](coverage.md#rasterestimate)
@@ -178,6 +179,8 @@ Use `--check` to verify that committed pages match the current public API.
 - [SceneResult](scenes.md#sceneresult)
 - [ScopeOpacity](coverage.md#scopeopacity)
 - [Segment](text.md#segment)
+- [ShaderMotion](animation.md#shadermotion)
+- [ShaderPaint](paint.md#shaderpaint)
 - [SignalCue](cues.md#signalcue)
 - [SingingSpan](text.md#singingspan)
 - [SingingTag](documents.md#singingtag)
@@ -222,7 +225,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [YELLOW](paint.md#yellow)
 - [bind_cues](cues.md#bind_cues)
 - [bind_lyric_cues](cues.md#bind_lyric_cues)
-- [compile_scene](scenes.md#compile_scene)
 - [ease_in](animation.md#ease_in)
 - [ease_in_out](animation.md#ease_in_out)
 - [ease_out](animation.md#ease_out)

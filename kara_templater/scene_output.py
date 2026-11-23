@@ -114,48 +114,22 @@ class SceneBudget:
 
 
 @dataclass(frozen=True)
-class CoverageEstimate:
-    """Callback-free coverage work counts, before pixels or ASS rectangles exist.
-
-    frames includes declared breakpoints; target_samples is frames times drawable
-    leaves. Neither predicts encoded event count, memory use, or elapsed time.
-    """
-
-    id: str
-    frames: int
-    target_samples: int
-    max_channel_error: int
-
-
-@dataclass(frozen=True)
 class SceneEstimate:
-    """Immutable compilation preflight delivered before frame callbacks.
-
-    estimated_events counts generated ASS records. The coverage tuple is empty
-    because the ASS compiler rejects coverage groups during preflight.
-    """
+    """Estimated ASS event count before emission."""
 
     estimated_events: int
-    coverage: tuple[CoverageEstimate, ...]
 
 
 @dataclass(frozen=True)
 class ObjectReport:
-    """Per-object output strategy, event count, source origin, sample interval, and observed geometry/band costs.
-
-    Optional metrics apply only to relevant strategies.
-    """
+    """ASS lowering strategy, source origin, event count and observed geometry costs."""
 
     id: str
     strategy: str
     events: int
     origin: EventOrigin | None
-    sample_interval: float | None = None
     peak_path_points: int | None = None
-    peak_bands: int | None = None
     peak_clip_points: int | None = None
-    sample_times: tuple[float, ...] = ()
-    max_channel_error: int = 0
 
 
 @dataclass(frozen=True)
@@ -1408,6 +1382,10 @@ def compile_scene(
         )
     for leaf in leaves:
         node = leaf.node
+        if node.extrusion is not None and node.extrusion.offset != Vec2():
+            raise SceneCompileError("ASS does not support extrusion", object_id=node.id, origin=node.origin)
+        if node.shader_paint is not None:
+            raise SceneCompileError("ASS does not support shader paint", object_id=node.id, origin=node.origin)
         if node.material is not None:
             raise SceneCompileError(
                 f"ASS does not support {type(node.material).__name__} paint fields",
@@ -1575,7 +1553,7 @@ def compile_scene(
         )
     generated: list[Line] = []
     if on_estimate is not None:
-        on_estimate(SceneEstimate(estimate, ()))
+        on_estimate(SceneEstimate(estimate))
     by_object: dict[str, list[Line]] = {}
     event_origins: dict[int, EventOrigin | None] = {}
     reports: list[ObjectReport] = []

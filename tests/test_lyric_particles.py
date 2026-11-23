@@ -44,7 +44,7 @@ def test_front_positions_follow_each_repeated_interval_and_copy_delay():
     assert all(c.position.y == box.middle for c in captured)
     assert result.lifetime.end >= 2.65
     assert result.layout.lyrics == line.layout.lyrics
-    output = Scene(doc).add(result).compile(native_tweens=True)
+    output = Scene(doc).add(result).ass.compile(native_tweens=True)
     reports = [r for r in output.objects if "/particles:" in r.id]
     assert len(reports) == 4
     assert all(r.events == 1 for r in reports)

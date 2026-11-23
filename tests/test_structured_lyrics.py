@@ -13,6 +13,7 @@ from kara_templater import (
     CuePreset,
     Document,
     FadeIn,
+    KaraokeEffects,
     KaraokeRows,
     Layout,
     Lifetime,
@@ -116,7 +117,7 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
     )
     assert not scene.replace_records
     assert doc.dumps() == original
-    result = scene.compile()
+    result = scene.ass.compile()
     assert not any(
         record.effect.startswith("kara:source") for record in result.document.lines
     )
@@ -132,7 +133,7 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
                 effects=(LyricRule("line", "enter", FadeIn(), duration=0.1),),
             ),
         ),
-    ).compile()
+    ).ass.compile()
     assert regenerated.document.dumps() == result.document.dumps()
 
 
@@ -155,7 +156,7 @@ def test_same_structured_source_has_independent_views_and_only_ass_sources_are_r
     assert len({line.id for line in scene.lines}) == 3
     assert scene.replace_records == {index}
     assert scene.plans[-1].source.record_index is None
-    assert scene.compile().event_count > 0
+    assert scene.ass.compile().event_count > 0
     with pytest.raises(ValueError, match="duplicate lyric source"):
         prepare_tracks(doc, inputs=(source, source), tracks=(Track(id="main"),))
     with pytest.raises(ValueError, match="without ASS record ownership"):
@@ -222,6 +223,27 @@ def test_feathered_wipe_requires_hook(tmp_path) -> None:
     scene = prepare_tracks(document(), inputs=(source,), tracks=(Track(id="ink", effects=(recipe,)),))
     original = scene.objects.copy()
     with pytest.raises(SceneCompileError, match="feathered wipes"):
-        scene.compile()
-    scene.export_hook(tmp_path / "sweep.hook", fps=24)
+        scene.ass.compile()
+    scene.export(tmp_path / "sweep.hook", fps=24)
     assert all(a is b for a, b in zip(scene.objects, original, strict=True))
+
+
+def test_strict_preview_keeps_absolute_indices_and_neighbor_placement():
+    doc = document()
+    for i in range(32):
+        start = 1000 + i * 1500
+        doc.records.append(Line(start_time=start, end_time=start + 700, text=r"{\k70}A|a" if i % 3 else r"{\k70}W"))
+    inputs = tuple(
+        LyricSource.from_lyrics(str(i), plan.source.lyrics, display=plan.source.display, chapter=str(i // 7))
+        for i, plan in enumerate(prepare_tracks(doc, tracks=(Track(id="base"),)).plans)
+    )
+    track = Track(id="indexed", layout=Layout(rows=3), effects=(KaraokeEffects(singing="zoom_pulse"),))
+    def build(window):
+        return prepare_tracks(document(), inputs=inputs, tracks=(track,), preview_interval=window)
+    whole = build(None)
+    for start in (40.5, 9.5, 22.0, 60.0):
+        subset = build((start, start + 2))
+        expected = [p for p in whole.plans if p.placement.display.start < start + 2
+                    and p.placement.display.end > start]
+        assert [(p.line.track_index, p.placement) for p in subset.plans] == [
+            (p.line.track_index, p.placement) for p in expected]

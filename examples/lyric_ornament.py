@@ -83,7 +83,7 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    build().compile(native_tweens=True).document.save(args.output)
+    build().ass.compile(native_tweens=True).document.save(args.output)
 
 
 if __name__ == "__main__":

@@ -1,11 +1,8 @@
 """Disjoint, priority, and layered highlights on the same lyric segment.
 
-Run from a checkout: python -m examples.parallel_tracks output.ass
 Edit highlight clocks, regions, styles, and opacity without splitting the lyrics.
 """
 
-import argparse
-from pathlib import Path
 
 from kara_templater import (
     Color,
@@ -112,16 +109,3 @@ def build() -> Scene:
         )
     )
     return prepare_tracks(document, tracks=configurations, owner="parallel-example")
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    args = parser.parse_args()
-    result = build().compile(budget=BUDGET)
-    result.document.save(args.output)
-    print(f"{result.event_count} events; {result.peak_active} active")
-
-
-if __name__ == "__main__":
-    main()

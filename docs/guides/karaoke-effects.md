@@ -86,7 +86,7 @@ scene = prepare_tracks(document, tracks=(
     Track(id="rim", layout=layout, effects=(back, *motion)),
     Track(id="face", layout=layout, reserved_border=5, effects=(face, *motion)),
 ))
-scene.export_hook("karaoke.hook", fps=60)
+scene.export("karaoke.hook", fps=60)
 ```
 
 The preview above shows compiled ASS rendered with libass. The two tracks draw the same timed lyrics at the same positions, back layer
@@ -294,8 +294,8 @@ from kara_templater import Document
 from l4ts_template import build
 
 scene = build(Document.load("L4TS.document.ass"))
-scene.export_hook("L4TS.hook", fps=60)
+scene.export("L4TS.hook", fps=60)
 ```
 
-Use `scene.compile().document.save("L4TS.ass")` for ASS-compatible recipes.
+Use `scene.ass.compile().document.save("L4TS.ass")` for ASS-compatible recipes.
 [Choose an output](choosing-output.md) lists the supported strategies.

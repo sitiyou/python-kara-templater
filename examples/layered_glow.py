@@ -229,7 +229,7 @@ def apply(input_path: str | Path, output_path: str | Path) -> SceneResult:
         style.align, style.margin_v = {"K1": (1, 240), "K2": (3, 48), "LEAD": (1, 432)}[
             name
         ]
-    result = build(document).compile(budget=SceneBudget(max_events=1_000_000))
+    result = build(document).ass.compile(budget=SceneBudget(max_events=1_000_000))
     result.document.save(output_path)
     return result
 

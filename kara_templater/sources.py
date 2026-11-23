@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 @contextmanager
-def _source_location(unit_index, segment_index=None, *, track_ids=()):
+def _source_location(unit_index, segment_index=None):
     """Carry local indices until the caller can supply an item/effect identity."""
     try:
         yield
@@ -21,36 +21,6 @@ def _source_location(unit_index, segment_index=None, *, track_ids=()):
             # Metadata is attached to arbitrary exception types.
             setattr(  # noqa: B010
                 error, "source_indices", ((unit_index, segment_index),)
-            )
-        if track_ids and not hasattr(error, "source_track_ids"):
-            setattr(  # noqa: B010
-                error, "source_track_ids", tuple(dict.fromkeys(track_ids))
-            )
-        raise
-
-
-@contextmanager
-def _source_context(origin):
-    """Enrich the original exception without replacing its type or traceback."""
-    try:
-        yield
-    except Exception as error:
-        if getattr(error, "origin", None) is None:
-            indices = getattr(error, "source_indices", ())
-            track_ids = getattr(error, "source_track_ids", origin.track_ids)
-            if indices and len(origin.sources) == 1:
-                origin = EventOrigin(
-                    tuple(
-                        SourceRef(origin.sources[0].item_id, ui, si)
-                        for ui, si in indices
-                    ),
-                    origin.effect,
-                    track_ids,
-                )
-            # Preserve the original exception type and traceback.
-            setattr(error, "origin", origin)  # noqa: B010
-            error.add_note(
-                f"effect={origin.effect}; sources={origin.sources!r}; tracks={origin.track_ids!r}"
             )
         raise
 

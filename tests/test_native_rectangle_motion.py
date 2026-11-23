@@ -71,7 +71,7 @@ def test_native_motion_bounds_error_keeps_original_clocks_and_matches_static_pix
         node = replace(node, lifetime=Lifetime(1.25, 2.5), clock_start=0)
     doc = Document.create(width=300, height=100)
     budget = SceneBudget(fps=1, clip_error_px=0.75)
-    result = Scene(doc).add(node).compile(native_tweens=True, budget=budget)
+    result = Scene(doc).add(node).ass.compile(native_tweens=True, budget=budget)
     assert result.objects[0].strategy == "native-clip"
     assert 4 < result.event_count < 30
     for event in result.document.lines:
@@ -120,7 +120,7 @@ def test_native_motion_bounds_error_keeps_original_clocks_and_matches_static_pix
                     else RectangleClip(0, 0, 1, 1),
                 )
             )
-            .compile()
+            .ass.compile()
         )
         actual_alpha = rasterize(
             result.document.dumps(), round(event.start_time), (300, 100)
@@ -137,10 +137,10 @@ def test_native_subdivision_enforces_event_and_spatial_limits_with_origin():
     node = subject()
     scene = Scene(Document.create(width=300, height=100)).add(node)
     with pytest.raises(SceneCompileError, match="event budget") as caught:
-        scene.compile(native_tweens=True, budget=SceneBudget(max_events=2))
+        scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=2))
     assert caught.value.origin is node.origin
     with pytest.raises(SceneCompileError, match="ASS time resolution") as caught:
-        scene.compile(native_tweens=True, budget=SceneBudget(clip_error_px=0.01))
+        scene.ass.compile(native_tweens=True, budget=SceneBudget(clip_error_px=0.01))
     assert caught.value.object_id == node.id
     assert caught.value.origin is node.origin
 
@@ -150,7 +150,7 @@ def test_asymmetric_pulse_uses_actual_peak_clock_and_unknown_easing_samples():
         ScalePulse(peak=2, peak_at=0.3, rate=linear_rate), at=1, duration=1,
     )
     doc = Document.create(width=300, height=100)
-    result = Scene(doc).add(node).compile(native_tweens=True)
+    result = Scene(doc).add(node).ass.compile(native_tweens=True)
     assert result.objects[0].strategy == "native-clip"
     phases = set()
     for event in result.document.lines:
@@ -164,7 +164,7 @@ def test_asymmetric_pulse_uses_actual_peak_clock_and_unknown_easing_samples():
         ScalePulse(peak=2, peak_at=0.3, rate=lambda p: p * p), at=1, duration=1,
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(doc).add(eased).compile(native_tweens=True)
+        Scene(doc).add(eased).ass.compile(native_tweens=True)
 
 
 @pytest.mark.parametrize("error", (0, -1, float("nan"), float("inf")))
@@ -181,7 +181,7 @@ def test_linear_translation_and_scale_use_the_same_curve_lowering(nested):
     animation = Timeline().play(motion, duration=1).animation if nested else motion
     node = replace(subject(), animations=()).animate(animation, at=1, duration=1)
     doc = Document.create(width=300, height=100)
-    result = Scene(doc).add(node).compile(native_tweens=True)
+    result = Scene(doc).add(node).ass.compile(native_tweens=True)
     assert result.objects[0].strategy == "native-clip"
     for time in (1000, 1500, 2000):
         p = (time - 1000) / 1000
@@ -198,7 +198,7 @@ def test_linear_translation_and_scale_use_the_same_curve_lowering(nested):
                     ),
                 )
             )
-        expected = reference.compile()
+        expected = reference.ass.compile()
         assert (
             rasterize(result.document.dumps(), time, (300, 100)).rgba
             == rasterize(expected.document.dumps(), time, (300, 100)).rgba
@@ -208,14 +208,14 @@ def test_linear_translation_and_scale_use_the_same_curve_lowering(nested):
 def test_short_parent_exposures_preserve_scale_fade_and_clip_clocks():
     node = subject(fade=True, pivot_x=50)
     doc = Document.create(width=300, height=100)
-    whole = Scene(doc).add(node).compile(native_tweens=True).document.dumps()
+    whole = Scene(doc).add(node).ass.compile(native_tweens=True).document.dumps()
     for start in range(1000, 2480, 40):
         group = ObjectGroup(
             id="exposure",
             lifetime=Lifetime(start / 1000, (start + 40) / 1000),
             children=(node,),
         )
-        cropped = Scene(doc).add(group).compile(native_tweens=True)
+        cropped = Scene(doc).add(group).ass.compile(native_tweens=True)
         assert cropped.objects[0].strategy == "native-clip"
         for time in (start, start + 20):
             assert (
@@ -246,7 +246,7 @@ def test_parent_fade_and_child_pulse_use_distinct_original_clocks(crop):
         parent = replace(parent, lifetime=Lifetime(1.75, 3), clock_start=0)
     doc = Document.create(width=300, height=100)
     result = (
-        Scene(doc).add(parent).compile(native_tweens=True, budget=SceneBudget(fps=1))
+        Scene(doc).add(parent).ass.compile(native_tweens=True, budget=SceneBudget(fps=1))
     )
     assert result.objects[0].strategy == "native-clip"
     assert result.event_count < 30
@@ -274,7 +274,7 @@ def test_parent_fade_and_child_pulse_use_distinct_original_clocks(crop):
             )
         actual = rasterize(result.document.dumps(), time, (300, 100)).rgba[3::4]
         expected = rasterize(
-            reference.compile().document.dumps(), time, (300, 100)
+            reference.ass.compile().document.dumps(), time, (300, 100)
         ).rgba[3::4]
         assert max(abs(a - b) for a, b in zip(actual, expected, strict=True)) <= 1
 
@@ -287,7 +287,7 @@ def test_overlapping_inherited_opacity_curves_remain_sampled():
         children=(child,),
     ).animate(FadeIn(), duration=2)
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(Document.create(width=300, height=100)).add(parent).compile()
+        Scene(Document.create(width=300, height=100)).add(parent).ass.compile()
 
 
 def test_native_decoration_channels_keep_original_clocks_through_clip_cuts():
@@ -298,7 +298,7 @@ def test_native_decoration_channels_keep_original_clocks_through_clip_cuts():
     node = node.animate(Tween(StatePatch(border=6, blur=16)), at=1, duration=0.5)
     node = node.animate(Tween(StatePatch(border=3, blur=8)), at=1.5, duration=0.5)
     doc = Document.create(width=300, height=100)
-    result = Scene(doc).add(node).compile(native_tweens=True)
+    result = Scene(doc).add(node).ass.compile(native_tweens=True)
     for event in result.document.lines:
         if 1000 <= event.start_time < 1500:
             match = re.search(r"\\t\((-?\d+),(-?\d+),\\bord6\\blur16", event.text)
@@ -324,7 +324,7 @@ def test_native_decoration_channels_keep_original_clocks_through_clip_cuts():
                     ),
                 )
             )
-            .compile()
+            .ass.compile()
         )
         assert (
             rasterize(result.document.dumps(), time, (300, 100)).rgba

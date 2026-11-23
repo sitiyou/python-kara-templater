@@ -13,7 +13,58 @@ from .karaoke_cues import _note
 from .paint_fields import ColorRamp, ColorStop, LinearGradient
 from .particles import ParticleContext
 from .scene import Lifetime, PathObject
-from .scene_animation import Channel, StateFunction, Transform, VisualState, smooth_rate
+from .scene_animation import (
+    Channel,
+    ShaderMotion,
+    StateFunction,
+    Transform,
+    VisualState,
+    smooth_rate,
+)
+
+
+def _ramp_parameters(ramp: ColorRamp) -> tuple[float, ...]:
+    return (len(ramp.stops), *(v for stop in ramp.stops for v in (
+        stop.position, stop.color.red / 255, stop.color.green / 255, stop.color.blue / 255,
+    )))
+
+
+@dataclass(frozen=True)
+class _ParticleTint:
+    sample: Callable[[VisualState, float], VisualState]
+    channels: frozenset[Channel]
+    source: str
+    parameters: tuple[float, ...]
+
+    def apply(self, motion: ShaderMotion) -> ShaderMotion:
+        def sample(base: VisualState, p: float) -> VisualState:
+            return self.sample(motion.function(base, p), p)
+
+        return replace(
+            motion, function=sample, channels=motion.channels | self.channels,
+            source=motion.source + f"\n{{ int tint=data+{len(motion.parameters)}; " + self.source + " }",
+            parameters=(*motion.parameters, *self.parameters),
+        )
+
+    @classmethod
+    def from_roles(cls, centers: tuple[tuple[float, Color], ...]) -> "_ParticleTint":
+        def sample(state: VisualState, _p: float) -> VisualState:
+            ink = centers[0][1]
+            for x, color in centers:
+                if state.position.x < x:
+                    break
+                ink = color
+            return replace(state, fill=ink)
+
+        return cls(sample, frozenset({"fill"}), """
+            fill=rgbAt(tint+2);
+            for(int i=0; i<refAt(tint); i++) {
+                int stop=tint+1+4*i;
+                if(pos.x<item(stop)) break;
+                fill=rgbAt(stop+1);
+            }
+        """, (len(centers), *(v for x, color in centers for v in
+                              (x, color.red/255, color.green/255, color.blue/255))))
 
 
 @lru_cache(maxsize=16)
@@ -125,7 +176,7 @@ def _falling_motion(
     snow: bool,
     entering: bool,
     exiting: bool,
-) -> Transform:
+) -> ShaderMotion:
     """Studio's three falling paths share endpoints, sideways sway and spin."""
     x, phase, angle, depth, drift = (unit_hash(context.seed, c) for c in range(1, 6))
     start_x = end_x = (x - 0.5) * (0.85 if entering or exiting else 0.7)
@@ -177,12 +228,24 @@ def _falling_motion(
         fade_in = min(1, p * (4 if snow else 5))
         return fade_in * ((1 - p) * (1 - 0.4 * p) if entering else sin(pi * p))
 
-    return Transform(
+    motion = Transform(
         offset=position,
         scale=scale,
         rotation=lambda p: 360 * angle + spin * p,
         opacity=opacity,
     )
+    return ShaderMotion(motion.sample, motion.channels, """
+        bool snow=item(data+10)>0., entering=item(data+11)>0., exiting=item(data+12)>0.;
+        float phase=item(data+4), q=snow?p:entering?1.-(1.-p)*(1.-p):smoothstep(0.,1.,p);
+        pos+=mix(pairAt(data),pairAt(data+2),q);
+        pos.x+=item(data+5)*sin(6.28318531*(phase+item(data+6)*p));
+        scale*=item(data+7)*(snow?1.05-0.40*p:exiting?1.-0.10*p:0.85+0.15*sin(3.14159265*p));
+        angle+=item(data+8)+item(data+9)*p;
+        alpha*=exiting?(1.-p)*(1.-0.5*p):min(1.,p*(snow?4.:5.))*
+                 (entering?(1.-p)*(1.-0.4*p):sin(3.14159265*p));
+    """, (start.x,start.y,end.x,end.y,phase,swing,cycles,
+          size*(0.70+0.50*depth if snow else 0.72+0.55*depth),
+          360*angle,spin,float(snow),float(entering),float(exiting)))
 
 
 def ornament(
@@ -203,12 +266,15 @@ def ornament(
     x, phase, angle, depth = (unit_hash(context.seed, c) for c in range(1, 5))
     rotation = 0.0
     position = context.position
+    motion: Transform | ShaderMotion
     if kind == "ripple":
         delay = index * 0.15
         motion = Transform(
             scale=lambda p: size * 3.6 * (0.25 + 0.85 * ease_out(p)),
             opacity=lambda p: (1 - p) ** 2,
         )
+        motion = ShaderMotion(motion.sample, motion.channels,
+            "scale*=item(data)*(0.25+0.85*(1.-(1.-p)*(1.-p))); alpha*=(1.-p)*(1.-p);", (size*3.6,))
     elif kind == "note":
         delay = angle * duration * 0.35
         position += Vec2((x - 0.5) * box.x * 0.8, -0.35 * box.y)
@@ -220,6 +286,10 @@ def ornament(
             scale=lambda p: size * (0.70 + 0.60 * x) * (0.85 + 0.15 * sin(pi * p)),
             opacity=lambda p: 1 - p * sqrt(p),
         )
+        motion = ShaderMotion(motion.sample, motion.channels, """
+            pos+=vec2(0.4*sin(6.28318531*(item(data)+1.5*p)),-1.8*(1.-(1.-p)*(1.-p)))*item(data+1);
+            scale*=item(data+2)*(0.85+0.15*sin(3.14159265*p)); alpha*=1.-p*sqrt(p);
+        """, (phase,size,size*(0.70+0.60*x)))
     elif kind in {"assemble_in", "dissolve_out"}:
         delay = angle * (0.09 if entering else 0.07)
         position += Vec2((x - 0.5) * box.x * 0.9, (depth - 0.5) * box.y * 0.8)
@@ -240,6 +310,13 @@ def ornament(
                 scale=lambda p: 0.75 * size * (1 - 0.25 * smooth_rate(p)),
                 opacity=lambda p: (1 - p) * (1 - 0.5 * p),
             )
+        motion = ShaderMotion(motion.sample, motion.channels, """
+            bool entering=item(data+4)>0.;
+            float q=smoothstep(0.,1.,p), t=entering?1.-q:q;
+            pos+=pairAt(data)*t; angle+=item(data+2)*t;
+            scale*=item(data+3)*(entering?0.9-0.35*q:1.-0.25*q);
+            alpha*=entering?min(1.,6.*p)*(1.-p*p):(1.-p)*(1.-0.5*p);
+        """, (travel.x, travel.y, spin,0.75*size,float(entering)))
     else:
         snow = kind != "petal"
         delay = angle * (0.16 if snow else 0.11)
@@ -250,10 +327,14 @@ def ornament(
         return None
     animation: Transform | StateFunction = motion
     if radial is not None:
-        def ring_color(base: VisualState, p: float) -> VisualState:
-            ink = radial.at(round(32 * ease_out(p)) / 32)
-            return replace(motion.sample(base, p), fill=ink)
-        animation = StateFunction(ring_color, motion.channels | frozenset[Channel](("fill",)))
+        def ring_color(state: VisualState, p: float) -> VisualState:
+            return replace(state, fill=radial.at(round(32 * ease_out(p)) / 32))
+
+        animation = _ParticleTint(
+            ring_color, frozenset({"fill"}),
+            "fill=rampColor(tint,roundEven(32.*(1.-(1.-p)*(1.-p)))/32.);",
+            _ramp_parameters(radial),
+        ).apply(motion)
     return _draw(
         replace(context, birth=context.birth + delay, position=position),
         kind,
@@ -290,10 +371,13 @@ def _draw(
         # The line can open mid-flight. Preserve the original phase at both boundaries.
         phase = (start - context.birth) / duration
         span = (end - start) / duration
-        animation = StateFunction(
-            lambda base, p: motion.sample(base, min(1, phase + p * span)),
-            motion.channels,
-        )
+        if isinstance(motion, ShaderMotion):
+            animation = replace(motion, progress_offset=motion.progress_offset + phase*motion.progress_scale,
+                                progress_scale=motion.progress_scale*span)
+        else:
+            animation = StateFunction(
+                lambda base, p: motion.sample(base, min(1, phase + p * span)), motion.channels,
+            )
     # GPU coverage is cached before motion. Store the contour at its display
     # size so a unit-wide petal or thin ring survives rasterization.
     pixels = max(1, ceil(raster_size))
@@ -323,7 +407,7 @@ class _ParticlePaint(Paint):
 
     def across_line(
         self, left: float, width: float, *, stroke: bool,
-    ) -> Callable[[VisualState], VisualState] | None:
+    ) -> _ParticleTint | None:
         if self.gradient is None or self.gradient.axis != "x":
             return None
         fill = self.gradient.fill
@@ -331,16 +415,27 @@ class _ParticlePaint(Paint):
         if fill is None and outline is None:
             return None
 
-        def tint(state: VisualState) -> VisualState:
+        def tint(state: VisualState, _p: float) -> VisualState:
             # Studio snaps a particle's position to the nearest 1/32 of the line.
             u = round(32 * (state.position.x - left) / max(width, 1)) / 32
             return replace(state, fill=fill.at(u) if fill else state.fill,
                            outline=outline.at(u) if outline else state.outline)
-        return tint
+        params: tuple[float, ...] = (left, max(width, 1))
+        body = "float u=roundEven(32.*(pos.x-item(tint))/item(tint+1))/32.;"
+        channels: set[Channel] = set()
+        for channel, ramp in (("fill", fill), ("outline", outline)):
+            if ramp is not None:
+                body += f" {channel}=rampColor(tint+{len(params)},u);"
+                params += _ramp_parameters(ramp)
+        if fill is not None:
+            channels.add("fill")
+        if outline is not None:
+            channels.add("outline")
+        return _ParticleTint(tint, frozenset(channels), body, params)
 
 
 def painted_particle(
-    node: PathObject, pen: _ParticlePaint | None, tint: Callable[[VisualState], VisualState] | None,
+    node: PathObject, pen: _ParticlePaint | None, tint: _ParticleTint | None,
 ) -> Iterator[PathObject]:
     """Paint the moving face and its independent rim in source order."""
     if pen is not None:
@@ -388,10 +483,8 @@ def painted_particle(
     if tint is not None:
         clip, = node.animations
         motion = clip.animation
-        def tinted_motion(base: VisualState, p: float) -> VisualState:
-            return tint(motion.sample(base, p))
-        animation = StateFunction(tinted_motion, motion.channels | frozenset[Channel](("fill", "outline")))
-        node = replace(node, animations=(replace(clip, animation=animation),))
+        assert isinstance(motion, ShaderMotion)
+        node = replace(node, animations=(replace(clip, animation=tint.apply(motion)),))
     yield node
 
 
@@ -407,7 +500,7 @@ def star_burst(
     pens: tuple[_ParticlePaint, ...] = (),
     exiting: bool,
     display: Lifetime | None,
-    fields: tuple[Callable[[VisualState], VisualState] | None, ...] = (),
+    fields: tuple[_ParticleTint | None, ...] = (),
 ) -> Iterator[PathObject]:
     """Emit one deterministic star pattern per palette colour around the box centre."""
     for variant, color in enumerate(colors):
@@ -424,6 +517,8 @@ def star_burst(
                     scale=lambda p, peak=peak: peak * (0.30 + 0.70 * sin(pi * p)),
                     opacity=lambda p: sin(pi * p),
                 )
+                animation = ShaderMotion(motion.sample, motion.channels,
+                    "float wave=sin(3.14159265*p); scale*=item(data)*(0.30+0.70*wave); alpha*=wave;", (peak,))
                 rotation = angle * 120 - 30
             else:
                 # Adjacent stars in the same colour stream must occupy different quadrants.
@@ -448,6 +543,9 @@ def star_burst(
                     rotation=lambda p: 60 * p,
                     opacity=lambda p: 1 - p,
                 )
+                animation = ShaderMotion(motion.sample, motion.channels, """
+                    pos+=pairAt(data)*p; scale*=item(data+2)*(1.-p*item(data+3)); angle+=60.*p; alpha*=1.-p;
+                """,(drift.x,drift.y,peak,0.85-0.30*shrink))
                 rotation = angle * 90
             if lifetime <= 0:
                 continue
@@ -461,7 +559,7 @@ def star_burst(
                 kind,
                 lifetime,
                 color,
-                motion,
+                animation,
                 display,
                 angle=rotation, raster_size=size,
             )

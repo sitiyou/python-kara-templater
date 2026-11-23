@@ -36,13 +36,13 @@ def test_trimmed_parent_fade_keeps_native_alpha_and_absolute_clock(offset):
         id="row", lifetime=Lifetime(105.73000000000002, 107), clock_start=105.32,
         children=(child,),
     ).animate(FadeIn(), at=0.41 + offset, duration=0.16)
-    result = Scene(doc).add(parent).compile(native_tweens=True)
+    result = Scene(doc).add(parent).ass.compile(native_tweens=True)
     assert result.objects[0].strategy == "native-clip"
     for ms in (105730, 105770, 105810, 105850, 105890, 106000):
         opacity = min(1, max(0, round((ms / 1000 - (105.73 + offset)) / 0.16, 10)))
         reference = Scene(doc).add(replace(
             child, state=replace(child.state, opacity=opacity),
-        )).compile(native_tweens=True)
+        )).ass.compile(native_tweens=True)
         actual = rasterize(result.document.dumps(), ms, (80, 60)).rgba[3::4]
         expected = rasterize(reference.document.dumps(), ms, (80, 60)).rgba[3::4]
         assert max(abs(a - b) for a, b in zip(actual, expected, strict=True)) <= 1
@@ -55,7 +55,7 @@ def test_fade_beginning_after_visibility_still_falls_back():
                            deform=RectangleKeyframes(((0, (0, 0, 20, 16)),))),
     ).animate(FadeIn(), at=0.2, duration=0.3)
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(Document.create(width=80, height=60)).add(node).compile(native_tweens=True)
+        Scene(Document.create(width=80, height=60)).add(node).ass.compile(native_tweens=True)
     assert node.at(1.1).opacity == 1  # Visible before the authored fade resets it.
 
 @pytest.mark.parametrize("clipped", [False, True])
@@ -70,7 +70,7 @@ def test_quadratic_line_fade_tracks_playback_time_in_one_ass_event(clipped):
     row = ObjectGroup(id="row", lifetime=glyph.lifetime, children=(glyph,)).animate(
         FadeIn(rate=ease_out), at=0, duration=0.6,
     ).animate(FadeOut(rate=ease_out), at=1.4, duration=0.6)
-    compiled = Scene(doc).add(row).compile(native_tweens=True)
+    compiled = Scene(doc).add(row).ass.compile(native_tweens=True)
     assert compiled.objects[0].strategy == ("native-clip" if clipped else "native-tween")
     for ms in (0, 60, 180, 300, 590, 1000, 1450, 1700, 1900):
         expected = 255 * row.at(ms / 1000).opacity

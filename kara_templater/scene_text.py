@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Collection, Iterator
 from dataclasses import dataclass, replace
+from functools import lru_cache
 from itertools import groupby
 from math import ceil, floor
 
 from .ass import Document, Line, Style
-from .characters import FontFace, LayoutCapabilityError, layout_characters
+from .characters import (
+    DrawableCharacter,
+    FontFace,
+    LayoutCapabilityError,
+    layout_characters,
+)
 from .composition import Color
 from .document_text import DocumentText, TextRun, _packed_color, resolve_singing
 from .document_text import SingingSpan as SingingSpan
@@ -264,6 +270,21 @@ def _shape_key(style: Style) -> tuple[str, float, bool, bool, float, float, floa
     )
 
 
+@lru_cache(maxsize=1024)
+def _measure_run(
+    key: tuple[str, float, bool, bool, float, float, float, int], text: str, x: float, palt: bool,
+) -> tuple[float, float, float, tuple[DrawableCharacter, ...]]:
+    family, size, bold, italic, sx, sy, spacing, encoding = key
+    style = Style(fontname=family, fontsize=size, bold=bold, italic=italic,
+                  scale_x=sx, scale_y=sy, spacing=spacing, encoding=encoding)
+    width, height, descent, _ = text_extents(style, text, palt=palt)
+    box = Box(x, 0, width, height)
+    chars = layout_characters(
+        LaidOutLine(box, (LaidOutUnit(TextUnit(text), box, ()),)), style=style, palt=palt,
+    )
+    return width, height, descent, chars
+
+
 def _style_supported(style: Style) -> None:
     fields = {key.lower(): value for key, value in style.fields.items()}
     if fields.get("borderstyle", "1") != "1" or float(fields.get("angle", "0")) != 0:
@@ -337,7 +358,7 @@ def _layout_document_view(
     ))
     items: list[PositionedText] = []
     x = 0.0
-    for (_, marker), grouped in groups:
+    for (shape_key, marker), grouped in groups:
         group = tuple(grouped)
         style = styles[group[0].appearance.style]
         # Only the host font em and baseline are needed for an authored vector.
@@ -345,11 +366,7 @@ def _layout_document_view(
         try:
             for run in group:
                 _style_supported(styles[run.appearance.style])
-            width, height, descent, _ = text_extents(style, text, palt=palt)
-            box = Box(x, 0, width, height)
-            measured = layout_characters(
-                LaidOutLine(box, (LaidOutUnit(TextUnit(text), box, ()),)), style=style, palt=palt
-            )
+            width, height, descent, measured = _measure_run(shape_key, text, x, palt)
         except LayoutCapabilityError as error:
             raise LayoutCapabilityError(
                 f"record {record_index}, decoded text range {group[0].start}:{group[-1].end}, "

@@ -7,9 +7,9 @@ from kara_templater import Document
 EXAMPLE = Path(__file__).resolve().parents[1] / "examples/karaoke.ass"
 
 
-def cli(*args):
+def cli(*args, ass=True):
     return subprocess.run(
-        [sys.executable, "-m", "kara_templater", *map(str, args)],
+        [sys.executable, "-m", "kara_templater", *(["--ass"] if ass else []), *map(str, args)],
         capture_output=True,
         text=True,
         check=False,
@@ -182,3 +182,10 @@ def test_cli_rejects_removed_raster_export(tmp_path):
     result = cli(EXAMPLE, output, "--raster")
     assert result.returncode and "unrecognized arguments" in result.stderr
     assert not output.exists()
+
+
+def test_cli_defaults_to_standalone_hook(tmp_path):
+    output = tmp_path / "lyrics.hook"
+    result = cli(EXAMPLE, output, ass=False)
+    assert result.returncode == 0, result.stderr
+    assert b"//!HOOK MAIN" in output.read_bytes()

@@ -95,7 +95,7 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
     )
     assert scene.plans[2].source.lyrics.units[0].segments[0].singing.start == 2.5
     assert scene.plans[3].line.state.position.y < scene.plans[0].line.state.position.y
-    result = scene.compile()
+    result = scene.ass.compile()
     assert result.event_count > 1
     assert all(isinstance(obj, type(scene.lines[0])) for obj in scene.objects)
     assert len(scene.replace_records) == 4
@@ -172,12 +172,12 @@ def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerate
     assert scene.lines[1].origin is not None
     assert scene.lines[0].origin.sources == scene.lines[1].origin.sources
     assert len(scene.replace_records) == 1
-    output = scene.compile()
+    output = scene.ass.compile()
     again = prepare_tracks(
         output.document,
         tracks=(track, replace(track, id="copy", layout=Layout(position=Vec2(80, 20)))),
     )
-    assert again.compile().document.dumps() == output.document.dumps()
+    assert again.ass.compile().document.dumps() == output.document.dumps()
 
 
 def test_track_tempo_reserves_the_same_interval_that_the_cue_factory_draws():
@@ -221,7 +221,7 @@ def test_inline_cue_is_reserved_independent_cue_keeps_own_lifetime_and_position(
     assert separate.lifetime.start == 0
     assert separate in scene.objects
     assert first.line.lifetime.start > separate.lifetime.start
-    assert scene.compile().event_count > 1
+    assert scene.ass.compile().event_count > 1
 
 
 def test_semantic_copy_retargets_nodes_and_preserves_source_singing():
@@ -290,13 +290,13 @@ def test_allocator_mutable_configuration_is_isolated_between_preparations():
     ]
     assert first.lines[0] is not second.lines[0]
     assert source.dumps() == original
-    assert first.compile().document.dumps() == second.compile().document.dumps()
+    assert first.ass.compile().document.dumps() == second.ass.compile().document.dumps()
 
 
 def test_removing_all_tracks_restores_sources_without_losing_unrelated_events():
     source = document()
-    output = prepare_tracks(source, tracks=(main(),)).compile().document
-    restored = prepare_tracks(output, tracks=()).compile().document
+    output = prepare_tracks(source, tracks=(main(),)).ass.compile().document
+    restored = prepare_tracks(output, tracks=()).ass.compile().document
     assert [line.serialize() for line in restored.lines if not line.comment] == [
         line.serialize() for line in source.lines if not line.comment
     ]
@@ -311,7 +311,7 @@ def test_unselected_animated_ass_is_retained_without_projection():
         text=r"{\move(0,0,50,50)\k100}native",
     )
     doc.records.append(unrelated)
-    result = prepare_tracks(doc, tracks=(main(),)).compile()
+    result = prepare_tracks(doc, tracks=(main(),)).ass.compile()
     assert any(
         event.text == unrelated.text and not event.comment
         for event in result.document.lines
@@ -483,8 +483,8 @@ def test_prepared_lyrics_remain_editable_and_share_native_tween_compilation():
     assert state.fill == PINK
     assert state.scale == Vec2(1.25, 1.25)
     assert state.border == 2.5
-    native = scene.compile(native_tweens=True)
-    sampled = scene.compile()
+    native = scene.ass.compile(native_tweens=True)
+    sampled = scene.ass.compile()
     assert any(
         r"\t(" in event.text and event.text.endswith("Z")
         for event in native.document.lines
@@ -525,8 +525,8 @@ def test_layout_translation_moves_body_and_ruby_without_mutating_source():
         ).position + Vec2(20, 30)
     from kara_templater._raster import rasterize
 
-    a = rasterize(baseline.compile().document.dumps(), 1500, (320, 180)).rgba
-    b = rasterize(shifted.compile().document.dumps(), 1500, (320, 180)).rgba
+    a = rasterize(baseline.ass.compile().document.dumps(), 1500, (320, 180)).rgba
+    b = rasterize(shifted.ass.compile().document.dumps(), 1500, (320, 180)).rgba
     assert any(a[3::4])
     for y in range(150):
         assert (
@@ -580,7 +580,7 @@ def test_display_keyframe_factory_keeps_original_window_when_other_rule_extends_
         assert baseline.lines[0].at(time).opacity == pytest.approx(opacity)
         assert extended.lines[0].at(time).opacity == pytest.approx(opacity)
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        extended.compile()
+        extended.ass.compile()
     assert durations == [2, 2]
     assert source.dumps() == original
 
@@ -654,3 +654,18 @@ def test_independent_guide_clears_only_readings_under_its_footprint(ruby_near_gu
     group, = plan.line.independent
     clearance_edge = plan.line.layout.bounds.top if ruby_near_guide else plan.line.layout.body.bounds.top
     assert group.state.position.y + 16 + 10 == pytest.approx(plan.line.state.position.y + clearance_edge)
+
+
+def test_preview_interval_preserves_row_handoffs_and_source_ownership():
+    doc = document()
+    track = main()
+    whole = prepare_tracks(doc, tracks=(track,))
+    start = whole.plans[0].placement.display.end
+    end = start + 0.25
+    preview = prepare_tracks(doc, tracks=(track,), preview_interval=(start, end))
+    expected = [plan for plan in whole.plans
+                if plan.placement.display.start < end and start < plan.placement.display.end]
+    assert 0 < len(preview.plans) == len(expected) < len(whole.plans)
+    assert [plan.placement for plan in preview.plans] == [plan.placement for plan in expected]
+    assert [obj.id for obj in preview.objects] == [obj.id for plan in expected for obj in plan.line.objects]
+    assert preview.replace_records == whole.replace_records

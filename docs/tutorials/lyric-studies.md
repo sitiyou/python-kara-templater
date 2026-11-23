@@ -9,15 +9,12 @@ The Japanese variant adds ruby. Each recipe isolates one animation technique.
 Run the [complete example](../../examples/lyric_studies.py):
 
 ```sh
-uv run python -m examples.lyric_studies build/petals.ass --effect petals --japanese
-uv run python -m tools.render_lyric_studies build/lyric-studies --japanese
+uv run python -m examples.lyric_studies build/sweep.ass --effect sweep
+uv run python -m examples.lyric_studies build/echo.hook --effect echo
 ```
 
-The second command renders all eight exported ASS files on dark, light and moving
-test backgrounds and saves comparison videos and a cost manifest. English uses
-DejaVu Sans; Japanese uses Sarasa UI J. These system fonts must be installed.
-The preview above is reduced to 12 fps; generated videos use 60 fps. Inspect the
-full videos when judging the shortest notes.
+The overview records the former ASS renderer. The source includes additional
+scene construction studies for inspecting timing and geometry.
 
 ## What differs
 
@@ -97,12 +94,7 @@ the default visible base, making these two effects visibly different.
 
 ## Cost and current limits
 
-Every preview comes from ordinary ASS. Moving/rotating copies, fluttering petals
-and arbitrary custom trajectories may require sampled events. Independent line
-fades can also prevent a particle from using a simpler native strategy. The
-renderer writes actual event, byte and peak-active counts to `manifest.json`;
-the examples deliberately retain the same effects rather than silently lowering
-particle density to meet a smaller output size.
+Hook output supports the sweep and echo studies. The sweep also exports to native ASS.
 
 See [animation and timing](../guides/animation.md) for approximation contracts,
 [particles](../guides/particles.md) for the custom factory protocol, and

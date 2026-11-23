@@ -1,7 +1,7 @@
 """Export the initial object scene and preview its real ASS with system libass.
 
 uv run python -m tools.validate_scene_core /tmp/scene-core-validation
-This is a core smoke/visual report, not acceptance of all E01–E12 cases.
+Use --scene native-tween to check native interpolation.
 """
 
 import argparse
@@ -9,46 +9,15 @@ import hashlib
 import json
 import subprocess
 import tempfile
-from collections import Counter
-from dataclasses import asdict
 from pathlib import Path
 from time import perf_counter
 from typing import Literal
 
 from PIL import Image, ImageDraw
 
-from examples.scene_affine import build as build_affine
-from examples.scene_bilingual import build as build_bilingual
-from examples.scene_boolean import build as build_boolean
-from examples.scene_coverage import BUDGET as COVERAGE_BUDGET
-from examples.scene_coverage import RASTER_SETTINGS as COVERAGE_SETTINGS
-from examples.scene_coverage import build as build_coverage
-from examples.scene_coverage_tracks import BUDGET as COVERAGE_TRACKS_BUDGET
-from examples.scene_coverage_tracks import RASTER_SETTINGS as COVERAGE_TRACKS_SETTINGS
-from examples.scene_coverage_tracks import build as build_coverage_tracks
-from examples.scene_cue_follow import build as build_cue_follow
 from examples.scene_cues import build as build_cues
-from examples.scene_follow import build as build_follow
-from examples.scene_fragments import build as build_fragments
-from examples.scene_gradient import build as build_gradient
-from examples.scene_group_masks import build as build_group_masks
-from examples.scene_keyframes import build as build_keyframes
-from examples.scene_lyric_cues import build as build_lyric_cues
-from examples.scene_lyrics import build as build_lyrics
-from examples.scene_masks import build as build_masks
-from examples.scene_mirror import build as build_mirror
-from examples.scene_morph import build as build_morph
 from examples.scene_native_tween import build as build_native_tween
-from examples.scene_outlines import build as build_outlines
-from examples.scene_rectangle import build as build_rectangle
-from examples.scene_round import build as build_round
-from examples.scene_sakura import build as build_sakura
-from examples.scene_staggered import build as build_staggered
-from examples.scene_sweep import build as build_sweep
-from examples.scene_tracks import build as build_tracks
-from examples.scene_word_glow import build as build_word_glow
-from examples.scene_writing import build as build_writing
-from kara_templater import SceneResult, load_font
+from kara_templater import load_font
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -114,129 +83,28 @@ def playback_check(
 
 def validate(
     output: Path,
-    scene_name: Literal[
-        "staggered",
-        "cues",
-        "outlines",
-        "writing",
-        "morph",
-        "sakura",
-        "fragments",
-        "round",
-        "gradient",
-        "sweep",
-        "lyrics",
-        "lyric-cues",
-        "masks",
-        "follow",
-        "tracks",
-        "affine",
-        "group-masks",
-        "mirror",
-        "boolean",
-        "word-glow",
-        "rectangle",
-        "keyframes",
-        "bilingual",
-        "cue-follow",
-        "native-tween",
-        "coverage",
-        "coverage-tracks",
-    ] = "staggered",
+    scene_name: Literal["cues", "native-tween"] = "cues",
 ) -> None:
-    build = {
-        "staggered": build_staggered,
-        "cues": build_cues,
-        "outlines": build_outlines,
-        "writing": build_writing,
-        "morph": build_morph,
-        "sakura": build_sakura,
-        "fragments": build_fragments,
-        "round": build_round,
-        "gradient": build_gradient,
-        "sweep": build_sweep,
-        "lyrics": build_lyrics,
-        "lyric-cues": build_lyric_cues,
-        "masks": build_masks,
-        "follow": build_follow,
-        "tracks": build_tracks,
-        "affine": build_affine,
-        "group-masks": build_group_masks,
-        "mirror": build_mirror,
-        "boolean": build_boolean,
-        "word-glow": build_word_glow,
-        "rectangle": build_rectangle,
-        "keyframes": build_keyframes,
-        "bilingual": build_bilingual,
-        "cue-follow": build_cue_follow,
-        "native-tween": build_native_tween,
-    }.get(scene_name)
-    artifact = "scene-core" if scene_name == "staggered" else f"scene-{scene_name}"
-    font = load_font(ROOT / "tests/fonts/DejaVuSans.ttf")
-    assets = [ROOT / "tests/fonts/DejaVuSans.ttf"]
-    if scene_name in ("round", "lyrics", "bilingual"):
-        assets.append(ROOT / "tests/fonts/KaraTestCJK.ttf")
-    font_assets = [
-        {
-            "path": str(path.relative_to(ROOT)),
-            "family": load_font(path).family,
-            "sha256": load_font(path).sha256,
-        }
-        for path in assets
-    ]
+    build = build_cues if scene_name == "cues" else build_native_tween
+    artifact = f"scene-{scene_name}"
+    path = ROOT / "tests/fonts/DejaVuSans.ttf"
+    assets = [path]
+    font = load_font(path)
     output.mkdir(parents=True, exist_ok=True)
     started = perf_counter()
-    budget = COVERAGE_TRACKS_BUDGET if scene_name == "tracks" else None
-    resolution = (
-        "320x180" if scene_name in ("coverage", "tracks") else "1280x720"
-    )
-    if scene_name == "coverage-tracks":
-        resolution = "240x135"
-
-    def generate() -> SceneResult:
-        if scene_name == "coverage":
-            return build_coverage()
-        if scene_name == "coverage-tracks":
-            return build_coverage_tracks()
-        assert build is not None
-        return build().compile(
-            budget=budget
-        )
-
-    result = generate()
+    result = build().ass.compile()
+    resolution = f"{result.document.meta.res_x}x{result.document.meta.res_y}"
     generation_seconds = perf_counter() - started
     script = output / f"scene-{scene_name}.ass"
     result.document.save(script)
     script_bytes = script.read_bytes()
     script_hash = hashlib.sha256(script_bytes).hexdigest()
-    assert generate().document.dumps() == result.document.dumps()
+    assert build().ass.compile().document.dumps() == result.document.dumps()
     times = (
         (0.0, 0.5, 1.5, 2.5, 4.5, 5.0)
         if scene_name != "cues"
         else (0.0, 0.2, 0.5, 0.8, 1.0, 2.5, 4.5, 5.0)
     )
-    if scene_name == "coverage-tracks":
-        times = (0.0, 0.5, 0.8, 1.2, 1.8, 2.5, 3.0, 3.5)
-    elif scene_name in ("coverage", "tracks"):
-        times = (0.0, 0.8, 1.2, 2.5, 3.8, 4.2, 5.0)
-    elif scene_name == "bilingual":
-        times = (0.0, 0.5, 1.3, 1.8, 2.5, 3.4, 4.5, 5.0)
-    elif scene_name == "native-tween":
-        times = (0.0, 0.5, 1.5, 2.5, 3.5, 4.0, 4.5, 5.0)
-    elif scene_name == "cue-follow":
-        times = (0.0, 1.48, 1.5, 1.82, 1.84, 2.16, 2.18, 2.48, 2.5, 4.5, 5.0)
-    elif scene_name == "keyframes":
-        times = (0.0, 0.32, 0.66, 1.7, 2.4, 2.94, 3.2)
-    elif scene_name == "sakura":
-        times = (0.0, 0.5, 1.0, 1.5, 2.5, 3.5, 4.5, 5.0)
-    elif scene_name == "fragments":
-        times = (0.0, 0.5, 1.5, 1.58, 1.6, 1.62, 2.5, 5.0)
-    elif scene_name == "lyric-cues":
-        times = (0.0, 0.5, 0.98, 1.0, 1.02, 1.5, 2.48, 2.5, 2.52, 4.5, 5.0)
-    elif scene_name == "lyrics":
-        times = (0.0, 0.5, 1.0, 1.5, 2.2, 2.5, 2.8, 3.4, 4.0, 4.5, 5.0)
-    elif scene_name == "round":
-        times = (0.0, 1.0, 1.5, 2.2, 3.3, 4.0, 4.5, 5.0)
     sheet = Image.new("RGB", (1280, ((len(times) + 1) // 2) * 384), "#141824")
     render_started = perf_counter()
     renderer_log = ""
@@ -309,15 +177,12 @@ def validate(
         "font": "tests/fonts/DejaVuSans.ttf (repository license)",
         "font_family": font.family,
         "font_sha256": font.sha256,
-        "font_assets": font_assets,
         "strategies": [
             {
                 "id": item.id,
                 "strategy": item.strategy,
                 "events": item.events,
-                "sample_interval": item.sample_interval,
                 "peak_path_points": item.peak_path_points,
-                "peak_bands": item.peak_bands,
                 "peak_clip_points": item.peak_clip_points,
             }
             for item in result.objects
@@ -328,21 +193,6 @@ def validate(
             "other scene fixtures and other renderers",
         ],
     }
-    if scene_name in ("coverage", "coverage-tracks", "tracks"):
-        counts = Counter(item.strategy for item in result.objects)
-        report["strategies"] = [
-            {"strategy": strategy, "objects": count}
-            for strategy, count in sorted(counts.items())
-        ]
-        report["raster_settings"] = asdict(
-            COVERAGE_SETTINGS if scene_name == "coverage" else COVERAGE_TRACKS_SETTINGS
-        )
-        report["scene_budget"] = asdict(
-            COVERAGE_BUDGET if scene_name == "coverage" else COVERAGE_TRACKS_BUDGET
-        )
-        if scene_name in ("coverage-tracks", "tracks"):
-            report["raster_settings"] = asdict(COVERAGE_TRACKS_SETTINGS)
-            report["scene_budget"] = asdict(COVERAGE_TRACKS_BUDGET)
     (output / f"{artifact}-validation.json").write_text(
         json.dumps(report, indent=2) + "\n"
     )
@@ -366,36 +216,8 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     parser.add_argument(
         "--scene",
-        choices=(
-            "staggered",
-            "cues",
-            "outlines",
-            "writing",
-            "morph",
-            "sakura",
-            "fragments",
-            "round",
-            "gradient",
-            "sweep",
-            "lyrics",
-            "lyric-cues",
-            "masks",
-            "follow",
-            "tracks",
-            "affine",
-            "group-masks",
-            "mirror",
-            "boolean",
-            "word-glow",
-            "rectangle",
-            "keyframes",
-            "bilingual",
-            "cue-follow",
-            "native-tween",
-            "coverage",
-            "coverage-tracks",
-        ),
-        default="staggered",
+        choices=("cues", "native-tween"),
+        default="cues",
     )
     args = parser.parse_args()
     validate(args.output, args.scene)

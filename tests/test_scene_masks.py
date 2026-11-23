@@ -36,7 +36,7 @@ def rendered(obj, time=0):
     return rasterize(
         Scene(Document.create(width=320, height=240))
         .add(obj)
-        .compile()
+        .ass.compile()
         .document.dumps(),
         time,
         (320, 240),
@@ -73,7 +73,7 @@ def test_local_mask_samples_motion_screen_mask_keeps_native_move():
     screen = (
         Scene(Document.create())
         .add(replace(moving, clip=RectangleClip(0, 0, 50, 80)))
-        .compile()
+        .ass.compile()
     )
     assert screen.objects[0].strategy == "native-move"
     assert r"\clip(0,0,50,80)" in screen.document.lines[0].text
@@ -94,7 +94,7 @@ def test_mask_callback_clock_survives_copy_and_budgets_precede_execution():
         )
     )
     with pytest.raises(SceneCompileError, match="clip point budget"):
-        Scene(Document.create()).add(source).compile(
+        Scene(Document.create()).add(source).ass.compile(
             budget=SceneBudget(max_path_points=4)
         )
     assert calls == []
@@ -118,6 +118,6 @@ def test_invalid_mask_combinations_have_explicit_diagnostics():
                 state=VisualState(skew=Vec2(0.2, 0)),
             )
         )
-        .compile()
+        .ass.compile()
     )
     assert result.objects[0].strategy == "native-static-affine-path"

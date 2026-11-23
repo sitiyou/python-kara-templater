@@ -75,9 +75,9 @@ def test_native_motion_matches_independent_static_frames(rate):
     node = subject(rate=rate)
     doc = Document.create(width=128, height=96)
     scene = Scene(doc).add(node)
-    result = scene.compile(native_tweens=True)
+    result = scene.ass.compile(native_tweens=True)
     assert result.objects[0].strategy == "native-clip-eased"
-    assert scene.compile(native_tweens=True, budget=SceneBudget(fps=10)).event_count == result.event_count
+    assert scene.ass.compile(native_tweens=True, budget=SceneBudget(fps=10)).event_count == result.event_count
     assert isinstance(node.clip, RectangleClip)
     assert isinstance(node.clip.deform, RectangleKeyframes)
     for ms in (200, 710, 840, 1260, 1930, 2150, 2300, 2500, 2690):
@@ -86,7 +86,7 @@ def test_native_motion_matches_independent_static_frames(rate):
         static = replace(node, state=node.at(time), animations=(), clip=replace(
             node.clip, deform=RectangleKeyframes(((0, bounds), (3, bounds))),
         ))
-        expected = Scene(doc).add(static).compile()
+        expected = Scene(doc).add(static).ass.compile()
         a = rasterize(result.document.dumps(), ms, (128, 96)).rgba
         b = rasterize(expected.document.dumps(), ms, (128, 96)).rgba
         # Integer band/clip edges can differ by one raster pixel. Compare their

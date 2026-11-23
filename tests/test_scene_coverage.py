@@ -78,7 +78,7 @@ def native(*nodes, time=500, opacity=1):
         *nodes
     )
     return rasterize(
-        scene.compile().document.dumps(), time, RESOLUTION, opacity=opacity
+        scene.ass.compile().document.dumps(), time, RESOLUTION, opacity=opacity
     )
 
 
@@ -135,7 +135,8 @@ def test_explicit_glow_is_composed_before_component_opacity():
     )
     ink = replace(node, id="ink", layer=1, state=replace(node.state, opacity=1))
     expected = native(halo, ink, opacity=0.5)
-    # The coverage/core and native glyph kernels have independent 8-bit stages.
+    # The native halo also draws a sharp fill under the ink. At antialiased
+    # round corners that extra fill changes the composited edge by up to 3/255.
     for background in (0, 255):
 
         def over(data, background=background):
@@ -153,7 +154,7 @@ def test_explicit_glow_is_composed_before_component_opacity():
                 abs(a - b)
                 for a, b in zip(over(actual.rgba), over(expected.rgba), strict=True)
             )
-            <= 2
+            <= 3
         )
 
 

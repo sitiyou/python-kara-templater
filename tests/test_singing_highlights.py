@@ -98,7 +98,7 @@ def test_single_pass_lowers_at_one_fps_and_matches_static_boundary_pixels():
     )(line)
     canvas = Document.create(width=160, height=96, styles=tuple(doc.styles.values()))
     scene = Scene(canvas).add(line)
-    native = scene.compile(budget=SceneBudget(fps=1), native_tweens=True)
+    native = scene.ass.compile(budget=SceneBudget(fps=1), native_tweens=True)
     assert any(obj.strategy == "native-clip" for obj in native.objects)
     # Both include the separate 20 ms shoulders, the 80 ms syllable and handoff.
     for time in (980, 1000, 1080, 1230, 1250):
@@ -120,7 +120,7 @@ def test_single_pass_lowers_at_one_fps_and_matches_static_boundary_pixels():
             return replace(node, clip=RectangleClip(*screen))
 
         expected_scene = Scene(canvas).add(freeze(line))
-        sampled = expected_scene.compile()
+        sampled = expected_scene.ass.compile()
         actual = rasterize(native.document.dumps(), time, (160, 96)).rgba
         expected = rasterize(sampled.document.dumps(), time, (160, 96)).rgba
         for background in ("black", "white"):
@@ -222,6 +222,6 @@ def test_ass_supports_instant_wipe_and_rejects_repeated_singing():
         scene = Scene(canvas).add(result)
         if "#" in text:
             with pytest.raises(ValueError, match="frame sampling"):
-                scene.compile()
+                scene.ass.compile()
         else:
-            assert scene.compile().event_count
+            assert scene.ass.compile().event_count

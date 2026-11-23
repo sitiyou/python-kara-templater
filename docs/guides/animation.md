@@ -60,10 +60,10 @@ exit_motion = Transform(
 The rule still owns timing; `p` runs from 0 to 1 over that rule's duration.
 No object-tree traversal, absolute-position calculation or ASS keyframe generation
 is needed. Built-ins and custom transforms use the same binding and evaluator.
-The example's `--custom` option combines this exit with duration-aware emphasis.
+Call `build(custom=True)` to evaluate this exit with duration-aware emphasis. The hook compiler rejects these Python callbacks.
 
 This example also attaches a vertical fill gradient through `LyricGradient`.
-Export scenes with gradients or custom motion as hooks.
+The default example exports the gradient and built-in motion together as a hook.
 
 ## Change parameters for each singing interval
 

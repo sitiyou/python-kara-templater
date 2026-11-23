@@ -87,7 +87,7 @@ def test_affine_geometry_and_local_mask_match_explicit_world_paths(text):
     leaf = replace(leaf, clip=RectangleClip(0, 0, 35, 50, space="local"))
     group = ObjectGroup(id="group", lifetime=lifetime, state=parent, children=(leaf,))
     doc = Document.create(width=320, height=240)
-    output = Scene(doc).add(group).compile()
+    output = Scene(doc).add(group).ass.compile()
     origin = transform(parent, child.position)
 
     def world(point):
@@ -101,7 +101,7 @@ def test_affine_geometry_and_local_mask_match_explicit_world_paths(text):
         state=VisualState(position=origin),
         clip=VectorClip(mask),
     )
-    reference = Scene(doc).add(expected).compile()
+    reference = Scene(doc).add(expected).ass.compile()
     pixels = rasterize(output.document.dumps(), 0, (320, 240)).rgba
     assert any(pixels)
     assert pixels == rasterize(reference.document.dumps(), 0, (320, 240)).rgba
@@ -138,11 +138,11 @@ def test_singular_group_is_empty_and_multiline_outline_has_explicit_diagnostic()
         state=VisualState(skew=Vec2(1, 1)),
         children=(leaf,),
     )
-    assert Scene(Document.create()).add(group).compile().event_count == 0
+    assert Scene(Document.create()).add(group).ass.compile().event_count == 0
     with pytest.raises(SceneCompileError, match="single-line"):
         Scene(Document.create()).add(
             replace(leaf, text="A\nB", state=VisualState(skew=Vec2(0.2, 0)))
-        ).compile()
+        ).ass.compile()
 
 
 def test_outline_preflight_runs_before_property_callbacks():
@@ -167,7 +167,7 @@ def test_outline_preflight_runs_before_property_callbacks():
         state=VisualState(scale=Vec2(2, 1)),
     )
     with pytest.raises(SceneCompileError, match="outline point budget"):
-        Scene(Document.create()).add(group).compile(
+        Scene(Document.create()).add(group).ass.compile(
             budget=SceneBudget(max_path_points=4)
         )
     assert calls == []
@@ -226,8 +226,8 @@ def test_reflected_parent_and_child_rotation_match_explicit_outline(scale):
         ),
     )
     doc = Document.create(width=320, height=240)
-    actual = Scene(doc).add(group).compile()
-    reference = Scene(doc).add(expected).compile()
+    actual = Scene(doc).add(group).ass.compile()
+    reference = Scene(doc).add(expected).ass.compile()
     rgba = rasterize(actual.document.dumps(), 0, (320, 240)).rgba
     assert any(rgba)
     assert rgba == rasterize(reference.document.dumps(), 0, (320, 240)).rgba
@@ -267,7 +267,7 @@ def test_singular_composition_retains_queryable_geometry_but_no_filled_events(
         expected = transform(group.state, transform(node.state, point))
         actual = state.transform.apply(point)
         assert (actual.x, actual.y) == pytest.approx((expected.x, expected.y))
-    assert scene.compile().event_count == 0
+    assert scene.ass.compile().event_count == 0
 
 
 def test_scale_crosses_zero_without_negative_ass_tags_or_backend_switch():
@@ -334,7 +334,7 @@ def test_subpixel_detail_of_enlarged_unit_drawing():
     reference = replace(glyph, path=VectorPath.rectangle(2.24, 60),
                         state=replace(glyph.state, scale=Vec2(1, 1)))
     def coverage(node):
-        script = Scene(doc).add(node).compile().document.dumps()
+        script = Scene(doc).add(node).ass.compile().document.dumps()
         return sum(rasterize(script, 100, (160, 120)).rgba[3::4]) / 255
     assert coverage(glyph) == pytest.approx(coverage(reference), rel=0.025)
 
@@ -347,6 +347,6 @@ def test_local_path_pen_enlarges_with_the_drawing():
     reference = replace(glyph, path=VectorPath.rectangle(36, 30), scale_border=False,
                         state=replace(glyph.state, scale=Vec2(1, 1), border=6))
     def mask(node):
-        script = Scene(doc).add(node).compile().document.dumps()
+        script = Scene(doc).add(node).ass.compile().document.dumps()
         return rasterize(script, 100, (120, 90)).rgba[3::4]
     assert mask(glyph) == mask(reference)

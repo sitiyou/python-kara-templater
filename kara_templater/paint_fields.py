@@ -7,7 +7,7 @@ from math import ceil, floor
 from typing import Literal, Protocol, runtime_checkable
 
 from .composition import Color
-from .geometry import finite
+from .geometry import Vec2, finite
 from .scene_animation import TimeSpan, VisualState, linear_rate
 
 
@@ -18,6 +18,40 @@ def _mix(a: Color, b: Color, progress: float) -> Color:
         round(a.green + (b.green - a.green) * p),
         round(a.blue + (b.blue - a.blue) * p),
     )
+
+
+@dataclass(frozen=True)
+class Extrusion:
+    """A solid side swept from a drawing's hard silhouette in local script pixels.
+
+    Offset is the vector from front to back. The side follows the face's
+    transforms and opacity, and keeps its own color during a lyric wipe.
+    Zero offset gives a flat drawing. Hook output supports this appearance.
+    """
+
+    offset: Vec2
+    color: Color
+
+
+@dataclass(frozen=True)
+class ShaderPaint:
+    """GLSL applied per covered pixel after the normal material and feather.
+
+    The body can modify RGB ink and opacity alpha. local and screen are script
+    pixel coordinates, time is signed seconds from the object clock, coverage
+    is the native mask, and component is 0 for fill, 1 for outline, 2 for
+    shadow. Numeric parameters are accessible through item(data + offset).
+    Optional functions can contain Metashade-generated GLSL definitions.
+    """
+
+    source: str
+    parameters: tuple[float, ...] = ()
+    functions: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.source.strip() or "//!" in self.source + self.functions:
+            raise ValueError("shader paint requires a GLSL function body")
+        finite(*self.parameters)
 
 
 @dataclass(frozen=True)

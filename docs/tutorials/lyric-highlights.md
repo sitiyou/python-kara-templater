@@ -76,12 +76,12 @@ scene = prepare_tracks(
                     "character", HighlightArrival(highlights=highlights), Jump(24)
                 ),
                 LyricRule("line", "exit", FadeOut(), duration=0.4),
-                LyricHighlights(highlights=highlights),
+                LyricHighlights.from_singing(StatePatch(fill=CYAN)),
             ),
         ),
     ),
 )
-scene.export_hook("lyric-arc.hook", fps=60)
+scene.export("lyric-arc.hook", fps=60)
 ```
 
 The factory describes each syllable's measured region and original singing

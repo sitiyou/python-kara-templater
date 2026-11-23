@@ -5,7 +5,6 @@ from typing import assert_type
 
 from kara_templater import (
     Affine2D,
-    CoverageEstimate,
     Document,
     Lifetime,
     ObjectReport,
@@ -47,7 +46,7 @@ def author(document: Document) -> SceneResult:
         Timeline().keyframes(StateKeyframe(1, StatePatch(opacity=0))),
         Timeline,
     )
-    result = Scene(document).add(node).compile()
+    result = Scene(document).add(node).ass.compile()
     assert_type(result.document, Document)
     assert_type(result.objects, tuple[ObjectReport, ...])
     return result
@@ -62,19 +61,14 @@ def affine_contract(state: VisualState) -> Vec2:
     return matrix.apply(Vec2(10, 20))
 
 
-assert_type(Scene(Document.create()).compile(native_tweens=True), SceneResult)
+assert_type(Scene(Document.create()).ass.compile(native_tweens=True), SceneResult)
 
 
 def inspect_cost(estimate: SceneEstimate) -> None:
     assert_type(estimate.estimated_events, int)
-    assert_type(estimate.coverage, tuple[CoverageEstimate, ...])
-    for group in estimate.coverage:
-        assert_type(group.frames, int)
-        assert_type(group.target_samples, int)
-        assert_type(group.max_channel_error, int)
 
 
-assert_type(Scene(Document.create()).compile(on_estimate=inspect_cost), SceneResult)
+assert_type(Scene(Document.create()).ass.compile(on_estimate=inspect_cost), SceneResult)
 
 
 def explicit_clock(node: TextObject) -> float:

@@ -146,4 +146,4 @@ def test_zero_singing_without_authored_duration_keeps_base_drawing():
     assert target.at(1).scale == Vec2(1, 1)
     assert scene.lines[0].query("syllable")[0].singing[0].start == 1
     assert scene.lines[0].query("syllable")[0].singing[0].end == 1
-    assert scene.compile().event_count > 0
+    assert scene.ass.compile().event_count > 0

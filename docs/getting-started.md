@@ -62,8 +62,8 @@ caption = TextObject(
     ),
 )
 scene = Scene(document).add(caption)
-scene.compile().document.save("first-effect.ass")
-scene.export_hook("first-effect.hook", fps=30)
+scene.ass.compile().document.save("first-effect.ass")
+scene.export("first-effect.hook", fps=30)
 ```
 
 Run it with:

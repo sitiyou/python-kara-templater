@@ -1,7 +1,7 @@
 """Singing-relative emphasis and independent glyph exits.
 
-uv run python -m examples.lyric_pulse_drift build/pulse-drift.ass
-Use --custom for note-length-dependent emphasis and a curved custom exit.
+uv run python -m examples.lyric_pulse_drift build/pulse-drift.hook
+build(custom=True) demonstrates a curved exit in the scene evaluator.
 """
 
 import argparse
@@ -96,12 +96,12 @@ def build(*, custom: bool = False) -> LyricScene:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--custom", action="store_true")
     args = parser.parse_args()
-    result = build(custom=args.custom).compile(native_tweens=True)
+    if args.output.suffix != ".hook":
+        parser.error("output must end in .hook")
+    scene = build()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(result.document.dumps(), encoding="utf-8-sig")
-    print(f"{result.event_count} events, {result.byte_count} bytes")
+    scene.export(args.output)
 
 
 if __name__ == "__main__":

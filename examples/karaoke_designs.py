@@ -1,6 +1,6 @@
 """Reference-informed karaoke styles on one original, shared lyric fixture.
 
-uv run python -m examples.karaoke_designs build/broadcast.ass --style broadcast
+uv run python -m examples.karaoke_designs build/broadcast.hook --style broadcast
 See docs/tutorials/karaoke-design.md for layout and docs/guides/fonts-and-preview.md for typefaces.
 """
 
@@ -28,7 +28,6 @@ from kara_templater import (
     LyricRule,
     LyricScene,
     LyricTarget,
-    SceneBudget,
     StateFunction,
     StatePatch,
     Style,
@@ -279,6 +278,8 @@ def main() -> None:
         help="Original Japanese lyrics; requires Sarasa UI J / Noto Serif CJK JP",
     )
     args = parser.parse_args()
+    if args.output.suffix != ".hook":
+        parser.error("output must end in .hook")
     design: Design
     match args.style:
         case "broadcast":
@@ -289,19 +290,13 @@ def main() -> None:
             design = "candy"
         case _:
             raise ValueError("unknown design")
-    result = build(
+    scene = build(
         design,
         font=FONT_PRESETS[args.font_preset] if args.font_preset else args.font,
         japanese=args.japanese,
-    ).compile(
-        native_tweens=True,
-        budget=SceneBudget(fps=60, max_events=40_000, max_bytes=20 * 1024 * 1024),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    result.document.save(args.output)
-    print(
-        f"{result.event_count} events, {result.peak_active} active, {result.byte_count} bytes"
-    )
+    scene.export(args.output)
 
 
 if __name__ == "__main__":

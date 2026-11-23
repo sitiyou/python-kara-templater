@@ -1,9 +1,7 @@
 """Two source lines, ruby, repeated singing and a shared world-space decoration.
 
-uv run python -m examples.scene_bilingual output.ass
 """
 
-import argparse
 from dataclasses import replace
 from math import pi, sin
 from pathlib import Path
@@ -188,17 +186,3 @@ def build() -> Scene:
         ),
     )
     return scene.add(*cues.independent, bridge)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    result = build().compile()
-    result.document.save(parser.parse_args().output)
-    print(
-        f"{result.event_count} events, {result.peak_active} active, {result.byte_count} bytes"
-    )
-
-
-if __name__ == "__main__":
-    main()

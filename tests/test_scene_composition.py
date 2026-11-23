@@ -70,12 +70,12 @@ def test_scene_order_is_independent_of_identity_and_exposure_start():
     later = replace(drawing("a", RED), lifetime=Lifetime(0.4, 0.8))
     doc = Document.create(width=64, height=48)
     scene = Scene(doc).add(earlier, later)
-    result = scene.compile(budget=BUDGET)
+    result = scene.ass.compile(budget=BUDGET)
     assert [report.id for report in result.objects] == ["z", "a"]
     assert pixel(result) == (255, 0, 0, 255)
     for time in (100, 900):
         frame = rasterize(result.document.dumps(), time, (64, 48)).rgba
         offset = (10 * 64 + 10) * 4
         assert tuple(frame[offset : offset + 4]) == (0, 0, 255, 255)
-    reversed_result = Scene(doc).add(later, earlier).compile(budget=BUDGET)
+    reversed_result = Scene(doc).add(later, earlier).ass.compile(budget=BUDGET)
     assert pixel(reversed_result) == (0, 0, 255, 255)

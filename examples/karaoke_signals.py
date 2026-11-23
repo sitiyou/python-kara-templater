@@ -1,7 +1,5 @@
 """Inline volume bars and a separate row of lamps on the same singing clock."""
 
-import sys
-from pathlib import Path
 
 from kara_templater import (
     Color,
@@ -91,7 +89,3 @@ def build() -> LyricScene:
             ),
         ),
     )
-
-
-if __name__ == "__main__":
-    build().compile(native_tweens=True).document.save(Path(sys.argv[1]))

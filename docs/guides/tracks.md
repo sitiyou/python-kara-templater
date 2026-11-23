@@ -102,7 +102,7 @@ scene = prepare_tracks(
         ),
     ),
 )
-scene.compile().document.save("output.ass")
+scene.ass.compile().document.save("output.ass")
 ```
 
 A rule selects targets and binds a common animation to an anchor. It does not
@@ -191,20 +191,11 @@ Automatic tracks share the gap between successive occupants of each row. Singing
 Override `allocate` when a song needs a different occupancy policy, such as taking a solo line out of rotation. The allocator receives the measured bounds and required visibility intervals for every line. After assigning rows and resolving handoffs, call `self.row_offsets(lines, placements)` to position the rows with their measured clearances. Cross-track information is available through `Track.references` and `LayoutContext.other_lines`.
 
 The complete [lyric orchestration example](../../examples/lyric_orchestration.py)
-uses one song and the same animation declarations for these configurations:
-
-```sh
-uv run python -m examples.lyric_orchestration build/layout-one.ass --rows 1
-uv run python -m examples.lyric_orchestration build/layout-two.ass --rows 2
-uv run python -m examples.lyric_orchestration build/layout-three.ass --rows 3
-uv run python -m examples.lyric_orchestration build/layout-custom.ass --custom
-uv run python -m examples.lyric_orchestration build/layout-continue.ass --custom --keep-rotation --advance-solo
-```
-
+constructs scenes with different row counts and custom occupancy rules.
 Its `SongLayout.allocate` keeps the cursor and occupancy in ordinary local
 variables. Its override implements its own lead and solo policies. The separate harmony Track stays at the top.
 In Python, pass your allocator to `build(layout=...)`; the lyric rules remain
-unchanged. Add `--dense` to demonstrate overlapping singing: one row reports
+unchanged. Pass `dense=True` to demonstrate overlapping singing: one row reports
 insufficient capacity, while two or three rows can accommodate it.
 
 ## Semantic targets and appearance
@@ -347,3 +338,21 @@ Studio-style vertical guide, give symbols their own karaoke intervals and map
 the marker through `Track.guide_symbols`. Each symbol occupies one body cell
 and changes color along the same downward front as the lyric. Two zero-duration
 markers at the first note switch on the next ASS centisecond.
+
+### Prepare a preview interval
+
+For an interactive recipe, pass the complete sequence of inputs and the requested
+interval in absolute seconds. Track preparation retains the shared row rotation,
+neighboring handoffs and co-visible row heights. The resulting scene includes
+the lines and independent cues that intersect the window. Keep the full song's
+sources available for additional template objects such as chapter countdowns.
+
+```python
+scene = prepare_tracks(document, inputs=song.sources, tracks=tracks,
+                       bpm=song.bpm, preview_interval=song.preview_interval)
+```
+
+A full export passes `None`. Recipes that inspect or reference lyric objects
+outside the preview interval should prepare the full scene. Custom allocators
+and effects with independent timing use full-batch planning before selecting
+visible lines.

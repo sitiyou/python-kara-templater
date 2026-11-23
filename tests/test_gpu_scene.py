@@ -64,7 +64,7 @@ def test_gpu_scene_keeps_clocks_and_reuses_coverage_after_seek():
 
 
 def test_gpu_scene_coverage_retains_native_roles_and_negative_ink():
-    text = node()
+    text = replace(node(), text="jg")
     second = replace(
         text,
         id="copy",
@@ -101,7 +101,7 @@ def test_gpu_cached_local_coverage_matches_untransformed_native_text(alignment, 
         state=VisualState(position=Vec2(80, 60), border=2, blur=0.3, opacity=opacity),
     )
     scene = Scene(Document.create(width=200, height=120)).add(text)
-    expected = rasterize(scene.compile().document.dumps(), 500, (200, 120))
+    expected = rasterize(scene.ass.compile().document.dumps(), 500, (200, 120))
     (draw,) = SceneFrames(scene).at(0.5)
     canvas = RasterCanvas(200, 120)
     for x, y, width, height, kind, color, data in draw.images:
@@ -129,7 +129,7 @@ def test_outline_only_drawing_keeps_its_center_clear_during_native_fade():
     assert any(i[4] == 0 and i[5] & 255 == 0 for i in filled_draw.images)
     assert all(i[4] != 0 or i[5] & 255 == 255 for i in ring_draw.images)
     assert any(i[4] == 1 and i[5] & 255 == 0 for i in ring_draw.images)
-    compiled = Scene(doc).add(ring).compile(native_tweens=True)
+    compiled = Scene(doc).add(ring).ass.compile(native_tweens=True)
     assert compiled.event_count == 1
     rgba = rasterize(compiled.document.dumps(), 1000, (64, 64)).rgba
     assert rgba[4 * (24 * 64 + 24) + 3] == 0
@@ -151,3 +151,96 @@ def test_hook_rasterizes_paths_and_text_without_an_ass_event(monkeypatch):
     assert [shadow[4], border[4], fill[4]] == [2, 1, 0]
     assert shadow[:2] == (border[0] - 4, border[1] + 3)
     assert fill[6][(6 - fill[1]) * fill[2] + 10 - fill[0]] == 255
+
+
+def test_static_border_rounds_an_acute_glyph_tip():
+    from kara_templater import VectorPath
+    from kara_templater._gpu_scene import path_coverage
+
+    # A narrow V in the middle of the mask leaves room for a miter spike.
+    path = VectorPath.polygon(Vec2(2, 2), Vec2(18, 2), Vec2(10, 22))
+    border, _fill = path_coverage(path, VisualState(border=4), True, 10000, "tip")
+    left, top, width, height, _, _, alpha = border
+
+    def coverage(x: int, y: int) -> int:
+        if left <= x < left + width and top <= y < top + height:
+            return alpha[(y - top) * width + x - left]
+        return 0
+
+    assert coverage(10, 24) > 240
+    assert coverage(13, 25) < 10
+    assert coverage(10, 26) == 0
+
+
+def test_path_extrusion_has_connected_side_and_preserves_face_clip_and_clock(tmp_path):
+    from kara_templater import Extrusion, PathObject, SceneCompileError, VectorPath
+
+    shape = PathObject(
+        id="stem", path=VectorPath.rectangle(2, 14), lifetime=Lifetime(0, 2),
+        extrusion=Extrusion(Vec2(-8.5, 0), Color(7, 11, 19)),
+        clip=RectangleClip(-12, -5, 20, 20, space="local"), state=VisualState(border=0),
+    ).animate(FadeOut(), duration=2)
+    scene = Scene(Document.create()).add(shape)
+    side, front = SceneFrames(scene).at(1)
+    assert side.opacity == front.opacity == 0.5
+    assert side.clip == front.clip and side.clip is not None
+    (x, y, w, _, role, color, alpha), = side.images
+    assert role == 3 and color == 0x070b1300
+    assert all(alpha[(6 - y) * w + px - x] > 240 for px in range(-7, -1))
+    assert 60 < alpha[(6 - y) * w - 9 - x] < 200
+    with pytest.raises(SceneCompileError, match="ASS does not support extrusion"):
+        scene.ass.compile()
+    scene.export(tmp_path / "shape.hook", fps=24)
+
+
+def test_lyric_extrusion_follows_body_and_ruby_without_singing_clip():
+    from kara_templater import (
+        Extrusion,
+        KaraokeEffects,
+        Line,
+        Style,
+        Track,
+        prepare_tracks,
+    )
+
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=50),))
+    doc.records.append(Line(start_time=1000, end_time=2500, text=r"{\k50}AB|ab{\k100}C"))
+    scene = prepare_tracks(doc, tracks=(Track(
+        id="lead", extrusion=Extrusion(Vec2(3, 5), Color(12, 34, 56)),
+        effects=(KaraokeEffects(singing="zoom_pulse", hook_feather=3),),
+    ),))
+    frames = SceneFrames(scene)
+    targets = {t.node_id for t in scene.lines[0].query("character", "ruby")}
+    assert scene.lines[0].query("ruby")
+    for time in (1.25, 2.0, 1.25):
+        draws = frames.at(time)
+        sides = [d for d in draws if any(i[4] == 3 for i in d.images)]
+        assert {d.object_id for d in sides} == targets
+        assert len(sides) == len(targets)
+        for side in sides:
+            assert side.clip is None
+            assert side.transform == scene.evaluator().at(side.object_id, time).transform
+
+
+def test_extruded_antialiased_edge_composites_to_the_swept_silhouette():
+    from PIL import Image
+
+    from kara_templater._gpu_scene import _sweep_mask
+
+    face = Image.frombytes("L", (6, 1), bytes([0, 128, 255, 128, 0, 0]))
+    side = _sweep_mask(face, Vec2(1, 0))
+    assert list(side.tobytes()) == [0, 0, 0, 255, 128, 0]
+
+
+def test_extrusion_of_an_outline_keeps_the_unswept_part_of_the_counter_open():
+    from kara_templater import Extrusion, PathObject, VectorPath
+
+    ring = PathObject(id="ring", path=VectorPath.rectangle(28, 28), filled=False,
+                      extrusion=Extrusion(Vec2(4, 3), Color(10, 20, 30)),
+                      state=VisualState(border=2), lifetime=Lifetime(0, 1))
+    side, front = SceneFrames(Scene(Document.create()).add(ring)).at(0)
+    x, y, width, height, _, _, alpha = side.images[0]
+    assert x <= 14 < x + width and y <= 14 < y + height
+    assert alpha[(14 - y) * width + 14 - x] == 0
+    assert alpha[(14 - y) * width + 2 - x] == 255
+    assert [image[4] for image in front.images] == [1]

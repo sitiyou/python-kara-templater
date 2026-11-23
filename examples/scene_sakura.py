@@ -1,12 +1,9 @@
 """E04: seeded sakura particles, birth capture on a lyric cursor, and its echoes.
 
-uv run python -m examples.scene_sakura output.ass
 """
 
-import argparse
 from dataclasses import replace
 from math import cos, sin, tau
-from pathlib import Path
 
 from kara_templater import (
     PINK,
@@ -196,17 +193,3 @@ def build() -> Scene:
     )
     scene.replace_source(record_index)
     return scene
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    result = build().compile()
-    result.document.save(parser.parse_args().output)
-    print(
-        f"{result.event_count} events, {result.peak_active} active, {result.byte_count} bytes"
-    )
-
-
-if __name__ == "__main__":
-    main()

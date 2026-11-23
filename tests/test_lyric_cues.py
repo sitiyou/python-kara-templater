@@ -100,12 +100,12 @@ def test_input_marker_and_projected_python_marker_are_equivalent():
         original, presets, markers=(CueMarker("intro", "bars"),)
     )
     assert (
-        Scene(Document.create()).add(from_input.group()).compile().document.dumps()
-        == Scene(Document.create()).add(from_code.group()).compile().document.dumps()
+        Scene(Document.create()).add(from_input.group()).ass.compile().document.dumps()
+        == Scene(Document.create()).add(from_code.group()).ass.compile().document.dumps()
     )
     scene = Scene(doc).add(from_input.group())
     scene.replace_source(len(doc.records) - 1)
-    result = scene.compile()
+    result = scene.ass.compile()
     assert all(
         "kara:v1 cue" not in line.text
         for line in result.document.lines
@@ -194,7 +194,7 @@ def test_signal_shapes_compile_on_nonuniform_steps(shape):
     right, left = bound.inline[0].children
     assert right.state.position.x > left.state.position.x
     assert (right.lifetime.end, left.lifetime.end) == (0.25, 1)
-    assert Scene(doc).add(bound.group()).compile().event_count > 0
+    assert Scene(doc).add(bound.group()).ass.compile().event_count > 0
 
 
 def test_signal_countdown_toward_lyric_preserves_step_times():
@@ -224,7 +224,7 @@ def test_signal_waits_before_nonuniform_countdown_and_keeps_all_slots():
     scene = Scene(doc).add(bound.group())
     assert scene.evaluator().at(right.id, 0.59).opacity == 1
     assert scene.evaluator().at(right.id, 0.6665).opacity == pytest.approx(0.5)
-    assert scene.compile().event_count > 0
+    assert scene.ass.compile().event_count > 0
 
 
 def test_empty_leading_k_advances_cue_trigger_without_a_dummy_syllable():
@@ -417,7 +417,7 @@ def test_strokeless_signal_renders_a_soft_glow_outside_the_body():
     assert isinstance(lamp, ObjectGroup)
     lamp = replace(lamp, state=VisualState(position=Vec2(16, 16)))
     scene = Scene(Document.create(width=80, height=80)).add(lamp)
-    rgba = rasterize(scene.compile().document.dumps(), 0, (80, 80)).rgba
+    rgba = rasterize(scene.ass.compile().document.dumps(), 0, (80, 80)).rgba
     outer = (36 * 80 + 12) * 4
     center = (36 * 80 + 36) * 4
     # Six-pixel-wide pen convolved with a sigma-6 Gaussian, 3.5 px outside.
@@ -465,7 +465,7 @@ def test_cue_render_is_independent_of_the_lyric_font(kind):
         heights.append(content.height)
         scene = Scene(Document.create(width=240, height=100)).add(
             ObjectGroup(id="row", lifetime=life, children=content.objects))
-        frames.append(rasterize(scene.compile().document.dumps(), 2250, (240, 100)).rgba)
+        frames.append(rasterize(scene.ass.compile().document.dumps(), 2250, (240, 100)).rgba)
     assert any(frames[0][3::4])
     assert frames[0] == frames[1]
     assert heights[2] == pytest.approx(2 * heights[0], abs=1)

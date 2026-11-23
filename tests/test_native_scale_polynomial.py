@@ -36,14 +36,14 @@ def glyph(rate=smoother_rate, *, peak=1.06, duration=1, peak_at=0.42):
 def test_polynomial_matches_independent_scale_frames_across_event_cuts(rate):
     doc = Document.create(width=100, height=80)
     node = glyph(rate)
-    result = Scene(doc).add(node).compile(native_tweens=True)
+    result = Scene(doc).add(node).ass.compile(native_tweens=True)
     assert all(item.strategy == "native-clip-eased" for item in result.objects)
     assert _scale_polynomials(node)
     assert result.event_count > 1  # Includes groups beginning inside a curve.
     for ms in (0, 199, *range(200, 1201, 10), 1450):
         reference = Scene(doc).add(replace(
             node, animations=(), clip=None, state=node.at(ms / 1000),
-        )).compile()
+        )).ass.compile()
         actual = rasterize(result.document.dumps(), ms, (100, 80)).rgba[3::4]
         expected = rasterize(reference.document.dumps(), ms, (100, 80)).rgba[3::4]
         assert max(abs(a - b) for a, b in zip(actual, expected, strict=True)) <= 1, ms

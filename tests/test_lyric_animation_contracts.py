@@ -64,7 +64,7 @@ def test_material_callbacks_wait_for_budget_preflight():
     scene = Scene(document).add(animated)
     assert not calls
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        scene.compile(budget=SceneBudget(max_events=1))
+        scene.ass.compile(budget=SceneBudget(max_events=1))
     assert not calls
 
 
@@ -172,5 +172,5 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
                 ),
             ),
         )
-    assert extended.compile().event_count > 0
+    assert extended.ass.compile().event_count > 0
     assert document.dumps() == original

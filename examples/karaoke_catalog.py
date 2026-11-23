@@ -101,9 +101,9 @@ def main() -> None:
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     if args.output.suffix == ".hook":
-        scene.export_hook(args.output, fps=60)
+        scene.export(args.output, fps=60)
         return
-    result = scene.compile()
+    result = scene.ass.compile()
     result.document.save(args.output)
     print(f"{result.event_count} events / {result.byte_count} bytes")
 

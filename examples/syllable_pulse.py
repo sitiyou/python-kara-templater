@@ -78,7 +78,7 @@ def main() -> None:
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
     scene = prepare_tracks(Document.load(args.input), tracks=(track,))
-    scene.compile().document.save(args.output)
+    scene.ass.compile().document.save(args.output)
 
 
 if __name__ == "__main__":

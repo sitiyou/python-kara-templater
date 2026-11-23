@@ -40,7 +40,7 @@ Script-space geometry, masks, deformation, path layout, and authored writing/mor
 
 Screen-coordinate affine map; ``outer @ inner`` applies inner first.
 
-[Source](../../kara_templater/geometry.py#L55)
+[Source](../../kara_templater/geometry.py#L56)
 
 ```python
 Affine2D(
@@ -81,7 +81,7 @@ An ordered contour of line/cubic segments with explicit closure.
 Geometry algorithms validate connectivity and require suitable topology for each
 operation.
 
-[Source](../../kara_templater/geometry.py#L126)
+[Source](../../kara_templater/geometry.py#L127)
 
 ```python
 Contour(
@@ -115,7 +115,7 @@ A cubic Bezier segment defined by start, two control points, and end.
 
 Evaluation and splitting use normalized path progress.
 
-[Source](../../kara_templater/geometry.py#L101)
+[Source](../../kara_templater/geometry.py#L102)
 
 ```python
 CubicSegment(
@@ -180,7 +180,7 @@ GeometryAnimation.sample(
 
 A geometric operation cannot satisfy its declared topology or budget.
 
-[Source](../../kara_templater/path_geometry.py#L21)
+[Source](../../kara_templater/path_geometry.py#L22)
 
 Construction: `GeometryError(*args)` using the inherited exception constructor.
 
@@ -190,7 +190,7 @@ A straight path segment from start to end.
 
 Coordinates are in the containing path space.
 
-[Source](../../kara_templater/geometry.py#L87)
+[Source](../../kara_templater/geometry.py#L88)
 
 ```python
 LineSegment(
@@ -386,7 +386,7 @@ A finite sequence of points supporting cumulative distance, interpolation, prefi
 
 It is the explicit flattened representation used by path algorithms.
 
-[Source](../../kara_templater/path_geometry.py#L30)
+[Source](../../kara_templater/path_geometry.py#L31)
 
 ```python
 Polyline(
@@ -621,7 +621,7 @@ An immutable collection of contours for drawings, masks, glyph outlines, and mot
 Shape factories and transformations retain explicit geometry rather than player-
 side callbacks.
 
-[Source](../../kara_templater/geometry.py#L154)
+[Source](../../kara_templater/geometry.py#L155)
 
 ```python
 VectorPath(
@@ -794,7 +794,7 @@ Adaptive de Casteljau subdivision; tolerance is in local path units.
 Flatness bounds the control polygon's distance to its chord. This is not
 an arc-length error bound, and later object scaling magnifies the distance.
 
-[Source](../../kara_templater/path_geometry.py#L115)
+[Source](../../kara_templater/path_geometry.py#L116)
 
 ```python
 flatten(
@@ -812,7 +812,7 @@ Intersect filled contours with a convex polygon, retaining hole winding.
 Curves are flattened explicitly. This is a bounded intersection operation,
 not a general union/difference engine for arbitrary self-intersecting paths.
 
-[Source](../../kara_templater/path_geometry.py#L284)
+[Source](../../kara_templater/path_geometry.py#L285)
 
 ```python
 intersect_convex(
@@ -877,7 +877,7 @@ Interpolate explicitly paired contours and vertices, including hole winding.
 This is not automatic glyph matching. Even valid endpoint correspondence can
 self-intersect between endpoints; authors must preview their chosen mapping.
 
-[Source](../../kara_templater/path_geometry.py#L251)
+[Source](../../kara_templater/path_geometry.py#L252)
 
 ```python
 morph(
@@ -931,7 +931,7 @@ path_boolean(
 
 Conservative control-point bounds, before appearance and transforms.
 
-[Source](../../kara_templater/path_geometry.py#L353)
+[Source](../../kara_templater/path_geometry.py#L354)
 
 ```python
 path_bounds(
@@ -943,7 +943,7 @@ path_bounds(
 
 Explicit correspondence preparation; contour order and winding are retained.
 
-[Source](../../kara_templater/path_geometry.py#L196)
+[Source](../../kara_templater/path_geometry.py#L197)
 
 ```python
 resample_path(
@@ -959,7 +959,7 @@ resample_path(
 
 Fill an open polyline with bevel joins and butt caps; empty length is invisible.
 
-[Source](../../kara_templater/path_geometry.py#L168)
+[Source](../../kara_templater/path_geometry.py#L169)
 
 ```python
 stroke(

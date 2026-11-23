@@ -1,4 +1,4 @@
-"""Render E01–E12 on four RGB backgrounds at every ASS centisecond.
+"""Render word backgrounds on four RGB backgrounds at every ASS centisecond.
 
 uv run python -m tools.validate_engine_backgrounds OUTPUT
 This checks actual exported ASS and seek-order determinism, not an independent
@@ -15,9 +15,8 @@ from time import perf_counter
 
 from PIL import Image, ImageDraw
 
-from examples.scene_whole_song import CASES
+from examples.scene_cues import build
 from kara_templater import SceneBudget, load_font
-from tools.validate_whole_song import hashes
 
 ROOT = Path(__file__).resolve().parents[1]
 SIZE = (1280, 720)
@@ -25,6 +24,17 @@ FRAMES = 600
 FPS = 100
 PREVIEW_INDICES = (50, 250, 450)
 BACKGROUNDS = ("black", "white", "checker", "gradient")
+
+
+def hashes(arguments: list[str], work: Path) -> tuple[tuple[str, ...], str]:
+    result = subprocess.run(
+        arguments, cwd=work, capture_output=True, text=True, check=True
+    )
+    return tuple(
+        line.rsplit(",", 1)[1].strip()
+        for line in result.stdout.splitlines()
+        if line and not line.startswith("#")
+    ), result.stderr
 
 
 def backgrounds(output: Path) -> dict[str, str]:
@@ -110,7 +120,7 @@ def preview(
 
 
 def validate(output: Path, case_id: str | None = None) -> None:
-    if case_id is not None and case_id not in {case.id for case in CASES}:
+    if case_id not in (None, "E06"):
         raise ValueError(f"unknown case: {case_id}")
     output.mkdir(parents=True, exist_ok=True)
     output = output.resolve()
@@ -131,71 +141,68 @@ def validate(output: Path, case_id: str | None = None) -> None:
     background_hashes = backgrounds(output)
     renderer: list[str] = []
     cases = []
-    for case in CASES:
-        if case_id is not None and case.id != case_id:
-            continue
-        start = perf_counter()
-        result = case.factory().compile()
-        script = f"{case.id}.ass"
-        result.document.save(output / script)
-        sheet = Image.new("RGB", (1280, 3 * 204), "#141824")
-        checks = []
-        for column, background in enumerate(BACKGROUNDS):
-            continuous, log = hashes(arguments(background, script), output)
-            visited, _ = hashes(arguments(background, script, seek=True), output)
-            if len(continuous) != FRAMES or len(visited) != FRAMES:
-                raise AssertionError(f"{case.id}/{background}: unexpected frame count")
-            if any(visited[i] != continuous[i * 137 % FRAMES] for i in range(FRAMES)):
-                raise AssertionError(
-                    f"{case.id}/{background}: seek order changed a frame"
-                )
-            (output / f"{case.id}-{background}-hashes.txt").write_text(
-                "\n".join(continuous) + "\n"
+    start = perf_counter()
+    result = build().ass.compile()
+    script = "E06.ass"
+    result.document.save(output / script)
+    sheet = Image.new("RGB", (1280, 3 * 204), "#141824")
+    checks = []
+    for column, background in enumerate(BACKGROUNDS):
+        continuous, log = hashes(arguments(background, script), output)
+        visited, _ = hashes(arguments(background, script, seek=True), output)
+        if len(continuous) != FRAMES or len(visited) != FRAMES:
+            raise AssertionError(f"E06/{background}: unexpected frame count")
+        if any(visited[i] != continuous[i * 137 % FRAMES] for i in range(FRAMES)):
+            raise AssertionError(
+                f"E06/{background}: seek order changed a frame"
             )
-            renderer.extend(
-                line.strip()
-                for line in log.splitlines()
-                if "libass source:" in line or "Shaper:" in line
+        (output / f"E06-{background}-hashes.txt").write_text(
+            "\n".join(continuous) + "\n"
+        )
+        renderer.extend(
+            line.strip()
+            for line in log.splitlines()
+            if "libass source:" in line or "Shaper:" in line
+        )
+        for row, frame in enumerate(preview(output, background, script)):
+            x, y = column * 320, row * 204
+            sheet.paste(frame.resize((320, 180)), (x, y + 24))
+            ImageDraw.Draw(sheet).text(
+                (x + 6, y + 6),
+                f"E06 / {background} / {PREVIEW_INDICES[row] / FPS + 0.001:.3f}s",
+                fill="white",
             )
-            for row, frame in enumerate(preview(output, background, script)):
-                x, y = column * 320, row * 204
-                sheet.paste(frame.resize((320, 180)), (x, y + 24))
-                ImageDraw.Draw(sheet).text(
-                    (x + 6, y + 6),
-                    f"{case.id} / {background} / {PREVIEW_INDICES[row] / FPS + 0.001:.3f}s",
-                    fill="white",
-                )
-            checks.append(
-                {
-                    "background": background,
-                    "frames": FRAMES,
-                    "permuted_seek_frames": FRAMES,
-                    "all_hashes_equal": True,
-                }
-            )
-            print(
-                json.dumps(
-                    {"case": case.id, "background": background, "phase": "passed"}
-                ),
-                flush=True,
-            )
-        sheet.save(output / f"{case.id}-backgrounds.png")
-        cases.append(
+        checks.append(
             {
-                "id": case.id,
-                "factory": case.factory.__module__,
-                "ass_sha256": hashlib.sha256(
-                    (output / script).read_bytes()
-                ).hexdigest(),
-                "event_count": result.event_count,
-                "peak_active": result.peak_active,
-                "byte_count": result.byte_count,
-                "seconds": perf_counter() - start,
-                "background_checks": checks,
+                "background": background,
+                "frames": FRAMES,
+                "permuted_seek_frames": FRAMES,
+                "all_hashes_equal": True,
             }
         )
+        print(
+            json.dumps(
+                {"case": "E06", "background": background, "phase": "passed"}
+            ),
+            flush=True,
+        )
+    sheet.save(output / "E06-backgrounds.png")
+    cases.append(
+        {
+            "id": "E06",
+            "factory": build.__module__,
+            "ass_sha256": hashlib.sha256(
+                (output / script).read_bytes()
+            ).hexdigest(),
+            "event_count": result.event_count,
+            "peak_active": result.peak_active,
+            "byte_count": result.byte_count,
+            "seconds": perf_counter() - start,
+            "background_checks": checks,
+        }
+    )
     report = {
-        "scope": "Selected E01–E12 actual ASS on four authored backgrounds; exhaustive centisecond-grid seek-order check, not independent semantic reference acceptance",
+        "scope": "Word backgrounds ASS on four authored backgrounds; exhaustive centisecond-grid seek-order check, not independent semantic reference acceptance",
         "selected_cases": [case["id"] for case in cases],
         "resolution": SIZE,
         "duration_seconds": FRAMES / FPS,
@@ -222,7 +229,7 @@ def validate(output: Path, case_id: str | None = None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--case", choices=tuple(case.id for case in CASES))
+    parser.add_argument("--case", choices=("E06",))
     args = parser.parse_args()
     validate(args.output, args.case)
 

@@ -2,8 +2,8 @@
 
 | Output | Python entry point | Supported examples |
 | --- | --- | --- |
-| Standard ASS for subtitle players | `scene.compile().document.save("song.ass")` | Text, vector drawings, hard karaoke wipes, native moves and eligible transforms such as fades |
-| Standalone libplacebo shader | `scene.export_hook("song.hook", fps=60)` | Feathered wipes, glyph and outline gradients, sampled particle motion |
+| Standard ASS for subtitle players | `scene.ass.compile().document.save("song.ass")` | Text, vector drawings, hard karaoke wipes, native moves and eligible transforms such as fades |
+| Standalone libplacebo shader | `scene.export("song.hook", fps=60)` | Feathered wipes, glyph and outline gradients, procedural particle motion |
 
 ASS compilation raises `SceneCompileError` with the object ID when an effect
 requires frame sampling, color strips (including soft scanlines and blended halos) or raster coverage groups. Increasing

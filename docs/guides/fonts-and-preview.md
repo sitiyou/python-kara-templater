@@ -99,7 +99,7 @@ for body and ruby. The Chinese column gives a suggested translation style from
 
 ![Four Fontworks faces rendering the same Japanese lyric and ruby at the same size](../examples/assets/fontworks-lyric-faces.jpg)
 
-For example, run `uv run python -m examples.karaoke_designs build/seurat.ass --japanese --font-preset seurat`.
+For example, run `uv run python -m examples.karaoke_designs build/seurat.hook --japanese --font-preset seurat`.
 Install the face before compiling. On a fontconfig system, inspect the file and weight
 with `fc-match -f '%{file} %{style}\n' ':family=FOT-Seurat Pro DB'`. The family
 selector preserves the hyphen in Fontworks names. Check the actual rendered line as well.

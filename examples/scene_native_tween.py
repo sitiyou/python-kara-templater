@@ -63,7 +63,7 @@ def build() -> Scene:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    result = build().compile(native_tweens=True)
+    result = build().ass.compile(native_tweens=True)
     result.document.save(parser.parse_args().output)
     print(
         f"{result.event_count} events, {result.peak_active} active, {result.byte_count} bytes"

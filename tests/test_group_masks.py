@@ -30,7 +30,7 @@ def child(id="child", **kwargs):
 
 
 def compiled(*objects):
-    return Scene(Document.create(width=320, height=240)).add(*objects).compile()
+    return Scene(Document.create(width=320, height=240)).add(*objects).ass.compile()
 
 
 def pixels(*objects, time=0):
@@ -208,7 +208,7 @@ def test_group_mask_preflight_and_callback_errors_keep_group_origin():
     )
     scene = Scene(Document.create()).add(group)
     with pytest.raises(SceneCompileError, match="declared clip point budget") as caught:
-        scene.compile(budget=SceneBudget(max_path_points=4))
+        scene.ass.compile(budget=SceneBudget(max_path_points=4))
     assert caught.value.object_id == "group"
     assert caught.value.origin == origin
     assert calls == []
@@ -308,7 +308,7 @@ def test_boolean_work_budget_reports_the_mask_owner():
         clip=RectangleClip(20, 20, 60, 60, inverse=True),
     )
     with pytest.raises(SceneCompileError, match="boolean work budget") as caught:
-        Scene(Document.create()).add(group).compile(
+        Scene(Document.create()).add(group).ass.compile(
             budget=SceneBudget(max_boolean_work=1)
         )
     assert caught.value.object_id == leaf.id

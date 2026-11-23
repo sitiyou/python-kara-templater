@@ -33,11 +33,10 @@ result = (
             id="root", lifetime=Lifetime(0, 1), children=(), coverage=Coverage()
         )
     )
-    .compile()
+    .ass.compile()
 )
 assert_type(result, SceneResult)
 assert_type(result.document, Document)
-assert_type(result.objects[0].sample_times, tuple[float, ...])
 
 assert_type(
     GlowFunction.from_animation(Tween(StatePatch(blur=2)), duration=1), GlowFunction

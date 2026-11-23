@@ -20,7 +20,7 @@ class AssTests(unittest.TestCase):
                 # Parsing/compiling an existing script must retain its choice,
                 # including absence; only newly authored documents choose RGB.
                 self.assertEqual(parsed.dumps(), text)
-                self.assertEqual(Scene(parsed).compile().document.dumps(), text)
+                self.assertEqual(Scene(parsed).ass.compile().document.dumps(), text)
 
     def test_example_roundtrip(self):
         doc = Document.load(ROOT / "examples/karaoke.ass")

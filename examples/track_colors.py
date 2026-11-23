@@ -58,7 +58,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    result = build(document(fontname="DejaVu Sans", text="ABCABC")).compile()
+    result = build(document(fontname="DejaVu Sans", text="ABCABC")).ass.compile()
     result.document.save(args.output)
     print(f"{result.event_count} events → {args.output}")
 

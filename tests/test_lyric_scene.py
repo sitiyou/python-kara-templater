@@ -54,7 +54,7 @@ def test_mixed_regeneration_preserves_other_owner_and_unknown_sections():
             state=VisualState(position=Vec2(20, 20)),
         )
     )
-    result = scene.compile()
+    result = scene.ass.compile()
     assert "fontname: retained" in result.document.dumps()
     assert document.dumps() == original
     assert all(event in result.document.records for event, _ in result.event_origins)
@@ -64,12 +64,12 @@ def test_mixed_regeneration_preserves_other_owner_and_unknown_sections():
     result.document.records.append(other)
     again = prepare_tracks(result.document, tracks=(track(),), owner="song")
     assert len(again.lines) == 1
-    regenerated = again.compile().document
+    regenerated = again.ass.compile().document
     assert not any(line.text.endswith("caption") for line in regenerated.lines)
     assert any(line.serialize() == other.serialize() for line in regenerated.lines)
     assert "fontname: retained" in regenerated.dumps()
-    assert again.compile().document.dumps() == regenerated.dumps()
-    restored = prepare_tracks(regenerated, tracks=(), owner="song").compile().document
+    assert again.ass.compile().document.dumps() == regenerated.dumps()
+    restored = prepare_tracks(regenerated, tracks=(), owner="song").ass.compile().document
     assert any(not line.comment and line.text == r"{\k20}AB" for line in restored.lines)
     assert any(line.serialize() == other.serialize() for line in restored.lines)
 
@@ -79,7 +79,7 @@ def test_corrupt_native_provenance_fails_before_lyric_factories():
     scene.add(
         NativeEvent("existing", Line(text="native", end_time=400, effect="original"))
     )
-    output = scene.compile().document
+    output = scene.ass.compile().document
     marker = next(
         line for line in output.lines if line.text == "kara native event follows"
     )
@@ -116,17 +116,17 @@ def test_mixed_scene_preflight_and_final_budgets_keep_repeated_compile_stable():
     scene = prepare_tracks(source(), tracks=(configured,))
     scene.add(TextObject(id="extra", text="X", lifetime=Lifetime(0, 0.4)))
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        scene.compile()
+        scene.ass.compile()
     assert not calls
     scene = prepare_tracks(source(), tracks=(track(),))
     with pytest.raises(SceneCompileError, match="budget"):
-        scene.compile(budget=SceneBudget(max_events=1))
+        scene.ass.compile(budget=SceneBudget(max_events=1))
     assert not calls
     # Peak/byte limits depend on emitted events and are checked after sampling.
     with pytest.raises(SceneCompileError, match="peak active"):
-        scene.compile(budget=SceneBudget(max_active=1))
-    first = scene.compile()
+        scene.ass.compile(budget=SceneBudget(max_active=1))
+    first = scene.ass.compile()
     assert not calls
-    assert scene.compile().document.dumps() == first.document.dumps()
+    assert scene.ass.compile().document.dumps() == first.document.dumps()
     with pytest.raises(SceneCompileError, match="byte budget"):
-        scene.compile(budget=SceneBudget(max_bytes=100))
+        scene.ass.compile(budget=SceneBudget(max_bytes=100))

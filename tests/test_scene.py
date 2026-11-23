@@ -60,7 +60,7 @@ def test_scene_preserves_document_and_reordered_custom_columns():
     before = doc.dumps()
     scene = Scene(doc).add(text())
     scene.replace_source(8)
-    result = scene.compile()
+    result = scene.ass.compile()
     assert doc.dumps() == before
     assert result.document.lines[0].comment
     assert result.document.dumps().endswith("[Fonts]\nfontname: keep\nencoded\n")
@@ -70,10 +70,10 @@ def test_scene_preserves_document_and_reordered_custom_columns():
 
 
 def test_repeat_compile_is_stable_and_removes_only_own_events():
-    first = Scene(document()).add(text()).compile()
-    second = Scene(first.document).add(text()).compile()
+    first = Scene(document()).add(text()).ass.compile()
+    second = Scene(first.document).add(text()).ass.compile()
     assert second.document.dumps() == first.document.dumps()
-    other = Scene(first.document, owner="another").add(text()).compile()
+    other = Scene(first.document, owner="another").add(text()).ass.compile()
     assert len(other.document.lines) == 3
 
 
@@ -83,7 +83,7 @@ def test_native_move_avoids_sampling_and_has_relative_time():
         lifetime=Lifetime(2, 5),
         animations=(AnimationClip(0.5, 1, Tween(StatePatch(position=Vec2(100, 50)))),),
     )
-    result = Scene(document()).add(node).compile()
+    result = Scene(document()).add(node).ass.compile()
     assert result.event_count == 1
     assert result.objects[0].strategy == "native-move"
     assert (
@@ -108,7 +108,7 @@ def test_group_transforms_once_and_intersects_lifetimes():
         ),
         children=(inner,),
     )
-    event = Scene(document()).add(outer).compile().document.lines[-1]
+    event = Scene(document()).add(outer).ass.compile().document.lines[-1]
     assert (event.start_time, event.end_time) == (1000, 2000)
     assert r"\pos(100,80)" in event.text
     assert r"\frz-90" in event.text
@@ -118,14 +118,14 @@ def test_group_transforms_once_and_intersects_lifetimes():
 
 def test_identity_and_affine_combination_report():
     with pytest.raises(SceneCompileError, match="duplicate object"):
-        Scene(document()).add(text(), text()).compile()
+        Scene(document()).add(text(), text()).ass.compile()
     group = ObjectGroup(
         id="g",
         lifetime=Lifetime(0, 3),
         state=VisualState(scale=Vec2(2, 1)),
         children=(text(state=VisualState(rotation=45)),),
     )
-    result = Scene(document()).add(group).compile()
+    result = Scene(document()).add(group).ass.compile()
     assert result.objects[0].strategy == "native-static-affine-path"
     assert (result.objects[0].peak_path_points or 0) > 0
 
@@ -166,27 +166,27 @@ def test_budget_preflight_never_invokes_callback():
 
     node = text(animations=(AnimationClip(0, 3, StateFunction(fail)),))
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(document()).add(node).compile(budget=SceneBudget(max_events=10))
+        Scene(document()).add(node).ass.compile(budget=SceneBudget(max_events=10))
 
 
 def test_actual_byte_peak_path_and_quantization_budgets():
     with pytest.raises(SceneCompileError, match="byte budget"):
-        Scene(document()).add(text()).compile(budget=SceneBudget(max_bytes=50))
+        Scene(document()).add(text()).ass.compile(budget=SceneBudget(max_bytes=50))
     with pytest.raises(SceneCompileError, match="peak active"):
-        Scene(document()).add(text()).compile(budget=SceneBudget(max_active=1))
+        Scene(document()).add(text()).ass.compile(budget=SceneBudget(max_active=1))
     path = PathObject(
         id="p", lifetime=Lifetime(0, 1), path=VectorPath.rectangle(50, 50)
     )
     with pytest.raises(SceneCompileError, match="path complexity"):
-        Scene(document()).add(path).compile(budget=SceneBudget(max_path_points=3))
+        Scene(document()).add(path).ass.compile(budget=SceneBudget(max_path_points=3))
     with pytest.raises(SceneCompileError, match="centisecond"):
-        Scene(document()).add(replace(text(), lifetime=Lifetime(0, 0.001))).compile()
+        Scene(document()).add(replace(text(), lifetime=Lifetime(0, 0.001))).ass.compile()
 
 
 def test_native_event_copies_caller_object():
     event = Line(text=r"{\pos(4,5)}hello", end_time=1000)
     node = NativeEvent("legacy", event)
-    result = Scene(document()).add(node).compile()
+    result = Scene(document()).add(node).ass.compile()
     assert result.document.lines[-1].text == event.text
     assert event.effect == ""
     assert event.fields == {}
@@ -206,11 +206,11 @@ def test_path_cubic_and_contour_winding():
 def test_native_effect_and_metadata_survive_recompile():
     event = Line(text="hello", end_time=1000, effect="Banner;30;0;0", actor="singer")
     node = NativeEvent("legacy", event)
-    first = Scene(document()).add(node).compile()
+    first = Scene(document()).add(node).ass.compile()
     assert first.document.lines[-1].effect == event.effect
     assert first.document.lines[-1].actor == "singer"
     assert first.event_count == 1
-    second = Scene(Document.parse(first.document.dumps())).add(node).compile()
+    second = Scene(Document.parse(first.document.dumps())).add(node).ass.compile()
     assert second.document.dumps() == first.document.dumps()
 
 
@@ -225,7 +225,7 @@ def test_copy_translates_entire_animation_and_group_children():
     duplicate = group.copy(id="group2", delay=3)
     assert duplicate.children[0].id == "group2/text"
     assert duplicate.children[0].lifetime == Lifetime(3, 6)
-    Scene(document()).add(group, duplicate).compile()
+    Scene(document()).add(group, duplicate).ass.compile()
 
 
 def test_custom_copy_translation():
@@ -254,8 +254,8 @@ def test_reordered_without_effect_column_recompiles_without_duplication():
         end_time=3000,
         fields={"Start": "", "End": "", "Text": ""},
     )
-    first = Scene(doc).add(text()).compile()
-    second = Scene(Document.parse(first.document.dumps())).add(text()).compile()
+    first = Scene(doc).add(text()).ass.compile()
+    second = Scene(Document.parse(first.document.dumps())).add(text()).ass.compile()
     assert second.document.dumps() == first.document.dumps()
 
 
@@ -266,9 +266,8 @@ def test_native_tween_spans_the_long_final_hold():
         lifetime=Lifetime(0, 60),
         animations=(AnimationClip(1, 0.5, Tween(StatePatch(opacity=0.5))),),
     )
-    result = Scene(document()).add(node).compile(budget=SceneBudget(max_events=100))
+    result = Scene(document()).add(node).ass.compile(budget=SceneBudget(max_events=100))
     assert result.estimated_events < 100
-    assert result.objects[0].sample_interval is None
     assert any(
         line.start_time == 0 and line.end_time == 60000
         for line in result.document.lines
@@ -286,7 +285,7 @@ def test_unknown_geometry_callbacks_still_budget_the_full_lifetime():
         deform=PathFunction(lambda path, time: path, max_points=5, breakpoints=(1, 2)),
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(document()).add(node).compile(budget=SceneBudget(max_events=100))
+        Scene(document()).add(node).ass.compile(budget=SceneBudget(max_events=100))
 
 
 def test_native_empty_negative_intervals_and_budget():
@@ -294,14 +293,14 @@ def test_native_empty_negative_intervals_and_budget():
         NativeEvent("empty", Line(start_time=0, end_time=0, text="empty")),
         NativeEvent("negative", Line(start_time=-100, end_time=100, text="prelude")),
     )
-    result = scene.compile()
+    result = scene.ass.compile()
     assert result.event_count == 2
     assert any(line.start_time == -100 for line in result.document.lines)
     assert all(
         line.start_time >= 0 for line in Document.parse(result.document.dumps()).lines
     )
     with pytest.raises(SceneCompileError, match="budget"):
-        scene.compile(budget=SceneBudget(max_events=1))
+        scene.ass.compile(budget=SceneBudget(max_events=1))
 
 
 def test_native_event_with_missing_effect_column():
@@ -315,6 +314,6 @@ def test_native_event_with_missing_effect_column():
     compiled = (
         Scene(plain)
         .add(NativeEvent("native", Line(text="added", end_time=1000)))
-        .compile()
+        .ass.compile()
     )
     assert len(Document.parse(compiled.document.dumps()).lines) == 3

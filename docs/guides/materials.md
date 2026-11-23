@@ -61,7 +61,7 @@ Standard ASS rejects paint fields during compilation.
 
 VisualState controls an object's fill, outline, border, blur, and opacity. Use
 separate Scene objects when fill, outline, and glow need independent lifetimes,
-color fronts, or animation. The glow in scene_sweep remains a constant color
+color fronts, or animation. A constant-color glow can use a separate layer
 while fill and outline sweep independently.
 Border and blur widths are script pixels. Geometry scaling does not implicitly
 animate those channels; animate border/blur alongside scale when their widths

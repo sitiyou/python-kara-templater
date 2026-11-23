@@ -11,8 +11,6 @@ from pathlib import Path
 
 from fontTools.ttLib import TTFont
 
-from examples.scene_whole_song import CASES
-
 ROOT = Path(__file__).resolve().parents[1]
 SUBSETS = {
     "KaraTestPrimary.ttf": " A",
@@ -68,28 +66,16 @@ def validate(output: Path) -> None:
             )
     if len(assets) != 6:
         raise AssertionError("review inventory when bundled fonts are added or removed")
-    cases: list[dict[str, str]] = []
-    for case in CASES:
-        path = ROOT / (case.factory.__module__.replace(".", "/") + ".py")
-        cases.append(
-            {
-                "id": case.id,
-                "name": case.name,
-                "source": path.relative_to(ROOT).as_posix(),
-                "sha256": digest(path),
-            }
-        )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(
         json.dumps(
             {
-                "scope": "Bundled font bytes, licenses, cmap subsets and authored E01-E12 source snapshot; no playback or visual acceptance claim",
+                "scope": "Bundled font bytes, licenses, cmap subsets; no playback or visual acceptance claim",
                 "project_license": {
                     "path": "LICENSE",
                     "sha256": digest(ROOT / "LICENSE"),
                 },
                 "fonts": assets,
-                "cases": cases,
                 "regeneration": [
                     "tools/build_test_font.py",
                     "tools/build_hangul_test_font.py",
@@ -100,7 +86,7 @@ def validate(output: Path) -> None:
         )
         + "\n"
     )
-    print(f"Verified {len(assets)} fonts and {len(cases)} case source files")
+    print(f"Verified {len(assets)} fonts")
 
 
 def main() -> None:

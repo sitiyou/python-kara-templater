@@ -148,7 +148,7 @@ line transforms apply to particles, independent character motion does not
 retarget already emitted particles. Use a custom factory for different paths,
 shapes, animation and lifetimes through the existing ParticleContext protocol.
 
-[Source](../../kara_templater/lyric_particles.py#L145)
+[Source](../../kara_templater/lyric_particles.py#L156)
 
 ```python
 LyricParticles(
@@ -277,7 +277,7 @@ A seeded falling petal with curved drift, rotation and projected flutter.
 size/fall are script pixels, duration is seconds. Unlike Sparkle this uses
 a custom Transform for flutter and requires hook export.
 
-[Source](../../kara_templater/lyric_particles.py#L64)
+[Source](../../kara_templater/lyric_particles.py#L65)
 
 ```python
 Petal(
@@ -386,7 +386,7 @@ and bend use local script pixels. Keyed variation changes travel/bend once
 at birth; geometry then uses the same TrailPath available to custom authors.
 ASS export does not support changing path geometry.
 
-[Source](../../kara_templater/lyric_particles.py#L105)
+[Source](../../kara_templater/lyric_particles.py#L116)
 
 ```python
 Ribbon(
@@ -429,7 +429,7 @@ A ParticleFactory usable with LyricParticles or emit_particles. size and
 travel are script pixels, duration is seconds; variation uses keyed seed
 channels. The ordinary linear Tween can compile to one ASS event per spark.
 
-[Source](../../kara_templater/lyric_particles.py#L24)
+[Source](../../kara_templater/lyric_particles.py#L25)
 
 ```python
 Sparkle(

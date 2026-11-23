@@ -39,6 +39,6 @@ def test_parse_before_binding_preserves_cues_colors_ruby_and_output(tmp_path: Pa
         )
         scene = Scene(source).add(bound.group(), *bound.independent)
         scene.replace_source(index)
-        return scene.compile().document.dumps()
+        return scene.ass.compile().document.dumps()
 
     assert compile_source(Document.load(path)) == compile_source(document)

@@ -96,7 +96,7 @@ def test_inline_and_independent_cues_share_model_without_changing_times():
     assert bound.independent[0].state.position == Vec2(50, 60)
     scene = Scene(doc).add(bound.group(position=Vec2(100, 200)), *bound.independent)
     scene.replace_source(1)
-    result = scene.compile()
+    result = scene.ass.compile()
     assert not any(
         "kara:v1 cue" in line.text for line in result.document.lines if not line.comment
     )
@@ -261,8 +261,8 @@ def test_bound_clusters_render_like_a_whole_shaped_run():
         )
     )
     reference.replace_source(index)
-    actual = rasterize(bound.compile().document.dumps(), 2000, (1280, 720))
-    expected = rasterize(reference.compile().document.dumps(), 2000, (1280, 720))
+    actual = rasterize(bound.ass.compile().document.dumps(), 2000, (1280, 720))
+    expected = rasterize(reference.ass.compile().document.dumps(), 2000, (1280, 720))
     # Existing cluster verification allows one 1/64-pixel positioning step.
     differences = [abs(a - b) for a, b in zip(actual.rgba, expected.rgba, strict=True)]
     assert max(differences) <= 8

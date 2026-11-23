@@ -35,10 +35,10 @@ def test_literal_text_compiles_without_ass_injection(literal, encoded):
         font_size=24,
         state=VisualState(position=Vec2(10, 10)),
     )
-    result = Scene(doc).add(node).compile()
+    result = Scene(doc).add(node).ass.compile()
     # Build the independent ASS reference from a safe placeholder event and the
     # explicit encoding above, without passing the literal through the compiler.
-    reference = Scene(doc).add(replace(node, text="PLACEHOLDER")).compile().document
+    reference = Scene(doc).add(replace(node, text="PLACEHOLDER")).ass.compile().document
     reference.lines[-1].text = reference.lines[-1].text.replace("PLACEHOLDER", encoded)
     assert result.document.lines[-1].text.endswith("}" + encoded)
     record_index = next(
@@ -71,9 +71,9 @@ def test_literal_outline_measurement_does_not_interpret_ass_escapes(literal):
     )
     assert outline.layout_bounds.height == cell.layout_bounds.height
     doc = Document.create(width=640, height=120)
-    native = rasterize(Scene(doc).add(node).compile().document.dumps(), 0, (640, 120))
+    native = rasterize(Scene(doc).add(node).ass.compile().document.dumps(), 0, (640, 120))
     vector = rasterize(
-        Scene(doc).add(text_to_path(node)).compile().document.dumps(), 0, (640, 120)
+        Scene(doc).add(text_to_path(node)).ass.compile().document.dumps(), 0, (640, 120)
     )
     alpha = native.rgba[3::4]
     # Match the existing glyph-outline tolerance for text versus vector hinting.

@@ -53,8 +53,8 @@ def test_body_and_reading_share_resolved_export_widths(tmp_path, ruby_size, fixe
 
     assert dict(clips(line)) == expected
     with pytest.raises(SceneCompileError, match="feathered wipes"):
-        scene.compile()
-    scene.export_hook(tmp_path / "song.hook", fps=20)
+        scene.ass.compile()
+    scene.export(tmp_path / "song.hook", fps=20)
     assert "//!HOOK MAIN" in (tmp_path / "song.hook").read_text()
 
 

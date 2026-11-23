@@ -116,7 +116,7 @@ Measured editable text objects with decoded source ranges, singing spans, bounds
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/scene_text.py#L58)
+[Source](../../kara_templater/scene_text.py#L64)
 
 ```python
 DocumentLayout(
@@ -458,7 +458,7 @@ bounds is the allocated cell. The pen origin is object.state.position.
 Layout scale is retained when used for range measurements. baseline is the
 local y coordinate of the font baseline measured during shaping.
 
-[Source](../../kara_templater/scene_text.py#L23)
+[Source](../../kara_templater/scene_text.py#L29)
 
 ```python
 PositionedText(
@@ -700,7 +700,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L424)
+[Source](../../kara_templater/scene_text.py#L441)
 
 ```python
 layout_document_text(

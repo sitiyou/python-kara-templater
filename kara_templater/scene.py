@@ -5,6 +5,7 @@ from __future__ import annotations
 from bisect import bisect_left, bisect_right
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field, replace
+from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -12,7 +13,7 @@ from .ass import Document, Line
 from .coverage_animation import Coverage
 from .geometry import Vec2, VectorPath, finite
 from .object_references import StateReference
-from .paint_fields import PaintActivity, PaintField
+from .paint_fields import Extrusion, PaintActivity, PaintField, ShaderPaint
 from .path_animation import GeometryAnimation
 from .path_geometry import GeometryError
 from .scene_animation import (
@@ -110,7 +111,7 @@ class RectangleKeyframes:
             if index > 1 and time == self.keyframes[index - 2][0]:
                 raise ValueError("rectangle resets require at most two keys at a time")
 
-    @property
+    @cached_property
     def breakpoints(self) -> tuple[float, ...]:
         """Distinct local key times, including instantaneous reset boundaries."""
         return tuple(dict.fromkeys(time for time, _ in self.keyframes))
@@ -176,8 +177,12 @@ class _ColorStripClip(RectangleClip):
     """Moving color strip used to draw soft scanlines and blended glow."""
 
 
+class _LyricPaintClip(RectangleClip):
+    """A lyric color partition on the face of a drawing."""
+
+
 @dataclass(frozen=True, kw_only=True)
-class _CellWipeClip(RectangleClip):
+class _CellWipeClip(_LyricPaintClip):
     """Vertical cell traverse. Core times use the same local clock as the rectangle."""
     start: float
     end: float
@@ -383,6 +388,8 @@ class TextObject(VisualNode):
     alignment: int = 7
     encoding: int = 1
     scale_border: bool = False
+    shader_paint: ShaderPaint | None = None
+    extrusion: Extrusion | None = None
     filled: bool = True
 
     def __post_init__(self) -> None:
@@ -415,6 +422,8 @@ class PathObject(VisualNode):
     deform: GeometryAnimation | None = None
     filled: bool = True
     scale_border: bool = False
+    shader_paint: ShaderPaint | None = None
+    extrusion: Extrusion | None = None
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -583,13 +592,60 @@ class Scene:
 
         return SceneEvaluator(self)
 
-    def export_hook(
+    def prepare_hook(self) -> PreparedHook:
+        """Snapshot the scene for repeated window exports with a shared glyph cache."""
+        return PreparedHook(self)
+
+    def export(
         self, path: str | Path, *, fps: int = 60, start: float = 0,
         duration: float | None = None,
     ) -> None:
         """Write a standalone libplacebo .hook for a constant-frame-rate video.
 
-        Export animation parameters and sample unsupported intervals on the fps grid.
+        Export animation parameters. Unsupported animations raise a compile error.
+        Start is frame-aligned in seconds. mpv uses media PTS;
+        the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
+        subsequent frames pass through. Render at the exported fps on an opaque
+        SDR video with matching aspect ratio. Includes glyph masks and effects.
+        """
+        self.prepare_hook().export(path, fps=fps, start=start, duration=duration)
+
+    def export_resources(
+        self, directory: str | Path, *, fps: int = 60, start: float = 0,
+        duration: float | None = None,
+    ) -> None:
+        """Publish binary textures and GLSL for a preview host to a new directory.
+
+        The clock and rendering contract match export(). Each .bin contains a
+        row-aligned texture with dimensions given by textures.json.
+        """
+        self.prepare_hook().export_resources(directory, fps=fps, start=start, duration=duration)
+
+    @property
+    def ass(self) -> AssOutput:
+        """Access native ASS export for this scene."""
+        return AssOutput(self)
+
+
+class PreparedHook:
+    """Reusable snapshot for sequential exports at arbitrary positions and frame rates.
+
+    Prepare a new snapshot after changing the scene. Window exports share measured
+    masks and the resolved object hierarchy. Each output has its own playback clock.
+    """
+
+    def __init__(self, scene: Scene) -> None:
+        from ._gpu_scene import SceneFrames
+
+        self._frames = SceneFrames(scene)
+
+    def export(
+        self, path: str | Path, *, fps: int = 60, start: float = 0,
+        duration: float | None = None,
+    ) -> None:
+        """Write a standalone libplacebo .hook for a constant-frame-rate video.
+
+        Export animation parameters. Unsupported animations raise a compile error.
         Start is frame-aligned in seconds. mpv uses media PTS;
         the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
         subsequent frames pass through. Render at the exported fps on an opaque
@@ -597,7 +653,26 @@ class Scene:
         """
         from ._gpu_hook import export_hook
 
-        export_hook(self, Path(path), fps, start, duration)
+        export_hook(self._frames, Path(path), fps, start, duration)
+
+    def export_resources(
+        self, directory: str | Path, *, fps: int = 60, start: float = 0,
+        duration: float | None = None,
+    ) -> None:
+        """Publish binary textures and GLSL for a preview host to a new directory.
+
+        The clock and rendering contract match export(). Each .bin contains a
+        row-aligned texture with dimensions given by textures.json.
+        """
+        from ._gpu_hook import export_hook
+
+        export_hook(self._frames, Path(directory), fps, start, duration, resources=True)
+
+@dataclass(frozen=True)
+class AssOutput:
+    """Native ASS output for a prepared scene."""
+
+    scene: Scene
 
     def compile(
         self,
@@ -616,7 +691,7 @@ class Scene:
         from .scene_output import SceneBudget, compile_scene
 
         return compile_scene(
-            self,
+            self.scene,
             budget=SceneBudget() if budget is None else budget,
             native_tweens=native_tweens,
             on_estimate=on_estimate,

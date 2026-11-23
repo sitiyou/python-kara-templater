@@ -89,14 +89,15 @@ Public exports are defined once in kara_templater.__all__. Add a public interfac
 only when authors need it; internal preparation/compiler values stay internal.
 The generated [API reference](../reference/README.md) documents the retained set.
 
-## Optional GPU output
+## Default GPU output
 
-Scene.export_hook partitions each leaf at lifetime, clip and animation boundaries.
+Scene.export partitions each leaf at lifetime, clip and animation boundaries.
 Known motion spans store endpoint transforms and easing; rectangle keyframes
-interpolate independently. Opaque spans sample the shared evaluator locally.
-Hook export rasterizes positioned glyph outlines and vector paths directly with aggdraw. Pillow filters the coverage planes before atlas packing.
-A sparse timeline indexes tiled draws in painter order. Curve knots, scalar
-tracks, tile lists, materials and raster masks share storage across instances. The fragment shader composites those
+interpolate independently. Custom motion programs receive per-instance data and the clip clock.
+Hook export rasterizes filled paths with aggdraw and static round strokes with FreeType. Pillow filters the resulting coverage.
+The fragment shader evaluates dynamic strokes from positioned contours.
+A sparse timeline indexes tiled draws in painter order. Curve knots, shader parameters, tile lists,
+materials and raster masks share storage across instances. The fragment shader composites those
 draws in painter order onto the input video. FFmpeg/libplacebo owns the frame
 clock and GPU resources. Ordinary ASS can be saved independently.
 See [GPU output](../guides/gpu-rendering.md) for the clock and format limits.

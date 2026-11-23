@@ -1,10 +1,7 @@
 """Inline cue releases keep ruby anchored; independent labels stay screen-fixed.
 
-uv run python -m examples.scene_lyric_cues output.ass
 """
 
-import argparse
-from pathlib import Path
 
 from kara_templater import (
     BarsCue,
@@ -57,17 +54,3 @@ def build() -> Scene:
     scene = Scene(document)
     scene.replace_source(index)
     return scene.add(cued.group(position=Vec2(260, 340)), *cued.independent)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    result = build().compile()
-    result.document.save(parser.parse_args().output)
-    print(
-        f"{result.event_count} events, {result.peak_active} active, {result.byte_count} bytes"
-    )
-
-
-if __name__ == "__main__":
-    main()

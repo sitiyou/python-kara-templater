@@ -1,6 +1,6 @@
 """Eight motion studies sharing the same lyric clocks.
 
-uv run python -m examples.lyric_studies build/study.ass --effect petals
+uv run python -m examples.lyric_studies build/study.hook --effect echo
 """
 
 import argparse
@@ -32,7 +32,6 @@ from kara_templater import (
     Ribbon,
     ScalePulse,
     ScatterOut,
-    SceneBudget,
     Sparkle,
     StatePatch,
     Style,
@@ -220,18 +219,19 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
-    parser.add_argument("--effect", choices=EFFECTS, default="sweep")
+    parser.add_argument("--effect", choices=("sweep", "echo"), default="sweep")
     parser.add_argument("--japanese", action="store_true")
     args = parser.parse_args()
-    result = build(args.effect, japanese=args.japanese).compile(
-        native_tweens=True,
-        budget=SceneBudget(fps=60),
-    )
+    if args.effect == "echo" and args.output.suffix == ".ass":
+        parser.error("echo requires .hook output")
+    scene = build(args.effect, japanese=args.japanese)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    result.document.save(args.output)
-    print(
-        f"{result.event_count} events, {result.byte_count} bytes, peak {result.peak_active}"
-    )
+    if args.output.suffix == ".hook":
+        scene.export(args.output)
+    elif args.output.suffix == ".ass":
+        scene.ass.compile().document.save(args.output)
+    else:
+        parser.error("output must end in .hook or .ass")
 
 
 if __name__ == "__main__":

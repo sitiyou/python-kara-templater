@@ -1,15 +1,10 @@
 """Independent lyric streams, reusable animations and an overridable allocator.
 
-uv run python -m examples.lyric_orchestration build/unified/lyrics.ass
-Use --rows 3 for the same built-in layout with three rows; --custom demonstrates
-lead resets and a single-line exception using only allocate's public inputs.
-Add --keep-rotation --advance-solo to change those choices inside the same
-function. --dense includes overlapping singing that needs at least two rows.
+Pass a SongLayout to build(layout=...) to change how lead and solo lines use rows.
+Use build(dense=True) to model overlapping lines.
 """
 
-import argparse
 from dataclasses import dataclass, replace
-from pathlib import Path
 
 from kara_templater import (
     CYAN,
@@ -191,42 +186,3 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
     )
     scene.add(accent.animate(fade, duration=0.15))
     return scene
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("output", type=Path)
-    parser.add_argument("--rows", type=int, default=2)
-    parser.add_argument("--custom", action="store_true")
-    parser.add_argument(
-        "--keep-rotation", action="store_true", help="custom: ignore lead resets"
-    )
-    parser.add_argument(
-        "--advance-solo", action="store_true", help="custom: advance on a solo line"
-    )
-    parser.add_argument(
-        "--dense", action="store_true", help="include overlapping singing"
-    )
-    args = parser.parse_args()
-    if not args.custom and (args.keep_rotation or args.advance_solo):
-        parser.error("--keep-rotation and --advance-solo require --custom")
-    layout = (
-        SongLayout(
-            rows=args.rows,
-            position=Vec2(100, 290),
-            reset_on_lead=not args.keep_rotation,
-            advance_solo=args.advance_solo,
-        )
-        if args.custom
-        else Layout(rows=args.rows, position=Vec2(100, 290))
-    )
-    result = build(layout=layout, dense=args.dense).compile(budget=BUDGET)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    result.document.save(args.output)
-    print(
-        f"{result.event_count} events, {result.peak_active} active, {result.byte_count} bytes"
-    )
-
-
-if __name__ == "__main__":
-    main()

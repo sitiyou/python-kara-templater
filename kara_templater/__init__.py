@@ -130,10 +130,12 @@ from .orchestration import (
 from .paint_fields import (
     ColorRamp,
     ColorStop,
+    Extrusion,
     LinearGradient,
     PaintActivity,
     PaintBand,
     PaintField,
+    ShaderPaint,
     SoftSweep,
 )
 from .parameters import Animation, Canvas, Glyph, LengthExpr, Note, TimeExpr
@@ -172,6 +174,7 @@ from .scene import (
     NativeEvent,
     ObjectGroup,
     PathObject,
+    PreparedHook,
     RectangleClip,
     RectangleFunction,
     RectangleKeyframes,
@@ -191,6 +194,7 @@ from .scene_animation import (
     FadeOut,
     Jump,
     ScalePulse,
+    ShaderMotion,
     Slide,
     StateAnimation,
     StateFunction,
@@ -215,13 +219,11 @@ from .scene_lyrics import (
     layout_lyrics,
 )
 from .scene_output import (
-    CoverageEstimate,
     ObjectReport,
     SceneBudget,
     SceneCompileError,
     SceneEstimate,
     SceneResult,
-    compile_scene,
 )
 from .scene_text import (
     DocumentLayout,
@@ -380,10 +382,10 @@ __all__ = [
     "ReferenceFunction",
     "Region",
     "RubyText",
+    "PreparedHook",
     "Scene",
     "SceneBudget",
     "SceneEstimate",
-    "CoverageEstimate",
     "SceneCompileError",
     "SceneEvaluator",
     "SceneObject",
@@ -398,6 +400,9 @@ __all__ = [
     "SourceRef",
     "Slide",
     "StateAnimation",
+    "ShaderMotion",
+    "Extrusion",
+    "ShaderPaint",
     "StateFunction",
     "StateKeyframe",
     "StateLookup",
@@ -428,7 +433,6 @@ __all__ = [
     "YELLOW",
     "bind_cues",
     "bind_lyric_cues",
-    "compile_scene",
     "echoes",
     "emit_particles",
     "flatten",

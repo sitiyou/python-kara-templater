@@ -5,6 +5,7 @@ from __future__ import annotations
 from bisect import bisect_right
 from dataclasses import dataclass
 from functools import cached_property, lru_cache
+from math import hypot
 
 from .geometry import (
     Contour,
@@ -133,13 +134,13 @@ def flatten(
             result.append(point)
 
     def distance(point: Vec2, a: Vec2, b: Vec2) -> float:
-        direction = b - a
-        length2 = direction.x**2 + direction.y**2
-        if length2 == 0:
-            return (point - a).length
-        p = point - a
-        t = max(0, min(1, (p.x * direction.x + p.y * direction.y) / length2))
-        return (point - (a + direction * t)).length
+        dx, dy = b.x - a.x, b.y - a.y
+        px, py = point.x - a.x, point.y - a.y
+        length2 = dx * dx + dy * dy
+        if not length2:
+            return hypot(px, py)
+        t = max(0, min(1, (px * dx + py * dy) / length2))
+        return hypot(px - t * dx, py - t * dy)
 
     def cubic(a: Vec2, b: Vec2, c: Vec2, d: Vec2, depth: int) -> None:
         if max(distance(b, a, d), distance(c, a, d)) <= tolerance:

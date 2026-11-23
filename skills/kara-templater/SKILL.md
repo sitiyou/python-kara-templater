@@ -38,7 +38,7 @@ For reusable styling, expose a sequence named `tracks` in an effect file. To pre
 python -m examples.track_colors preview.ass
 ```
 
-For a standalone libplacebo hook, prepare the Scene in Python and call `scene.export_hook("preview.hook", fps=60)` with the delivery frame rate. See the [CLI contracts](../../docs/guides/cli.md), [output guide](../../docs/guides/choosing-output.md) and [API reference](../../docs/reference/README.md).
+For a standalone libplacebo hook, prepare the Scene in Python and call `scene.export("preview.hook", fps=60)` with the delivery frame rate. See the [CLI contracts](../../docs/guides/cli.md), [output guide](../../docs/guides/choosing-output.md) and [API reference](../../docs/reference/README.md).
 
 For character animation, choose the written glyph as the target. Use `entry_unit="character"` or `exit_unit="character"` on `KaraokeEffects` for independent glyph motion in both body and ruby. Check a long reading across a short base during both transitions.
 

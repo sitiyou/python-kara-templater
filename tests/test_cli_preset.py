@@ -94,7 +94,7 @@ def test_fill_alpha_and_instantaneous_highlight_render_without_style_mutation(de
     scene = preset(document, pulse="char")
     span = scene.lines[0].query("character")[0].singing[0]
     assert span.start == span.end == 1
-    result = scene.compile()
+    result = scene.ass.compile()
     before = rasterize(result.document.dumps(), 500, (96, 64)).rgba
     after = rasterize(result.document.dumps(), 1500, (96, 64)).rgba
     assert max(before[3::4]) == pytest.approx(63, abs=1)
@@ -114,8 +114,8 @@ def test_changing_style_selection_restores_unselected_source_and_preserves_other
             Line(text="untimed caption", start_time=0, end_time=500),
         )
     )
-    first = preset(document, styles=("Default",)).compile().document
-    second = preset(first, styles=("Other",)).compile().document
+    first = preset(document, styles=("Default",)).ass.compile().document
+    second = preset(first, styles=("Other",)).ass.compile().document
     assert any(not line.comment and line.text == r"{\k100}A" for line in second.lines)
     assert any(
         not line.comment and line.text == "untimed caption" for line in second.lines
@@ -124,5 +124,5 @@ def test_changing_style_selection_restores_unselected_source_and_preserves_other
         not line.comment and line.text == r"{\k100}B" for line in second.lines
     )
     assert (
-        preset(second, styles=("Other",)).compile().document.dumps() == second.dumps()
+        preset(second, styles=("Other",)).ass.compile().document.dumps() == second.dumps()
     )

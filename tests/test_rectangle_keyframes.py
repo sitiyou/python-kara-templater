@@ -64,15 +64,15 @@ def test_known_curve_uses_common_sampling_and_keeps_clock_after_crop(coverage, i
     )
     if coverage:
         with pytest.raises(SceneCompileError, match="coverage groups"):
-            Scene(doc).add(group).compile()
+            Scene(doc).add(group).ass.compile()
         return
     budget = SceneBudget(fps=10)
-    result = Scene(doc).add(group).compile(budget=budget)
+    result = Scene(doc).add(group).ass.compile(budget=budget)
     for time, front in ((1100, 4), (1200, 8), (1300, 8), (1400, 2), (1600, 12)):
         reference = (
             Scene(doc)
             .add(replace(leaf, clip=RectangleClip(0, 0, front, 12, inverse=inverse)))
-            .compile()
+            .ass.compile()
         )
         assert (
             rasterize(result.document.dumps(), time, (32, 32)).rgba
@@ -109,16 +109,15 @@ def test_native_curve_preserves_cropped_clock_pauses_resets_and_event_cost(inver
         clip=RectangleClip(0, 0, 16, 12, inverse=inverse, deform=curve()),
     )
     scene = Scene(doc).add(leaf)
-    result = scene.compile(native_tweens=True, budget=SceneBudget(fps=1, max_events=4))
+    result = scene.ass.compile(native_tweens=True, budget=SceneBudget(fps=1, max_events=4))
     assert result.event_count == 4
     assert result.objects[0].strategy == "native-clip"
-    assert result.objects[0].sample_interval is None
     events = result.document.lines
     assert r"\t(-100,100,1," in events[0].text
     assert r"\t(" not in events[1].text  # plateau
     assert r"\t(" not in events[-1].text  # held tail
     with pytest.raises(SceneCompileError, match="event budget"):
-        scene.compile(native_tweens=True, budget=SceneBudget(max_events=3))
+        scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=3))
     for time, front in (
         (1100, 4),
         (1150, 6),
@@ -132,7 +131,7 @@ def test_native_curve_preserves_cropped_clock_pauses_resets_and_event_cost(inver
         reference = (
             Scene(doc)
             .add(replace(leaf, clip=RectangleClip(0, 0, front, 12, inverse=inverse)))
-            .compile()
+            .ass.compile()
         )
         assert (
             rasterize(result.document.dumps(), time, (32, 32)).rgba
@@ -151,7 +150,7 @@ def test_native_curve_maps_local_bounds_and_falls_back_for_custom_animation():
         state=VisualState(position=Vec2(8, 6), scale=Vec2(2, 1)),
         clip=RectangleClip(0, 0, 16, 12, space="local", deform=curve()),
     )
-    result = Scene(doc).add(leaf).compile(native_tweens=True)
+    result = Scene(doc).add(leaf).ass.compile(native_tweens=True)
     assert result.objects[0].strategy == "native-clip"
     assert r"\clip(8,6,8,18)" in result.document.lines[0].text
     assert r"\clip(8,6,24,18)" in result.document.lines[0].text
@@ -160,12 +159,12 @@ def test_native_curve_maps_local_bounds_and_falls_back_for_custom_animation():
         duration=1,
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(doc).add(animated).compile()
+        Scene(doc).add(animated).ass.compile()
     group = ObjectGroup(
         id="coverage", lifetime=leaf.lifetime, children=(leaf,), coverage=Coverage()
     )
     with pytest.raises(SceneCompileError, match="coverage groups"):
-        Scene(doc).add(group).compile()
+        Scene(doc).add(group).ass.compile()
 
 
 @pytest.mark.parametrize("inverse", (False, True))
@@ -190,11 +189,11 @@ def test_native_empty_mask_matches_normal_and_inverse_visibility(inverse):
             ),
         ),
     )
-    actual = Scene(doc).add(leaf).compile(native_tweens=True)
+    actual = Scene(doc).add(leaf).ass.compile(native_tweens=True)
     reference = Scene(doc)
     if inverse:
         reference.add(replace(leaf, clip=None))
-    expected = reference.compile()
+    expected = reference.ass.compile()
     for time in (0, 100, 200):
         assert (
             rasterize(actual.document.dumps(), time, (32, 32)).rgba
@@ -228,7 +227,7 @@ def test_overridden_curve_evaluation_is_not_assumed_linear():
         ),
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(Document.create(width=32, height=32)).add(leaf).compile()
+        Scene(Document.create(width=32, height=32)).add(leaf).ass.compile()
 
 
 @pytest.mark.parametrize("inverse", (False, True))
@@ -264,4 +263,4 @@ def test_sampled_known_masks_budget_only_changing_sections_and_keep_resets(inver
     )
     doc = Document.create(width=32, height=32)
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        Scene(doc).add(node).compile()
+        Scene(doc).add(node).ass.compile()

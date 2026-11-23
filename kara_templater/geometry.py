@@ -8,7 +8,7 @@ from math import cos, hypot, isfinite, radians, sin
 
 
 def finite(*values: float) -> None:
-    if not all(isfinite(value) for value in values):
+    if not all(map(isfinite, values)):
         raise ValueError("geometry and animation values must be finite")
 
 
@@ -23,7 +23,8 @@ class Vec2:
     y: float = 0
 
     def __post_init__(self) -> None:
-        finite(self.x, self.y)
+        if not isfinite(self.x) or not isfinite(self.y):
+            raise ValueError("geometry and animation values must be finite")
 
     def __add__(self, other: Vec2) -> Vec2:
         return Vec2(self.x + other.x, self.y + other.y)

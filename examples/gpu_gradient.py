@@ -57,7 +57,7 @@ def main():
     output = Path("build/gpu-gradient.ass")
     output.parent.mkdir(parents=True, exist_ok=True)
     fallback.save(output)
-    build(fallback).export_hook(output.with_suffix(".hook"), fps=60)
+    build(fallback).export(output.with_suffix(".hook"), fps=60)
     print(output)
 
 

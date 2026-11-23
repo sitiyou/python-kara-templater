@@ -1,26 +1,28 @@
 """Serialize shared Scene draws as textures in a standalone libplacebo user shader."""
 
+import hashlib
+import json
 from array import array
 from collections import defaultdict
 from collections.abc import Iterator
 from heapq import merge
 from itertools import groupby
-from math import ceil, floor, isfinite
+from math import ceil, floor, hypot, isfinite
 from pathlib import Path
-from tempfile import NamedTemporaryFile
+from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Protocol
 
 from ._gpu_scene import DrawCommand, SceneFrames
-from ._hook_motion import Span, spans
+from ._hook_motion import ShaderInstance, Span, spans
+from ._karaoke_motion import _SPIN_FLIP, _TILT_POP, ZoomScale
 from ._native_types import RasterImage
-from .geometry import Affine2D
+from .geometry import Affine2D, Vec2
 from .lyric_highlights import _FeatheredSingingClip
 from .paint_fields import LinearGradient
-from .scene import Scene
 from .timeline import ProgressCurve
 
 _WIDTH = 2048
-_TILE = 128
+_TILE = 64
 
 
 class _Writer(Protocol):
@@ -61,6 +63,10 @@ class _Table:
     """Intern repeated frame, tile, material and draw records in one float texture."""
 
     def __init__(self) -> None:
+        self.functions: dict[str, None] = {}
+        self.paints: dict[str, int] = {}
+        self.programs: dict[str, int] = {}
+        self.animated_colors = False
         self.values = array("f")
         self.records: dict[bytes, int] = {}
 
@@ -120,20 +126,37 @@ def _draw_record(
     edge: _FeatheredSingingClip | None,
 ) -> int:
     x, y, w, h, kind, color, pixels = image
-    u, v = atlas.add(w, h, pixels)
+    u, v = atlas.add(w, h, pixels) if pixels else (-1, -1)
     mat = draw.gradient
     stops = _ramp_record(table, mat, kind)
     feather = -1
     if edge is not None and kind in (0, 1):
         before = edge.unsung_fill if kind == 0 else edge.unsung_outline
         core = edge.front_color
-        core_id = -1 if core is None else table.add(core.red / 255, core.green / 255, core.blue / 255)
+        core_id = (
+            -1
+            if core is None
+            else table.add(core.red / 255, core.green / 255, core.blue / 255)
+        )
         base = edge.unsung_gradient
-        feather = table.add(before.red / 255, before.green / 255, before.blue / 255,
-                            edge.width, core_id, _ramp_record(table, base, kind),
-                            int(base is not None and base.space == "screen"),
-                            int(base is not None and base.axis == "y"))
+        feather = table.add(
+            before.red / 255,
+            before.green / 255,
+            before.blue / 255,
+            edge.width,
+            core_id,
+            _ramp_record(table, base, kind),
+            int(base is not None and base.space == "screen"),
+            int(base is not None and base.axis == "y"),
+        )
     geom = table.add(x, y, w, h, u, v)
+    custom = -1
+    if draw.shader_paint is not None:
+        shader = draw.shader_paint
+        table.functions[shader.functions] = None
+        program = table.paints.setdefault(shader.source, len(table.paints))
+        data = table.add(*shader.parameters) if shader.parameters else -1
+        custom = table.add(program, data, draw.time_origin, kind, draw.border)
     paint = table.add(
         *(float(color >> s & 255) / 255 for s in (24, 16, 8)),
         1 - (color & 255) / 255,
@@ -141,6 +164,8 @@ def _draw_record(
         int(mat is not None and mat.space == "screen"),
         int(mat is not None and mat.axis == "y"),
         feather,
+        custom,
+        kind,
     )
     m = draw.transform
     transform = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty)
@@ -161,13 +186,60 @@ def _texture(
     out.write(b"00" * (rows * stride - len(data)) + b"\n\n")
 
 
-def _motion_record(table: _Table, span: Span, fps: int, origin: int, opacity_mode: int) -> int:
+def _motion_record(
+    table: _Table, span: Span, fps: int, origin: int, opacity_mode: int
+) -> int:
+    instance = span.shader
+    if instance is not None:
+        program = instance.program
+        table.functions[program.functions] = None
+        kind = table.programs.setdefault(program.source, len(table.programs))
+        base = instance.base
+        matrices = []
+        for state in (instance.outer, instance.inner):
+            m = state.transform
+            matrices.extend((m.a, m.b, m.c, m.d, m.tx, m.ty))
+        args = table.add(*program.parameters) if program.parameters else -1
+        colors = 0
+        if instance.local:
+            colors = int("fill" in program.channels) + 2 * int("outline" in program.channels)
+        if colors:
+            table.animated_colors = True
+        binding = table.add(
+            kind,
+            args,
+            base.position.x,
+            base.position.y,
+            base.scale.x,
+            base.scale.y,
+            base.skew.x,
+            base.skew.y,
+            base.rotation,
+            base.opacity,
+            instance.outer.opacity * instance.inner.opacity,
+            *matrices,
+            program.progress_scale,
+            program.progress_offset,
+            base.border,
+            colors,
+            *((base.fill.red/255, base.fill.green/255, base.fill.blue/255,
+               base.outline.red/255, base.outline.green/255, base.outline.blue/255) if colors else ()),
+        )
+        return table.add(
+            instance.start * fps - origin,
+            instance.duration * fps,
+            0,
+            -1,
+            binding,
+            0,
+            opacity_mode,
+        )
     motion = span.motion
     if motion is None:
         return -1
     curve = motion.curve
-    if isinstance(curve, tuple):
-        curve = 4 + table.add(*curve)
+    if isinstance(curve, ZoomScale):
+        curve = 8 + table.add(curve.note, curve.duration, curve.exponent)
     elif isinstance(curve, ProgressCurve):
         curve = table.add(len(curve.knots), *(v for knot in curve.knots for v in knot))
         # Negative indices distinguish shared knot tables from the built-in rates.
@@ -180,7 +252,6 @@ def _motion_record(table: _Table, span: Span, fps: int, origin: int, opacity_mod
         motion.peak,
         curve,
         end,
-        span.first - origin if isinstance(motion.curve, tuple) else 0,
         int(motion.fast_reveal),
         opacity_mode,
     )
@@ -204,6 +275,53 @@ def _tiles(
             yield ty * cols + tx
 
 
+def _program_tiles(
+    instance: ShaderInstance, image: RasterImage, cols: int, rows: int
+) -> Iterator[int]:
+    program = instance.program
+    if program.source not in (_TILT_POP, _SPIN_FLIP):
+        yield from range(cols * rows)
+        return
+    params = program.parameters
+    center = Vec2(params[0], params[1])
+    pivot = Vec2(params[2], params[3]) if program.source == _TILT_POP else center
+    outer, base, inner = (
+        instance.outer.transform,
+        instance.base.transform,
+        instance.inner.transform,
+    )
+    fixed = outer.apply(base.apply(pivot))
+    x, y, w, h, *_ = image
+    radius = 0.0
+    shift = center - pivot
+    shift_radius = hypot(
+        base.a * shift.x + base.c * shift.y, base.b * shift.x + base.d * shift.y
+    )
+    for dx in (x, x + w):
+        for dy in (y, y + h):
+            px = inner.a * dx + inner.c * dy + inner.tx - center.x
+            py = inner.b * dx + inner.d * dy + inner.ty - center.y
+            rx = base.a * px + base.c * py
+            ry = base.b * px + base.d * py
+            if program.source == _TILT_POP:
+                bound = 1.3 * (hypot(rx, ry) + shift_radius)
+            else:
+                # v*tan((1-v)*pi/2) <= 2/pi for 0 <= v <= 1.
+                bound = hypot(rx, ry) + abs(instance.base.scale.y * px)
+            radius = max(radius, bound)
+    width = radius * hypot(outer.a, outer.c)
+    height = radius * hypot(outer.b, outer.d)
+    for row in range(
+        max(0, floor((fixed.y - height) / _TILE)),
+        min(rows, ceil((fixed.y + height) / _TILE)),
+    ):
+        for col in range(
+            max(0, floor((fixed.x - width) / _TILE)),
+            min(cols, ceil((fixed.x + width) / _TILE)),
+        ):
+            yield row * cols + col
+
+
 def _timeline(
     frames: SceneFrames,
     atlas: _Atlas,
@@ -221,21 +339,28 @@ def _timeline(
             yield span.first - origin, order, span
             yield span.stop - origin, order, None
 
+    start, end = origin / fps, (origin + count) / fps
     stream = merge(
         *(
             events(i, spans(frames, leaf, fps, origin, origin + count))
             for i, leaf in enumerate(frames.leaves)
+            if leaf.end > start - 1e-9 and leaf.start < end + 1e-9
         ),
         key=lambda event: event[:2],
     )
-    active: dict[int, dict[int, list[int]]] = {}
-    timeline = [0, table.add(*([-1] * (cols * rows)))]
+    active_tiles: dict[int, dict[int, list[int]]] = {}
+    tile_draws: list[dict[int, list[int]]] = [{} for _ in range(cols * rows)]
+    clip_records: dict[int, int] = {}
+    timelines = [[0, -1] for _ in tile_draws]
     for i, changes in groupby(stream, key=lambda event: event[0]):
         if i == count:
             break
+        dirty: set[int] = set()
         for _, order, span in changes:
+            for tile in active_tiles.pop(order, ()):
+                del tile_draws[tile][order]
+                dirty.add(tile)
             if span is None:
-                del active[order]
                 continue
             draw = span.draw
             transforms = (
@@ -243,13 +368,22 @@ def _timeline(
                 if span.motion is None
                 else (draw.transform, span.motion.end.transform)
             )
-            clip_motion = (
-                -1
-                if span.clip_end is None
-                else table.add(
-                    span.first - origin, span.stop - 1 - origin, *span.clip_end
+            clip_motion = clip_records.get(order, -1)
+            if span.clip_keys and clip_motion < 0:
+                node = frames.leaves[order].node
+                keys = span.clip_keys.keyframes
+                clip_motion = table.add(
+                    len(keys),
+                    *(
+                        value
+                        for t, rect in keys
+                        for value in (
+                            (node.time_origin + t) * fps - origin,
+                            table.add(*rect),
+                        )
+                    ),
                 )
-            )
+                clip_records[order] = clip_motion
             batch: dict[int, list[int]] = defaultdict(list)
             clip = frames.leaves[order].node.clip
             edge = clip if isinstance(clip, _FeatheredSingingClip) else None
@@ -262,33 +396,49 @@ def _timeline(
             for images, mode in variants:
                 motion = _motion_record(table, span, fps, origin, mode)
                 for image in images:
-                    record = _draw_record(table, atlas, draw, image, motion, clip_motion, edge)
-                    for tile in _tiles(image, transforms, cols, rows):
+                    record = _draw_record(
+                        table, atlas, draw, image, motion, clip_motion, edge
+                    )
+                    for tile in (
+                        _program_tiles(span.shader, image, cols, rows)
+                        if span.shader and span.shader.program.channels - {"opacity", "border"}
+                        else _tiles(image, transforms, cols, rows)
+                    ):
                         batch[tile].append(record)
-            active[order] = batch
-        tiles: dict[int, list[int]] = defaultdict(list)
-        for order in sorted(active):
-            for tile, draws in active[order].items():
-                tiles[tile].extend(draws)
-        directory = [-1] * (cols * rows)
-        for tile, draws in tiles.items():
-            directory[tile] = table.add(len(draws), *draws)
-        record = table.add(*directory)
-        if i == 0:
-            timeline[1] = record
-        elif record != timeline[-1]:
-            timeline.extend((i, record))
-    return table.add(len(timeline) // 2, *timeline)
+            active_tiles[order] = batch
+            for tile, commands in batch.items():
+                tile_draws[tile][order] = commands
+                dirty.add(tile)
+        for tile in dirty:
+            draws = tile_draws[tile]
+            commands = [cmd for order in sorted(draws) for cmd in draws[order]]
+            record = table.add(len(commands), *commands) if commands else -1
+            timeline = timelines[tile]
+            if i == 0:
+                timeline[1] = record
+            elif record != timeline[-1]:
+                timeline.extend((i, record))
+    return table.add(
+        *(
+            table.add(len(t) // 2, *t) if len(t) > 2 or t[1] >= 0 else -1
+            for t in timelines
+        )
+    )
 
 
 def export_hook(
-    scene: Scene, path: Path, fps: int, start: float, duration: float | None
+    frames: SceneFrames,
+    path: Path,
+    fps: int,
+    start: float,
+    duration: float | None,
+    *,
+    resources: bool = False,
 ) -> None:
     if type(fps) is not int or not 1 <= fps <= 240:
         raise ValueError("hook fps must be an integer in 1..240")
     if not isfinite(start) or start < 0 or abs(start * fps - round(start * fps)) > 1e-7:
         raise ValueError("hook start must be nonnegative and frame aligned")
-    frames = SceneFrames(scene)
     length = frames.end - start if duration is None else duration
     if not isfinite(length) or not 0 < length * fps <= 250000:
         raise ValueError("hook interval must cover 1..250000 frames")
@@ -296,19 +446,62 @@ def export_hook(
     atlas, table = _Atlas(), _Table()
     w, h = frames.resolution
     cols, rows = ceil(w / _TILE), ceil(h / _TILE)
+    # The header is uniform across fragments. Per-song constants in this
+    # texture let preview sessions reuse a linked program across edits.
+    table.values.extend([fps, round(start * fps), count, w, h, cols, 0])
     timeline = _timeline(
         frames, atlas, table, fps, round(start * fps), count, cols, rows
     )
+    table.values[6] = timeline
+    cases = "\n".join(
+        f"case {kind}: {{ {body} }} break;" for body, kind in table.programs.items()
+    )
     source = (
-        _SHADER.replace("NFRAMES", str(count))
-        .replace("TIMELINE", str(timeline))
-        .replace("EXPORT_FPS", str(fps))
-        .replace("START_FRAME", str(round(start * fps)))
-        .replace("CANVAS", f"vec2({w}.,{h}.)")
-        .replace("NCOLS", str(cols))
+        _SHADER.replace("HAS_ANIMATED_COLORS", str(int(table.animated_colors)))
+        .replace("MOTION_FUNCTIONS", "\n".join(table.functions))
+        .replace("MOTION_CASES", cases)
+        .replace("PAINT_CASES", "\n".join(f"case {index}: {{ {body} }} break;"
+                                        for body,index in table.paints.items()))
+        .replace("APPLY_PAINT", """
+            int paint=refAt(p+8);
+            if(paint>=0) {
+                float opacity=alpha*item(p+3);
+                applyPaint(paint,screen,local,coverage,(float(index)+item(1))/item(0),ink,opacity,pen);
+                a=coverage*clamp(opacity,0.,1.);
+            }
+        """ if table.paints else "")
         .replace("TILESIZE", str(_TILE))
         .replace("TEXWIDTH", str(_WIDTH))
     )
+    if resources:
+        textures = (
+            ("KARAMASK", atlas.data, _WIDTH),
+            ("KARADATA", table.values.tobytes(), _WIDTH * 16),
+        )
+        with TemporaryDirectory(dir=path.parent) as tmp:
+            staging = Path(tmp) / "resources"
+            staging.mkdir()
+            sizes = {}
+            hashes = {}
+            for name, raw, stride in textures:
+                rows = max(1, ceil(len(raw) / stride))
+                sizes[name] = [_WIDTH, rows]
+                padding = bytes(rows * stride - len(raw))
+                with (staging / (name + ".bin")).open("wb") as out:
+                    out.write(raw)
+                    out.write(padding)
+                digest = hashlib.sha256(raw)
+                digest.update(padding)
+                hashes[name] = digest.hexdigest()
+            metadata = dict(sizes, clock=[fps, round(start * fps), count], hashes=hashes)
+            (staging / "textures.json").write_text(
+                json.dumps(metadata), encoding="ascii"
+            )
+            (staging / "scene.frag").write_text(
+                source.split("//!BIND KARADATA\n", 1)[1], encoding="utf-8"
+            )
+            staging.rename(path)
+        return
     with NamedTemporaryFile(dir=path.parent, delete=False) as out:
         temp = Path(out.name)
         try:
@@ -355,49 +548,106 @@ float weight(int motion, int index) {
     if(curve==0) return p;
     if(curve==1) return p*p*(3.-2.*p);
     if(curve==2) return p*p*p*(p*(6.*p-15.)+10.);
-    if(curve>=4) return item(curve-4+index-refAt(motion+5));
+    if(curve==3) return p*p;
+    if(curve==4) return 1.-(1.-p)*(1.-p);
+    if(curve==5) return p<0.5 ? 2.*p*p : 1.-2.*(1.-p)*(1.-p);
+    if(curve==6) return sin(3.14159265*p);
+    if(curve>=8) {
+        int k=curve-8;
+        float t=p*item(k+1), note=item(k);
+        float d=t<=note ? 1.-t/note : min(1.,(t-note)/0.30);
+        return 1.-pow(clamp(d,0.,1.),item(k+2));
+    }
     int knots=-4-curve;
     int k=preceding(knots,p);
     if(k+2>=knots+1+2*refAt(knots)) return item(k+1);
     return mix(item(k+1),item(k+3),(p-item(k))/(item(k+2)-item(k)));
 }
-vec3 paintColor(vec3 solid,int ramp,vec2 screen,vec2 local) {
-    int stops=refAt(ramp);
-    if(stops<0) return solid;
-    vec2 pos=item(ramp+1)>0.?screen:local;
-    float t=item(ramp+2)>0.?pos.y:pos.x;
+vec3 rampColor(int stops,float t) {
     int end=stops+1+4*refAt(stops);
     for(int k=stops+5;k<end;k+=4) {
         if(t<=item(k)) return mix(rgbAt(k-3),rgbAt(k+1),clamp((t-item(k-4))/(item(k)-item(k-4)),0.,1.));
     }
     return rgbAt(end-3);
 }
+vec3 paintColor(vec3 solid,int ramp,vec2 screen,vec2 local) {
+    int stops=refAt(ramp);
+    if(stops<0) return solid;
+    vec2 pos=item(ramp+1)>0.?screen:local;
+    float t=item(ramp+2)>0.?pos.y:pos.x;
+    return rampColor(stops,t);
+}
+mat2 basisOf(vec2 scale,vec2 skew,float angle) {
+    float a=radians(angle), c=cos(a), s=sin(a);
+    return mat2(c,s,-s,c)*mat2(scale.x,skew.y*scale.y,skew.x*scale.x,scale.y);
+}
+mat2 matrixAt(int i) { return mat2(pairAt(i),pairAt(i+2)); }
+MOTION_FUNCTIONS
+void applyPaint(int paint,vec2 screen,vec2 local,inout float coverage,float time,inout vec3 ink,inout float alpha,float pen){
+    int data=refAt(paint+1),component=refAt(paint+3);
+    if(pen<0.) pen=item(paint+4);
+    time-=item(paint+2);
+    switch(refAt(paint)){PAINT_CASES}
+}
+void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha,out float pen,int component,out vec3 animatedInk) {
+    int data=refAt(b+1);
+    vec2 pos=pairAt(b+2), scale=pairAt(b+4), skew=pairAt(b+6);
+    float angle=item(b+8);
+    alpha=item(b+9);
+    pen=item(b+25);
+    p=p*item(b+23)+item(b+24);
+    #if HAS_ANIMATED_COLORS
+    int colors=refAt(b+26);
+    vec3 fill=vec3(0.), outline=vec3(0.);
+    if(colors!=0) { fill=rgbAt(b+27); outline=rgbAt(b+30); }
+    #else
+    vec3 fill=vec3(0.), outline=vec3(0.);
+    #endif
+    switch(refAt(b)) { MOTION_CASES }
+    #if HAS_ANIMATED_COLORS
+    animatedInk=(colors & (1<<component))!=0 ? (component==0 ? fill : outline) : vec3(-1.);
+    #else
+    animatedInk=vec3(-1.);
+    #endif
+    mat2 outerBasis=matrixAt(b+11), localBasis=basisOf(scale,skew,angle);
+    basis=outerBasis*localBasis*matrixAt(b+17);
+    position=pairAt(b+15)+outerBasis*(pos+localBasis*pairAt(b+21));
+    alpha*=item(b+10);
+}
 vec4 hook() {
     vec4 bg=HOOKED_tex(HOOKED_pos);
     // mpv supplies the media timestamp. FFmpeg can leave the parameter at -1.
     int index = PTS >= 0.0
-        ? int(floor(PTS * float(EXPORT_FPS) + 0.001)) - START_FRAME
+        ? int(floor(PTS * item(0) + 0.001)) - refAt(1)
         : frame - 1;
-    if(index<0 || index>=NFRAMES) return bg;
-    vec2 screen=HOOKED_pos*CANVAS;
+    if(index<0 || index>=refAt(2)) return bg;
+    vec2 screen=HOOKED_pos*pairAt(3);
     ivec2 tile=ivec2(screen)/TILESIZE;
-    int list=refAt(refAt(preceding(TIMELINE,float(index))+1)+tile.y*NCOLS+tile.x);
+    int track=refAt(refAt(6)+tile.y*refAt(5)+tile.x);
+    if(track<0) return bg;
+    int list=refAt(preceding(track,float(index))+1);
     if(list<0) return bg;
     int count=refAt(list);
     for(int j=0;j<count;j++) {
         int cmd=refAt(list+1+j), g=refAt(cmd), p=refAt(cmd+1), m=refAt(cmd+2);
         mat2 basis=mat2(pairAt(m),pairAt(m+2));
         vec2 pos=pairAt(m+4);
-        float alpha=item(cmd+4);
+        float alpha=item(cmd+4), pen=-1.;
+        vec3 animatedInk=vec3(-1.);
         int motion=refAt(cmd+5);
         if(motion>=0) {
+            if(refAt(motion+3)==-1) {
+                float phase=clamp((float(index)-item(motion))/item(motion+1),0.,1.);
+                applyProgram(refAt(motion+4),phase,basis,pos,alpha,pen,refAt(p+9),animatedInk);
+            } else {
             float w=weight(motion,index);
             int end=refAt(motion+4);
             basis=mat2(mix(basis[0],pairAt(end),w),mix(basis[1],pairAt(end+2),w));
             pos=mix(pos,pairAt(end+4),w);
-            float reveal=item(motion+6)>0. ? clamp(4.*(float(index)-item(motion))/item(motion+1),0.,1.) : w;
+            float reveal=item(motion+5)>0. ? clamp(4.*(float(index)-item(motion))/item(motion+1),0.,1.) : w;
             alpha=mix(alpha,item(end+6),reveal);
-            int mode=refAt(motion+7);
+            }
+            int mode=refAt(motion+6);
             if(mode!=0 && (mode>0)!=(alpha>=1.-0.5/255.)) continue;
         }
         if(alpha<=0. || determinant(basis)==0.) continue;
@@ -411,15 +661,22 @@ vec4 hook() {
             vec4 rect=vec4(pairAt(clip),pairAt(clip+2));
             int sweep=refAt(cmd+6);
             if(sweep>=0) {
-                float t=(float(index)-item(sweep))/(item(sweep+1)-item(sweep));
-                rect=mix(rect,vec4(pairAt(sweep+2),pairAt(sweep+4)),t);
+                int k=preceding(sweep,float(index));
+                int first=refAt(k+1);
+                rect=vec4(pairAt(first),pairAt(first+2));
+                if(k+2<sweep+1+2*refAt(sweep) && float(index)>item(k)) {
+                    int nextRect=refAt(k+3);
+                    float t=(float(index)-item(k))/(item(k+2)-item(k));
+                    rect=mix(rect,vec4(pairAt(nextRect),pairAt(nextRect+2)),t);
+                }
             }
             edgeDistance=min(pos.x-rect.x,rect.z-pos.x);
             if(any(lessThan(pos,rect.xy)) || any(greaterThanEqual(pos,rect.zw))) continue;
         }
         vec2 mask=pairAt(g+4)+clamp(uv,vec2(0.5),size-0.5);
-        float a=textureLod(KARAMASK,mask/vec2(textureSize(KARAMASK,0)),0.).r*item(p+3)*alpha;
-        vec3 ink=paintColor(rgbAt(p),p+4,screen,local);
+        float coverage=item(g+4)<0. ? 1. : textureLod(KARAMASK,mask/vec2(textureSize(KARAMASK,0)),0.).r;
+        float a=coverage*item(p+3)*alpha;
+        vec3 ink=paintColor(animatedInk.r>=0. ? animatedInk : rgbAt(p),p+4,screen,local);
         int feather=refAt(p+7);
         if(feather>=0) {
             float phase=edgeDistance/item(feather+3);
@@ -433,6 +690,7 @@ vec4 hook() {
                 }
             }
         }
+        APPLY_PAINT
         bg.rgb=mix(bg.rgb,ink,a);
         bg.a=a+bg.a*(1.-a);
     }

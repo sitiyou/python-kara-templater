@@ -110,5 +110,5 @@ def test_material_times_before_scene_zero_fail_before_sampling(kind):
         ),
     )
     with pytest.raises(ValueError, match="coverage groups"):
-        Scene(Document.create()).add(group).compile()
+        Scene(Document.create()).add(group).ass.compile()
     assert calls == []

@@ -80,7 +80,7 @@ def test_preflight_rejects_before_geometry_callback():
     merged = merge_geometry(group(child), max_points=50)
     assert not calls
     with pytest.raises(SceneCompileError):
-        Scene(Document.create()).add(merged).compile(
+        Scene(Document.create()).add(merged).ass.compile(
             budget=SceneBudget(max_path_points=10)
         )
     assert not calls
@@ -110,7 +110,7 @@ def test_shared_border_and_blur_match_one_independent_rectangle():
     reference = replace(merged, path=VectorPath.rectangle(60, 40))
 
     def pixels(node):
-        result = Scene(Document.create(width=180, height=160)).add(node).compile()
+        result = Scene(Document.create(width=180, height=160)).add(node).ass.compile()
         return rasterize(result.document.dumps(), 0, (180, 160)).rgba
 
     assert pixels(merged) == pixels(reference)

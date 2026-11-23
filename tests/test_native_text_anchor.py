@@ -40,7 +40,7 @@ def test_centered_text_pulse_keeps_pixels_and_uses_one_event(text, italic, spaci
     ).animate(ScalePulse(peak=1.1, peak_at=0.42, pivot=pivot, rate=smoother_rate), duration=2)
     doc = Document.create(width=192, height=128)
     scene = Scene(doc).add(node)
-    result = scene.compile(native_tweens=True)
+    result = scene.ass.compile(native_tweens=True)
     report = result.objects[0]
     assert report.strategy == "native-clip-eased"
     assert report.events == 1
@@ -54,7 +54,7 @@ def test_centered_text_pulse_keeps_pixels_and_uses_one_event(text, italic, spaci
         static = replace(node, state=node.at(time), animations=(), clip=replace(
             node.clip, deform=RectangleKeyframes(((0, bounds), (3, bounds))),
         ))
-        expected = Scene(doc).add(static).compile()
+        expected = Scene(doc).add(static).ass.compile()
         actual_pixels = rasterize(result.document.dumps(), ms, (192, 128)).rgba
         expected_pixels = rasterize(expected.document.dumps(), ms, (192, 128)).rgba
         # Native ASS clips round to whole pixels; one boundary pixel plus
@@ -72,7 +72,7 @@ def test_centered_text_pulse_keeps_pixels_and_uses_one_event(text, italic, spaci
         assert color_error <= 3 * perimeter * 255 + 0.02 * sum(expected_pixels[3::4])
     # A separate curved departure must not be swallowed into the fixed anchor.
     drifting = node.animate(DriftOut(offset=Vec2(12, -24), pivot=pivot, travel_rate=travel_rate), at=2.14, duration=0.56)
-    output = Scene(doc).add(drifting).compile(native_tweens=True)
+    output = Scene(doc).add(drifting).ass.compile(native_tweens=True)
     assert output.event_count > result.event_count
     assert any(r"\move(" in line.text for line in output.document.lines)
     if travel_rate is linear_rate:
@@ -81,7 +81,7 @@ def test_centered_text_pulse_keeps_pixels_and_uses_one_event(text, italic, spaci
     static = replace(drifting, state=drifting.at(time), animations=(), clip=replace(
         node.clip, deform=RectangleKeyframes(((0, (0, -3, width, height + 3)),)),
     ))
-    expected = Scene(doc).add(static).compile()
+    expected = Scene(doc).add(static).ass.compile()
     actual_pixels = rasterize(output.document.dumps(), 2280, (192, 128)).rgba
     expected_pixels = rasterize(expected.document.dumps(), 2280, (192, 128)).rgba
     assert sum(abs(a - b) for a, b in zip(

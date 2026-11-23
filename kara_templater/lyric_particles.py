@@ -12,6 +12,7 @@ from .particles import Emission, ParticleContext, ParticleFactory, emit_particle
 from .path_animation import TrailPath
 from .scene import Lifetime, PathObject, SceneObject
 from .scene_animation import (
+    ShaderMotion,
     StatePatch,
     TimeSpan,
     Transform,
@@ -89,16 +90,26 @@ class Petal:
             CubicSegment(Vec2(-2 * size, -size), Vec2(-size, size), Vec2(0, 1.5 * size)),
             CubicSegment(Vec2(size, size), Vec2(2 * size, -size), Vec2(0, -size)),
         )),))
+        motion = Transform(
+            offset=lambda p: Vec2(wind * p + 10 * sin(pi * p), self.fall * p),
+            rotation=lambda p: spin * p,
+            scale=lambda p: Vec2(0.25 + 0.75 * abs(cos(2 * pi * p + phase)), 1),
+            opacity=lambda p: 1 - smooth_rate(p),
+        )
         return PathObject(
             id=context.id, lifetime=Lifetime(context.birth, context.birth + self.duration),
             path=path, origin=context.origin, layer=1,
             state=VisualState(position=context.position, fill=self.color or context.color or _DEFAULT_SUNG, border=0,
                               rotation=context.uniform("angle", 0, 360)),
-        ).animate(Transform(
-            offset=lambda p: Vec2(wind * p + 10 * sin(pi * p), self.fall * p),
-            rotation=lambda p: spin * p,
-            scale=lambda p: Vec2(0.25 + 0.75 * abs(cos(2 * pi * p + phase)), 1),
-            opacity=lambda p: 1 - smooth_rate(p),
+        ).animate(ShaderMotion(
+            motion.sample, motion.channels,
+            """
+            pos += vec2(item(data)*p+10.*sin(3.14159265*p),item(data+1)*p);
+            angle += item(data+2)*p;
+            scale.x *= 0.25+0.75*abs(cos(6.28318531*p+item(data+3)));
+            alpha *= 1.-smoothstep(0.,1.,p);
+            """,
+            (wind, self.fall, spin, phase),
         ), duration=self.duration)
 
 

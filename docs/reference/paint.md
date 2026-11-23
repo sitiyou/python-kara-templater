@@ -12,6 +12,7 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 - [Color](#color)
 - [ColorRamp](#colorramp)
 - [ColorStop](#colorstop)
+- [Extrusion](#extrusion)
 - [GRAY](#gray)
 - [GREEN](#green)
 - [Glow](#glow)
@@ -34,6 +35,7 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 - [PaintField](#paintfield)
 - [PaintPair](#paintpair)
 - [RED](#red)
+- [ShaderPaint](#shaderpaint)
 - [SoftSweep](#softsweep)
 - [WHITE](#white)
 - [YELLOW](#yellow)
@@ -101,7 +103,7 @@ Color.hex(
 
 Piecewise linear colors at absolute script coordinates; ends clamp.
 
-[Source](../../kara_templater/paint_fields.py#L98)
+[Source](../../kara_templater/paint_fields.py#L132)
 
 ```python
 ColorRamp(
@@ -131,7 +133,7 @@ An RGB color at a finite script-space position along a paint field axis.
 
 ColorRamp requires ordered stops.
 
-[Source](../../kara_templater/paint_fields.py#L84)
+[Source](../../kara_templater/paint_fields.py#L118)
 
 ```python
 ColorStop(
@@ -145,6 +147,30 @@ ColorStop(
 | Name | Type | Default |
 | --- | --- | --- |
 | `position` | `float` | `required` |
+| `color` | `Color` | `required` |
+
+## Extrusion
+
+A solid side swept from a drawing's hard silhouette in local script pixels.
+
+Offset is the vector from front to back. The side follows the face's
+transforms and opacity, and keeps its own color during a lyric wipe.
+Zero offset gives a flat drawing. Hook output supports this appearance.
+
+[Source](../../kara_templater/paint_fields.py#L23)
+
+```python
+Extrusion(
+    offset: Vec2,
+    color: Color,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `offset` | `Vec2` | `required` |
 | `color` | `Color` | `required` |
 
 ## GRAY
@@ -211,7 +237,7 @@ Glow.from_studio(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L210)
+[Source](../../kara_templater/lyric_highlights.py#L211)
 
 ```python
 Highlight(
@@ -262,7 +288,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L1113)
+[Source](../../kara_templater/lyric_highlights.py#L1117)
 
 ```python
 HighlightArrival(
@@ -308,7 +334,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L142)
+[Source](../../kara_templater/lyric_highlights.py#L143)
 
 ```python
 HighlightPass(
@@ -406,7 +432,7 @@ The hook shades independent fill and outline ramps continuously. Local
 space attaches color stops to the untransformed drawing. ASS compilation
 rejects paint fields. The bands() method samples the field at integer steps.
 
-[Source](../../kara_templater/paint_fields.py#L151)
+[Source](../../kara_templater/paint_fields.py#L185)
 
 ```python
 LinearGradient(
@@ -478,7 +504,7 @@ from undecorated glyph bounds, independent of glow/outline;
 step is color-band width in local script pixels. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyric_highlights.py#L82)
+[Source](../../kara_templater/lyric_highlights.py#L83)
 
 ```python
 LyricGradient(
@@ -526,7 +552,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L629)
+[Source](../../kara_templater/lyric_highlights.py#L630)
 
 ```python
 LyricHighlights(
@@ -743,7 +769,7 @@ Changes to the incoming VisualState are sampled independently. Omit this
 protocol when an arbitrary callback cannot make the constancy guarantee;
 the compiler then samples its complete visible lifetime.
 
-[Source](../../kara_templater/paint_fields.py#L68)
+[Source](../../kara_templater/paint_fields.py#L102)
 
 ### PaintActivity.active_intervals
 
@@ -757,7 +783,7 @@ A half-open integer interval with resolved fill and outline colors.
 
 Paint fields return these bounded bands for standard ASS compilation.
 
-[Source](../../kara_templater/paint_fields.py#L23)
+[Source](../../kara_templater/paint_fields.py#L57)
 
 ```python
 PaintBand(
@@ -786,7 +812,7 @@ tuple declares a static field. max_bands bounds every invocation.
 Times are signed seconds from the owning object's clock origin; absolute
 breakpoints cannot precede Scene zero or exceed the object's display end.
 
-[Source](../../kara_templater/paint_fields.py#L36)
+[Source](../../kara_templater/paint_fields.py#L70)
 
 ### PaintField.axis
 
@@ -849,6 +875,34 @@ Public constant:
 RED = Color(red=255, green=0, blue=0)
 ```
 
+## ShaderPaint
+
+GLSL applied per covered pixel after the normal material and feather.
+
+The body can modify RGB ink and opacity alpha. local and screen are script
+pixel coordinates, time is signed seconds from the object clock, coverage
+is the native mask, and component is 0 for fill, 1 for outline, 2 for
+shadow. Numeric parameters are accessible through item(data + offset).
+Optional functions can contain Metashade-generated GLSL definitions.
+
+[Source](../../kara_templater/paint_fields.py#L36)
+
+```python
+ShaderPaint(
+    source: str,
+    parameters: tuple[float, ...] = (),
+    functions: str = '',
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `source` | `str` | `required` |
+| `parameters` | `tuple[float, ...]` | `()` |
+| `functions` | `str` | `''` |
+
 ## SoftSweep
 
 Left-to-right (or top-to-bottom) sweep; pairs are (unsung, sung).
@@ -857,7 +911,7 @@ Widths are script pixels. The front travels past both ends so the declared
 span is completely unsung at start and completely sung at start+duration.
 start and duration are local seconds from the owning object's clock origin.
 
-[Source](../../kara_templater/paint_fields.py#L210)
+[Source](../../kara_templater/paint_fields.py#L244)
 
 ```python
 SoftSweep(
