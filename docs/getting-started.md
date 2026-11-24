@@ -1,102 +1,94 @@
-# Getting started
+# Export your first karaoke subtitles
 
-Create a scene in Python, animate a caption, then export it as an ASS subtitle or a
-standalone libplacebo hook. This first example uses a fade and a rise that both
-exporters support. The [karaoke recipe](../README.md) adds timed lyrics and readings.
+Export the included timed lyrics and watch the syllables change color. You need
+Python 3.12 or newer, a source checkout, and DejaVu Sans for the sample. To render
+the preview, use FFmpeg with libplacebo, libx264, and a working Vulkan driver.
+[Font setup](guides/fonts-and-preview.md) · [GPU setup](guides/gpu-rendering.md)
 
-## Install the library
+## Install from the checkout
 
-Python 3.12 or later is required. These docs describe the current checkout;
-an older published release may expose a different API. Install a wheel built
-from this version, or install the checkout after following the platform-specific
-[build prerequisites](contributing/setup.md):
+1. Install the native build prerequisites for your platform.
+   [Linux setup](contributing/setup.md#linux) · [Windows setup](contributing/setup.md#windows)
+2. From the repository root, create a virtual environment.
+
+   ```sh
+   python -m venv .venv
+   ```
+
+3. Activate it with `source .venv/bin/activate` on Linux or
+   `.\.venv\Scripts\Activate.ps1` in PowerShell. Install the checkout.
+
+   ```sh
+   python -m pip install .
+   ```
+
+These commands use the exporter in this checkout. If you installed the 1.0.1
+release from PyPI, use its versioned instructions. [Version 1.0.1 README](https://github.com/sitiyou/python-kara-templater/blob/v1.0.1/README.md)
+
+## Export the sample
+
+Run the CLI from the repository root. The input has four timed syllables and a
+small reading above each one. The exporter writes `karaoke.hook` at 60 fps.
 
 ```sh
-python -m venv .venv
+kara-templater examples/karaoke.ass karaoke.hook
 ```
 
-Activate the environment before installing: use `source .venv/bin/activate` on
-Linux or `.venv\Scripts\Activate.ps1` in Windows PowerShell. Then, from the
-checkout root:
+## Preview the export
+
+Render a four-second clip on a solid background. The 1280 × 720 canvas matches
+the sample's ASS script, and the 60 fps input matches the hook.
 
 ```sh
-python -m pip install .
+ffmpeg -init_hw_device vulkan=vk -f lavfi -i "color=c=0x181B24:s=1280x720:r=60:d=4" -vf "libplacebo=custom_shader_path=karaoke.hook" -c:v libx264 -pix_fmt yuv420p preview.mp4
 ```
 
-After installation you can move to any working directory for the script below.
-To install a matching wheel instead, use `python -m pip install path/to/package.whl`.
-See [development setup](contributing/setup.md) for wheel builds and Linux runtime
-library requirements.
+Open `preview.mp4`. The lyrics appear one second in and change from yellow to
+white across four syllables. The fourth syllable finishes at three seconds.
+[Render over footage or play in mpv](guides/gpu-rendering.md)
 
-## Write your first effect
+## Export your own lyrics
 
-Save this complete script as `first_effect.py`. It uses only the installed
-library; no repository example modules or input subtitle file are needed.
+Replace `examples/karaoke.ass` with a timed ASS file. The preset uses the file's
+secondary color for waiting text and its primary color for sung text. To choose
+a different sung color, pass `--after` with a hex color. Use `--ass` to produce
+a standard subtitle file for an ASS player.
+
+```sh
+kara-templater song.ass song.hook --after "#FFE09A"
+kara-templater song.ass song-styled.ass --ass
+```
+
+[CLI options and reusable effects](guides/cli.md) · [Compare output formats](guides/choosing-output.md)
+
+## Write an effect in Python
+
+Save the script below as `chorus.py` and run `python chorus.py`. It creates
+lyrics in Python and exports `chorus.hook`. ASS record times use milliseconds.
+The inline `\k` values mark syllable lengths in centiseconds, and `|` attaches
+a ruby reading to a syllable.
 
 ```python
 from kara_templater import (
-    CYAN,
-    AnimationClip,
-    Document,
-    Lifetime,
-    Scene,
-    StatePatch,
-    TextObject,
-    Tween,
-    Vec2,
-    VisualState,
+    Color, Document, KaraokeEffects, Layout, Line, Style, Track, Vec2, prepare_tracks,
 )
 
-document = Document.create(width=640, height=360)
-caption = TextObject(
-    id="caption",
-    text="Sing with me",
-    font="DejaVu Sans",
-    font_size=48,
-    alignment=5,
-    lifetime=Lifetime(0, 3),
-    state=VisualState(position=Vec2(320, 210), fill=CYAN, opacity=0),
-    animations=(
-        AnimationClip(0, 0.6, Tween(StatePatch(position=Vec2(320, 180), opacity=1))),
-        AnimationClip(2.5, 0.5, Tween(StatePatch(opacity=0))),
-    ),
+song = Document.create(
+    width=640,
+    height=360,
+    styles=(Style(fontsize=72, bold=True, outline=3, shadow=0),),
 )
-scene = Scene(document).add(caption)
-scene.ass.compile().document.save("first-effect.ass")
-scene.export("first-effect.hook", fps=30)
+song.records.append(
+    Line(start_time=0, end_time=3000, text=r"{\k90}星|ほし{\k45}に{\k165}届け|とどけ")
+)
+gold = KaraokeEffects.duotone(unsung=Color.hex("#281C26"), sung=Color.hex("#FFE09A"))
+vocal = Track(id="vocal", layout=Layout(position=Vec2(80, 180)), effects=(gold,))
+scene = prepare_tracks(song, tracks=(vocal,))
+scene.export("chorus.hook", fps=30)
 ```
 
-Run it with:
+Install a font with Japanese glyphs and set `Style.fontname` to its family for
+this example. To preview the gold sweep through the lyric and its readings,
+render `chorus.hook` with a 640 × 360 canvas at 30 fps.
 
-```sh
-python first_effect.py
-```
-
-Play either export over a video lasting at least three seconds. The caption
-rises as it fades in, then fades out. For ASS, make DejaVu Sans available to
-the player. The hook includes the shaped glyphs and requires a compatible GPU.
-
-```sh
-mpv --sub-auto=no --sub-file=first-effect.ass video.mp4
-mpv --vo=gpu-next --gpu-api=vulkan --sub-auto=no --glsl-shader=first-effect.hook video.mp4
-```
-
-For timed lyrics, you can also export a compact playback ASS.
-[Choose an output](guides/choosing-output.md) shows how the three paths handle a singing effect.
-
-## Change the effect
-
-- Change `text`, `fill`, `font_size`, or the positions to change the caption.
-- Scene lifetimes and animation durations are in **seconds**. Positions use
-  script pixels in the Document's 640 by 360 coordinate system.
-- An AnimationClip starts relative to the object's birth. The final animation
-  value is held until another animation writes the same channel.
-- `compile()` enforces event, byte, activity, and geometry budgets. Inspect the
-  result before increasing a budget for a complex effect.
-- Existing subtitle files enter through `Document.load("input.ass")`.
-
-Repository examples are a separate workflow: their `python -m examples...`
-commands require a source checkout. They are not installed with the wheel.
-
-Continue with the [custom animation tutorial](tutorials/custom-animation.md), or
-browse the [effect gallery](examples/README.md). To design a reusable effect for timed lyrics, continue with the [template authoring skill](../skills/kara-templater/SKILL.md).
+[Lay out lead and harmony vocals](tutorials/karaoke-design.md) · [Browse reusable effects](examples/README.md)

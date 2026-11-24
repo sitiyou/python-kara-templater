@@ -12,10 +12,9 @@ from tools.check_docs import check
 @pytest.mark.parametrize(
     ("page", "filename", "start", "duration"),
     (
-        ("README.md", "chorus.hook", 0, 4000),
+        ("docs/getting-started.md", "chorus.hook", 0, 3000),
         ("docs/guides/karaoke-effects.md", "karaoke.hook", 0, 5600),
         ("docs/guides/gpu-rendering.md", "song.ass", 0, 3000),
-        ("docs/getting-started.md", "first-effect.ass", 0, 3000),
         ("docs/tutorials/custom-animation.md", "sparks.hook", 0, 2300),
         ("docs/tutorials/lyric-highlights.md", "lyric-arc.hook", 0, 5000),
     ),
@@ -32,9 +31,8 @@ def test_complete_author_script_runs_as_written(
     if filename.endswith(".hook"):
         assert "//!HOOK MAIN" in (tmp_path / filename).read_text()
         return
-    if page in {"README.md", "docs/getting-started.md", "docs/guides/gpu-rendering.md"}:
-        hook = (tmp_path / filename).with_suffix(".hook")
-        assert "//!HOOK MAIN" in hook.read_text(encoding="utf-8")
+    hook = (tmp_path / filename).with_suffix(".hook")
+    assert "//!HOOK MAIN" in hook.read_text(encoding="utf-8")
     output = Document.load(tmp_path / filename)
     assert (output.meta.res_x, output.meta.res_y) == (640, 360)
     events = [line for line in output.lines if not line.comment]

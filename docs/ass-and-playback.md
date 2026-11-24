@@ -25,10 +25,9 @@ and subtitle/video scaling all affect pixels. Keep those fixed for comparisons.
 load_font registers metrics resources in Python; configure playback fonts
 separately. A matching family name is insufficient proof of identical font bytes.
 
-The gallery is rendered with FFmpeg/libass, repository fonts, and recorded
-settings. Its reduced GIFs illustrate motion; use the full saved ASS when judging
-the intended player. Material pixel comparisons need RGB or full-resolution
-chroma composition. YUV420 can introduce edges between encoded pixel rectangles.
+Use the exported ASS and the intended player to judge full-size playback.
+Material pixel comparisons need RGB or full-resolution chroma composition.
+YUV420 can introduce edges between encoded pixel rectangles.
 
 ## Renderer differences
 

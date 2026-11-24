@@ -85,10 +85,13 @@ uv run python -m tools.render_gallery --case word-backgrounds
 uv run python -m tools.validate_scene_core --scene cues build/preview-cues
 ```
 
-The gallery saves actual ASS before rendering the tracked GIFs. Its ignored report
-records source/ASS/GIF hashes and fonts. Full visual validators write reports and
-artifacts to an explicit ignored build directory. Include only curated preview
-media in user documentation, not iterative validation histories.
+`tools.render_gallery` saves the ASS used for its supported case. Its ignored
+report records source, ASS and GIF hashes and fonts. For Hook examples, export
+the documented scene and render the Hook over the intended background with
+FFmpeg and libplacebo. [Hook rendering instructions](../guides/gpu-rendering.md)
+
+Full visual validators write reports and artifacts to an explicit ignored
+build directory. Include only curated preview media in user documentation.
 
 See [release builds](releasing.md) for clean-source and installed-package checks.
 

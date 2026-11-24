@@ -1,37 +1,33 @@
-# Documentation index
+# kara-templater documentation
 
-| Resource | Where to go |
-| --- | --- |
-| First export | [Getting started](getting-started.md) walks through installation, export and playback. |
-| Template authoring | The [template skill](../skills/kara-templater/SKILL.md) covers choosing a working example, styling timed lyrics and checking the rendered result. |
-| Tutorials | [Custom animation](tutorials/custom-animation.md), [timed highlights](tutorials/lyric-highlights.md), [karaoke layout](tutorials/karaoke-design.md) and [lyric motion studies](tutorials/lyric-studies.md) |
-| Examples | The [effect gallery](examples/README.md) pairs rendered previews with runnable source. |
-| Export formats | [Choosing an output](guides/choosing-output.md) compares standard ASS and standalone hooks. |
+## Make your first karaoke export
 
-## Task guides
+- [Export and preview the sample](getting-started.md)
+- [Style your own timed ASS file from the command line](guides/cli.md)
+- [Write your first effect in Python](getting-started.md#write-an-effect-in-python)
+- [Choose between a subtitle file and a GPU hook](guides/choosing-output.md)
 
-| Topic | What you can do |
-| --- | --- |
-| [Documents and lyrics](guides/documents.md) | Load ASS, preserve source records, read karaoke timing and custom markers |
-| [Objects and coordinates](guides/objects.md) | Create, group, copy, position, and transform visual objects |
-| [Animation and timing](guides/animation.md) | Compose animations, write callbacks, schedule events, and resolve clocks |
-| [Built-in karaoke effects](guides/karaoke-effects.md) | Choose entry, singing, exit, particles and outline flash |
-| [Tracks](guides/tracks.md) | Select source lyrics and configure text, highlights, layout, and animations |
-| [Text, ruby, and cues](guides/text-and-cues.md) | Shape text, bind readings, place inline or independent cue objects |
-| [Geometry and masks](guides/geometry.md) | Work with paths, outlines, boolean operations, writing, and morphing |
-| [Colors and materials](guides/materials.md) | Add soft sweeps, gradients, blur, scoped opacity, and explicit raster output |
-| [Particles and references](guides/particles.md) | Emit deterministic particles, make echoes, and follow world-space objects |
-| [ASS compilation and performance](guides/compilation.md) | Choose output semantics, inspect reports, and control resource budgets |
-| [Fonts and preview](guides/fonts-and-preview.md) | Choose typefaces for main lyrics, harmony and ruby; register fonts and preview the result |
-| [Standalone hook](guides/gpu-rendering.md) | Render with FFmpeg or seek in mpv |
-| [CLI](guides/cli.md) | Export presets, Track configurations, and custom Scenes |
-| [Troubleshooting](guides/troubleshooting.md) | Diagnose missing glyphs, input restrictions, animation conflicts, and costs |
+## Build a reusable template
 
-## Reference and maintenance
+- [Lay out lead and harmony vocals](tutorials/karaoke-design.md)
+- [Pick an effect by its preview](examples/README.md) or [choose a built-in animation](guides/karaoke-effects.md)
+- [Import timed lyrics](guides/documents.md) and [configure Tracks](guides/tracks.md)
+- [Place ruby readings and count-ins](guides/text-and-cues.md)
+- [Write a custom animation](tutorials/custom-animation.md), [animate singing highlights](tutorials/lyric-highlights.md), or [adapt a motion study](tutorials/lyric-studies.md)
+- [Follow the template authoring skill](../skills/kara-templater/SKILL.md) when building a template with a coding agent
 
-- [API reference](reference/README.md) covers the final public exports and members.
-- [ASS and playback](ass-and-playback.md) explains renderer and output limits.
-- [Contributing](contributing/README.md) covers setup, architecture, checks, and releases.
+## Render or troubleshoot an export
 
-Gallery captions identify the rendering path. Repository examples and tools require a
-source checkout. Standalone tutorial scripts use the installed package.
+- [Render with FFmpeg or play a hook in mpv](guides/gpu-rendering.md)
+- [Compile standard ASS](guides/compilation.md) and [check player compatibility](ass-and-playback.md)
+- [Install fonts and verify glyph positions](guides/fonts-and-preview.md)
+- [Diagnose export and rendering errors](guides/troubleshooting.md)
+
+## Look up the API
+
+Use the [Python API reference](reference/README.md) for signatures and contracts.
+The guides explain how to combine [scene objects](guides/objects.md),
+[animation clocks](guides/animation.md), [geometry and masks](guides/geometry.md),
+[materials](guides/materials.md), and [particles](guides/particles.md).
+
+[Contribute to the project](contributing/README.md)

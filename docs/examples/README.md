@@ -1,92 +1,94 @@
 # Effect gallery
 
-The gallery includes historical libass renders made with the former sampled ASS
-exporter. The scene sources illustrate the effects. For current export support,
-see [Choose an output](../guides/choosing-output.md).
-The wheel does not install the `examples` package.
+Pick an effect by its preview, then run its example from a source checkout.
+Use the fonts in the example to match the lyric layout, and choose an export
+format that supports the effect. [Get started](../getting-started.md) · [Output formats](../guides/choosing-output.md)
 
-The previews use the repository test fonts, a dark background, 640-pixel width,
-and 12 frames/s. The generated ASS retains its full script resolution and timing.
-Supply the same fonts to your player for comparable text geometry. See
-[fonts and preview](../guides/fonts-and-preview.md) for reproduction.
+## Start with a whole song
 
-## Built-in karaoke catalog
+**Built-in karaoke effects.** Mix an entrance, a singing treatment, and an exit
+with `KaraokeEffects`. The preview shows four combinations using Sarasa UI J.
 
-![Four built-in combinations](assets/karaoke-builtins.gif)
-
-[KaraokeEffects](../guides/karaoke-effects.md) covers the Studio animation-menu
-families: entry/exit motion, singing pulses, luminous fronts, petals, stars,
-ripples, notes and snow. One callable supplies the whole recipe to a Track.
-The preview is a 15fps overview of actual 60fps ASS renders using Sarasa UI J;
-use the videos for timing judgments.
+![Four combinations of lyric entrances, singing highlights, and exits](assets/karaoke-builtins.gif)
 
 ```sh
 python -m examples.karaoke_catalog build/studio.hook --entry glow_in --exit dissolve_out
 ```
 
-[Source](../../examples/karaoke_catalog.py) · [Recommended combinations](../tutorials/karaoke-design.md#built-in-animation-combinations)
+[Catalog source](../../examples/karaoke_catalog.py) · [Choose effects](../guides/karaoke-effects.md)
 
-## Arrange karaoke lyrics
+**Lead and harmony.** See how independent Tracks share a song clock, rotate
+rows, and use different colors. [Row allocation](../../examples/lyric_orchestration.py) · [Track palettes](../../examples/karaoke_designs.py)
 
-Start with [lyric_orchestration.py](../../examples/lyric_orchestration.py) for
-ordinary lyric authoring: one rule binds each line's fade and each singing
-segment's jump, while independent main/harmony Tracks choose their layouts.
-Set `rows` to change the row count and `reset_on_lead` to choose whether a cue restarts the rotation. The custom allocator illustrates taking a solo line out of that rotation.
+## Animate the lyric
 
-The effects below also include direct object and material examples for custom
-geometry and composition. See [Tracks](../guides/tracks.md) for the authoring API.
+### Fixed-cut lyric reveal
 
-## Custom lyric animation
+![Japanese lyrics slide through invisible cuts from right to left](assets/slit-reveal.gif)
 
-The [motion studies](../tutorials/lyric-studies.md) demonstrate timed copies,
-particle reveal, curved trails and independent ornament clocks. For a whole-song
-starting point, use [karaoke layout and animation defaults](../tutorials/karaoke-design.md).
-The [palette example](../../examples/karaoke_designs.py) shows how to give main
-and harmony Tracks different materials while sharing one time axis.
+Each character slides into place before its first note. The default style puts
+Sarasa UI J directly over the footage, then sweeps from off-white to amber.
+
+```sh
+python -m examples.slit_reveal build/slit-reveal.hook
+```
+
+[Source](../../examples/slit_reveal.py) · [Adapt the entrance to longer lyrics](../tutorials/karaoke-design.md#reveal-a-phrase-from-narrow-openings)
+
+### Karaoke without a color wipe
+
+![A small amber diamond hops between Chinese lyrics over a night street](assets/lyric-no-sweep.gif)
+
+The diamond lands on the note attack and the glyph briefly grows. The whole
+glyph turns amber at release. The preview uses Sarasa UI SC over a night street.
+
+```sh
+python -m examples.lyric_no_sweep build/lyric-no-sweep.hook
+```
+
+[Source](../../examples/lyric_no_sweep.py) · [Align motion with the notes](../tutorials/karaoke-design.md#mark-singing-without-a-color-wipe)
+
+For more custom motion, see the [lyric studies](../tutorials/lyric-studies.md) on
+timed copies, particle reveals, and curved trails.
 
 ## Karaoke count-ins
 
-![A three-column inline signal and a separate row of lamps](assets/karaoke-signals.gif)
+![An inline signal and separate star lamps count down to the lyrics](assets/karaoke-signals.gif)
 
-The inline columns flash together. Each changes its fill and outer outline when its step begins. The stars use the harmony track’s teal sung color and extinguish from
-right to left. Both signals clear when singing begins; the lyric keeps its
-reserved position. [Scene construction example](../../examples/karaoke_signals.py).
+The inline columns flash together. The stars clear one at a time above the
+line. Both signals clear by the pickup. [Signal source](../../examples/karaoke_signals.py) · [Cue setup](../guides/text-and-cues.md)
 
 ### Paw countdown and character flips
 
-The [paw countdown component](../../examples/paw_countdown.py) places four vector prints above the row and its readings. Each print squashes halfway through its step and vanishes on the boundary. The cue inherits the host’s size and singing colour. For a fast song, four two-beat steps give about three seconds at 156 BPM:
+Use `paw_countdown(step_seconds=...)` as a Track cue preset for four prints that
+squash and vanish in step with the music. Use the built-in `spin_flip` exit with
+`exit_unit="character"` to flip glyphs and their readings around their own pivots.
+[Paw cue source](../../examples/paw_countdown.py) · [Entry and exit options](../guides/karaoke-effects.md#entry-and-exit)
 
-```python
-from examples.paw_countdown import paw_countdown
-from kara_templater import Track
+## Add drawing and color
 
-track = Track(id="lead", cues={"paws": paw_countdown(step_seconds=2 * 60 / 156)})
-```
+### Word backgrounds and decorations
 
-Place an independent cue marker named `paws` at the desired pickup (for example, `CueMarker("intro", "paws", placement="independent")`). The Track handles the row position and reading clearance.
+![Measured lyric ranges with colored backgrounds, cue bars, and sparkles](assets/word-backgrounds.gif)
 
-The flipping exit can be used independently. Add `KaraokeEffects(entry="tilt_pop", exit="spin_flip", exit_unit="character")` to a Track’s effects for a popping entrance and an exit in which each written character, including each kana in a reading, turns around its own pivot.
-
-Give the face a light outline and a vertical `LyricGradient` for each sweep state.
-Set `Track.extrusion` to add a colored side that follows the lettering and ruby.
-See [extruded lettering](../guides/gpu-rendering.md#extruded-lettering-and-shapes).
-
-## Word backgrounds and decorations
-
-![Word backgrounds and decorations](assets/word-backgrounds.gif)
-
-Measured lyric ranges receive backgrounds, custom bars, numbers, and sparkle decorations.
-
-[Source: scene_cues.py](../../examples/scene_cues.py)
+Draw backgrounds, cue bars, and sparkles against measured lyric ranges. Edit
+the range, cue factory, or lifetime to attach the drawing to a different phrase.
 
 ```sh
 python -m examples.scene_cues build/word-backgrounds.ass
 ```
 
-Edit source ranges, cue factories, decorations, and their lifetimes.
+[Source](../../examples/scene_cues.py)
 
-## GPU gradient
+### GPU gradient
 
-[GPU gradient example](../../examples/gpu_gradient.py) exports ordinary fallback lyrics plus continuous shader color and eased motion. See [the GPU guide](../guides/gpu-rendering.md) for optional rendering requirements and limits.
+![A pink-to-cyan gradient fills the moving lyric](assets/gpu-gradient.gif)
 
-![GPU gradient](assets/gpu-gradient.gif)
+Export continuous shader color as `build/gpu-gradient.hook` alongside a plain
+ASS version of the lyric.
+
+```sh
+python -m examples.gpu_gradient
+```
+
+[Source](../../examples/gpu_gradient.py) · [Render the hook](../guides/gpu-rendering.md)

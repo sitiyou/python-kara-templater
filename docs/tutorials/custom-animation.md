@@ -1,8 +1,8 @@
 # Write a reusable custom animation
 
-This tutorial extends [getting started](../getting-started.md) with a path object,
-a reusable factory, and your own animation function. It runs with the installed
-library and writes `sparks.hook` in the current directory.
+Write a Python function that sends a row of sparks across the scene. The script
+uses the installed library and writes `sparks.hook` in the current directory.
+[Install the library](../getting-started.md#install-from-the-checkout)
 
 ## Define the motion and object
 
