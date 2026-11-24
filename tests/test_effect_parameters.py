@@ -58,6 +58,22 @@ def test_body_and_reading_share_resolved_export_widths(tmp_path, ruby_size, fixe
     assert "//!HOOK MAIN" in (tmp_path / "song.hook").read_text()
 
 
+@pytest.mark.parametrize(
+    ("italic", "angle", "slanted"), [(False, None, False), (True, None, True), (True, 0, False)]
+)
+def test_default_sweep_follows_font_style_with_an_explicit_override(italic, angle, slanted):
+    doc = Document.create(styles=(Style(fontname="DejaVu Sans", italic=italic),))
+    doc.records.append(Line(text=r"{\k100}A", end_time=1000))
+    effect = KaraokeEffects(entry="none", exit="none", highlight="none", sweep_angle=angle)
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(effect,)),))
+
+    if slanted:
+        with pytest.raises(SceneCompileError, match="use sweep_angle=0"):
+            scene.ass.compile()
+    else:
+        assert scene.ass.compile().event_count > 0
+
+
 def test_interval_expressions_and_factory_read_the_same_source_note():
     doc = Document.create(styles=(Style(fontsize=72),))
     doc.records.append(Line(text=r"{\k20}A{\k100}#{\k0}B", end_time=1200))

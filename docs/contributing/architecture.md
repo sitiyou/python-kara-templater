@@ -18,8 +18,9 @@ flowchart LR
 ## Shared model
 
 ass.py preserves ordered records and serializes standard ASS. Document text and
-lyric modules project decoded text, styles, timing spans, ruby, and cue markers
-with source mappings. LyricSource wraps parsed or structured DocumentLyrics. Track authoring, lyric
+lyric modules project decoded text, timing spans, ruby, and cue markers with
+source mappings. Imported lyrics use the template's styles and keep the original
+labels for selection. LyricSource wraps parsed or structured DocumentLyrics. Track authoring, lyric
 anchors and Scene object clocks use seconds; raw ASS records retain milliseconds.
 
 scene.py defines text, path, group, and ASS dialogue objects. scene_animation.py
@@ -41,8 +42,8 @@ plans to Scene without overriding compilation. Arbitrary row counts use the same
 allocator; custom policies override its batch function. Source ownership and
 same-source visual views remain separate.
 
-The CLI default recipe uses this frontend, including its source-position
-allocator and before/after paint rules. Effect scripts return a Scene or declare
+The CLI default recipe uses this frontend with preset placement and before/after
+paint rules. Effect scripts return a Scene or declare
 Tracks. Lyrics remain editable scene objects until export.
 
 Object groups carry hierarchy, inherited opacity and clipping.
@@ -96,7 +97,11 @@ evaluates them using the owning group's clock. Leaf clips retain their own
 coordinate space and their role in lyric wipes.
 Hook export rasterizes filled paths with aggdraw and static round strokes with FreeType. Pillow filters the resulting coverage.
 The fragment shader evaluates dynamic strokes from positioned contours.
-A sparse timeline indexes tiled draws in painter order. Curve knots, shader parameters, tile lists,
+A sparse timeline indexes tiled draws in painter order. Geometry-changing shader
+motions use poses on the output frame grid in short windows. Built-in particles
+can use analytic travel and scale bounds. Both paths index the reachable mask
+coverage and pass through the same per-frame and per-tile work checks. Curve
+knots, shader parameters, tile lists,
 materials and raster masks share storage across instances. The fragment shader composites those
 draws in painter order onto the input video. FFmpeg/libplacebo owns the frame
 clock and GPU resources. Ordinary ASS can be saved independently.

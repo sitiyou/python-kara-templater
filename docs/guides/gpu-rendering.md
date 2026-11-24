@@ -98,6 +98,17 @@ knots in Scene evaluation and the standalone hook.
 Unsupported animation, reference or clip callbacks raise a SceneCompileError
 with the object, time and source location. Use a GPU motion for custom equations.
 
+Hook export and browser resources share a per-frame work limit. Each tile can
+contain up to 1,024 candidate draws. The sum of its draw count times its pixel
+area is limited to 128 times the scene area, capped at the 1920 × 1080 budget.
+The estimate includes candidates that the shader may skip. Exceeding a limit
+raises `SceneCompileError` at the first affected timestamp. Motion bounds
+limit candidates to tiles the objects can reach. For a custom `ShaderMotion`
+that changes geometry, Hook export uses its equivalent Python pose on the output
+frame grid. Supply the same position, scale, rotation and skew as the shader for
+the whole clip. Custom GLSL can have additional per-pixel cost, so check playback
+on the intended device.
+
 The shader draws text/static paths in layer order, with affine transforms,
 opacity, ordinary rectangle clips and continuous fill/outline linear gradients
 (up to 16 stops). Static glyphs and paths use aggdraw for fills and the FreeType round stroker for fixed borders. Pillow applies blur to the coverage masks.

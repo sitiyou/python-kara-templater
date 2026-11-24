@@ -62,12 +62,11 @@ class TextRun:
 class TimingTag:
     """A decoded karaoke timing tag at a text offset.
 
-    Its seconds value is a duration for k/K/kf/ko and an absolute cursor offset for
-    kt.
+    Its seconds value is a duration for k/K/kf/ko.
     """
 
     offset: int
-    kind: Literal["k", "K", "kf", "ko", "kt"]
+    kind: Literal["k", "K", "kf", "ko"]
     seconds: float
 
 
@@ -239,14 +238,16 @@ def read_document_text(document: Document, record_index: int) -> DocumentText:
 
 
 def _read_document_text(
-    document: Document, record_index: int, styles: Mapping[str, Style], soft_break: str
+    document: Document, record_index: int, styles: Mapping[str, Style], soft_break: str,
+    *, lyrics_only: bool = False,
 ) -> DocumentText:
     record = document.records[record_index]
     if not isinstance(record, Line):
         raise TypeError(f"record {record_index} is not an ASS event")
-    if record.style not in styles:
+    style_name = "Default" if lyrics_only else record.style
+    if style_name not in styles:
         raise ValueError(f"record {record_index}: unknown style {record.style!r}")
-    baseline = _appearance(styles[record.style])
+    baseline = _appearance(styles[style_name])
     appearance = baseline
     tokens: list[TextToken] = []
     runs: list[TextRun] = []
@@ -255,6 +256,7 @@ def _read_document_text(
     issues: list[TextIssue] = []
     offset = 0
     position = 0
+    drawing = False
     while position < len(record.text):
         start = position
         if record.text[position] != "{":
@@ -282,8 +284,9 @@ def _read_document_text(
             raw = record.text[start:position]
             text = "".join(decoded)
             tokens.append(TextToken(raw, offset))
-            runs.append(TextRun(text, offset, offset + len(text), appearance))
-            offset += len(text)
+            if not drawing:
+                runs.append(TextRun(text, offset, offset + len(text), appearance))
+                offset += len(text)
             continue
         end = record.text.find("}", position)
         if end < 0:
@@ -306,8 +309,17 @@ def _read_document_text(
                 ) from error
             continue
         for tag in _overrides(block):
+            timing_match = re.fullmatch(r"\\(kf|ko|k|K)(\d+)", tag)
+            if tag.startswith(r"\kt"):
+                continue
+            if lyrics_only:
+                drawing_match = re.fullmatch(r"\\p(\d+)", tag)
+                if drawing_match:
+                    drawing = int(drawing_match[1]) != 0
+                if timing_match and not drawing:
+                    timing.append(TimingTag(offset, "k", int(timing_match[2]) / 100))
+                continue
             color = re.fullmatch(r"\\([1-4]?)c(&H[0-9a-fA-F]{1,6}&?)?", tag)
-            timing_match = re.fullmatch(r"\\(kf|ko|kt|k|K)(\d+)", tag)
             if color:
                 channel = {
                     "": "primary",
@@ -344,7 +356,7 @@ def _read_document_text(
                 appearance = baseline
             elif timing_match:
                 kind = timing_match[1]
-                assert kind in ("k", "K", "kf", "ko", "kt")
+                assert kind in ("k", "K", "kf", "ko")
                 timing.append(TimingTag(offset, kind, int(timing_match[2]) / 100))
             else:
                 issues.append(
@@ -388,21 +400,14 @@ def resolve_timing(source: DocumentText, start: float) -> tuple[TimedTextSpan, .
     cursor = start
     result: list[TimedTextSpan] = []
     for index, tag in enumerate(source.timing):
-        if tag.kind == "kt":
-            if start + tag.seconds < cursor - 1e-9:
-                raise ValueError(
-                    f"record {source.record_index}, decoded text offset {tag.offset}: "
-                    "kt reverses the timing cursor"
-                )
-            cursor = start + tag.seconds
-            continue
         end_offset = (
             source.timing[index + 1].offset
             if index + 1 < len(source.timing)
             else len(source.text)
         )
-        result.append(
-            TimedTextSpan(tag.offset, end_offset, cursor, cursor + tag.seconds, tag.kind)
-        )
+        if end_offset > tag.offset:
+            result.append(
+                TimedTextSpan(tag.offset, end_offset, cursor, cursor + tag.seconds, tag.kind)
+            )
         cursor += tag.seconds
     return tuple(result)

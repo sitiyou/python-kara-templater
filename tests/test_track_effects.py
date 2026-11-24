@@ -163,7 +163,7 @@ def test_earlier_local_clip_keeps_clock_and_renders():
 def test_custom_schedule_keeps_repeated_timing_and_zero_notes():
     document = Document.create(width=640, height=360)
     document.records.append(Line(
-        start_time=1000, end_time=2000, text=r"{\k25}A{\kt50\k25}#{\k0}B",
+        start_time=1000, end_time=2000, text=r"{\k25}A{\k25}{\k25}#{\k0}B",
     ))
 
     def custom(line):

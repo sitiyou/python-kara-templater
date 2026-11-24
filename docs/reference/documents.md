@@ -35,7 +35,7 @@ A non-executable cue anchor with ID, preset key, decoded body offset, and inline
 markup quotes the declaration; its insertion point carries the serialized
 offset.
 
-[Source](../../kara_templater/document_text.py#L74)
+[Source](../../kara_templater/document_text.py#L73)
 
 ```python
 CueMarker(
@@ -65,17 +65,19 @@ CueMarker.markup() -> str
 
 ## Document
 
-An ordered ASS record collection with parsed script metadata.
+An ordered ASS record collection with optional structured lyric sources.
 
 Load/parse preserve source content without executing code; create builds a new
 script, and save/dumps serialize standard ASS.
 
-[Source](../../kara_templater/ass.py#L206)
+[Source](../../kara_templater/ass.py#L207)
 
 ```python
 Document(
     records: list[str | Style | Line],
     meta: Record,
+    lyric_sources: tuple[tracks.LyricSource, ...] = (),
+    bpm: float | None = None,
 )
 ```
 
@@ -85,6 +87,8 @@ Document(
 | --- | --- | --- |
 | `records` | `list[str \| Style \| Line]` | `required` |
 | `meta` | `Record` | `required` |
+| `lyric_sources` | `tuple[tracks.LyricSource, ...]` | `()` |
+| `bpm` | `float \| None` | `None` |
 
 ### Document.create
 
@@ -92,6 +96,7 @@ Create standard ASS with raw RGB colors for code-authored scenes.
 
 YCbCr Matrix: None prevents playback color-matrix reinterpretation of
 authored RGB values. Parsing existing ASS retains its original metadata.
+Lyric sources and BPM are in-memory inputs for build_lyric_scene.
 
 ```python
 Document.create(
@@ -99,6 +104,8 @@ Document.create(
     width: int = 1280,
     height: int = 720,
     styles: tuple[Style, ...] = (),
+    lyric_sources: tuple[tracks.LyricSource, ...] = (),
+    bpm: float | None = None,
 ) -> Document
 ```
 
@@ -128,7 +135,7 @@ Document.load(
 
 ### Document.lyrics_at
 
-Read scoped body/ruby and timing without layout.
+Read body, ruby and timing. Imported events use template-owned appearance.
 
 ```python
 Document.lyrics_at(
@@ -204,7 +211,7 @@ A source-preserving decoded ASS text view with tokens, appearance runs, karaoke 
 
 Offsets count Unicode code points rather than bytes or shaped glyphs.
 
-[Source](../../kara_templater/document_text.py#L119)
+[Source](../../kara_templater/document_text.py#L118)
 
 ```python
 DocumentText(
@@ -282,7 +289,7 @@ An ASS Dialogue or Comment event with millisecond start/end times and preserved 
 Actor, effect, margins, layer, and source style remain distinct event
 attributes.
 
-[Source](../../kara_templater/ass.py#L138)
+[Source](../../kara_templater/ass.py#L139)
 
 ```python
 Line(
@@ -408,7 +415,7 @@ LyricUnit(
 
 Script metadata with attribute access to keys such as res_x and res_y.
 
-[Source](../../kara_templater/ass.py#L13)
+[Source](../../kara_templater/ass.py#L14)
 
 Supports standard dict construction and attribute access to stored keys.
 
@@ -477,7 +484,7 @@ An ASS style with typed font/layout fields and preserved raw style columns.
 Font scales are percentages, alignment uses ASS 1 through 9, and sizes/margins
 use script pixels.
 
-[Source](../../kara_templater/ass.py#L69)
+[Source](../../kara_templater/ass.py#L70)
 
 ```python
 Style(
@@ -565,7 +572,7 @@ A source offset and diagnostic message for text semantics a binder may reject.
 
 Parsing retains the original tokens for unsupported overrides.
 
-[Source](../../kara_templater/document_text.py#L106)
+[Source](../../kara_templater/document_text.py#L105)
 
 ```python
 TextIssue(
@@ -639,7 +646,7 @@ TextToken(
 
 Source text offsets and absolute timing intervals, including zero duration.
 
-[Source](../../kara_templater/document_text.py#L363)
+[Source](../../kara_templater/document_text.py#L375)
 
 ```python
 TimedTextSpan(
@@ -665,15 +672,14 @@ TimedTextSpan(
 
 A decoded karaoke timing tag at a text offset.
 
-Its seconds value is a duration for k/K/kf/ko and an absolute cursor offset for
-kt.
+Its seconds value is a duration for k/K/kf/ko.
 
 [Source](../../kara_templater/document_text.py#L61)
 
 ```python
 TimingTag(
     offset: int,
-    kind: Literal['k', 'K', 'kf', 'ko', 'kt'],
+    kind: Literal['k', 'K', 'kf', 'ko'],
     seconds: float,
 )
 ```
@@ -683,7 +689,7 @@ TimingTag(
 | Name | Type | Default |
 | --- | --- | --- |
 | `offset` | `int` | `required` |
-| `kind` | `Literal['k', 'K', 'kf', 'ko', 'kt']` | `required` |
+| `kind` | `Literal['k', 'K', 'kf', 'ko']` | `required` |
 | `seconds` | `float` | `required` |
 
 ## parse_document_lyrics
@@ -701,6 +707,7 @@ parse_document_lyrics(
     source: DocumentText,
     *,
     start: float,
+    ruby_layout: bool = True,
 ) -> DocumentLyrics
 ```
 
@@ -713,7 +720,7 @@ that channel to the current style; r resets all channels to the named style
 or the event style. Unhandled tags are retained and explicitly diagnosed.
 Cue presets are resolved later by the effect registry, never executed here.
 
-[Source](../../kara_templater/document_text.py#L230)
+[Source](../../kara_templater/document_text.py#L229)
 
 ```python
 read_document_text(

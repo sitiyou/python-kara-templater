@@ -19,7 +19,7 @@ from kara_templater import (
 )
 
 
-def subject(text=r"{\k50}AB{\kt75\k50}#"):
+def subject(text=r"{\k50}AB{\k25}{\k50}#"):
     doc = Document.create(width=320, height=180, styles=(Style(fontname="DejaVu Sans", fontsize=32),))
     doc.records.append(Line(text=text, start_time=1000, end_time=2250))
     layout = layout_document_lyrics(doc, len(doc.records) - 1, id="line", display=Lifetime(0, 2.25))

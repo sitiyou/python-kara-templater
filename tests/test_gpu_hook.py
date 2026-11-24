@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from array import array
 from dataclasses import replace
+from math import radians, tan
 
 import pytest
 
@@ -24,6 +25,7 @@ from kara_templater import (
     RectangleKeyframes,
     ScalePulse,
     Scene,
+    SceneCompileError,
     StateFunction,
     Style,
     TextObject,
@@ -34,6 +36,65 @@ from kara_templater import (
 )
 from kara_templater._cli_preset import preset_scene
 from kara_templater._raster import rasterize
+
+
+def test_custom_shader_motion_indexes_only_reachable_tiles_for_each_window(tmp_path):
+    from kara_templater import ShaderMotion
+    from kara_templater.output.hook.export import _TILE
+
+    width, height = 6 * _TILE, 4 * _TILE
+    motion = ShaderMotion(
+        lambda base, p: replace(base, position=base.position + Vec2(300 * p, 0)),
+        frozenset({"position"}),
+        "pos.x+=300.*p;",
+    )
+    scene = Scene(Document.create(width=width, height=height)).add(PathObject(
+        id="moving", path=VectorPath.rectangle(10, 10), lifetime=Lifetime(0, 2),
+        state=VisualState(position=Vec2(10, 20)),
+    ).animate(motion, duration=2))
+    directory = tmp_path / "resources"
+    scene.export_resources(directory, fps=30)
+
+    data = array("f")
+    data.frombytes((directory / "KARADATA.bin").read_bytes())
+    tracks = int(data[6])
+    occupied = {}
+    for tile, ref in enumerate(data[tracks:tracks + 24]):
+        if ref < 0:
+            continue
+        index = int(ref)
+        occupied[tile] = tuple(
+            (int(data[index + 1 + 2 * key]), data[index + 2 + 2 * key] >= 0)
+            for key in range(int(data[index]))
+        )
+    assert occupied[0][0] == (0, True)
+    assert occupied[0][-1][1] is False
+    assert occupied[4][-1][1] is True
+    assert occupied[4][0] == (0, False)
+    assert max(occupied) < 6
+
+
+@pytest.mark.parametrize(
+    ("size", "copies", "diagnostic"),
+    [(640, 129, "per-pixel draw candidates"), (16, 1025, "tile (0, 0)")],
+)
+def test_hook_rejects_excessive_fragment_work_before_writing(tmp_path, size, copies, diagnostic):
+    scene = Scene(Document.create(width=640, height=360))
+    path = VectorPath.rectangle(size, size)
+    for index in range(copies):
+        scene.add(PathObject(id=f"layer:{index}", path=path, lifetime=Lifetime(2, 3)))
+
+    hook = tmp_path / "scene.hook"
+    hook.write_text("previous export")
+    with pytest.raises(SceneCompileError, match="Hook GPU work budget exceeded at 2s") as standalone:
+        scene.export(hook, fps=30, start=1, duration=2)
+    assert diagnostic in str(standalone.value)
+    assert hook.read_text() == "previous export"
+
+    resources = tmp_path / "resources"
+    with pytest.raises(SceneCompileError, match="Hook GPU work budget exceeded at 2s"):
+        scene.export_resources(resources, fps=30, start=1, duration=2)
+    assert not resources.exists()
 
 
 def test_large_hook_record_and_curve_addresses_survive_float32_storage():
@@ -729,3 +790,51 @@ def test_shader_wipe_matches_split_draws_in_playback(
                    for row in range(0, len(fused), 3 * 160))
     assert fused[:160 * 96 * 3] != fused[-160 * 96 * 3:]
     assert fused == split
+
+
+@pytest.mark.parametrize(("angle", "reverse", "feather"), [(None, False, 4), (-28, True, 4), (28, False, 0)])
+def test_slanted_wipe_projects_color_boundary_in_playback(tmp_path, vulkan, angle, reverse, feather):
+    from kara_templater import (
+        BLUE,
+        RED,
+        KaraokeEffects,
+        Layout,
+        Track,
+        VectorGuide,
+        build_lyric_scene,
+    )
+
+    width, height = 128, 112
+    doc = Document.create(width=width, height=height, styles=(
+        Style(fontname="DejaVu Sans", fontsize=64, italic=angle is None, outline=0, shadow=0),
+    ))
+    doc.records.append(Line(text=r"{\k100}/", end_time=1000))
+    effect = KaraokeEffects(
+        entry="none", exit="none", highlight="none", before_fill=BLUE, after_fill=RED,
+        reverse_wipe=reverse, sweep_angle=angle, hook_feather=feather,
+    )
+    guide = VectorGuide(VectorPath.polygon(
+        Vec2(0, 0), Vec2(0.65, 0), Vec2(0.65, -0.65), Vec2(0, -0.65),
+    ), advance=0.65)
+    scene = build_lyric_scene(doc, tracks=(
+        Track(id="voice", layout=Layout(position=Vec2(22, 12)), effects=(effect,), guide_symbols={"/": guide}),
+    ))
+    hook = tmp_path / "sweep.hook"
+    scene.export(hook, fps=4, duration=1)
+    raw = subprocess.check_output([
+        "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi", "-i",
+        "color=c=black:s=128x112:r=4", "-vf", f"libplacebo=custom_shader_path={hook}:format=rgb24",
+        "-frames:v", "4", "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+    ])
+    frame = raw[2 * width * height * 3:3 * width * height * 3]
+    boundaries = []
+    for y in range(height):
+        row = y * width * 3
+        reds = [x for x in range(width) if frame[row + 3*x] > 180]
+        blues = [x for x in range(width) if frame[row + 3*x + 2] > 180]
+        if reds and blues:
+            boundaries.append((y, min(reds) if reverse else max(reds)))
+    assert len(boundaries) > 20
+    y0, x0 = boundaries[4]
+    y1, x1 = boundaries[-5]
+    assert (x1 - x0) / (y1 - y0) == pytest.approx(-tan(radians(19 if angle is None else angle)), abs=0.08)

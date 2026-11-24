@@ -36,14 +36,14 @@ editable glyph layout have different requirements.
 
 ## Vertical ruby spacing
 
-Set `Track(id="main", ruby_gap=6)` to leave 6 script pixels between the
-bottom of the reading's hard outline and the top of the associated body text's
-hard outline. This is also the default. Smaller values bring the reading closer;
-zero aligns the outer ink bounds, and negative values allow overlap.
+Horizontal readings in a lyric line share a baseline by default. The lowest
+reading outline clears the tallest body outline by six script pixels. Use
+`Track(id="main", ruby_alignment="group")` to set each reading group's height
+from its own body ink. `ruby_gap` controls the clearance in both modes. Smaller
+values bring the reading closer, and negative values allow overlap.
 
 The engine measures shaped ink before animation, including the static stroke
-and any reserved hard rim. Joined readings share a row: the lowest outlined
-reading and highest outlined body glyph determine the gap for the group.
+and any reserved hard rim.
 Shadows, glow and pulse animations may extend into this space. The measurement
 uses the document's PlayRes; resizing the video scales the visible gap.
 
@@ -51,6 +51,11 @@ uses the document's PlayRes; resizing the video scales the visible gap.
 
 CuePreset chooses a factory, lead, duration, steps, gap, position, and whether to
 keep reserved space. Choose a factory by its clock and appearance.
+
+Horizontal inline cues align to the visible center of the body glyph at their
+marker. `CueContent.from_line(line)` uses the visible center of the cue's own
+body. Custom drawings can pass `ink_center_y` in local coordinates to
+`CueContent`; by default the reserved height determines the drawing's center.
 
 | Factory | Before the lyric starts | At the cue end |
 | --- | --- | --- |

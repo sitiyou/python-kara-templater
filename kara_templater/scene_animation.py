@@ -619,7 +619,8 @@ class ShaderMotion(StateFunction):
     and mutable local channels pos, scale, skew, angle (degrees), alpha, pen
     (outline radius), fill and outline (RGB in 0..1).
     basisOf(scale, skew, angle) returns the local linear transform.
-    Supply the same motion in function for evaluation at authored boundaries.
+    Supply the same motion in function throughout the clip. Hook export also
+    uses the Python pose to index geometry on the output frame grid.
     """
 
     source: str = ""

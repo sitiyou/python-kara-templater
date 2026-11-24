@@ -67,7 +67,7 @@ def test_onset_copies_have_independent_fades_and_exact_offsets():
 
 
 def test_repeats_and_delayed_copies_retain_original_timing_clocks():
-    doc, line = subject(r"{\k25}A{\kt50\k25}#", end=2000)
+    doc, line = subject(r"{\k25}A{\k25}{\k25}#", end=2000)
     delayed = line.copy(id="delayed", delay=0.3)
     decorated = LyricEcho(count=1)(delayed)
     copies = [node for node in objects(decorated) if "/echo:" in node.id]

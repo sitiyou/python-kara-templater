@@ -141,7 +141,7 @@ def _slice(
     )
 
 
-def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyrics:
+def parse_document_lyrics(source: DocumentText, *, start: float, ruby_layout: bool = True) -> DocumentLyrics:
     """Project text|ruby and # continuations; all timing times remain absolute.
 
     Syntax is recognized within each explicit karaoke interval. Untimed text is
@@ -215,8 +215,9 @@ def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyri
         if separators:
             ruby_start = split + 1
             mode: Literal["join", "break", "spill"] = "join"
-            if ruby_start < ruby_end and text[ruby_start] in "!！<＜":
-                mode = "break" if text[ruby_start] in "!！" else "spill"
+            if ruby_start < ruby_end and text[ruby_start] in "!！<＜>＞":
+                if ruby_layout and text[ruby_start] in "!！<＜":
+                    mode = "break" if text[ruby_start] in "!！" else "spill"
                 ruby_start += 1
             if first == last and ruby_start < ruby_end:
                 raise ValueError(

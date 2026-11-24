@@ -74,7 +74,7 @@ def test_custom_animation_is_identical_on_direct_object_and_semantic_line():
 
 
 def test_repeated_segments_have_distinct_identity_and_original_clocks():
-    _, line = subject(r"{\k25}AB|ab{\kt50\k25}#|cd")
+    _, line = subject(r"{\k25}AB|ab{\k25}{\k25}#|cd")
     segments = line.query("segment")
     assert len(segments) == 2
     assert segments[0].id != segments[1].id

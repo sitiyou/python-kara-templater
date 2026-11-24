@@ -126,7 +126,7 @@ def build() -> Scene:
     sources = (
         Line(
             text=CueMarker("intro", "labels", placement="independent").markup()
-            + r"{\k60}時|!toki{\kt120\k60}#{\kt200\k80}々|!doki",
+            + r"{\k60}時|!toki{\k60}{\k60}#{\k20}{\k80}々|!doki",
             start_time=1000,
             end_time=4000,
         ),

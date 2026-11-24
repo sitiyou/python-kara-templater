@@ -237,7 +237,7 @@ Glow.from_studio(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyrics/highlights.py#L200)
+[Source](../../kara_templater/lyrics/highlights.py#L202)
 
 ```python
 Highlight(
@@ -290,7 +290,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyrics/highlights.py#L1077)
+[Source](../../kara_templater/lyrics/highlights.py#L1142)
 
 ```python
 HighlightArrival(
@@ -336,7 +336,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyrics/highlights.py#L132)
+[Source](../../kara_templater/lyrics/highlights.py#L134)
 
 ```python
 HighlightPass(
@@ -479,7 +479,7 @@ Pass as material to LyricHighlights.from_timing. Coordinates are derived
 from undecorated glyph bounds. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyrics/highlights.py#L76)
+[Source](../../kara_templater/lyrics/highlights.py#L78)
 
 ```python
 LyricGradient(
@@ -522,7 +522,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyrics/highlights.py#L621)
+[Source](../../kara_templater/lyrics/highlights.py#L657)
 
 ```python
 LyricHighlights(
@@ -537,6 +537,7 @@ LyricHighlights(
     blend_glow: bool = True,
     front_color: Color | None = None,
     secondary_outline: SecondaryOutline | None = None,
+    sweep_angle: float | None = None,
 )
 ```
 
@@ -554,6 +555,7 @@ LyricHighlights(
 | `blend_glow` | `bool` | `True` |
 | `front_color` | `Color \| None` | `None` |
 | `secondary_outline` | `SecondaryOutline \| None` | `None` |
+| `sweep_angle` | `float \| None` | `None` |
 
 ### LyricHighlights.__call__
 
@@ -576,6 +578,10 @@ secondary_outline surrounds both states. after_secondary_outline sets the rim af
 Both can be combined with glow.
 With reverse=True, each timed unit fills from its right edge.
 With wipe=False, each timed unit switches paint at completion.
+Horizontal sweeps follow the font style by default: italic or oblique
+text uses a slanted front. Set sweep_angle to override its angle in
+degrees, or use 0 for a straight front. Positive angles tilt its top
+to the right, independent of the sweep direction.
 Timing progress uses undecorated measured text bounds. For a single
 linear interval in clip mode, outline/glow margins are traversed in
 separate shoulders before/after timing, reserved automatically. edge_duration
@@ -618,6 +624,7 @@ LyricHighlights.from_timing(
     edge_duration: float = 0.02,
     blend_glow: bool = True,
     front_color: Color | None = None,
+    sweep_angle: float | None = None,
 ) -> highlights.LyricHighlights
 ```
 

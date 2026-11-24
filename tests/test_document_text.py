@@ -60,7 +60,6 @@ def test_cues_have_no_text_or_timing_and_match_direct_construction():
     assert [(tag.kind, tag.seconds, tag.offset) for tag in parsed.timing] == [
         ("k", 0.25, 0),
         ("k", 0, 1),
-        ("kt", 0.9, 2),
         ("K", 0.1, 2),
     ]
     assert replace(cue, offset=0).markup() == cue.markup()

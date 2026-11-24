@@ -125,7 +125,7 @@ def song(*, dense: bool = False) -> Document:
             r"{\k40}Side|said{\k60} by side",
             "",
         ),
-        (6, 7, lead + r"{\k40}Stay|stei{\kt60\k40}#|!stei", ""),
+        (6, 7, lead + r"{\k40}Stay|stei{\k20}{\k40}#|!stei", ""),
         (8, 9, r"{\k100}Solo", "solo"),
         (10, 11, r"{\k50}Here{\k50} again", ""),
     )

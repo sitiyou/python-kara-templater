@@ -56,6 +56,13 @@ class PositionedText:
         """Local size of one em of the cluster's primary shaped face, in script pixels."""
         return self.object.font_size * (self.fonts[0].em_ratio if self.fonts else 1.0)
 
+    @property
+    def _italic(self) -> bool:
+        return self.object.italic or any(
+            "italic" in face.style.casefold() or "oblique" in face.style.casefold()
+            for face in self.fonts
+        )
+
     def __post_init__(self) -> None:
         scale = (
             self.object.state.scale if self.layout_scale is None else self.layout_scale

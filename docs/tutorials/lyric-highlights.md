@@ -1,5 +1,11 @@
 # Add custom motion to lyric highlights
 
+`LyricHighlights.from_timing` and `KaraokeEffects` automatically tilt the
+sweep front for italic or oblique horizontal text. A timed vector guide in a
+cue factory follows the style assigned to the guide. Set `sweep_angle=0` for
+a vertical front or supply an angle in degrees. Positive angles lean the top
+of the front to the right.
+
 This complete script binds a shared jump animation when each measured character
 is reached by the timing front. It uses only the installed library and writes
 `lyric-arc.hook`. Lyrics and ordinary objects use the same animation protocol.

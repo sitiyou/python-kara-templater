@@ -14,12 +14,26 @@ the longest line and the densest readings at delivery size, then adjust either
 size to suit the typeface and the visual style.
 For main, harmony and ruby typeface choices, see [Choose a typeface for lyrics](../guides/fonts-and-preview.md#choose-a-typeface-for-lyrics).
 Set a separate region and an explicit layout for an upper harmony Track. Align
-a countdown with the phrase it introduces and check both when visible together.
+the styles and timing of any [count-in](#design-a-count-in) with its phrase.
 
 Adding `KaraokeEffects()` fades the line in and out over 0.30 s each and changes white
 to coral as the syllable pulses. Track requests 5 s of preview. Its automatic tail targets 1.0 s including the exit animation. Dense handoffs shorten the hold and, when necessary, the transitions. Custom allocators and explicit Track
 values take precedence. The CLI source-style recipe preserves ASS alignment and
 margins. [Studio style and layout definitions](https://github.com/karaoke-studio/karaoke-studio/blob/54f06eb7d75624b88bd36ba347e932ccc17a199b/krok_helper/subtitle_render/domain/models.py)
+
+## Design a count-in
+
+Use a count-in where the first note of a phrase needs a rhythmic lead. Match
+the lyric's typeface or stroke shape, outline weight and color, and before/after
+paint. Compare the guide and the lyric together at delivery size. Keep a
+numeric guide in the same typography and give each number a clear beat.
+
+Choose the timing behavior before choosing a symbol. Built-in lamps extinguish
+over their steps, volume columns change paint one by one, and text countdowns
+advance their labels. For a continuous sweep across each symbol, give it a
+timed lyric interval or design a cue with a moving paint edge. Inspect the
+beginning, middle and end of one beat on the actual footage. Check that the
+last step meets the phrase pickup. [Cue factories and timed symbols](../guides/text-and-cues.md#define-and-place-cues)
 
 ## Built-in animation combinations
 

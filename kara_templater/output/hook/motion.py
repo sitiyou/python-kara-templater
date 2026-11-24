@@ -12,6 +12,7 @@ from ..._native_types import RasterImage
 from ..._path_raster import cutout_border
 from ..._scene_tree import SceneLeaf
 from ...easing import ProgressCurve, ease_in, ease_in_out, ease_out
+from ...geometry import Affine2D
 from ...scene import RectangleClip, RectangleKeyframes, SceneCompileError, VisualNode
 from ...scene_animation import (
     AnimationClip,
@@ -62,6 +63,16 @@ class ShaderInstance:
     base: VisualState
     inner: VisualState
     local: bool
+
+    def transforms(self, fps: int, first: int, stop: int) -> tuple[Affine2D, ...]:
+        """Resolve output-grid poses for spatial indexing, independently of playback order."""
+        outer, inner = self.outer.transform, self.inner.transform
+        return tuple(
+            outer @ self.program.sample(
+                self.base, max(0.0, min(1.0, (frame / fps - self.start) / self.duration)),
+            ).transform @ inner
+            for frame in range(first, stop)
+        )
 
 
 @dataclass(frozen=True)

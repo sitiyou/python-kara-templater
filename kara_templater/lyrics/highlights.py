@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from functools import partial
-from math import ceil
+from math import ceil, hypot, radians, tan
 from statistics import NormalDist
 from typing import Literal
 
@@ -16,6 +16,7 @@ from ..geometry import Box, Region, Vec2, finite, union_regions
 from ..lyric_line import LyricLine, LyricTarget, _line_x
 from ..paint_fields import ColorRamp, ColorStop, LinearGradient, _mix
 from ..parameters import LengthExpr, _width
+from ..path_geometry import path_bounds
 from ..scene import (
     ObjectGroup,
     PathObject,
@@ -27,6 +28,7 @@ from ..scene import (
     _CellWipeClip,
     _ColorStripClip,
     _LyricPaintClip,
+    _SweepClip,
 )
 from ..scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
 from ..text.layout import PositionedText
@@ -354,6 +356,38 @@ def _sweep_axis(box: Box, vertical: bool) -> Region:
 
 
 _EDGE_SECONDS = 0.02
+_ITALIC_SWEEP_ANGLE = 19.0
+
+
+def _check_sweep_angle(angle: float | None) -> None:
+    if angle is None:
+        return
+    finite(angle)
+    if not -90 < angle < 90:
+        raise ValueError("sweep_angle must be between -90 and 90 degrees")
+
+
+def _tilted_sweep_bounds(
+    box: Box, glyph: PositionedText, slope: float, pivot_y: float, *, single: bool = False
+) -> Box:
+    """Extend the traverse to cover the whole timed unit with a tilted front."""
+    if not slope:
+        return box
+    scale = glyph.layout_scale
+    assert scale is not None
+    node = glyph.object
+    if single and isinstance(node, _VectorGuideText) and node.outline.path is not None:
+        # A narrow guide can already be parallel to its front. Traverse its
+        # projected ink for the full beat instead of the surrounding box.
+        ink = path_bounds(node.outline.path.map(lambda p: Vec2(p.x + slope * (p.y - pivot_y), p.y)))
+        border = node.state.border * hypot(1, slope * scale.x / scale.y)
+        return replace(box, left=node.state.position.x + ink.left * scale.x - border,
+                       width=ink.width * scale.x + 2 * border)
+    pivot = node.state.position.y + pivot_y * scale.y
+    expansion = abs(slope) * scale.x / scale.y * max(
+        abs(box.top - pivot), abs(box.top + box.height - pivot)
+    )
+    return replace(box, left=box.left - expansion, width=box.width + 2 * expansion)
 
 
 def _resolve_region_owners(
@@ -404,7 +438,7 @@ def _resolve_region_owners(
 
 
 @dataclass(frozen=True, kw_only=True)
-class _FeatheredWipeClip(RectangleClip):
+class _FeatheredWipeClip(_SweepClip):
     """Mix incoming ink into the highlight layer behind its moving right edge."""
     width: float
     before_fill: Color
@@ -427,6 +461,8 @@ class _HighlightClipPlan:
     scale: float
     local_y: bool = False
     edge_duration: float = _EDGE_SECONDS
+    slope: float = 0.0
+    pivot_y: float = 0.0
 
     def strip(self, left: float, right: float) -> tuple[float, float, float, float]:
         if self.local_y:
@@ -582,7 +618,7 @@ def _split_glow(
                 return ownership.strip(x + start, 65536 if end is None else x + end)
             return ownership.strip(-65536 if end is None else x - end, x - start)
 
-        return _ColorStripClip(0, 0, 1, 1, space="local", deform=RectangleKeyframes(
+        return _ColorStripClip(0, 0, 1, 1, space="local", slope=ownership.slope, pivot_y=ownership.pivot_y, deform=RectangleKeyframes(
             tuple((t, bounds(rect[edge])) for t, rect in keys.keyframes)
         ))
 
@@ -645,6 +681,7 @@ class LyricHighlights:
     blend_glow: bool = True
     front_color: Color | None = None
     secondary_outline: SecondaryOutline | None = None
+    sweep_angle: float | None = None
 
     @property
     def _secondary_width(self) -> float:
@@ -689,6 +726,7 @@ class LyricHighlights:
         edge_duration: float = _EDGE_SECONDS,
         blend_glow: bool = True,
         front_color: Color | None = None,
+        sweep_angle: float | None = None,
     ) -> LyricHighlights:
         """Sweep source timing across body/ruby without authoring clip geometry.
 
@@ -696,6 +734,10 @@ class LyricHighlights:
         Both can be combined with glow.
         With reverse=True, each timed unit fills from its right edge.
         With wipe=False, each timed unit switches paint at completion.
+        Horizontal sweeps follow the font style by default: italic or oblique
+        text uses a slanted front. Set sweep_angle to override its angle in
+        degrees, or use 0 for a straight front. Positive angles tilt its top
+        to the right, independent of the sweep direction.
         Timing progress uses undecorated measured text bounds. For a single
         linear interval in clip mode, outline/glow margins are traversed in
         separate shoulders before/after timing, reserved automatically. edge_duration
@@ -727,11 +769,13 @@ class LyricHighlights:
             base_material=base_material,
             hook_feather=hook_feather,
             front_color=front_color,
+            sweep_angle=sweep_angle,
             base_paint=StatePatch() if base_paint is None else base_paint,
         )
 
     def __post_init__(self) -> None:
         finite(self.edge_duration)
+        _check_sweep_angle(self.sweep_angle)
         if self.edge_duration < 0:
             raise ValueError("sweep edge duration must be nonnegative")
         if not isinstance(self.hook_feather, LengthExpr):
@@ -766,7 +810,14 @@ class LyricHighlights:
             raise ValueError("duplicate highlight identities")
         if any(h.unit >= len(line.layout.lyrics.units) for h in highlights):
             raise ValueError("highlight unit is outside lyrics")
-        automatic = isinstance(self.highlights, _TimingHighlights)
+        timing = self.highlights if isinstance(self.highlights, _TimingHighlights) else None
+        automatic = timing is not None
+        if self.sweep_angle and line.layout._vertical:
+            raise ValueError("sweep_angle requires horizontal lyrics")
+        if self.sweep_angle and not automatic:
+            raise ValueError("sweep_angle requires LyricHighlights.from_timing")
+        explicit_tilt = tan(radians(self.sweep_angle or 0))
+        italic_tilt = tan(radians(_ITALIC_SWEEP_ANGLE))
         drawings = tuple(line._glyph_regions(automatic=automatic))
 
         def shoulder(highlight: Highlight) -> float:
@@ -847,6 +898,18 @@ class LyricHighlights:
             assert scale is not None
             local_y = vertical and character.object.state.rotation == 0
             pen = character.object.state.position
+            tilt = 0.0
+            if timing is not None and timing.wipe and not vertical:
+                tilt = explicit_tilt
+                if self.sweep_angle is None and character._italic:
+                    tilt = italic_tilt
+            slope = tilt * scale.y / scale.x
+            pivot_y = target.center.y if slope else 0
+            if slope:
+                draw_axis = _sweep_axis(_tilted_sweep_bounds(
+                    box, character, slope, pivot_y,
+                    single=source.start == character.start and source.end == character.end,
+                ), vertical)
             base = _HighlightClipPlan(
                 chosen,
                 self.mode,
@@ -856,7 +919,7 @@ class LyricHighlights:
                 body_axis, draw_axis,
                 pen.y if vertical else pen.x,
                 scale.y if local_y else scale.x,
-                local_y, self.edge_duration,
+                local_y, self.edge_duration, slope, pivot_y,
             )
             if any(
                 t < -node.time_origin or t > node.lifetime.end - node.time_origin
@@ -897,7 +960,7 @@ class LyricHighlights:
                         if isinstance(glow, Glow)
                     ),
                 )
-                / scale.x
+                * (1 + abs(tilt)) / scale.x
             )
             pieces: list[SceneObject] = []
             primary_layers: list[_PaintLayers] = []
@@ -943,6 +1006,7 @@ class LyricHighlights:
                             1,
                             1,
                             space="local",
+                            slope=base.slope, pivot_y=base.pivot_y,
                             deform=(
                                 ownership.wipe_keyframes(padding + feather, feather)
                                 if native_wipe
@@ -983,6 +1047,7 @@ class LyricHighlights:
                                 plain_clip.bottom,
                                 space=plain_clip.space,
                                 deform=plain_clip.deform,
+                                slope=base.slope, pivot_y=base.pivot_y,
                                 width=widths[character.object.font_size] / scale.x,
                                 before_fill=base_state.fill,
                                 before_outline=base_state.outline,
@@ -1171,9 +1236,10 @@ class HighlightArrival:
             right = min(drawing.right, max(drawing.left, right))
         if right < left:
             raise ValueError("non-monotone character positions cannot define arrival")
+        # Preserve exact endpoints when a reading's width is projected onto its host.
         region = Region(
-            box.left + (left - drawing.left) * box.width / drawing.width,
-            box.left + (right - drawing.left) * box.width / drawing.width,
+            box.left if left == drawing.left else box.left + (left - drawing.left) * box.width / drawing.width,
+            box.right if right == drawing.right else box.left + (right - drawing.left) * box.width / drawing.width,
         )
         highlights = (
             self.highlights

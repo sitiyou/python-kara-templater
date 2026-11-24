@@ -91,13 +91,21 @@ def test_chapter_restarts_rotation_without_a_cue(layout):
     assert rows(replace(layout or KaraokeRows(), reset_on_lead=False)) == [0, 1, 0, 1, 0]
 
 
-def test_structured_literal_text_repeats_ruby_and_precision_survive_without_records():
+@pytest.mark.parametrize("stored_in_document", [False, True])
+def test_structured_literal_text_repeats_ruby_and_precision_survive_without_records(stored_in_document):
     source = structured()
-    doc = document()
+    canvas = document()
+    doc = Document.create(
+        width=canvas.meta.res_x,
+        height=canvas.meta.res_y,
+        styles=tuple(canvas.styles.values()),
+        lyric_sources=(source,) if stored_in_document else (),
+    )
+    inputs = () if stored_in_document else (source,)
     original = doc.dumps()
     scene = build_lyric_scene(
         doc,
-        inputs=(source,),
+        inputs=inputs,
         tracks=(
             Track(
                 id="main",
@@ -126,7 +134,7 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
         assert all(ref.source_id == source.id for ref in report.origin.sources)
     regenerated = build_lyric_scene(
         result.document,
-        inputs=(source,),
+        inputs=inputs,
         tracks=(
             Track(
                 id="main",

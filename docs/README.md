@@ -2,15 +2,15 @@
 
 ## Make your first karaoke export
 
-- [Export and preview the sample](getting-started.md)
-- [Style your own timed ASS file from the command line](guides/cli.md)
-- [Write your first effect in Python](getting-started.md#write-an-effect-in-python)
+- [Apply a preset](getting-started.md#apply-a-preset)
+- [Write an effect](getting-started.md#write-an-effect)
+- [Preview the export](getting-started.md#preview-the-export)
 - [Choose between a subtitle file and a GPU hook](guides/choosing-output.md)
 
 ## Build a reusable template
 
 - [Lay out lead and harmony vocals](tutorials/karaoke-design.md)
-- [Pick an effect by its preview](examples/README.md) or [choose a built-in animation](guides/karaoke-effects.md)
+- [Find examples by visual goal](examples/README.md#find-an-example-by-its-visual-goal) or [look up a built-in animation](guides/karaoke-effects.md)
 - [Import timed lyrics](guides/documents.md) and [configure Tracks](guides/tracks.md)
 - [Place ruby readings and count-ins](guides/text-and-cues.md)
 - [Write a custom animation](tutorials/custom-animation.md), [animate timing highlights](tutorials/lyric-highlights.md), or [adapt a motion study](tutorials/lyric-studies.md)

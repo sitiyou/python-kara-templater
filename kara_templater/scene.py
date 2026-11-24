@@ -188,11 +188,19 @@ class RectangleClip:
             raise ValueError("clip must have positive width and height")
 
 
-class _ColorStripClip(RectangleClip):
+@dataclass(frozen=True, kw_only=True)
+class _SweepClip(RectangleClip):
+    """A strip measured along x + slope * (y - pivot_y) in glyph coordinates."""
+
+    slope: float = 0.0
+    pivot_y: float = 0.0
+
+
+class _ColorStripClip(_SweepClip):
     """Moving color strip used to draw soft scanlines and blended glow."""
 
 
-class _LyricPaintClip(RectangleClip):
+class _LyricPaintClip(_SweepClip):
     """A lyric color partition on the face of a drawing."""
 
 

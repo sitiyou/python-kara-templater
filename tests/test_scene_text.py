@@ -29,7 +29,7 @@ def document(text: str) -> Document:
 
 
 def test_binding_preserves_color_scope_source_and_timing():
-    doc = document(r"{\k100\1c&H0000FF&}AB{\k0\c} {\kt250\kf50}CD")
+    doc = document(r"{\k100\1c&H0000FF&}AB{\k0\c} {\k150}{\kf50}CD")
     before = doc.dumps()
     layout = layout_document_text(doc, 1, display=Lifetime(0, 5))
     assert doc.dumps() == before
@@ -106,11 +106,12 @@ def test_inline_and_independent_cues_share_model_without_changing_times():
 
 
 @pytest.mark.parametrize("gap", [None, 0, 20])
-def test_inline_cue_follows_its_cell_in_a_mixed_size_line(gap):
+def test_inline_cue_follows_its_host_ink_in_a_mixed_size_line(gap):
     doc = document(r"{\k100}A{\rSmall\k100}B")
     doc.records.insert(0, Style(name="Small", fontname="DejaVu Sans", fontsize=32))
     layout = layout_document_text(doc, 2)
-    host = layout.characters[-1].bounds
+    host = layout.characters[-1].ink_bounds
+    assert host is not None
     preset = CuePreset(factory=BarsCue(), gap=gap)
     for offset in (1, 2):
         bound = bind_cues(layout, {"bars": preset}, markers=(CueMarker("lead", "bars", offset),))

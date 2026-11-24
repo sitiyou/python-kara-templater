@@ -11,21 +11,18 @@ kara-templater input.ass output.hook --after '#33ddff'
 ```
 
 Use `--before` and `--after` to set the fills on either side of the wipe.
-They default to the ASS secondary and primary colors, respectively. --pulse accepts none, char, chars, or syllable. Character
+The preset provides its own colors. `--pulse` accepts none, char, chars, or syllable. Character
 arrival, simultaneous characters, and a shared syllable pulse have different
 clocks and pivots. --fade-in-ms/--fade-out-ms control fades;
 --lead-ms/--tail-ms extend the display window without altering lyric timing.
-Black drop shadows retain the source style's opacity through changes in lyric
-color and face opacity in both output formats. Fades apply to the entire line,
-including its drop shadow.
+Fades apply to the entire line, including its drop shadow.
 Omit --tail-ms for the automatic one-second tail including the fade, with
 200 ms of preferred hold when room permits. Pass --tail-ms 0 to request just the required animation time.
 Repeat --style to restrict imported styles. --owner selects a stable generation
 owner for replacement on subsequent runs.
 
-The preset retains source alignment and event/style margins through a layout
-allocator. Lyrics become ordinary Scene objects, with shared fades, pulses and
-highlight masks. Whole-scene budgets apply to the generated events.
+The preset uses its own alignment and margins. See [the lyric input subset](documents.md#choose-the-lyric-frontend)
+for supported timing and ruby syntax. Whole-scene budgets apply to the generated events.
 Fade durations reserve time outside the timed intervals; insufficient time before zero is
 an error rather than a silently shortened animation.
 

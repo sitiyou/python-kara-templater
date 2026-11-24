@@ -7,16 +7,18 @@ import pytest
 from examples.syllable_pulse import SyllablePulse
 from kara_templater import (
     Document,
+    Lifetime,
     Line,
     LyricAnimationContext,
     LyricRule,
+    LyricSource,
     Style,
     Track,
     build_lyric_scene,
 )
 
 
-def prepare(text=r"{\k40}A{\kt60\k80}B", *, end=2400):
+def prepare(text=r"{\k40}A{\k20}{\k80}B", *, end=2400):
     doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=32),))
     doc.records.append(Line(start_time=1000, end_time=end, text=text))
     track = Track(
@@ -44,8 +46,15 @@ def test_next_syllable_supplies_clock_without_changing_target_or_timing():
 
 
 def test_untimed_next_unit_uses_release_instead_of_skipping_ahead():
-    doc, track = prepare(r"{\k40}A{\kt80} {\k40}B")
-    scene = build_lyric_scene(doc, tracks=(track,))
+    doc, track = prepare(r"{\k40}A{\k40} {\k40}B")
+    lyrics = doc.lyrics_at(len(doc.records) - 1)
+    first, gap, last = lyrics.units
+    lyric = LyricSource.from_lyrics(
+        "line", replace(lyrics, units=(first, replace(gap, segments=()), last)),
+        display=Lifetime(1, 2.4),
+    )
+    doc.records.pop()
+    scene = build_lyric_scene(doc, tracks=(track,), inputs=(lyric,))
     targets = scene.lines[0].query("syllable")
     assert not targets[1].timing
     clip = scene.lines[0].children[0].animations[0]

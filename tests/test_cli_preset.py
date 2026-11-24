@@ -110,7 +110,7 @@ def test_fill_alpha_and_instantaneous_highlight_render_without_style_mutation(de
         PrimaryColour=str(0x800000FF - 2**32) if decimal else "&H800000FF",
         SecondaryColour=str(0xC000FF00) if decimal else "&HC000FF00",
     )
-    document.records.append(Line(text=r"{\kt100\k0}A", start_time=0, end_time=2000))
+    document.records.append(Line(text=r"{\k100}{\k0}A", start_time=0, end_time=2000))
     original = document.dumps()
     scene = preset(document, pulse="char")
     span = scene.lines[0].query("character")[0].timing[0]

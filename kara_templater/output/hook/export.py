@@ -12,19 +12,25 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Protocol
 
-from ..._karaoke_motion import _SPIN_FLIP, _TILT_POP, ZoomScale
+from ..._karaoke_motion import ZoomScale
+from ..._karaoke_sprites import _ParticleMotion
 from ..._native_types import RasterImage
 from ...easing import ProgressCurve
 from ...geometry import Affine2D, Vec2
 from ...lyrics.highlights import _FeatheredWipeClip
 from ...paint_fields import LinearGradient
-from ...scene import RectangleKeyframes
+from ...scene import RectangleKeyframes, SceneCompileError, _SweepClip
 from .draws import DrawCommand, HookDrawResolver
 from .motion import DrawSpan, ShaderInstance, iter_draw_spans
 from .wipes import Wipe, match_wipe
 
 _WIDTH = 2048
 _TILE = 64
+_MAX_TILE_DRAWS = 1024
+_MAX_FRAME_DRAWS_PER_PIXEL = 128
+_FRAME_BUDGET_AREA = 1920 * 1080
+_GEOMETRY_CHANNELS = frozenset({"position", "scale", "rotation", "skew"})
+_COVERAGE_WINDOW_FRAMES = 8
 
 
 class _Writer(Protocol):
@@ -139,7 +145,7 @@ def _draw_record(
     image: RasterImage,
     motion_offset: int,
     clip_motion_offset: int,
-    edge: _FeatheredWipeClip | None,
+    sweep: _SweepClip | None,
     wipe: Wipe | None,
     inherited_offset: int,
 ) -> int:
@@ -151,6 +157,7 @@ def _draw_record(
         depth_pixels, back = draw.side_shading
         stops = table.add(*atlas.add(w, h, depth_pixels), back.red / 255, back.green / 255, back.blue / 255)
     feather = -1
+    edge = sweep if isinstance(sweep, _FeatheredWipeClip) else None
     if (edge is not None or wipe is not None) and kind in (0, 1):
         if edge is not None:
             before = edge.before_fill if kind == 0 else edge.before_outline
@@ -211,8 +218,10 @@ def _draw_record(
         clip = -2 - wipe.edge
     elif draw.clip is not None:
         clip = table.add(*draw.clip.bounds, int(draw.clip.local))
+    projection = table.add(sweep.slope, sweep.pivot_y) if sweep is not None and sweep.slope else -1
     return table.add(
-        geom, paint, transform, clip, draw.opacity, motion_offset, clip_motion_offset, inherited_offset
+        geom, paint, transform, clip, draw.opacity, motion_offset, clip_motion_offset, inherited_offset,
+        projection,
     )
 
 
@@ -298,6 +307,17 @@ def _motion_record(
     )
 
 
+def _tiles_in_bounds(
+    left: float, top: float, right: float, bottom: float,
+    cols: int, rows: int, padding: float,
+) -> Iterator[int]:
+    x0, x1 = max(0, floor((left - padding) / _TILE)), min(cols, ceil((right + padding) / _TILE))
+    y0, y1 = max(0, floor((top - padding) / _TILE)), min(rows, ceil((bottom + padding) / _TILE))
+    for row in range(y0, y1):
+        for col in range(x0, x1):
+            yield row * cols + col
+
+
 def _tiles(
     image: RasterImage, transforms: tuple[Affine2D, ...], cols: int, rows: int,
     padding: float = 0,
@@ -310,58 +330,36 @@ def _tiles(
         for t in (y, y + h)
     ]
     xs, ys = zip(*corners, strict=True)
-    for ty in range(max(0, floor((min(ys) - padding) / _TILE)), min(rows, ceil((max(ys) + padding) / _TILE))):
-        for tx in range(
-            max(0, floor((min(xs) - padding) / _TILE)), min(cols, ceil((max(xs) + padding) / _TILE))
-        ):
-            yield ty * cols + tx
+    yield from _tiles_in_bounds(min(xs), min(ys), max(xs), max(ys), cols, rows, padding)
 
 
-def _program_tiles(
-    instance: ShaderInstance, image: RasterImage, cols: int, rows: int, padding: float = 0,
+def _particle_tiles(
+    instance: ShaderInstance, program: _ParticleMotion, image: RasterImage,
+    cols: int, rows: int, padding: float,
 ) -> Iterator[int]:
-    program = instance.program
-    if program.source not in (_TILT_POP, _SPIN_FLIP):
-        yield from range(cols * rows)
-        return
-    params = program.parameters
-    center = Vec2(params[0], params[1])
-    pivot = Vec2(params[2], params[3]) if program.source == _TILT_POP else center
-    outer, base, inner = (
-        instance.outer.transform,
-        instance.base.transform,
-        instance.inner.transform,
-    )
-    fixed = outer.apply(base.apply(pivot))
+    outer = instance.outer.transform
+    base = instance.base.transform
+    inner = instance.inner.transform
     x, y, w, h, *_ = image
     radius = 0.0
-    shift = center - pivot
-    shift_radius = hypot(
-        base.a * shift.x + base.c * shift.y, base.b * shift.x + base.d * shift.y
-    )
+    shape = base @ inner
     for dx in (x, x + w):
         for dy in (y, y + h):
-            px = inner.a * dx + inner.c * dy + inner.tx - center.x
-            py = inner.b * dx + inner.d * dy + inner.ty - center.y
-            rx = base.a * px + base.c * py
-            ry = base.b * px + base.d * py
-            if program.source == _TILT_POP:
-                bound = 1.3 * (hypot(rx, ry) + shift_radius)
-            else:
-                # v*tan((1-v)*pi/2) <= 2/pi for 0 <= v <= 1.
-                bound = hypot(rx, ry) + abs(instance.base.scale.y * px)
-            radius = max(radius, bound)
-    width = radius * hypot(outer.a, outer.c) + padding
-    height = radius * hypot(outer.b, outer.d) + padding
-    for row in range(
-        max(0, floor((fixed.y - height) / _TILE)),
-        min(rows, ceil((fixed.y + height) / _TILE)),
-    ):
-        for col in range(
-            max(0, floor((fixed.x - width) / _TILE)),
-            min(cols, ceil((fixed.x + width) / _TILE)),
-        ):
-            yield row * cols + col
+            px = shape.a * dx + shape.c * dy + shape.tx - base.tx
+            py = shape.b * dx + shape.d * dy + shape.ty - base.ty
+            radius = max(radius, hypot(px, py))
+    # Uniform scale and rotation cannot move a point beyond this radius.
+    # The local centre translates independently across this rectangle.
+    radius *= program.peak_scale
+    width, height = radius * hypot(outer.a, outer.c), radius * hypot(outer.b, outer.d)
+    lo, hi = program.offset_bounds
+    centres = [outer.apply(instance.base.position + Vec2(dx, dy))
+               for dx in (lo.x, hi.x) for dy in (lo.y, hi.y)]
+    yield from _tiles_in_bounds(
+        min(p.x for p in centres) - width, min(p.y for p in centres) - height,
+        max(p.x for p in centres) + width, max(p.y for p in centres) + height,
+        cols, rows, padding + 1,
+    )
 
 
 def _timeline(
@@ -376,10 +374,19 @@ def _timeline(
 ) -> int:
     def events(
         order: int, stream: Iterator[DrawSpan]
-    ) -> Iterator[tuple[int, int, DrawSpan | None]]:
+    ) -> Iterator[tuple[int, int, DrawSpan | None, tuple[Affine2D, ...]]]:
         for span in stream:
-            yield span.first_frame - origin, order, span
-            yield span.stop_frame - origin, order, None
+            instance = span.shader
+            if (instance is not None and instance.program.channels & _GEOMETRY_CHANNELS
+                    and not isinstance(instance.program, _ParticleMotion)):
+                # The Hook plays on this same output grid. Evaluate a pose
+                # once per frame and reuse its bounds for every paint plane.
+                for first in range(span.first_frame, span.stop_frame, _COVERAGE_WINDOW_FRAMES):
+                    stop = min(first + _COVERAGE_WINDOW_FRAMES, span.stop_frame)
+                    yield first - origin, order, span, instance.transforms(fps, first, stop)
+            else:
+                yield span.first_frame - origin, order, span, ()
+            yield span.stop_frame - origin, order, None, ()
 
     def clip_track(
         keys: RectangleKeyframes, start: float, edge: int | None = None
@@ -418,11 +425,17 @@ def _timeline(
     inherited_records: dict[str, int] = {}
     group_masks: dict[str, int] = {}
     timelines = [[0, -1] for _ in tile_draws]
+    width, height = frames.resolution
+    frame_budget = min(width * height, _FRAME_BUDGET_AREA) * _MAX_FRAME_DRAWS_PER_PIXEL
+    tile_areas = [min(_TILE, width - x * _TILE) * min(_TILE, height - y * _TILE)
+                  for y in range(rows) for x in range(cols)]
+    tile_counts = [0] * len(tile_draws)
+    pixel_checks = 0
     for i, changes in groupby(stream, key=lambda event: event[0]):
         if i == count:
             break
         dirty: set[int] = set()
-        for _, order, span in changes:
+        for _, order, span, poses in changes:
             for tile in active_tiles.pop(order, ()):
                 del tile_draws[tile][order]
                 dirty.add(tile)
@@ -459,7 +472,7 @@ def _timeline(
                 inherited = inherited_records[node.id] = table.add(len(masks), *masks)
             batch: dict[int, list[int]] = defaultdict(list)
             clip = node.clip
-            edge = clip if isinstance(clip, _FeatheredWipeClip) else None
+            sweep = clip if isinstance(clip, _SweepClip) else None
             variants = [(draw.mask_planes, 0)]
             if span.alternate_masks is not None:
                 # Select the native border bitmap at playback opacity without
@@ -476,17 +489,19 @@ def _timeline(
                         image,
                         motion,
                         clip_motion,
-                        edge,
+                        sweep,
                         wipe,
                         inherited,
                     )
                     stroke = draw.fixed_stroke
                     padding = draw.border + 4 * stroke.sigma + 1 if stroke and image[4] in (1, 2) else 0
-                    for tile in (
-                        _program_tiles(span.shader, image, cols, rows, padding)
-                        if span.shader and span.shader.program.channels - {"opacity", "border"}
-                        else _tiles(image, transforms, cols, rows, padding)
-                    ):
+                    if poses:
+                        tiles = _tiles(image, poses, cols, rows, padding + 1)
+                    elif span.shader and isinstance(span.shader.program, _ParticleMotion):
+                        tiles = _particle_tiles(span.shader, span.shader.program, image, cols, rows, padding)
+                    else:
+                        tiles = _tiles(image, transforms, cols, rows, padding)
+                    for tile in tiles:
                         batch[tile].append(record)
             active_tiles[order] = batch
             for tile, commands in batch.items():
@@ -495,12 +510,29 @@ def _timeline(
         for tile in dirty:
             draws = tile_draws[tile]
             commands = [cmd for order in sorted(draws) for cmd in draws[order]]
-            record = table.add(len(commands), *commands) if commands else -1
+            count_in_tile = len(commands)
+            if count_in_tile > _MAX_TILE_DRAWS:
+                heaviest = frames.leaves[max(draws, key=lambda order: len(draws[order]))].node
+                raise SceneCompileError(
+                    f"Hook GPU work budget exceeded at {(origin + i) / fps:g}s: "
+                    f"tile ({tile % cols}, {tile // cols}) has {count_in_tile} draw "
+                    f"candidates (limit {_MAX_TILE_DRAWS}). Reuse masks or bound motion coverage.",
+                    object_id=heaviest.id, origin=heaviest.origin,
+                )
+            pixel_checks += (count_in_tile - tile_counts[tile]) * tile_areas[tile]
+            tile_counts[tile] = count_in_tile
+            record = table.add(count_in_tile, *commands) if commands else -1
             timeline = timelines[tile]
             if i == 0:
                 timeline[1] = record
             elif record != timeline[-1]:
                 timeline.extend((i, record))
+        if pixel_checks > frame_budget:
+            raise SceneCompileError(
+                f"Hook GPU work budget exceeded at {(origin + i) / fps:g}s: "
+                f"{pixel_checks:,} per-pixel draw candidates (limit {frame_budget:,}). "
+                "Reuse masks or bound motion coverage."
+            )
     return table.add(
         *(
             table.add(len(t) // 2, *t) if len(t) > 2 or t[1] >= 0 else -1
@@ -834,17 +866,22 @@ vec4 hook() {
         float edgeDistance=0.;
         int clip=refAt(cmd+3);
         bool waiting=false;
+        vec2 clipLocal=local;
+        if(clip!=-1) {
+            int projection=refAt(cmd+8);
+            if(projection>=0) clipLocal.x+=item(projection)*(local.y-item(projection+1));
+        }
         if(clip < -1) {
-            if(any(lessThan(local,vec2(-65536.))) || any(greaterThanEqual(local,vec2(65536.)))) continue;
+            if(any(lessThan(clipLocal,vec2(-65536.))) || any(greaterThanEqual(clipLocal,vec2(65536.)))) continue;
             int side=-2-clip, sweep=refAt(cmd+6), k=preceding(sweep,float(index));
             float edge=item(k+1);
             if(k+2<sweep+1+2*refAt(sweep) && float(index)>item(k))
                 edge=mix(edge,item(k+3),(float(index)-item(k))/(item(k+2)-item(k)));
-            float coord=(side%2==0)?local.x:local.y;
+            float coord=(side%2==0)?clipLocal.x:clipLocal.y;
             waiting=side<2 ? coord<edge : coord>=edge;
             edgeDistance=side<2 ? coord-edge : edge-coord;
         } else if(clip>=0) {
-            vec2 pos=item(clip+4)>0.?local:screen;
+            vec2 pos=item(clip+4)>0.?clipLocal:screen;
             vec4 rect=rectangleAt(clip,refAt(cmd+6),float(index));
             edgeDistance=min(pos.x-rect.x,rect.z-pos.x);
             if(!insideRect(pos,rect)) continue;

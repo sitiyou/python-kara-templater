@@ -2,11 +2,14 @@ import pytest
 
 from kara_templater import (
     BarsCue,
+    CueContent,
+    CueContext,
     CueMarker,
     CuePreset,
     Document,
     Lifetime,
     Line,
+    LyricLine,
     Scene,
     Style,
     TextCue,
@@ -26,6 +29,23 @@ def layout(right_to_left=False):
     return doc, layout_document_lyrics(
         doc, len(doc.records) - 1, display=Lifetime(0, 4), right_to_left=right_to_left
     )
+
+
+def test_inline_lyric_cue_aligns_visible_body_centers_with_ruby_present():
+    doc, host = layout()
+    doc.lines[0].text = r"{\k100}x|q"
+
+    def factory(context: CueContext) -> CueContent:
+        cue = layout_document_lyrics(doc, len(doc.records) - 1, display=context.lifetime)
+        return CueContent.from_line(LyricLine.from_layout(cue))
+
+    bound = bind_lyric_cues(host, {"lead": CuePreset(factory=factory)},
+                           markers=(CueMarker("intro", "lead"),))
+    cue, = bound.cues
+    host_ink = host.body.characters[0].ink_bounds
+    assert host_ink is not None and cue.content.ink_center_y is not None
+    assert cue.position.y + cue.content.ink_center_y == pytest.approx(host_ink.middle)
+    assert cue.position.y + cue.content.height / 2 != pytest.approx(host_ink.middle)
 
 
 @pytest.mark.parametrize("right_to_left", [False, True])

@@ -61,7 +61,7 @@ start. Negative starts support visibility extended before a preserved clock
 origin. The owning node validates that the absolute start is nonnegative;
 nested sequences and Timeline still start at zero or later.
 
-[Source](../../kara_templater/scene_animation.py#L643)
+[Source](../../kara_templater/scene_animation.py#L644)
 
 ```python
 AnimationClip(
@@ -97,7 +97,7 @@ Build through Timeline.animation. Duration is the schedule's local length;
 normalized outer progress maps onto that length. There is no secondary
 evaluator or incremental playback state.
 
-[Source](../../kara_templater/scene_animation.py#L862)
+[Source](../../kara_templater/scene_animation.py#L863)
 
 ```python
 AnimationSequence(
@@ -569,7 +569,8 @@ The GLSL body receives normalized progress p, parameters at data via item(),
 and mutable local channels pos, scale, skew, angle (degrees), alpha, pen
 (outline radius), fill and outline (RGB in 0..1).
 basisOf(scale, skew, angle) returns the local linear transform.
-Supply the same motion in function for evaluation at authored boundaries.
+Supply the same motion in function throughout the clip. Hook export also
+uses the Python pose to index geometry on the output frame grid.
 
 [Source](../../kara_templater/scene_animation.py#L614)
 
@@ -852,7 +853,7 @@ Type: `TimeSpan`.
 
 Author sequential/parallel plays. Times are local to the object's birth.
 
-[Source](../../kara_templater/scene_animation.py#L761)
+[Source](../../kara_templater/scene_animation.py#L762)
 
 ```python
 Timeline()

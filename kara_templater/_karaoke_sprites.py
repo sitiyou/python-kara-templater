@@ -30,6 +30,14 @@ def _ramp_parameters(ramp: ColorRamp) -> tuple[float, ...]:
 
 
 @dataclass(frozen=True)
+class _ParticleMotion(ShaderMotion):
+    """Bound the local translation and uniform scale independently of rotation."""
+
+    offset_bounds: tuple[Vec2, Vec2] = (Vec2(), Vec2())
+    peak_scale: float = 1.0
+
+
+@dataclass(frozen=True)
 class _ParticleTint:
     sample: Callable[[VisualState, float], VisualState]
     channels: frozenset[Channel]
@@ -234,7 +242,8 @@ def _falling_motion(
         rotation=lambda p: 360 * angle + spin * p,
         opacity=opacity,
     )
-    return ShaderMotion(motion.sample, motion.channels, """
+    peak = size * (0.70 + 0.50 * depth if snow else 0.72 + 0.55 * depth)
+    return _ParticleMotion(motion.sample, motion.channels, """
         bool snow=item(data+10)>0., entering=item(data+11)>0., exiting=item(data+12)>0.;
         float phase=item(data+4), q=snow?p:entering?1.-(1.-p)*(1.-p):smoothstep(0.,1.,p);
         pos+=mix(pairAt(data),pairAt(data+2),q);
@@ -243,9 +252,11 @@ def _falling_motion(
         angle+=item(data+8)+item(data+9)*p;
         alpha*=exiting?(1.-p)*(1.-0.5*p):min(1.,p*(snow?4.:5.))*
                  (entering?(1.-p)*(1.-0.4*p):sin(3.14159265*p));
-    """, (start.x,start.y,end.x,end.y,phase,swing,cycles,
-          size*(0.70+0.50*depth if snow else 0.72+0.55*depth),
-          360*angle,spin,float(snow),float(entering),float(exiting)))
+    """, (start.x,start.y,end.x,end.y,phase,swing,cycles,peak,
+          360*angle,spin,float(snow),float(entering),float(exiting)),
+        offset_bounds=(Vec2(min(start.x, end.x) - swing, min(start.y, end.y)),
+                       Vec2(max(start.x, end.x) + swing, max(start.y, end.y))),
+        peak_scale=peak * (1.05 if snow else 1))
 
 
 def ornament(
@@ -273,8 +284,9 @@ def ornament(
             scale=lambda p: size * 3.6 * (0.25 + 0.85 * ease_out(p)),
             opacity=lambda p: (1 - p) ** 2,
         )
-        motion = ShaderMotion(motion.sample, motion.channels,
-            "scale*=item(data)*(0.25+0.85*(1.-(1.-p)*(1.-p))); alpha*=(1.-p)*(1.-p);", (size*3.6,))
+        motion = _ParticleMotion(motion.sample, motion.channels,
+            "scale*=item(data)*(0.25+0.85*(1.-(1.-p)*(1.-p))); alpha*=(1.-p)*(1.-p);",
+            (size*3.6,), peak_scale=size*3.6*1.1)
     elif kind == "note":
         delay = angle * duration * 0.35
         position += Vec2((x - 0.5) * box.x * 0.8, -0.35 * box.y)
@@ -286,10 +298,12 @@ def ornament(
             scale=lambda p: size * (0.70 + 0.60 * x) * (0.85 + 0.15 * sin(pi * p)),
             opacity=lambda p: 1 - p * sqrt(p),
         )
-        motion = ShaderMotion(motion.sample, motion.channels, """
+        peak = size * (0.70 + 0.60 * x)
+        motion = _ParticleMotion(motion.sample, motion.channels, """
             pos+=vec2(0.4*sin(6.28318531*(item(data)+1.5*p)),-1.8*(1.-(1.-p)*(1.-p)))*item(data+1);
             scale*=item(data+2)*(0.85+0.15*sin(3.14159265*p)); alpha*=1.-p*sqrt(p);
-        """, (phase,size,size*(0.70+0.60*x)))
+        """, (phase,size,peak), offset_bounds=(Vec2(-0.4, -1.8)*size, Vec2(0.4, 0)*size),
+            peak_scale=peak)
     elif kind in {"assemble_in", "dissolve_out"}:
         delay = angle * (0.09 if entering else 0.07)
         position += Vec2((x - 0.5) * box.x * 0.9, (depth - 0.5) * box.y * 0.8)
@@ -310,13 +324,14 @@ def ornament(
                 scale=lambda p: 0.75 * size * (1 - 0.25 * smooth_rate(p)),
                 opacity=lambda p: (1 - p) * (1 - 0.5 * p),
             )
-        motion = ShaderMotion(motion.sample, motion.channels, """
+        motion = _ParticleMotion(motion.sample, motion.channels, """
             bool entering=item(data+4)>0.;
             float q=smoothstep(0.,1.,p), t=entering?1.-q:q;
             pos+=pairAt(data)*t; angle+=item(data+2)*t;
             scale*=item(data+3)*(entering?0.9-0.35*q:1.-0.25*q);
             alpha*=entering?min(1.,6.*p)*(1.-p*p):(1.-p)*(1.-0.5*p);
-        """, (travel.x, travel.y, spin,0.75*size,float(entering)))
+        """, (travel.x, travel.y, spin,0.75*size,float(entering)),
+            offset_bounds=(Vec2(), travel), peak_scale=0.75*size)
     else:
         snow = kind != "petal"
         delay = angle * (0.16 if snow else 0.11)
@@ -516,8 +531,9 @@ def star_burst(
                     scale=lambda p, peak=peak: peak * (0.30 + 0.70 * sin(pi * p)),
                     opacity=lambda p: sin(pi * p),
                 )
-                animation = ShaderMotion(motion.sample, motion.channels,
-                    "float wave=sin(3.14159265*p); scale*=item(data)*(0.30+0.70*wave); alpha*=wave;", (peak,))
+                animation = _ParticleMotion(motion.sample, motion.channels,
+                    "float wave=sin(3.14159265*p); scale*=item(data)*(0.30+0.70*wave); alpha*=wave;",
+                    (peak,), peak_scale=peak)
                 rotation = angle * 120 - 30
             else:
                 # Adjacent stars in the same colour stream must occupy different quadrants.
@@ -542,9 +558,10 @@ def star_burst(
                     rotation=lambda p: 60 * p,
                     opacity=lambda p: 1 - p,
                 )
-                animation = ShaderMotion(motion.sample, motion.channels, """
+                animation = _ParticleMotion(motion.sample, motion.channels, """
                     pos+=pairAt(data)*p; scale*=item(data+2)*(1.-p*item(data+3)); angle+=60.*p; alpha*=1.-p;
-                """,(drift.x,drift.y,peak,0.85-0.30*shrink))
+                """,(drift.x,drift.y,peak,0.85-0.30*shrink),
+                    offset_bounds=(Vec2(), drift), peak_scale=peak)
                 rotation = angle * 90
             if lifetime <= 0:
                 continue

@@ -36,7 +36,7 @@ and boolean work. It does not sample at fps or generate paint bands.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
 
-[Source](../../kara_templater/output/ass_export.py#L60)
+[Source](../../kara_templater/output/ass_export.py#L61)
 
 ```python
 AssBudget(
@@ -68,7 +68,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L538)
+[Source](../../kara_templater/scene.py#L546)
 
 ```python
 AssDialogue(
@@ -90,7 +90,7 @@ AssDialogue(
 
 Estimated ASS event count before emission.
 
-[Source](../../kara_templater/output/ass_export.py#L92)
+[Source](../../kara_templater/output/ass_export.py#L93)
 
 ```python
 AssEstimate(
@@ -108,7 +108,7 @@ AssEstimate(
 
 ASS lowering strategy, source origin, event count and observed geometry costs.
 
-[Source](../../kara_templater/output/ass_export.py#L99)
+[Source](../../kara_templater/output/ass_export.py#L100)
 
 ```python
 AssObjectReport(
@@ -138,7 +138,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/output/ass_export.py#L111)
+[Source](../../kara_templater/output/ass_export.py#L112)
 
 ```python
 AssResult(
@@ -211,7 +211,7 @@ Hook output supports normal screen-space rectangle clips with static
 bounds or RectangleKeyframes evaluated on the group's clock. A parent
 rectangle intersects child clips without replacing their local clocks.
 
-[Source](../../kara_templater/scene.py#L451)
+[Source](../../kara_templater/scene.py#L459)
 
 ```python
 ObjectGroup(
@@ -304,7 +304,7 @@ Coordinates are local to its local origin and parent transforms. Set filled=Fals
 for an outline-only drawing. The border radius uses script pixels by default.
 With scale_border=True the radius is measured in local path coordinates.
 
-[Source](../../kara_templater/scene.py#L410)
+[Source](../../kara_templater/scene.py#L418)
 
 ```python
 PathObject(
@@ -416,7 +416,7 @@ Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 Prepare a new snapshot after changing the scene. Window exports share measured
 masks and the resolved object hierarchy. Each output has its own playback clock.
 
-[Source](../../kara_templater/scene.py#L624)
+[Source](../../kara_templater/scene.py#L632)
 
 ```python
 PreparedHook(
@@ -586,7 +586,7 @@ A Document-backed composition of visual objects and already-lowered ASS dialogue
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L556)
+[Source](../../kara_templater/scene.py#L564)
 
 ```python
 Scene(
@@ -785,7 +785,7 @@ Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
 
-[Source](../../kara_templater/scene.py#L366)
+[Source](../../kara_templater/scene.py#L374)
 
 ```python
 TextObject(
@@ -899,7 +899,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L206)
+[Source](../../kara_templater/scene.py#L214)
 
 ```python
 VectorClip(
@@ -930,7 +930,7 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L228)
+[Source](../../kara_templater/scene.py#L236)
 
 ```python
 VisualNode(

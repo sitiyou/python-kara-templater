@@ -201,11 +201,13 @@ insufficient capacity, while two or three rows can accommodate it.
 
 ## Semantic targets and appearance
 
-`Track.styles` supplies named ASS styles before text measurement. A style with
+`Track.styles` supplies named styles before text measurement. Imported ASS
+lyrics use `Default` and `Default-furigana`; `source.style` is the original
+style label available to track selectors. A style with
 an existing name overrides that name for this Track; the source Document remains
 unchanged. Font size changes therefore affect the bounds passed to the allocator,
-including ruby measurement. Use source style runs for different fonts within a
-line. Visual factories run once after measurement, before allocation, on an
+including ruby measurement. Code-authored lyrics can use style runs for
+different fonts within a line. Visual factories run once after measurement, before allocation, on an
 unpositioned line. Changing a glyph's font there does not request another text
 measurement pass. Layout placement is applied after the factory returns.
 For additional geometry, a factory can return an updated `line.layout.bounds`
@@ -275,10 +277,14 @@ The default `KaraokeRows` preset measures each shaped cluster using its visible
 ink, side bearings and primary outline. It uses the resulting cells for body
 text, readings and inline cue placement. Horizontal furigana follows Aegisub's grouping rules at either cell spacing.
 Adjacent annotated syllables share one reading group. Short readings center over the
-group at their natural spacing. A wide reading starts at the group's left edge.
-Use `|!` to begin a separate group or `|<` to begin a group that can overflow
-equally to the left and right. A `#` syllable extends the previous body unit
-and retains its own timing interval. Fullwidth forms work too. Bare syllables
+group at their natural spacing. For italic body or readings, the optical center
+follows the lean of the ink and can extend beyond the body cell. Outline
+clearance accounts for neighboring readings when the center shifts.
+A wide reading starts at the group's left edge.
+For code-authored text, `|!` begins a separate group and `|<` allows the group
+to overflow equally to the left and right. Imported ASS reads these prefixes as
+ordinary ruby separators. A `#` syllable extends the previous body unit and
+retains its own timing interval. Fullwidth forms work too. Bare syllables
 can absorb a preceding overhang. When space is still needed, the engine moves
 the following group together with its body. [Aegisub furigana tutorial](https://aegisub.org/docs/latest/furigana_karaoke)
 The Studio sweep traverses the ink and the primary hard outline during the

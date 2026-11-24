@@ -115,7 +115,7 @@ def test_cli_multiple_readings_and_pause(tmp_path):
     assert any(line.text.endswith("b") for line in ruby)
 
 
-def test_cli_before_only_keeps_source_highlight_color(tmp_path):
+def test_cli_before_uses_the_preset_highlight_instead_of_source_colors(tmp_path):
     source = Document.load(EXAMPLE)
     for style in source.styles.values():
         style.fields.update(PrimaryColour="&H00FF0000", SecondaryColour="&H0000FF00")
@@ -125,7 +125,8 @@ def test_cli_before_only_keeps_source_highlight_color(tmp_path):
     assert result.returncode == 0, result.stderr
     generated = [line for line in Document.load(output_path).lines if not line.comment]
     assert any(r"\1c&H332211&" in line.text for line in generated)
-    assert any(r"\1c&HFF0000&" in line.text for line in generated)
+    assert any(r"\1c&HFFFFFF&" in line.text for line in generated)
+    assert all(r"\1c&HFF0000&" not in line.text for line in generated)
 
 
 def test_cli_invalid_recipe_and_limit_do_not_write_output(tmp_path):

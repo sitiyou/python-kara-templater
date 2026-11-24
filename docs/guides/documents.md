@@ -27,6 +27,11 @@ values created from DocumentLyrics leave existing dialogue untouched. Track.sour
 is a predicate over LyricSource metadata. Multiple Tracks may show the same
 source; visual view identity is separate from record replacement ownership.
 
+Python importers can pass `lyric_sources` and `bpm` to `Document.create()`.
+`build_lyric_scene(document, tracks=...)` reads those sources and uses that tempo
+for cues. `save()` and `dumps()` serialize the ASS records. Use a scene exporter
+to turn structured lyric sources into output.
+
 ## Choose the lyric frontend
 
 | Input task | Interface | Timing and scope |
@@ -35,10 +40,11 @@ source; visual view identity is separate from record replacement ownership.
 | Body text, ruby, and repeated timing | `layout_document_lyrics` | Body/ruby source projection and grouped lyric units |
 | Declarative lyric styling and animations | `build_lyric_scene`, `LyricSource.from_lyrics` | DocumentLyrics and semantic targets; times in seconds |
 
-These frontends enforce their supported input subsets. Parsing does not evaluate
-arbitrary ASS animation overrides. Track uses the Document lyric projection,
-including static inline color/reset scopes and cue markers. See
-[text and cues](text-and-cues.md) for their authoring workflow.
+Track uses a lyrics-only projection for imported ASS. It reads the text, time,
+ruby and cue anchors. Style, Name and Effect fields are available for selection.
+The template supplies appearance. A code-authored Document can supply its own
+named styles and inline color scopes. See [text and cues](text-and-cues.md)
+for authoring details.
 
 `TextObject.text` is literal Unicode. Braces and backslashes are displayed as
 characters, including strings that look like ASS overrides; use `AssDialogue`
@@ -47,11 +53,14 @@ rejected. Compilation escapes braces and protects literal backslashes with an
 invisible word joiner. The Document text projection decodes these sequences
 while retaining their original raw tokens and decoded character offsets.
 
-Karaoke timing recognizes `\k`, `\K`, `\kf`, `\ko`, and explicit `\kt`
-offsets. The body/ruby convention uses `body|reading`; a `#` or `＃` continuation
-adds a timing segment to the previous body unit. Empty chunks and static text
-consume or retain their original positions in the source model. Display entry
-and exit are separate from the original timing intervals.
+Imported lyric durations use `\k`, `\K`, `\kf` and `\ko` interchangeably.
+Each advances the clock by centiseconds from the event start. Empty chunks
+advance time as rests. The lyrics clock ignores `\kt`. For example,
+`{\k30}{\kf20}春|>はる` starts the word 300 ms into the event.
+
+`body|reading` and `body|>reading` decode the same text and reading.
+A `#` or `＃` continuation adds a timing segment to the previous body
+unit. Drawing spans are skipped. Display entry and exit are set by the template.
 
 A body unit with timed ruby retains its highlighted portion between reading segments.
 For `影` with readings `か` and `げ`, the body reaches halfway by the end of
@@ -59,9 +68,8 @@ For `影` with readings `か` and `げ`, the body reaches halfway by the end of
 own clock. In structured lyrics, set `LyricUnit(..., repeat=True)` for a
 deliberate full-body repeat on each segment.
 
-Zero-length timing segments remain source data. Skip their animation or choose
-an explicit positive display duration when creating an AnimationClip. Backward
-timing jumps and unsupported input produce contextual errors.
+Zero-length lyric segments remain source data. Skip their animation or choose
+an explicit positive display duration when creating an AnimationClip.
 
 ## Ranges and origin information
 

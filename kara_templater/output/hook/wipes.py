@@ -24,6 +24,7 @@ def match_wipe(before: SceneLeaf, after: SceneLeaf) -> Wipe | None:
     if not isinstance(a, _LyricPaintClip) or not isinstance(b, (_LyricPaintClip, _FeatheredWipeClip)):
         return None
     if (a.space != "local" or b.space != "local"
+            or (a.slope, a.pivot_y) != (b.slope, b.pivot_y)
             or not isinstance(a.deform, RectangleKeyframes) or not isinstance(b.deform, RectangleKeyframes)
             or len(a.deform.keyframes) != len(b.deform.keyframes)):
         return None

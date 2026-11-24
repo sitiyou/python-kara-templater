@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from math import ceil, floor
+from typing import Literal
 
 from ..ass import Document, Line, Style
 from ..characters import LayoutCapabilityError
@@ -328,6 +329,29 @@ def _reading_row(
     return result
 
 
+def _optical_center(
+    items: tuple[PositionedText, ...], *, toward_top: bool, right_to_left: bool,
+) -> float:
+    """Measure the ink's optical center at the side facing the other row."""
+    boxes = []
+    for item in items:
+        ink = item.ink_bounds
+        if ink is None:
+            continue
+        dx = 0.0
+        if item._italic:
+            scale = item.layout_scale
+            assert scale is not None
+            # Native synthetic italics lean 0.2 em per em of rise. Use the
+            # same optical estimate for already italic faces.
+            dx = (0.1 if toward_top else -0.1) * ink.height * scale.x / scale.y
+        if right_to_left:
+            # Place in logical order before the cell positions are reflected.
+            dx = 2 * (item.bounds.center - ink.center) - dx
+        boxes.append(replace(ink, left=ink.left + dx))
+    return _union(tuple(boxes) or tuple(item.bounds for item in items)).center
+
+
 def _move(layout: TextLayout, dx: float, dy: float) -> TextLayout:
     return replace(
         layout,
@@ -336,6 +360,18 @@ def _move(layout: TextLayout, dx: float, dy: float) -> TextLayout:
             layout.bounds, left=layout.bounds.left + dx, top=layout.bounds.top + dy
         ),
     )
+
+
+def _baseline(item: PositionedText) -> float:
+    return item.bounds.top + (item.baseline or 0) * item.object.state.scale.y
+
+
+def _hard_ink(item: PositionedText, reserved: float, secondary: float) -> Box | None:
+    ink = item.ink_bounds
+    if ink is None:
+        return None
+    edge = max(reserved, item.object.state.border + secondary)
+    return Box(ink.left - edge, ink.top - edge, ink.width + 2 * edge, ink.height + 2 * edge)
 
 
 def _after_onset(start: float, display_end: float) -> float:
@@ -426,6 +462,7 @@ def layout_document_lyrics(
     id: str | None = None,
     display: Lifetime | None = None,
     ruby_gap: float = 6,
+    ruby_alignment: Literal["line", "group"] = "line",
     studio_spacing: bool | StudioSpacing = False,
     palt: bool = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
@@ -445,13 +482,14 @@ def layout_document_lyrics(
     if not isinstance(record, Line):
         raise TypeError("lyric binding requires an event record")
     return layout_lyrics(
-        document,
+        Document(list(document._lyric_styles().values()), document.meta) if document._imported else document,
         document.lyrics_at(record_index),
         id=f"record:{record_index}" if id is None else id,
         display=Lifetime(record.start_time / 1000, record.end_time / 1000)
         if display is None
         else display,
         ruby_gap=ruby_gap,
+        ruby_alignment=ruby_alignment,
         studio_spacing=studio_spacing,
         palt=palt,
         guide_symbols=guide_symbols,
@@ -468,6 +506,7 @@ def layout_lyrics(
     id: str,
     display: Lifetime,
     ruby_gap: float = 6,
+    ruby_alignment: Literal["line", "group"] = "line",
     studio_spacing: bool | StudioSpacing = False,
     palt: bool = False,
     guide_symbols: Mapping[str, VectorGuide] | None = None,
@@ -483,14 +522,18 @@ def layout_lyrics(
     outline before applying minimum outline clearance. The default uses shaped advances.
     secondary_width reserves additional hard outline outside each primary stroke.
     palt applies the horizontal proportional metrics in each selected body or ruby font.
-    ruby_gap sets the vertical clearance between the hard ink bounds of a
-    reading group and its body before animation. Negative values allow overlap.
+    Horizontal readings share one baseline by default. ruby_alignment="group"
+    uses the local body-to-reading gap for each group. ruby_gap measures the
+    clearance between hard outlines before animation. Negative values allow overlap.
+    Short horizontal italic readings follow the slanted ink center.
     vertical stacks glyphs in measured font cells. ruby_gap then separates the body
     and reading cells horizontally, in script pixels.
     No ASS event is required or synthesized. Timing intervals retain their full
     seconds precision; record indices, if present, are provenance only.
     """
     finite(ruby_gap, reserved_border, secondary_width, min_outline_gap or 0)
+    if ruby_alignment not in ("line", "group"):
+        raise ValueError("ruby_alignment must be line or group")
     if secondary_width < 0 or reserved_border < 0 or (min_outline_gap is not None and min_outline_gap < 0):
         raise ValueError("outline clearance must be nonnegative")
 
@@ -634,9 +677,22 @@ def layout_lyrics(
         else:
             groups.append([unit])
             group_rubies.append(indices)
+    common_baseline = None
+    if rubies and ruby_alignment == "line":
+        body_top = min((ink.top for item in body.characters
+                        if (ink := _hard_ink(item, reserved_border, secondary_width)) is not None),
+                       default=body.bounds.top)
+        ruby_descent = max((ink.top + ink.height - _baseline(item)
+                            for ruby in rubies for item in ruby.layout.characters
+                            if (ink := _hard_ink(item, reserved_border, secondary_width)) is not None),
+                           default=0.0)
+        common_baseline = body_top - ruby_gap - ruby_descent
+
     shift = 0.0
     spill: float | None = None
     previous_right = 0.0
+    previous_ruby_right: float | None = None
+    previous_optical = False
     for units, indices in zip(groups, group_rubies, strict=True):
         start, end = units[0].start, units[-1].end
         if start == end:
@@ -644,19 +700,41 @@ def layout_lyrics(
         box = body.range_bounds(start, end)
         readings = [rubies[i].layout for i in indices]
         readings = _reading_row(readings, min_outline_gap, reserved_border, right_to_left, secondary_width) if readings else []
-        width = _union(tuple(r.bounds for r in readings)).width if readings else 0.0
+        width = _union(tuple(r.bounds for r in readings)).width
         spillback = any(s.ruby and s.ruby.mode == "spill" for unit in units for s in unit.segments)
         if spill is not None and spill > 0:
             spill -= max(0.0, box.left - previous_right)
         extra, offset, spill = _ruby_group(box.width, width, spillback, spill)
+        hosts = tuple(item for item in body.characters if start <= item.start and item.end <= end) if indices else ()
+        reading_items = tuple(item for reading in readings for item in reading.characters)
+        optical = 0 < width <= box.width and any(item._italic for item in (*hosts, *reading_items))
+        if optical:
+            body_center = _optical_center(hosts, toward_top=True, right_to_left=right_to_left)
+            reading_center = _optical_center(reading_items, toward_top=False, right_to_left=right_to_left)
+            offset = body_center - box.left - reading_center
         shift += extra
+        if reading_items and min_outline_gap is not None:
+            inks = []
+            for item in reading_items:
+                ink = _hard_ink(item, reserved_border, secondary_width)
+                if ink is not None:
+                    inks.append(replace(ink, left=2 * item.bounds.center - ink.right) if right_to_left else ink)
+            if inks:
+                ink_box = _union(tuple(inks))
+                x = box.left + shift + offset
+                if previous_ruby_right is not None and (optical or previous_optical):
+                    clearance = max(0.0, previous_ruby_right + min_outline_gap - x - ink_box.left)
+                    shift += clearance
+                    x += clearance
+                previous_ruby_right = x + ink_box.right
+                previous_optical = optical
         left = box.left + shift
         previous_right = box.right
         body_top = float("inf")
         for i, item in enumerate(characters):
             if start <= item.start and item.end <= end:
                 characters[i] = _shift(item, shift)
-                if indices and item.ink_bounds is not None:
+                if common_baseline is None and indices and item.ink_bounds is not None:
                     border = max(reserved_border, item.object.state.border + secondary_width)
                     body_top = min(body_top, item.ink_bounds.top - border)
             elif item.start < end and item.end > start:
@@ -664,6 +742,14 @@ def layout_lyrics(
                     "ruby placement boundary splits a shaped cluster"
                 )
         if not indices:
+            continue
+        if common_baseline is not None:
+            for index, reading in zip(indices, readings, strict=True):
+                cells = tuple(_shift(item, left + offset, common_baseline - _baseline(item))
+                              for item in reading.characters)
+                rubies[index] = replace(rubies[index], layout=replace(
+                    reading, characters=cells, bounds=_union(tuple(item.bounds for item in cells)),
+                ))
             continue
         if body_top == float("inf"):
             body_top = box.top

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .document_lyrics import DocumentLyrics
     from .document_text import DocumentText
+    from .lyrics.tracks import LyricSource
 
 
 class Record(dict[str, object]):
@@ -205,7 +206,7 @@ def _parse_record(cls, text, columns, names):
 
 @dataclass
 class Document:
-    """An ordered ASS record collection with parsed script metadata.
+    """An ordered ASS record collection with optional structured lyric sources.
 
     Load/parse preserve source content without executing code; create builds a new
     script, and save/dumps serialize standard ASS.
@@ -213,22 +214,32 @@ class Document:
 
     records: list[str | Style | Line]
     meta: Record
+    lyric_sources: tuple[LyricSource, ...] = ()
+    bpm: float | None = None
+    _imported: bool = field(default=False, init=False, repr=False, compare=False)
 
     @classmethod
     def create(
-        cls, *, width: int = 1280, height: int = 720, styles: tuple[Style, ...] = ()
+        cls,
+        *,
+        width: int = 1280,
+        height: int = 720,
+        styles: tuple[Style, ...] = (),
+        lyric_sources: tuple[LyricSource, ...] = (),
+        bpm: float | None = None,
     ) -> Document:
         """Create standard ASS with raw RGB colors for code-authored scenes.
 
         YCbCr Matrix: None prevents playback color-matrix reinterpretation of
         authored RGB values. Parsing existing ASS retains its original metadata.
+        Lyric sources and BPM are in-memory inputs for build_lyric_scene.
         """
         if any(type(value) is not int or value <= 0 for value in (width, height)):
             raise ValueError("document dimensions must be positive integers")
         styles = styles or (Style(),)
         if len({style.name for style in styles}) != len(styles):
             raise ValueError("duplicate document style names")
-        return cls.parse(
+        document = cls.parse(
             "\n".join(
                 (
                     "[Script Info]",
@@ -246,6 +257,10 @@ class Document:
                 )
             )
         )
+        document._imported = False
+        document.lyric_sources = lyric_sources
+        document.bpm = bpm
+        return document
 
     @classmethod
     def parse(cls, text: str) -> Document:
@@ -295,7 +310,9 @@ class Document:
         elif not y:
             y = 1024 if x == 1280 else x * 3 // 4
         meta.res_x, meta.res_y = x, y
-        return cls(records, meta)
+        document = cls(records, meta)
+        document._imported = True
+        return document
 
     @classmethod
     def load(cls, path: str | Path) -> Document:
@@ -306,6 +323,11 @@ class Document:
     def styles(self) -> dict[str, Style]:
         """Return the current style-name mapping from ordered Style records."""
         return {x.name: x for x in self.records if isinstance(x, Style)}
+
+    def _lyric_styles(self) -> dict[str, Style]:
+        if not self._imported:
+            return self.styles
+        return {"Default": Style(fontname="sans-serif")}
 
     @property
     def lines(self) -> list[Line]:
@@ -324,13 +346,17 @@ class Document:
         Path(path).write_text(self.dumps(), encoding="utf-8-sig")
 
     def lyrics_at(self, record_index: int) -> DocumentLyrics:
-        """Read scoped body/ruby and timing without layout."""
+        """Read body, ruby and timing. Imported events use template-owned appearance."""
         from .document_lyrics import parse_document_lyrics
+        from .document_text import _read_document_text
 
-        source = self.text_at(record_index)
+        source = (
+            _read_document_text(self, record_index, self._lyric_styles(), " ", lyrics_only=True)
+            if self._imported else self.text_at(record_index)
+        )
         record = self.records[record_index]
         assert isinstance(record, Line)
-        return parse_document_lyrics(source, start=record.start_time / 1000)
+        return parse_document_lyrics(source, start=record.start_time / 1000, ruby_layout=not self._imported)
 
     def text_at(self, record_index: int) -> DocumentText:
         """Read typed text semantics without changing records."""

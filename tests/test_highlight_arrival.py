@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
+    Box,
     HighlightArrival,
     HighlightPass,
     Jump,
@@ -164,6 +165,29 @@ def test_ruby_crossings_map_reading_width_to_body_and_keep_cluster_boundaries():
     assert ruby[-1].end == pytest.approx(2)
     for before, after in zip(ruby, ruby[1:], strict=False):
         assert before.end == pytest.approx(after.start)
+
+
+def test_ruby_crossing_reaches_the_exact_end_after_projection():
+    from kara_templater import Lifetime, LyricLine, layout_document_lyrics
+
+    doc, _ = source()
+    doc.lines[-1].text = r"{\k100}A|a"
+    layout = layout_document_lyrics(doc, len(doc.records) - 1, display=Lifetime(0, 3))
+    (ruby,) = layout.ruby
+
+    def with_width(text, width):
+        (glyph,) = text.characters
+        box = Box(0, 0, width, glyph.bounds.height)
+        return replace(text, bounds=box, characters=(replace(glyph, bounds=box),))
+
+    layout = replace(
+        layout, body=with_width(layout.body, 58.0),
+        ruby=(replace(ruby, layout=with_width(ruby.layout, 57.016949152542374)),),
+    )
+    line = LyricLine.from_layout(layout)
+    (target,) = line.query("ruby")
+    anchor = HighlightArrival(highlights=highlights(line)[:1])
+    assert anchor(line, target) == (TimeSpan(1, 2),)
 
 
 def test_nonlinear_pause_inverse_returns_first_crossing_at_plateau():

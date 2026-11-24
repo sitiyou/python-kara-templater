@@ -34,6 +34,7 @@ from ..scene import (
     VectorClip,
     _CellWipeClip,
     _ColorStripClip,
+    _SweepClip,
 )
 from ..scene_animation import (
     AnimationClip,
@@ -1277,6 +1278,11 @@ def compile_ass(
         if node.material is not None:
             raise SceneCompileError(
                 f"ASS does not support {type(node.material).__name__} paint fields",
+                object_id=node.id, origin=node.origin,
+            )
+        if isinstance(node.clip, _SweepClip) and node.clip.slope:
+            raise SceneCompileError(
+                "ASS does not support slanted wipes (use sweep_angle=0 or export a hook)",
                 object_id=node.id, origin=node.origin,
             )
         if isinstance(node.clip, _ColorStripClip):

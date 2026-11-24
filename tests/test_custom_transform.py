@@ -92,7 +92,7 @@ def test_pulse_rejects_missing_attack_or_release(peak_at):
         ScalePulse(peak_at=peak_at)
 
 
-def lyric(text=r"{\k25}A{\kt50\k25}#"):
+def lyric(text=r"{\k25}A{\k25}{\k25}#"):
     doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=32),))
     doc.records.append(Line(text=text, start_time=1000, end_time=2000))
     layout = layout_document_lyrics(

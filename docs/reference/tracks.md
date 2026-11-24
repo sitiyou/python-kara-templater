@@ -73,7 +73,7 @@ and soft fronts raise SceneCompileError on ASS export. Hook export uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L985)
+[Source](../../kara_templater/karaoke_effects.py#L988)
 
 ```python
 KaraokeEffects(
@@ -84,6 +84,7 @@ KaraokeEffects(
     entry_unit: Literal['preset', 'character'] = 'preset',
     exit_unit: Literal['preset', 'character'] = 'preset',
     reverse_wipe: bool = False,
+    sweep_angle: float | None = None,
     decoration: KaraokeDecoration = 'none',
     entry_duration: float = 0.3,
     exit_duration: float = 0.3,
@@ -108,7 +109,7 @@ KaraokeEffects(
     scanline_softness: float | LengthExpr | None = None,
     scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after'] = 'color',
     ruby_reading_units: bool = False,
-    ruby_scanline: Literal['reading', 'both'] = 'reading',
+    ruby_scanline: Literal['reading', 'both'] = 'both',
     scanline_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, highlights.LyricGradient] = None,
     scanline_brightness: float = 0.6,
     shine: Color | None = None,
@@ -133,6 +134,7 @@ KaraokeEffects(
 | `entry_unit` | `Literal['preset', 'character']` | `'preset'` |
 | `exit_unit` | `Literal['preset', 'character']` | `'preset'` |
 | `reverse_wipe` | `bool` | `False` |
+| `sweep_angle` | `float \| None` | `None` |
 | `decoration` | `KaraokeDecoration` | `'none'` |
 | `entry_duration` | `float` | `0.3` |
 | `exit_duration` | `float` | `0.3` |
@@ -157,7 +159,7 @@ KaraokeEffects(
 | `scanline_softness` | `float \| LengthExpr \| None` | `None` |
 | `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after']` | `'color'` |
 | `ruby_reading_units` | `bool` | `False` |
-| `ruby_scanline` | `Literal['reading', 'both']` | `'reading'` |
+| `ruby_scanline` | `Literal['reading', 'both']` | `'both'` |
 | `scanline_material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, highlights.LyricGradient]` | `None` |
 | `scanline_brightness` | `float` | `0.6` |
 | `shine` | `Color \| None` | `None` |
@@ -801,7 +803,7 @@ LyricLine.with_display(
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/lyrics/tracks.py#L208)
+[Source](../../kara_templater/lyrics/tracks.py#L214)
 
 ```python
 LyricLinePlan(
@@ -909,7 +911,7 @@ LyricRule.timing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/lyrics/tracks.py#L219)
+[Source](../../kara_templater/lyrics/tracks.py#L225)
 
 ```python
 LyricScene(
@@ -1027,7 +1029,7 @@ timing intervals remain in lyrics; display is the original ASS visibility.
 An optional chapter groups consecutive sources. The first selected line of a
 chapter starts a fresh row rotation by default, even without a visible cue.
 
-[Source](../../kara_templater/lyrics/tracks.py#L68)
+[Source](../../kara_templater/lyrics/tracks.py#L69)
 
 ```python
 LyricSource(
@@ -1230,8 +1232,9 @@ for both body and readings. By default KaraokeRows uses Studio cells and
 Layout uses native advances. Horizontal palt selects the font’s proportional
 alternate widths for body and ruby and uses native advances by default. reserved_border declares the outer hard radius
 of custom or shared visual layers. Glow and motion do not reserve space.
-ruby_gap sets the visual gap in script pixels between hard outlines of
-the reading group and its body at rest. Negative values allow overlap.
+ruby_alignment shares a horizontal baseline across the line by default.
+Use "group" to apply ruby_gap separately to each reading group. ruby_gap
+sets hard-outline clearance in script pixels. Negative values allow overlap.
 vertical stacks cells downward with right-side readings. With no layout override,
 two columns rotate from right to left. Explicit layout allocators place the prepared blocks.
 right_to_left places shaped lyric cells from right to left, including readings.
@@ -1239,7 +1242,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/lyrics/tracks.py#L142)
+[Source](../../kara_templater/lyrics/tracks.py#L144)
 
 ```python
 Track(
@@ -1260,6 +1263,7 @@ Track(
     min_outline_gap: float | None = 0,
     reserved_border: float = 0,
     ruby_gap: float = 6,
+    ruby_alignment: Literal['line', 'group'] = 'line',
     studio_spacing: bool | layout.StudioSpacing | None = None,
     vertical: bool = False,
     right_to_left: bool = False,
@@ -1289,6 +1293,7 @@ Track(
 | `min_outline_gap` | `float \| None` | `0` |
 | `reserved_border` | `float` | `0` |
 | `ruby_gap` | `float` | `6` |
+| `ruby_alignment` | `Literal['line', 'group']` | `'line'` |
 | `studio_spacing` | `bool \| layout.StudioSpacing \| None` | `None` |
 | `vertical` | `bool` | `False` |
 | `right_to_left` | `bool` | `False` |
@@ -1305,16 +1310,16 @@ records are retained once as owner-marked comments. Re-preparing owned output
 removes only that owner's generated events and regenerates from its sources.
 theme supplies shared catalog and cue colors. Track roles override only their
 declared channels, and explicit effect colors take precedence.
-bpm supplies a fixed song tempo for automatic cue timing.
-inputs adds structured LyricSource values alongside parsed ASS sources.
-These have no ASS record ownership and must be supplied again to regenerate
-them. The caller's Document and reusable declarations are not mutated.
+bpm overrides the document tempo for automatic cue timing.
+inputs adds structured LyricSource values alongside the document's lyrics.
+Structured sources have no ASS record ownership. The caller's Document and
+reusable declarations are not mutated.
 preview_interval limits the returned plans and objects to lines or independent
 cues visible in this half-open interval of absolute seconds. Strict rows with bounded catalog effects retain neighboring handoffs
 and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
 or references them from visible objects.
 
-[Source](../../kara_templater/lyrics/tracks.py#L519)
+[Source](../../kara_templater/lyrics/tracks.py#L529)
 
 ```python
 build_lyric_scene(

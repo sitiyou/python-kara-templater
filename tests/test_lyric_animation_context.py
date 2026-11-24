@@ -26,7 +26,7 @@ from kara_templater import (
 def test_unequal_repeats_choose_independent_peaks_and_preserve_aliases():
     doc = Document.create(width=640, height=360)
     doc.records.append(Line(start_time=1000, end_time=3000,
-                            text=r"{\k25}A{\kt50\k100}#{\k0}B"))
+                            text=r"{\k25}A{\k25}{\k100}#{\k0}B"))
     original = doc.dumps()
     calls = []
 

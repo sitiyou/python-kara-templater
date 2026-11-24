@@ -557,7 +557,7 @@ def test_entry_is_visible_before_motion_has_settled():
 
 
 def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
-    scene = subject(entry="none", exit="none", highlight="scanline", ruby_scanline="both")
+    scene = subject(entry="none", exit="none", highlight="scanline")
     line = scene.lines[0]
     nodes = {n.id: n for n in _walk(line)}
     fronts = [
@@ -575,7 +575,7 @@ def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
     first, second = line.layout.body.characters[:2]
     # The front skips only the extra clearance between these letters.
     assert first.ink_bounds and second.ink_bounds
-    raw = subject(entry="none", exit="none", highlight="scanline", ruby_scanline="both", min_outline_gap=None)
+    raw = subject(entry="none", exit="none", highlight="scanline", min_outline_gap=None)
     a, b = raw.lines[0].layout.body.characters[:2]
     extra = second.bounds.left - first.bounds.left - (b.bounds.left - a.bounds.left)
     assert extra > 0
@@ -588,7 +588,7 @@ def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
 @pytest.mark.parametrize("highlight", ["zoom_pulse", "zoom_pulse_scanline"])
 def test_zoom_uses_full_note_then_releases_without_stacking_repeats(highlight):
     scene = subject(
-        text=r"{\k100}A{\kt100\k100}#",
+        text=r"{\k100}A{\k100}#",
         end=3000,
         entry="none",
         exit="none",
@@ -1093,10 +1093,11 @@ def test_multicharacter_reading_divides_its_wipe_by_shaped_cluster():
         assert knots[1:-1] == [start, end]
 
 
-def test_timed_readings_own_the_front_and_optional_body_sweeps_once():
-    def fronts(mode):
-        scene = subject(text=r"{\k25}空|そ{\k25}#|ら", start=1000, end=1500,
-                        entry="none", exit="none", highlight="scanline", ruby_scanline=mode)
+@pytest.mark.parametrize("highlight", ["scanline", "utopia_scanline", "zoom_pulse_scanline"])
+def test_scanline_treatment_is_consistent_on_body_with_and_without_readings(highlight):
+    def fronts(**options):
+        scene = subject(text=r"{\k25}空|そ{\k25}#|ら{\k50}空", start=1000, end=2000,
+                        entry="none", exit="none", highlight=highlight, **options)
         line = scene.lines[0]
         nodes = {n.id: n for n in _walk(line)}
 
@@ -1112,12 +1113,13 @@ def test_timed_readings_own_the_front_and_optional_body_sweeps_once():
                     result.append(box)
             return result
 
-        body, = line.query("character")
+        annotated, plain = line.query("character")
         assert all(bounds(r, ms) for r, ms in zip(line.query("ruby"), (1150, 1400), strict=True))
-        return [bounds(body, ms) for ms in (1150, 1350)]
+        assert bounds(plain, 1750)
+        return [bounds(annotated, ms) for ms in (1150, 1350)]
 
-    assert fronts("reading") == [[], []]
-    early, late = fronts("both")
+    assert fronts(ruby_scanline="reading") == [[], []]
+    early, late = fronts()
     assert early and late and max(b[2] for b in early) < max(b[2] for b in late)
 
 
@@ -1336,7 +1338,7 @@ def test_track_reverses_windows_before_cues_readings_and_rule_binding(tmp_path):
 
     doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=40),))
     prefix = CueMarker("count", "lead", placement="independent").markup()
-    words = r"{\k50}{\k25}A|a{\k50}#|b{\kt150\k75}B"
+    words = r"{\k50}{\k25}A|a{\k50}#|b{\k25}{\k75}B"
     for start, actor in [(1000, "reverse"), (5000, "forward")]:
         doc.records.append(Line(text=prefix + words, start_time=start,
                                 end_time=start + 2250, actor=actor))

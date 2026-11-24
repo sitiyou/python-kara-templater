@@ -540,7 +540,7 @@ def test_display_keyframe_factory_keeps_original_window_when_other_rule_extends_
     from kara_templater import StateKeyframe, StatePatch, Timeline, TimeSpan
 
     source = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=24),))
-    source.records.append(Line(text=r"{\kt100\k100}A", start_time=0, end_time=2000))
+    source.records.append(Line(text=r"{\k100}{\k100}A", start_time=0, end_time=2000))
     original = source.dumps()
     durations = []
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "kara-templater"
-version = "1.0.1"
+version = "1.1.0"
 description = "Scriptable karaoke effects and ASS generation with native HarfBuzz text geometry"
 requires-python = ">=3.12"
 dependencies = ["aggdraw>=1.3.19", "Pillow>=10"]

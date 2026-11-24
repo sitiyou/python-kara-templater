@@ -99,19 +99,31 @@ def test_style_palette_decodes_bgr_and_secondary_before_primary():
         paint_pair_from_style(replace(style, fields={"PrimaryColour": "nonsense"}))
 
 
-def test_common_preparation_error_identifies_actual_record_and_preserves_input():
-    source = document(lyric(), lyric(r"{\k20\blur4}B"))
+def test_common_preparation_error_identifies_malformed_ruby_record_and_preserves_input():
+    source = document(lyric(), lyric(r"{\k20}B|b|extra"))
     original = source.dumps()
     index = next(
         i
         for i, record in enumerate(source.records)
-        if isinstance(record, Line) and "blur" in record.text
+        if isinstance(record, Line) and "extra" in record.text
     )
     with pytest.raises(
-        ValueError, match=rf"record {index}, text offset 0: unsupported override"
+        ValueError, match=rf"record {index}, text offset 0: multiple ruby separators"
     ):
         build_lyric_scene(source, tracks=(Track(id="main", layout=Layout(rows=2)),))
     assert source.dumps() == original
+
+
+def test_imported_style_names_select_tracks_but_template_styles_set_metrics():
+    source = document(lyric(style="Vocals"), lyric(style="Translations"))
+    track = Track(
+        id="vocals",
+        source=lambda lyric: lyric.style == "Vocals",
+        styles=(Style(fontname="DejaVu Sans", fontsize=42),),
+    )
+    (plan,) = build_lyric_scene(source, tracks=(track,)).plans
+    assert plan.source.style == "Vocals"
+    assert plan.line.layout.body.characters[0].object.font_size == 42
 
 
 @pytest.mark.parametrize("suffix", ("missing-separator", ":original"))

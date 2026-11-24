@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Literal, Protocol
 
 from .appearance import _DEFAULT_AFTER_FILL, _DEFAULT_BEFORE_FILL, PaintPair
@@ -11,6 +11,7 @@ from .ass import Style
 from .composition import Color, Paint
 from .document_text import CueMarker
 from .geometry import Vec2, VectorPath, finite
+from .lyric_line import LyricLine
 from .lyrics.highlights import LyricGradient
 from .lyrics.layout import LyricLayout, PositionedRuby, _move, _shift
 from .scene import (
@@ -58,16 +59,30 @@ class CueContext:
 
 @dataclass(frozen=True)
 class CueContent:
-    """Local objects plus the explicit layout space the author wants to reserve."""
+    """Local objects and reserved space. ink_center_y aligns visible ink for inline cues.
+
+    Its default is the center of the reserved height. A measured lyric cue can
+    use from_line to obtain its visible body center automatically.
+    """
 
     objects: tuple[SceneObject, ...]
     width: float
     height: float
+    ink_center_y: float | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
-        finite(self.width, self.height)
+        finite(self.width, self.height, self.ink_center_y or 0)
         if self.width < 0 or self.height < 0:
             raise ValueError("cue dimensions cannot be negative")
+
+    @staticmethod
+    def from_line(line: LyricLine) -> CueContent:
+        """Place a measured line in local cue coordinates and align its body ink."""
+        bounds = line.layout.bounds
+        ink = tuple(item.ink_bounds for item in line.layout.body.characters if item.ink_bounds is not None)
+        body_middle = (_union(ink) if ink else line.layout.body.bounds).middle
+        local = replace(line, state=replace(line.state, position=Vec2(-bounds.left, -bounds.top)))
+        return CueContent((local,), bounds.width, bounds.height, ink_center_y=body_middle - bounds.top)
 
 
 @dataclass(frozen=True)
@@ -433,8 +448,10 @@ def bind_cues(
                 position = Vec2(body.center - content.width / 2, body.top + (body.height if at_end else 0))
             else:
                 edge = body.right if layout._right_to_left != at_end else body.left
+                host_axis = (host.ink_bounds or body).middle if host is not None else body.middle
+                cue_axis = content.height / 2 if content.ink_center_y is None else content.ink_center_y
                 position = Vec2(edge - (content.width if layout._right_to_left else 0),
-                                body.middle - content.height / 2)
+                                host_axis - cue_axis)
             position += sum((p._advance(axis) for p in placements if p.marker.placement == "inline"), Vec2())
         else:
             position = preset.position

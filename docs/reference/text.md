@@ -161,7 +161,7 @@ Measured body and positioned readings for projected DocumentLyrics.
 
 unit_group builds editable body/ruby groups using the body center as pivot.
 
-[Source](../../kara_templater/lyrics/layout.py#L94)
+[Source](../../kara_templater/lyrics/layout.py#L95)
 
 ```python
 LyricLayout(
@@ -210,7 +210,7 @@ A reading layout associated with a source unit/segment and decoded body range.
 
 Its own text view retains source mappings and timing timing.
 
-[Source](../../kara_templater/lyrics/layout.py#L80)
+[Source](../../kara_templater/lyrics/layout.py#L81)
 
 ```python
 PositionedRuby(
@@ -284,7 +284,7 @@ space_width_percent sets an ASCII space's width as a percentage of the
 selected font em (10 to 100). allow_biting includes negative side bearings
 when measuring overhanging glyphs. Hard-outline clearance applies afterward.
 
-[Source](../../kara_templater/lyrics/layout.py#L63)
+[Source](../../kara_templater/lyrics/layout.py#L64)
 
 ```python
 StudioSpacing(
@@ -307,7 +307,7 @@ Measured editable text objects with decoded source ranges, timing spans, bounds,
 
 Range backgrounds can optionally follow local text animation.
 
-[Source](../../kara_templater/text/layout.py#L68)
+[Source](../../kara_templater/text/layout.py#L75)
 
 ```python
 TextLayout(
@@ -406,7 +406,7 @@ A timed lyric glyph with a baseline-relative path and horizontal advance in unit
 Positive y points down. One unit defaults to the authored font size at the marker; size overrides it in script pixels.
 Track.guide_symbols maps individual body characters to guide glyphs.
 
-[Source](../../kara_templater/lyrics/layout.py#L20)
+[Source](../../kara_templater/lyrics/layout.py#L21)
 
 ```python
 VectorGuide(
@@ -452,7 +452,7 @@ crossing a shaping cluster are rejected when independent placement is needed.
 vertical stacks cells downward around x=0, with readings on the right.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
 
-[Source](../../kara_templater/lyrics/layout.py#L422)
+[Source](../../kara_templater/lyrics/layout.py#L458)
 
 ```python
 layout_document_lyrics(
@@ -462,6 +462,7 @@ layout_document_lyrics(
     id: str | None = None,
     display: Lifetime | None = None,
     ruby_gap: float = 6,
+    ruby_alignment: Literal['line', 'group'] = 'line',
     studio_spacing: bool | layout.StudioSpacing = False,
     palt: bool = False,
     guide_symbols: Mapping[str, layout.VectorGuide] | None = None,
@@ -476,7 +477,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/text/layout.py#L449)
+[Source](../../kara_templater/text/layout.py#L456)
 
 ```python
 layout_document_text(
@@ -496,14 +497,16 @@ studio_spacing measures character cells from ink width, bearings and the primary
 outline before applying minimum outline clearance. The default uses shaped advances.
 secondary_width reserves additional hard outline outside each primary stroke.
 palt applies the horizontal proportional metrics in each selected body or ruby font.
-ruby_gap sets the vertical clearance between the hard ink bounds of a
-reading group and its body before animation. Negative values allow overlap.
+Horizontal readings share one baseline by default. ruby_alignment="group"
+uses the local body-to-reading gap for each group. ruby_gap measures the
+clearance between hard outlines before animation. Negative values allow overlap.
+Short horizontal italic readings follow the slanted ink center.
 vertical stacks glyphs in measured font cells. ruby_gap then separates the body
 and reading cells horizontally, in script pixels.
 No ASS event is required or synthesized. Timing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
 
-[Source](../../kara_templater/lyrics/layout.py#L464)
+[Source](../../kara_templater/lyrics/layout.py#L502)
 
 ```python
 layout_lyrics(
@@ -513,6 +516,7 @@ layout_lyrics(
     id: str,
     display: Lifetime,
     ruby_gap: float = 6,
+    ruby_alignment: Literal['line', 'group'] = 'line',
     studio_spacing: bool | layout.StudioSpacing = False,
     palt: bool = False,
     guide_symbols: Mapping[str, layout.VectorGuide] | None = None,

@@ -1,7 +1,7 @@
 """Studio-style motion expressed through the existing StateAnimation protocol."""
 
 from dataclasses import dataclass, replace
-from math import cos, pi, pow, radians, sin, tan
+from math import cos, pi, pow, radians, sin, sqrt, tan
 
 from .easing import ease_out
 from .geometry import Vec2
@@ -72,8 +72,60 @@ def zoom_pulse(note: float, duration: float, level: int, pivot: Vec2) -> Transfo
     return Transform(scale=ZoomScale(note, duration, max(1, level)), pivot=pivot)
 
 
-def glow_scale(q: float, entering: bool) -> Vec2:
-    return Vec2(1 + 0.6 * (1 - q if entering else q), 1)
+_GLOW_STRETCH = 0.6
+_DRIP_ANGLE_LIMIT = 89
+_CHAR_DRIP = """
+    bool entering=item(data+2)>0.;
+    float v=entering?p:1.-p;
+    mat2 before=basisOf(scale,skew,angle);
+    skew.y += v>0. ? (entering?1.:-1.)*tan(min(radians(89.),(1.-v)*1.57079633)) : 0.;
+    pos+=(before-basisOf(scale,skew,angle))*pairAt(data);
+    alpha*=float(v>0.);
+"""
+_GLOW = """
+    bool enter=item(data+2)>0.;
+    float q=smoothstep(0.,1.,p);
+    mat2 before=basisOf(scale,skew,angle);
+    scale.x*=1.+0.6*(enter?1.-q:q);
+    pos+=(before-basisOf(scale,skew,angle))*pairAt(data);
+    alpha*=enter?min(1.,3.*p):1.-q;
+"""
+_GLOW_ECHO = """
+    bool enter=item(data+2)>0.;
+    float q=smoothstep(0.,1.,p), sx=1.+0.6*(enter?1.-q:q);
+    mat2 before=basisOf(scale,skew,angle);
+    scale.x*=sx;
+    pos+=(before-basisOf(scale,skew,angle))*pairAt(data);
+    pos.x+=item(data+3)*(enter?1.-0.25*q:1.+0.9*q)*sx;
+    alpha*=enter?(1.-q)*sqrt(max(0.,1.-q)):sin(3.14159265*q);
+"""
+
+
+def glow_transition(entering: bool, pivot: Vec2, *, echo: float | None = None) -> ShaderMotion:
+    def stretch_at(p: float) -> Vec2:
+        q = smooth_rate(p)
+        return Vec2(1 + _GLOW_STRETCH * (1 - q if entering else q), 1)
+
+    def opacity_at(p: float) -> float:
+        q = smooth_rate(p)
+        if echo is None:
+            return min(1, 3 * p) if entering else 1 - q
+        return (1 - q) * sqrt(max(0, 1 - q)) if entering else sin(pi * q)
+
+    def travel_at(p: float) -> Vec2:
+        assert echo is not None
+        pitch = 1 + (-0.25 if entering else 0.9) * smooth_rate(p)
+        return Vec2(echo * pitch * stretch_at(p).x, 0)
+
+    motion = Transform(
+        scale=stretch_at, opacity=opacity_at, pivot=pivot,
+        offset=None if echo is None else travel_at,
+    )
+    params = (pivot.x, pivot.y, float(entering))
+    return ShaderMotion(
+        motion.sample, motion.channels, _GLOW if echo is None else _GLOW_ECHO,
+        params if echo is None else (*params, echo),
+    )
 
 
 def stretch(entering: bool, pivot: Vec2) -> ShaderMotion:
@@ -113,6 +165,8 @@ def transition(
     center = context.target.center
     if reading_edges is not None and kind not in {"utopia", "tilt_pop"}:
         center = Vec2(sum(reading_edges) / 2, center.y)
+    if kind in {"glow_in", "glow_out"}:
+        return glow_transition(entering, center)
     em = target.em_size or max(1, center.y * 2)
     targets = context.line.query(target.role)
     index = targets.index(target)
@@ -185,7 +239,7 @@ def transition(
             case "char_drip" | "spin_flip":
                 visible = p if entering else 1 - p
                 slope = (
-                    tan(min(radians(89), (1 - visible) * pi / 2)) if visible else 0.0
+                    tan(min(radians(_DRIP_ANGLE_LIMIT), (1 - visible) * pi / 2)) if visible else 0.0
                 )
                 shear = slope if entering else -slope
                 if kind == "spin_flip":
@@ -225,9 +279,6 @@ def transition(
                             scale=combined.scale,
                             skew=combined.skew,
                         )
-            case "glow_in" | "glow_out":
-                scale = glow_scale(q, entering)
-                opacity = min(1, 3 * p) if entering else 1 - q
             case "assemble_in":
                 opacity = max(0, (q - 0.45) / 0.55)
             case "dissolve_out":
@@ -263,15 +314,13 @@ def transition(
         return ShaderMotion(
             sample, channels, _SPIN_FLIP, (center.x, center.y, float(entering))
         )
-    parameters: tuple[float, ...] = (center.x, center.y)
     if kind == "char_drip":
-        body = """
-            float v=entering?p:1.-p;
-            skew.y += v>0. ? (entering?1.:-1.)*tan(min(radians(89.),(1.-v)*1.57079633)) : 0.;
-            alpha *= float(v>0.);
-        """
-        parameters = (drip_edge, 0.0)
-    elif kind == "scatter_out":
+        return ShaderMotion(sample, frozenset({"position", "skew", "opacity"}),
+                            _CHAR_DRIP, (drip_edge, 0, float(entering)))
+    if kind in {"assemble_in", "dissolve_out"}:
+        channels = frozenset({"opacity"})
+    parameters: tuple[float, ...] = (center.x, center.y)
+    if kind == "scatter_out":
         body = """
             offset=pairAt(data+3)*(1.-(1.-p)*(1.-p));
             angle+=item(data+5)*p; scale*=1.-0.4*p; alpha*=(1.-p)*(1.-p);
@@ -315,8 +364,6 @@ def transition(
     elif kind == "utopia":
         parameters = (utopia_pivot.x, utopia_pivot.y)
         body = "scale*=p<0.8 ? 1.3*p/0.8 : 1.+0.3*(1.-p)/0.2; alpha*=min(1.,p/0.8);"
-    elif kind in {"glow_in", "glow_out"}:
-        body = "scale.x*=1.+0.6*(entering?1.-q:q); alpha*=entering?min(1.,3.*p):1.-q;"
     elif kind == "assemble_in":
         body = "alpha*=max(0.,(q-0.45)/0.55);"
     elif kind == "dissolve_out":

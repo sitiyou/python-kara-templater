@@ -1,4 +1,4 @@
-"""File input and authored Document must feed the same Scene compiler."""
+"""Lyric import preserves semantic cues while normalizing authored appearance."""
 
 from pathlib import Path
 
@@ -16,7 +16,7 @@ from kara_templater import (
 )
 
 
-def test_parse_before_binding_preserves_cues_colors_ruby_and_output(tmp_path: Path):
+def test_parse_preserves_cues_and_ruby_and_uses_template_appearance(tmp_path: Path):
     document = Document.create(
         styles=(Style(fontname="DejaVu Sans", fontsize=64, shadow=0),)
     )
@@ -41,4 +41,10 @@ def test_parse_before_binding_preserves_cues_colors_ruby_and_output(tmp_path: Pa
         scene.replace_source(index)
         return scene.ass.compile().document.dumps()
 
-    assert compile_source(Document.load(path)) == compile_source(document)
+    loaded = Document.load(path)
+    lyrics = loaded.lyrics_at(len(loaded.records) - 1)
+    assert lyrics.body.text == "ABCD"
+    assert len(lyrics.body.cues) == 1
+    assert all(not run.appearance.inline_colors for run in lyrics.body.runs)
+    compiled = compile_source(loaded)
+    assert compiled == compile_source(Document.parse(loaded.dumps()))

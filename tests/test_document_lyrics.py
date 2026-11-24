@@ -27,7 +27,7 @@ def document(text):
 
 def test_projection_preserves_original_color_ranges_and_repeated_timing():
     doc, index = document(
-        r"{\k20\1c&H0000FF&}AB|ab{\k0}#|!c{\kt100\k30}#|<d{\k50\1c}C|c"
+        r"{\k20\1c&H0000FF&}AB|ab{\k0}#|!c{\k80}{\k30}#|<d{\k50\1c}C|c"
     )
     raw = doc.text_at(index)
     lyrics = parse_document_lyrics(raw, start=1)
@@ -59,18 +59,17 @@ def test_projection_preserves_original_color_ranges_and_repeated_timing():
     assert lyrics.body.runs[-1].appearance.inline_colors == frozenset()
 
 
-def test_untimed_prefix_and_kt_gap_are_not_discarded():
+def test_ignored_kt_does_not_split_text_or_move_the_clock():
     doc, index = document(r"pre{\k10}A{\kt50}gap{\k20}B{\kt100}tail")
     lyrics = parse_document_lyrics(doc.text_at(index), start=1)
     assert lyrics.body.text == "preAgapBtail"
     assert [lyrics.body.text[u.start : u.end] for u in lyrics.units] == [
         "pre",
-        "A",
-        "gap",
-        "B",
-        "tail",
+        "Agap",
+        "Btail",
     ]
-    assert [len(u.segments) for u in lyrics.units] == [0, 1, 0, 1, 0]
+    assert [len(u.segments) for u in lyrics.units] == [0, 1, 1]
+    assert lyrics.units[-1].segments[0].timing.start == pytest.approx(1.1)
 
 
 def test_cue_anchors_project_to_body_and_ruby_anchors_fail():
@@ -163,7 +162,7 @@ def test_reading_outline_spacing_is_independent_of_timing_checkpoints(rtl):
 @pytest.mark.parametrize("gap", [0, 3, 6])
 def test_wide_ruby_breaks_reserve_space_without_changing_times(gap):
     doc, index = document(r"{\k20}A|!long{\k20}B|!word")
-    layout = layout_document_lyrics(doc, index, ruby_gap=gap)
+    layout = layout_document_lyrics(doc, index, ruby_gap=gap, ruby_alignment="group")
     first, second = layout.ruby
     assert second.layout.bounds.left >= first.layout.bounds.right
     body = layout.body.characters[1]
@@ -179,6 +178,19 @@ def test_wide_ruby_breaks_reserve_space_without_changing_times(gap):
         layout.body.characters[1].bounds.left > layout.body.characters[0].bounds.right
     )
     assert layout.body.timing[1].start == 1.2
+
+
+def test_readings_share_a_baseline_and_clear_the_tallest_body_ink_by_default():
+    doc, index = document(r"{\k20}x|p{\k20}W{\k20}HH|!T")
+    layout = layout_document_lyrics(doc, index, ruby_gap=5)
+    readings = [glyph for ruby in layout.ruby for glyph in ruby.layout.characters]
+    baselines = [glyph.bounds.top + (glyph.baseline or 0) for glyph in readings]
+    assert baselines == pytest.approx([baselines[0]] * len(baselines))
+    ruby_bottom = max(g.ink_bounds.top + g.ink_bounds.height + g.object.state.border
+                      for g in readings if g.ink_bounds is not None)
+    body_top = min(g.ink_bounds.top - g.object.state.border for g in layout.body.characters
+                   if g.ink_bounds is not None)
+    assert body_top - ruby_bottom == pytest.approx(5)
 
 
 def test_ligature_across_syllables_is_preserved_until_split_requested():
@@ -201,7 +213,7 @@ def test_named_style_reset_changes_ruby_font_but_not_body_scope():
 
 
 def test_zero_and_centisecond_syllables_keep_exact_original_intervals():
-    doc, index = document(r"{\k0}A{\k1}B{\k0}#{\kt10\k1}C")
+    doc, index = document(r"{\k0}A{\k1}B{\k0}#{\k9}{\k1}C")
     before = doc.dumps()
     layout = layout_document_lyrics(doc, index, display=Lifetime(0, 5))
     assert [
@@ -212,12 +224,23 @@ def test_zero_and_centisecond_syllables_keep_exact_original_intervals():
     assert doc.dumps() == before
 
 
-def test_reversed_timing_cursor_identifies_document_record_and_decoded_offset():
-    doc, index = document(r"{\k20}A{\kt10\k10}B")
-    with pytest.raises(
-        ValueError, match=rf"record {index}, decoded text offset 1: kt reverses"
-    ):
-        layout_document_lyrics(doc, index)
+def test_import_normalizes_overrides_drawings_and_ruby_delimiters():
+    doc, index = document(
+        r"{\an8\rMissing\fnOther\t(0,200,\k90)\k30}{\kt100\kf20}春|>はる"
+        r"{\p1}m 0 0 l 1 1{\p0\ko50\1c&H00FF00&}夏|なつ"
+    )
+    imported = Document.parse(doc.dumps())
+    lyrics = imported.lyrics_at(index)
+    assert lyrics.body.text == "春夏"
+    segments = [segment for unit in lyrics.units for segment in unit.segments]
+    assert [seg.ruby.source.text for seg in segments if seg.ruby] == ["はる", "なつ"]
+    assert [seg.ruby.mode for seg in segments if seg.ruby] == ["join", "join"]
+    assert [seg.timing.kind for seg in segments] == ["k", "k"]
+    assert [time for seg in segments for time in (seg.timing.start, seg.timing.end)] == pytest.approx(
+        [1.3, 1.5, 1.5, 2]
+    )
+    assert all(not run.appearance.inline_colors for run in lyrics.body.runs)
+    assert layout_document_lyrics(imported, index).body.characters[0].object.font_size == Style().fontsize
 
 
 def test_shaping_error_after_style_reset_reports_document_range_and_cause():
@@ -331,6 +354,39 @@ def test_short_reading_centers_at_its_natural_spacing(reading):
     assert spare > 0
     assert ruby.layout.bounds.center == pytest.approx(layout.body.bounds.center)
     assert second.bounds.left - first.bounds.right == pytest.approx(0)
+
+
+@pytest.mark.parametrize("right_to_left", [False, True])
+def test_italic_reading_follows_the_ink_axis_without_moving_body(right_to_left):
+    doc, index = document(r"{\k50}HHHH|H{\k50}X")
+    doc.styles["Default"].italic = True
+    layout = layout_document_lyrics(doc, index, right_to_left=right_to_left)
+    host = layout.body.range_bounds(0, 4)
+    host_ink = [ink for item in layout.body.characters[:4] if (ink := item.ink_bounds) is not None]
+    glyph, = layout.ruby[0].layout.characters
+    assert len(host_ink) == 4
+    assert glyph.ink_bounds is not None
+    body_center = (min(ink.left for ink in host_ink) + max(ink.right for ink in host_ink)) / 2
+    assert glyph.ink_bounds.center > body_center + 2
+    assert host.left < glyph.bounds.left < glyph.bounds.right < host.right
+    assert glyph.ink_bounds.top + glyph.ink_bounds.height + glyph.object.state.border == pytest.approx(
+        min(ink.top for ink in host_ink) - doc.styles["Default"].outline - 6
+    )
+    plain, plain_index = document(r"{\k50}HHHH{\k50}X")
+    plain.styles["Default"].italic = True
+    assert layout.body.characters == layout_document_lyrics(
+        plain, plain_index, right_to_left=right_to_left
+    ).body.characters
+
+
+def test_tight_italic_reading_can_follow_slant_beyond_its_body_cell():
+    doc, index = document(r"{\k50}H|HH")
+    doc.styles["Default"].italic = True
+    layout = layout_document_lyrics(doc, index, studio_spacing=True)
+    body, = layout.body.characters
+    ruby, = layout.ruby
+    assert 0 < body.bounds.width - ruby.layout.bounds.width < 2
+    assert ruby.layout.bounds.right > body.bounds.right + 4
 
 
 def test_studio_spacing_uses_selected_em_and_preserves_overhanging_ink():

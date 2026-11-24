@@ -143,7 +143,7 @@ def preset_scene(
 
     def build_tracks(doc: Document, sources: tuple[LyricSource, ...]) -> tuple[Track, ...]:
         tracks = []
-        source_styles = doc.styles
+        source_styles = doc._lyric_styles()
         measurement_styles = tuple(_measurement_style(s) for s in source_styles.values())
         for source in sources:
             if styles is not None and source.style not in styles:
@@ -151,7 +151,7 @@ def preset_scene(
             assert source.record_index is not None
             record = doc.records[source.record_index]
             assert isinstance(record, Line)
-            style = source_styles[source.style]
+            style = source_styles["Default" if doc._imported else source.style]
             pair = paint_pair_from_style(style)
             base_paint = pair.before if before is None else replace(pair.before, fill=before)
             highlight_paint = pair.after if after is None else replace(pair.after, fill=after)
@@ -161,9 +161,9 @@ def preset_scene(
                     source=_SourceById(source.id),
                     layout=_SourcePlacement(
                         align=style.align,
-                        left=record.margin_l or style.margin_l,
-                        right=record.margin_r or style.margin_r,
-                        vertical=record.margin_v or style.margin_v,
+                        left=style.margin_l if doc._imported else record.margin_l or style.margin_l,
+                        right=style.margin_r if doc._imported else record.margin_r or style.margin_r,
+                        vertical=style.margin_v if doc._imported else record.margin_v or style.margin_v,
                     ),
                     preview=preview,
                     tail=tail,

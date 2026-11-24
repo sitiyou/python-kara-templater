@@ -35,10 +35,10 @@ def main() -> None:
     parser.add_argument(
         "--before",
         type=Color.hex,
-        help="fill before the wipe #RRGGBB; defaults to ASS secondary color",
+        help="fill before the wipe #RRGGBB",
     )
     parser.add_argument(
-        "--after", type=Color.hex, help="fill after the wipe #RRGGBB; defaults to ASS primary color"
+        "--after", type=Color.hex, help="fill after the wipe #RRGGBB"
     )
     parser.add_argument(
         "--pulse", choices=("none", "char", "chars", "syllable"), default="none"

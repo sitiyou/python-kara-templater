@@ -7,6 +7,7 @@ from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property
 from hashlib import sha256
+from typing import Literal
 from urllib.parse import quote
 
 from .._karaoke_motion import RowSlide
@@ -84,6 +85,7 @@ class LyricSource:
     text_data: DocumentText
     projection: DocumentLyrics | None = None
     chapter: str | None = None
+    _imported: bool = field(default=False, repr=False, compare=False)
 
     @classmethod
     def from_lyrics(
@@ -113,7 +115,7 @@ class LyricSource:
         return (
             self.projection
             if self.projection is not None
-            else parse_document_lyrics(self.text_data, start=self.display.start)
+            else parse_document_lyrics(self.text_data, start=self.display.start, ruby_layout=not self._imported)
         )
 
     @property
@@ -160,8 +162,9 @@ class Track:
     Layout uses native advances. Horizontal palt selects the font’s proportional
     alternate widths for body and ruby and uses native advances by default. reserved_border declares the outer hard radius
     of custom or shared visual layers. Glow and motion do not reserve space.
-    ruby_gap sets the visual gap in script pixels between hard outlines of
-    the reading group and its body at rest. Negative values allow overlap.
+    ruby_alignment shares a horizontal baseline across the line by default.
+    Use "group" to apply ruby_gap separately to each reading group. ruby_gap
+    sets hard-outline clearance in script pixels. Negative values allow overlap.
     vertical stacks cells downward with right-side readings. With no layout override,
     two columns rotate from right to left. Explicit layout allocators place the prepared blocks.
     right_to_left places shaped lyric cells from right to left, including readings.
@@ -186,6 +189,7 @@ class Track:
     min_outline_gap: float | None = 0
     reserved_border: float = 0
     ruby_gap: float = 6
+    ruby_alignment: Literal["line", "group"] = "line"
     studio_spacing: bool | StudioSpacing | None = None
     vertical: bool = False
     right_to_left: bool = False
@@ -194,6 +198,8 @@ class Track:
     extrusion: Extrusion | None = None
 
     def __post_init__(self) -> None:
+        if self.ruby_alignment not in ("line", "group"):
+            raise ValueError("ruby_alignment must be line or group")
         finite(self.preview, self.tail or 0, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
         if self.reserved_border < 0 or (
             self.min_outline_gap is not None and self.min_outline_gap < 0
@@ -232,8 +238,8 @@ def _sources(document: Document, owner: str) -> tuple[LyricSource, ...]:
     prefix = source_prefix(owner)
     result: list[LyricSource] = []
     seen: set[str] = set()
-    styles = document.styles
-    soft_break = _soft_break(document)
+    styles = document._lyric_styles()
+    soft_break = " " if document._imported else _soft_break(document)
     for index, record in enumerate(document.records):
         if not isinstance(record, Line):
             continue
@@ -245,8 +251,11 @@ def _sources(document: Document, owner: str) -> tuple[LyricSource, ...]:
         if record.effect.startswith(SOURCE_PREFIX) and not marked:
             continue
         # Selection operates on lyric inputs, not untimed template/drawing events.
-        text = _read_document_text(document, index, styles, soft_break)
-        if not text.timing:
+        text = (
+            _read_document_text(document, index, styles, soft_break, lyrics_only=True)
+            if document._imported else _read_document_text(document, index, styles, soft_break)
+        )
+        if not text.timing or (document._imported and not text.text.strip()):
             continue
         if marked:
             identifier, effect = read_source_marker(record.effect, prefix, index)
@@ -269,6 +278,7 @@ def _sources(document: Document, owner: str) -> tuple[LyricSource, ...]:
                 effect,
                 Lifetime(record.start_time / 1000, record.end_time / 1000),
                 text,
+                _imported=document._imported,
             )
         )
     return tuple(result)
@@ -533,10 +543,10 @@ def build_lyric_scene(
     removes only that owner's generated events and regenerates from its sources.
     theme supplies shared catalog and cue colors. Track roles override only their
     declared channels, and explicit effect colors take precedence.
-    bpm supplies a fixed song tempo for automatic cue timing.
-    inputs adds structured LyricSource values alongside parsed ASS sources.
-    These have no ASS record ownership and must be supplied again to regenerate
-    them. The caller's Document and reusable declarations are not mutated.
+    bpm overrides the document tempo for automatic cue timing.
+    inputs adds structured LyricSource values alongside the document's lyrics.
+    Structured sources have no ASS record ownership. The caller's Document and
+    reusable declarations are not mutated.
     preview_interval limits the returned plans and objects to lines or independent
     cues visible in this half-open interval of absolute seconds. Strict rows with bounded catalog effects retain neighboring handoffs
     and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
@@ -560,6 +570,7 @@ def _build_lyric_scene(
     preview_interval: tuple[float, float] | None = None,
 ) -> LyricScene:
     window = Lifetime(*preview_interval) if preview_interval is not None else None
+    bpm = document.bpm if bpm is None else bpm
     _validate_bpm(bpm)
     if not owner:
         raise ValueError("lyric scene owner cannot be empty")
@@ -567,11 +578,12 @@ def _build_lyric_scene(
     source_document.records = strip_generated_records(
         source_document.records, generated_prefix(owner), set()
     )
-    if any(source.record_index is not None for source in inputs):
+    structured = (*source_document.lyric_sources, *deepcopy(inputs))
+    if any(source.record_index is not None for source in structured):
         raise ValueError(
-            "explicit inputs must be structured sources without ASS record ownership"
+            "structured inputs must be sources without ASS record ownership"
         )
-    sources = (*_sources(source_document, owner), *deepcopy(inputs))
+    sources = (*_sources(source_document, owner), *structured)
     tracks = build_tracks(source_document, sources)
     if len({track.id for track in tracks}) != len(tracks):
         raise ValueError("duplicate Track ids")
@@ -580,7 +592,7 @@ def _build_lyric_scene(
         raise ValueError("duplicate lyric source ids")
     scene = LyricScene(source_document, owner=owner)
     plans: list[LyricLinePlan] = []
-    source_styles = tuple(source_document.styles.values())
+    source_styles = tuple(source_document._lyric_styles().values())
     for declaration in tracks:
         track = deepcopy(declaration)
         palette = theme.overlay(track.theme)
@@ -665,6 +677,7 @@ def _build_lyric_scene(
                 min_outline_gap=track.min_outline_gap,
                 reserved_border=border, secondary_width=secondary_width,
                 ruby_gap=track.ruby_gap,
+                ruby_alignment=track.ruby_alignment,
                 studio_spacing=studio_spacing,
                 palt=track.palt,
                 guide_symbols=track.guide_symbols,

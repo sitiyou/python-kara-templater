@@ -4,14 +4,14 @@ from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from functools import partial
 from itertools import groupby, pairwise
-from math import ceil, floor, pi, pow, sin, sqrt
+from math import ceil, floor, pi, pow, sin
 from typing import Literal, get_args
 
 from ._contour_stroke import contour_stroke
 from ._karaoke_motion import (
     HALO_STROKES,
     ZoomScale,
-    glow_scale,
+    glow_transition,
     stretch,
     transition,
     zoom_pulse,
@@ -44,11 +44,13 @@ from .lyrics.highlights import (
     LyricGradient,
     LyricHighlights,
     LyricMaterial,
+    _check_sweep_angle,
     _GlyphPaint,
     _hard_glow_border,
     _PaintLayers,
     _resolve_material,
     _style_material,
+    _tilted_sweep_bounds,
 )
 from .paint_fields import (
     ColorRamp,
@@ -67,6 +69,7 @@ from .scene import (
     SceneObject,
     TextObject,
     _ColorStripClip,
+    _SweepClip,
 )
 from .scene_animation import (
     ScalePulse,
@@ -1022,6 +1025,7 @@ class KaraokeEffects:
     entry_unit: Literal["preset", "character"] = "preset"
     exit_unit: Literal["preset", "character"] = "preset"
     reverse_wipe: bool = False
+    sweep_angle: float | None = None
     decoration: KaraokeDecoration = "none"
     entry_duration: float = 0.3
     exit_duration: float = 0.3
@@ -1048,7 +1052,7 @@ class KaraokeEffects:
         "color", "brighten", "follow_before", "follow_after"
     ] = "color"
     ruby_reading_units: bool = False
-    ruby_scanline: Literal["reading", "both"] = "reading"
+    ruby_scanline: Literal["reading", "both"] = "both"
     scanline_material: LyricMaterial = None
     scanline_brightness: float = 0.60
     shine: Color | None = None
@@ -1108,6 +1112,7 @@ class KaraokeEffects:
             raise ValueError("transition unit must be preset or character")
         if self.ruby_scanline not in {"reading", "both"}:
             raise ValueError("ruby_scanline must be reading or both")
+        _check_sweep_angle(self.sweep_angle)
         if self.scanline_mode not in {
             "color",
             "brighten",
@@ -1252,6 +1257,7 @@ class KaraokeEffects:
             StatePatch(fill=self.after_fill, outline=self.after_outline),
             wipe=self.highlight != "no_wipe",
             reverse=self.reverse_wipe,
+            sweep_angle=self.sweep_angle,
             ruby_reading_units=self.ruby_reading_units,
             base_paint=StatePatch(fill=self.before_fill, outline=self.before_outline),
             material=self.material,
@@ -1371,6 +1377,7 @@ class KaraokeEffects:
     def _scanline(
         self, layer: _ScanlineLayer, index: int, path: _BandPath,
         band: float, softness: float, top: float, bottom: float,
+        *, slope: float, pivot_y: float,
     ) -> Iterator[TextObject]:
         node, sides = layer.drawing, layer.sides
         material, before_material = layer.highlight_brush, layer.waiting_brush
@@ -1427,7 +1434,7 @@ class KaraokeEffects:
                     yield lo, 0, strength, left_paint
                     yield 0, hi, strength, right_paint
 
-        clip_type = _ColorStripClip if softness else RectangleClip
+        clip_type = _ColorStripClip if softness else _SweepClip
         for strip, (lo, hi, strength, paint) in enumerate(painted_slices()):
             empty = (0.0, top, 0.0, bottom)
             mask = RectangleKeyframes((
@@ -1461,7 +1468,9 @@ class KaraokeEffects:
                 reference=None,
                 layer=node.layer if sides else node.layer + 2,
                 state=state,
-                clip=clip_type(0, 0, 1, 1, space="local", deform=mask),
+                clip=clip_type(
+                    0, 0, 1, 1, space="local", deform=mask, slope=slope, pivot_y=pivot_y
+                ),
             )
             yield copy
 
@@ -1787,21 +1796,6 @@ class KaraokeEffects:
                 travel_duration = total * (1 - self.stagger)
                 for echo_index in (*range(-14, 0), *range(1, 15)):
                     distance = (target.em_size or node.font_size) * 0.12 * echo_index
-
-                    def envelope(p: float, enter: bool = entering) -> float:
-                        q = smooth_rate(p)
-                        return (1 - q) * sqrt(max(0, 1 - q)) if enter else sin(pi * q)
-
-                    def travel(
-                        p: float, enter: bool = entering, x: float = distance
-                    ) -> Vec2:
-                        q = smooth_rate(p)
-                        pitch = 1 - 0.25 * q if enter else 1 + 0.9 * q
-                        return Vec2(x * pitch * glow_scale(q, enter).x, 0)
-
-                    def scale(p: float, enter: bool = entering) -> Vec2:
-                        return glow_scale(smooth_rate(p), enter)
-
                     echo = replace(
                         node,
                         id=f"{node.id}/{self.id}:echo:{kind}:{echo_index}",
@@ -1821,17 +1815,8 @@ class KaraokeEffects:
                             opacity=0.82 ** abs(echo_index),
                         ),
                     )
-                    motion = Transform(offset=travel, opacity=envelope, scale=scale, pivot=target.center)
                     echo = echo.animate(
-                        ShaderMotion(motion.sample, motion.channels, """
-                            bool enter=item(data+2)>0.;
-                            float q=smoothstep(0.,1.,p), sx=1.+0.6*(enter?1.-q:q);
-                            mat2 before=basisOf(scale,skew,angle);
-                            scale.x*=sx;
-                            pos+=(before-basisOf(scale,skew,angle))*pairAt(data);
-                            pos.x+=item(data+3)*(enter?1.-0.25*q:1.+0.9*q)*sx;
-                            alpha*=enter?(1.-q)*sqrt(max(0.,1.-q)):sin(3.14159265*q);
-                        """,(target.center.x,target.center.y,float(entering),distance)),
+                        glow_transition(entering, target.center, echo=distance),
                         duration=travel_duration,
                     )
                     additions.setdefault(node.id, []).append(echo)
@@ -1875,7 +1860,7 @@ class KaraokeEffects:
             for slot, (target, _, unit, _) in enumerate(glyphs)
             if target.role == "ruby"
         }
-        reading_only = {
+        reading_only_units = {
             i for i, u in enumerate(line.layout.lyrics.units)
             if self.ruby_scanline == "reading" and u.segments
             and all(s.ruby is not None for s in u.segments)
@@ -1924,11 +1909,18 @@ class KaraokeEffects:
                     box = replace(box, left=glyph.object.state.position.x,
                                   width=glyph.bounds.width if advance is None else advance)
                     first_note, releases = clock[0][0].start + target.delay, {}
+                clip = painted_nodes[target.node_id].clip
+                if isinstance(clip, _SweepClip) and clip.slope:
+                    source = line.layout.lyrics.units[unit]
+                    box = _tilted_sweep_bounds(
+                        box, glyph, clip.slope, clip.pivot_y,
+                        single=body and source.start == glyph.start and source.end == glyph.end,
+                    )
                 passes = _sweeps(clock, target.delay, box,
                                  previous[1] if previous else (),
                                  first_note, releases,
                                  first_pixel=0.5 if body else 0.0, reverse=self.reverse_wipe)
-                sweeps[target.node_id] = () if body and unit in reading_only else passes
+                sweeps[target.node_id] = () if body and unit in reading_only_units else passes
                 first, _ = track.get(slot, (passes, passes))
                 track[slot] = first, passes
         ratio = line.layout.script_height / 1080
@@ -2013,12 +2005,14 @@ class KaraokeEffects:
                 movements = list(sweeps[target.node_id])
                 group, slot = reading_slots.get(target.node_id, (None, unit))
                 reach = width / 2 + pad * scale.x
+                slope, pivot_y = (base.clip.slope, base.clip.pivot_y) if isinstance(base.clip, _SweepClip) else (0.0, 0.0)
+                band_ink = _tilted_sweep_bounds(ink, glyph, slope, pivot_y)
                 neighbors = edges[group].items() if group is None or not transformed_band else ()
                 for other, (first, last) in neighbors:
-                    if other == slot or (group is None and other in reading_only):
+                    if other == slot or (group is None and other in reading_only_units):
                         continue
                     for sweep in last if other < slot else first:
-                        overlap = sweep.intersect(ink.left - reach, ink.right + reach)
+                        overlap = sweep.intersect(band_ink.left - reach, band_ink.right + reach)
                         if overlap is not None:
                             movements.append(overlap)
                 if band_start is not None:
@@ -2091,7 +2085,8 @@ class KaraokeEffects:
                             replacements[piece.id] = outside
                     for index, band_path in enumerate(band_paths):
                         for front in self._scanline(
-                            layer, index, band_path, width, softness, strip_top, strip_bottom
+                            layer, index, band_path, width, softness, strip_top, strip_bottom,
+                            slope=slope, pivot_y=pivot_y,
                         ):
                             additions.setdefault(layer.drawing.id, []).append(front)
                             aliases.setdefault(target.id, []).append(front.id)

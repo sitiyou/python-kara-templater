@@ -27,7 +27,7 @@ A CueFactory producing a stepwise bar countdown from vector objects.
 Automatic height follows the authored host font size (48 script pixels without a host).
 Automatic width is 1.5 times the height. Dimensions include the hard outline.
 
-[Source](../../kara_templater/cues.py#L182)
+[Source](../../kara_templater/cues.py#L197)
 
 ```python
 BarsCue(
@@ -63,15 +63,20 @@ BarsCue.__call__(
 
 ## CueContent
 
-Local objects plus the explicit layout space the author wants to reserve.
+Local objects and reserved space. ink_center_y aligns visible ink for inline cues.
 
-[Source](../../kara_templater/cues.py#L59)
+Its default is the center of the reserved height. A measured lyric cue can
+use from_line to obtain its visible body center automatically.
+
+[Source](../../kara_templater/cues.py#L60)
 
 ```python
 CueContent(
     objects: tuple[SceneObject, ...],
     width: float,
     height: float,
+    *,
+    ink_center_y: float | None = None,
 )
 ```
 
@@ -82,6 +87,17 @@ CueContent(
 | `objects` | `tuple[SceneObject, ...]` | `required` |
 | `width` | `float` | `required` |
 | `height` | `float` | `required` |
+| `ink_center_y` | `float \| None` | `None` |
+
+### CueContent.from_line
+
+Place a measured line in local cue coordinates and align its body ink.
+
+```python
+CueContent.from_line(
+    line: LyricLine,
+) -> CueContent
+```
 
 ## CueContext
 
@@ -92,7 +108,7 @@ cluster at the marker (the final cluster for an end marker), when available. col
 role_font_size is its authored size for decoration scaling; role_em is its measured em in script pixels. base_gradient and gradient supply its base and highlight fill ramps.
 zoom_pulse_curve_level selects the lyric zoom curve for cue steps, or None for steady size.
 
-[Source](../../kara_templater/cues.py#L34)
+[Source](../../kara_templater/cues.py#L35)
 
 ```python
 CueContext(
@@ -137,7 +153,7 @@ A typed callable that maps CueContext to local CueContent.
 Implement it with an ordinary function or callable object to customize cue text,
 geometry, and animation.
 
-[Source](../../kara_templater/cues.py#L81)
+[Source](../../kara_templater/cues.py#L96)
 
 ### CueFactory.__call__
 
@@ -156,7 +172,7 @@ A bound marker, preset, content, and trigger placement in the lyric layout.
 
 It retains the data needed to reserve or release inline space.
 
-[Source](../../kara_templater/cues.py#L276)
+[Source](../../kara_templater/cues.py#L291)
 
 ```python
 CuePlacement(
@@ -199,7 +215,7 @@ With no line_edge, independent cues use absolute position.
 An explicit trigger overrides the relevant timing interval default. colors fixes
 the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
 
-[Source](../../kara_templater/cues.py#L93)
+[Source](../../kara_templater/cues.py#L108)
 
 ```python
 CuePreset(
@@ -255,7 +271,7 @@ A plain-text layout after cue binding, with inline and independent cue groups.
 
 Its group combines the adjusted text and reserved-space behavior.
 
-[Source](../../kara_templater/cues.py#L303)
+[Source](../../kara_templater/cues.py#L318)
 
 ```python
 CuedLayout(
@@ -290,7 +306,7 @@ CuedLayout.group(
 
 Body/ruby with shared cue reservations; independent cues remain separate.
 
-[Source](../../kara_templater/cues.py#L540)
+[Source](../../kara_templater/cues.py#L557)
 
 ```python
 CuedLyrics(
@@ -384,7 +400,7 @@ A CueFactory displaying configurable countdown text for each step.
 It measures the requested font and returns objects plus explicit reserved width
 and height.
 
-[Source](../../kara_templater/cues.py#L231)
+[Source](../../kara_templater/cues.py#L246)
 
 ```python
 TextCue(
@@ -489,7 +505,7 @@ Defaults trigger at the first timing interval. Optional BPM sets automatic cue t
 A preset can supply an absolute trigger. Inline reservations are included in
 range/background measurements and optionally released after the cue ends.
 
-[Source](../../kara_templater/cues.py#L343)
+[Source](../../kara_templater/cues.py#L358)
 
 ```python
 bind_cues(
@@ -509,7 +525,7 @@ Markers use projected body offsets. A reservation inside a body unit moves
 its ruby by half the reserved width, keeping its original center offset from
 the expanded body box; before a unit it moves ruby by the full width.
 
-[Source](../../kara_templater/cues.py#L566)
+[Source](../../kara_templater/cues.py#L583)
 
 ```python
 bind_lyric_cues(
