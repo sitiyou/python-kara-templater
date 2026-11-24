@@ -228,7 +228,13 @@ def test_feathered_wipe_requires_hook(tmp_path) -> None:
     assert all(a is b for a, b in zip(scene.objects, original, strict=True))
 
 
-def test_strict_preview_keeps_absolute_indices_and_neighbor_placement():
+@pytest.mark.parametrize(("singing", "exit_effect", "exit_duration"), (
+    ("zoom_pulse", "fade", 0.3),
+    ("utopia", "utopia", 0.45),
+))
+def test_strict_preview_keeps_absolute_indices_and_neighbor_placement(
+    singing, exit_effect, exit_duration,
+):
     doc = document()
     for i in range(32):
         start = 1000 + i * 1500
@@ -237,7 +243,9 @@ def test_strict_preview_keeps_absolute_indices_and_neighbor_placement():
         LyricSource.from_lyrics(str(i), plan.source.lyrics, display=plan.source.display, chapter=str(i // 7))
         for i, plan in enumerate(prepare_tracks(doc, tracks=(Track(id="base"),)).plans)
     )
-    track = Track(id="indexed", layout=Layout(rows=3), effects=(KaraokeEffects(singing="zoom_pulse"),))
+    track = Track(id="indexed", layout=Layout(rows=3), effects=(
+        KaraokeEffects(singing=singing, exit=exit_effect, exit_duration=exit_duration),
+    ))
     def build(window):
         return prepare_tracks(document(), inputs=inputs, tracks=(track,), preview_interval=window)
     whole = build(None)

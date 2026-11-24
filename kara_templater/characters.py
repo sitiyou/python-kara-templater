@@ -6,7 +6,8 @@ from unicodedata import category, name
 from . import _metrics
 from .ass import Style
 from .geometry import Vec2
-from .model import Box, LaidOutLine
+from .layout import text_extents
+from .model import Box
 from .sources import _source_location
 from .timeline import Region, _finite
 
@@ -222,117 +223,123 @@ def _translation(actual, isolated, *, source):
 
 
 def layout_characters(
-    layout: LaidOutLine, *, style: Style, palt: bool = False
+    text: str, *, style: Style, origin: Vec2 | None = None, palt: bool = False,
 ) -> tuple[DrawableCharacter, ...]:
-    """Measure verified clusters in the original unit layout, without relayout.
+    """Measure independently drawable clusters and source ranges in a text run.
 
-    Ink bounds are conservative outline control-point bounds (no blur/stroke),
-    not exact raster extents. TextRange identities are independent of timing and
-    appearance. Empty-outline spaces retain advance but are not pulse targets.
+    Origin is the top-left of the run in script pixels, with (0, 0) as the default. Ink bounds exclude
+    decoration. Spaces retain their advance even when they have no outline.
     """
+    origin = origin or Vec2()
+    width, height, _, _ = text_extents(replace(style, outline=0), text, palt=palt)
+    return _measure_clusters(text, Box(origin.x, origin.y, width, height), style=style, palt=palt)
+
+
+def _measure_clusters(
+    source_text: str, bounds: Box, *, style: Style, index: int = 0, palt: bool = False,
+) -> tuple[DrawableCharacter, ...]:
+    if not source_text:
+        return ()
     result = []
-    for index, unit in enumerate(layout.units):
-        with _source_location(index):
-            if not unit.source.text:
-                continue
-            try:
-                clusters = _clusters(unit.source.text)
-            except LayoutCapabilityError as error:
-                raise LayoutCapabilityError(f"unit {index}: {error}") from error
-            width, _, _, baseline, outlines = _shape(
-                style, unit.source.text, unit.box.left, palt=palt
+    with _source_location(index):
+        try:
+            clusters = _clusters(source_text)
+        except LayoutCapabilityError as error:
+            raise LayoutCapabilityError(f"unit {index}: {error}") from error
+        width, _, _, baseline, outlines = _shape(
+            style, source_text, bounds.left, palt=palt
+        )
+        if abs(width - bounds.width) > 1 / 64:
+            raise LayoutCapabilityError(
+                f"unit {index}: supplied style does not match original layout"
             )
-            if abs(width - unit.box.width) > 1 / 64:
-                raise LayoutCapabilityError(
-                    f"unit {index}: supplied style does not match original layout"
-                )
-            cursor, advance = 0, 0
-            unit_characters = []
-            ci = 0
-            while ci < len(clusters):
-                start = clusters[ci][0]
-                last_error = None
-                matched = None
-                # A ligature cannot be redrawn as independent source characters.
-                # Grow the source range until its isolated contours exactly match
-                # the original run. Whitespace remains a separate timing region.
-                for stop in range(ci, len(clusters)):
-                    if stop > ci and (
-                        clusters[ci][2].isspace() or clusters[stop][2].isspace()
-                    ):
-                        break
-                    end = clusters[stop][1]
-                    text = unit.source.text[start:end]
-                    source = TextRange(index, start, end)
-                    try:
-                        cw, ch, _, cb, isolated = _shape(style, text, unit.box.left, palt=palt)
-                        actual = outlines[cursor : cursor + len(isolated)]
-                        shift = _translation(actual, isolated, source=source)
-                    except LayoutCapabilityError as error:
-                        last_error = error
-                        continue
-                    ci = stop + 1
-                    matched = (text, source, cw, ch, cb, isolated, actual, shift)
+        cursor, advance = 0, 0
+        unit_characters = []
+        ci = 0
+        while ci < len(clusters):
+            start = clusters[ci][0]
+            last_error = None
+            matched = None
+            # A ligature cannot be redrawn as independent source characters.
+            # Grow the source range until its isolated contours exactly match
+            # the original run. Whitespace remains a separate timing region.
+            for stop in range(ci, len(clusters)):
+                if stop > ci and (
+                    clusters[ci][2].isspace() or clusters[stop][2].isspace()
+                ):
                     break
-                if matched is None:
-                    assert last_error is not None
-                    raise last_error
-                text, source, cw, ch, cb, isolated, actual, shift = matched
-                pen_offset = Vec2()
-                if palt and isolated:
-                    # The portable renderer draws this cluster without palt. Bake
-                    # the GPOS translation into its pen, separately from its cell.
-                    plain = _shape(style, text, unit.box.left)[4]
-                    offset = _translation(isolated, plain, source=source)
-                    if offset is not None:
-                        pen_offset = Vec2(*offset)
-                cursor += len(isolated)
-                dx, dy = shift if shift is not None else (advance, 0)
-                box = Box(unit.box.left + dx, unit.box.top + baseline + dy - cb, cw, ch)
-                points = [point for outline, _, _, _ in actual for point in outline]
-                ink = None
-                if points:
-                    xs, ys = zip(*points, strict=True)
-                    ink = Box(
-                        unit.box.left + min(xs),
-                        unit.box.top + baseline + min(ys),
-                        max(xs) - min(xs),
-                        max(ys) - min(ys),
-                    )
-                unit_characters.append(
-                    DrawableCharacter(
-                        source,
-                        text,
-                        box,
-                        ink,
-                        Region(box.left, box.right),
-                        tuple(
-                            dict.fromkeys(
-                                FontFace(face[0], face[1], face[3]) for _, _, _, face in actual
-                            )
-                        ),
-                        pen_offset,
-                    )
+                end = clusters[stop][1]
+                text = source_text[start:end]
+                source = TextRange(index, start, end)
+                try:
+                    cw, ch, _, cb, isolated = _shape(style, text, bounds.left, palt=palt)
+                    actual = outlines[cursor : cursor + len(isolated)]
+                    shift = _translation(actual, isolated, source=source)
+                except LayoutCapabilityError as error:
+                    last_error = error
+                    continue
+                ci = stop + 1
+                matched = (text, source, cw, ch, cb, isolated, actual, shift)
+                break
+            if matched is None:
+                assert last_error is not None
+                raise last_error
+            text, source, cw, ch, cb, isolated, actual, shift = matched
+            pen_offset = Vec2()
+            if palt and isolated:
+                # The portable renderer draws this cluster without palt. Bake
+                # the GPOS translation into its pen, separately from its cell.
+                plain = _shape(style, text, bounds.left)[4]
+                offset = _translation(isolated, plain, source=source)
+                if offset is not None:
+                    pen_offset = Vec2(*offset)
+            cursor += len(isolated)
+            dx, dy = shift if shift is not None else (advance, 0)
+            box = Box(bounds.left + dx, bounds.top + baseline + dy - cb, cw, ch)
+            points = [point for outline, _, _, _ in actual for point in outline]
+            ink = None
+            if points:
+                xs, ys = zip(*points, strict=True)
+                ink = Box(
+                    bounds.left + min(xs),
+                    bounds.top + baseline + min(ys),
+                    max(xs) - min(xs),
+                    max(ys) - min(ys),
                 )
-                advance = dx + cw
-            if cursor != len(outlines):
+            unit_characters.append(
+                DrawableCharacter(
+                    source,
+                    text,
+                    box,
+                    ink,
+                    Region(box.left, box.right),
+                    tuple(
+                        dict.fromkeys(
+                            FontFace(face[0], face[1], face[3]) for _, _, _, face in actual
+                        )
+                    ),
+                    pen_offset,
+                )
+            )
+            advance = dx + cw
+        if cursor != len(outlines):
+            raise LayoutCapabilityError(
+                f"unit {index}: shaping changes glyph count across character boundaries"
+            )
+        # Outline positions are grid-quantized, advances are not. Keep the last
+        # timing boundary exactly at the unit edge so every character completes.
+        for ci, character in enumerate(unit_characters):
+            left = character.box.left if ci else bounds.left
+            right = (
+                unit_characters[ci + 1].box.left
+                if ci + 1 < len(unit_characters)
+                else bounds.right
+            )
+            if right < left:
                 raise LayoutCapabilityError(
-                    f"unit {index}: shaping changes glyph count across character boundaries"
+                    f"{character.source}: non-monotone character positions"
                 )
-            # Outline positions are grid-quantized, advances are not. Keep the last
-            # timing boundary exactly at the unit edge so every character completes.
-            for ci, character in enumerate(unit_characters):
-                left = character.box.left if ci else unit.box.left
-                right = (
-                    unit_characters[ci + 1].box.left
-                    if ci + 1 < len(unit_characters)
-                    else unit.box.right
-                )
-                if right < left:
-                    raise LayoutCapabilityError(
-                        f"{character.source}: non-monotone character positions"
-                    )
-                result.append(replace(character, timing_region=Region(left, right)))
+            result.append(replace(character, timing_region=Region(left, right)))
     return tuple(result)
 
 

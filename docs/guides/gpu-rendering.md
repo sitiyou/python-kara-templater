@@ -104,7 +104,8 @@ opacity, ordinary rectangle clips and continuous fill/outline linear gradients
 Dynamic stroke flashes and stretch halos share shaped contour segments. The shader computes round stroke coverage from the current pen radius. A fade on outlined
 text can reuse two native masks. The shader selects the translucent border
 when the fill fades so that the border does not show through the letter.
-Ordinary face outlines stay in script pixels during scaling. Set
+Ordinary face outlines stay in script pixels during scaling. Blurred outlines
+keep their convolved mask, with coverage adjusted for the current transform. Set
 `scale_border=True` to scale the pen with the text or drawing. Hook byte budgets
 are checked before replacing the destination file.
 Normal screen-space rectangles on a group intersect the clips of each child
@@ -114,7 +115,7 @@ inside the fixed screen coordinates. The group mask also cuts lyric color
 layers and extrusion sides.
 
 Use standard ASS compilation for native events. Vector and inverse clips,
-group-local clips, deformed paths and explicit coverage groups are unsupported
+group-local clips and deformed paths are unsupported
 by this backend.
 
 Textures in the mpv hook format use hexadecimal text. Complex or long scenes

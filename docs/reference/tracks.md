@@ -10,7 +10,6 @@ Independent lyric streams, allocation and semantic bindings into one Scene. Sing
 - [KaraokeEffects](#karaokeeffects)
 - [KaraokeEntry](#karaokeentry)
 - [KaraokeExit](#karaokeexit)
-- [KaraokeItem](#karaokeitem)
 - [KaraokeRows](#karaokerows)
 - [KaraokeSinging](#karaokesinging)
 - [Layout](#layout)
@@ -74,7 +73,7 @@ and soft fronts raise SceneCompileError on ASS export. Hook export uses
 the same Scene; dynamic blur can require additional cached native coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L960)
+[Source](../../kara_templater/karaoke_effects.py#L981)
 
 ```python
 KaraokeEffects(
@@ -91,8 +90,8 @@ KaraokeEffects(
     stagger: float = 0.5833333333333334,
     sung: Color | None = None,
     unsung: Color | None = None,
-    material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
-    base_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
+    material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, LyricGradient] = None,
+    base_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, LyricGradient] = None,
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     secondary_outline: SecondaryOutline | None = None,
@@ -107,10 +106,10 @@ KaraokeEffects(
     zoom_pulse_curve_level: int = 1,
     scanline_width: float | LengthExpr | None = None,
     scanline_softness: float | LengthExpr | None = None,
-    scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after', 'role'] = 'color',
+    scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after'] = 'color',
     ruby_reading_units: bool = False,
     ruby_scanline: Literal['reading', 'both'] = 'reading',
-    scanline_material: PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None | Mapping[str, LyricGradient] = None,
+    scanline_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, LyricGradient] = None,
     scanline_brightness: float = 0.6,
     shine: Color | None = None,
     scanline_color: Color | None = None,
@@ -140,8 +139,8 @@ KaraokeEffects(
 | `stagger` | `float` | `0.5833333333333334` |
 | `sung` | `Color \| None` | `None` |
 | `unsung` | `Color \| None` | `None` |
-| `material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
-| `base_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
+| `material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
+| `base_material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `glow` | `LyricGlow` | `None` |
 | `base_glow` | `LyricGlow` | `None` |
 | `secondary_outline` | `SecondaryOutline \| None` | `None` |
@@ -156,10 +155,10 @@ KaraokeEffects(
 | `zoom_pulse_curve_level` | `int` | `1` |
 | `scanline_width` | `float \| LengthExpr \| None` | `None` |
 | `scanline_softness` | `float \| LengthExpr \| None` | `None` |
-| `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after', 'role']` | `'color'` |
+| `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after']` | `'color'` |
 | `ruby_reading_units` | `bool` | `False` |
 | `ruby_scanline` | `Literal['reading', 'both']` | `'reading'` |
-| `scanline_material` | `PaintField \| Callable[[LyricLine, LyricTarget], PaintField \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
+| `scanline_material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
 | `scanline_brightness` | `float` | `0.6` |
 | `shine` | `Color \| None` | `None` |
 | `scanline_color` | `Color \| None` | `None` |
@@ -221,35 +220,6 @@ Public type alias:
 ```python
 type KaraokeExit = Literal['none', 'fade', 'slide_out', 'rise', 'char_fade', 'char_drip', 'spin_flip', 'utopia', 'scatter_out', 'converge_out', 'stretch_out', 'glow_out', 'dissolve_out', 'sparkle', 'ripple', 'note', 'petal', 'snow', 'snow_solid']
 ```
-
-## KaraokeItem
-
-Structured lyrics with a stable identity and a millisecond display window.
-
-style names the source Document style. margins preserves the event
-overrides in left, right and vertical order.
-
-[Source](../../kara_templater/karaoke.py#L9)
-
-```python
-KaraokeItem(
-    id: str,
-    source: KaraokeLine,
-    style: str,
-    window: DisplayWindow,
-    margins: tuple[int, int, int] | None = None,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `id` | `str` | `required` |
-| `source` | `KaraokeLine` | `required` |
-| `style` | `str` | `required` |
-| `window` | `DisplayWindow` | `required` |
-| `margins` | `tuple[int, int, int] \| None` | `None` |
 
 ## KaraokeRows
 
@@ -503,7 +473,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L204)
+[Source](../../kara_templater/orchestration.py#L209)
 
 ```python
 LinePlan(
@@ -618,7 +588,7 @@ LyricEcho(
     offset: Vec2 = Vec2(x=0, y=-8),
     opacity: float = 0.35,
     decay: float = 0.65,
-    paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
+    paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, face_opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
     max_copies: int = 256,
     animation: StateAnimation = FadeOut(rate=linear_rate),
     delay: float = 0,
@@ -637,7 +607,7 @@ LyricEcho(
 | `offset` | `Vec2` | `Vec2(x=0, y=-8)` |
 | `opacity` | `float` | `0.35` |
 | `decay` | `float` | `0.65` |
-| `paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
+| `paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, face_opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
 | `max_copies` | `int` | `256` |
 | `animation` | `StateAnimation` | `FadeOut(rate=linear_rate)` |
 | `delay` | `float` | `0` |
@@ -678,16 +648,15 @@ LyricLine(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
     origin: EventOrigin | None = None,
     clip: RectangleClip | VectorClip | None = None,
-    material: PaintField | None = None,
+    material: LinearGradient | None = None,
     reference: StateReference | None = None,
     children: tuple[SceneObject, ...],
-    coverage: Coverage | None = None,
     layout: LyricLayout,
     targets: tuple[LyricTarget, ...],
     independent: tuple[ObjectGroup, ...] = (),
@@ -702,16 +671,15 @@ LyricLine(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
 | `origin` | `EventOrigin \| None` | `None` |
 | `clip` | `RectangleClip \| VectorClip \| None` | `None` |
-| `material` | `PaintField \| None` | `None` |
+| `material` | `LinearGradient \| None` | `None` |
 | `reference` | `StateReference \| None` | `None` |
 | `children` | `tuple[SceneObject, ...]` | `required` |
-| `coverage` | `Coverage \| None` | `None` |
 | `layout` | `LyricLayout` | `required` |
 | `targets` | `tuple[LyricTarget, ...]` | `required` |
 | `independent` | `tuple[ObjectGroup, ...]` | `()` |
@@ -941,7 +909,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L215)
+[Source](../../kara_templater/orchestration.py#L220)
 
 ```python
 LyricScene(
@@ -1059,7 +1027,7 @@ singing intervals remain in lyrics; display is the original ASS visibility.
 An optional chapter groups consecutive sources. The first selected line of a
 chapter starts a fresh row rotation by default, even without a visible cue.
 
-[Source](../../kara_templater/orchestration.py#L64)
+[Source](../../kara_templater/orchestration.py#L69)
 
 ```python
 LyricSource(
@@ -1271,7 +1239,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L138)
+[Source](../../kara_templater/orchestration.py#L143)
 
 ```python
 Track(
@@ -1361,7 +1329,7 @@ cues visible in this half-open interval of absolute seconds. Strict rows with bo
 and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
 or references them from visible objects.
 
-[Source](../../kara_templater/orchestration.py#L535)
+[Source](../../kara_templater/orchestration.py#L520)
 
 ```python
 prepare_tracks(

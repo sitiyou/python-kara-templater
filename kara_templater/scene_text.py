@@ -13,14 +13,14 @@ from .characters import (
     DrawableCharacter,
     FontFace,
     LayoutCapabilityError,
-    layout_characters,
+    _measure_clusters,
 )
 from .composition import Color
 from .document_text import DocumentText, TextRun, _packed_color, resolve_singing
 from .document_text import SingingSpan as SingingSpan
 from .geometry import Vec2, VectorPath
 from .layout import text_extents
-from .model import Box, LaidOutLine, LaidOutUnit, TextUnit
+from .model import Box
 from .scene import Lifetime, ObjectGroup, PathObject, TextObject
 from .scene_animation import AnimationClip, StateFunction, VisualState
 from .sources import EventOrigin, SourceRef
@@ -279,9 +279,7 @@ def _measure_run(
                   scale_x=sx, scale_y=sy, spacing=spacing, encoding=encoding, outline=0)
     width, height, descent, _ = text_extents(style, text, palt=palt)
     box = Box(x, 0, width, height)
-    chars = layout_characters(
-        LaidOutLine(box, (LaidOutUnit(TextUnit(text), box, ()),)), style=style, palt=palt,
-    )
+    chars = _measure_clusters(text, box, style=style, palt=palt)
     return width, height, descent, chars
 
 

@@ -60,7 +60,7 @@ start. Negative starts support visibility extended before a preserved clock
 origin. The owning node validates that the absolute start is nonnegative;
 nested sequences and Timeline still start at zero or later.
 
-[Source](../../kara_templater/scene_animation.py#L632)
+[Source](../../kara_templater/scene_animation.py#L643)
 
 ```python
 AnimationClip(
@@ -96,7 +96,7 @@ Build through Timeline.animation. Duration is the schedule's local length;
 normalized outer progress maps onto that length. There is no secondary
 evaluator or incremental playback state.
 
-[Source](../../kara_templater/scene_animation.py#L849)
+[Source](../../kara_templater/scene_animation.py#L862)
 
 ```python
 AnimationSequence(
@@ -184,7 +184,7 @@ Canvas()
 Public type alias:
 
 ```python
-type Channel = Literal['position', 'scale', 'rotation', 'skew', 'opacity', 'fill', 'outline', 'border', 'blur', 'shadow']
+type Channel = Literal['position', 'scale', 'rotation', 'skew', 'opacity', 'face_opacity', 'fill', 'outline', 'border', 'blur', 'shadow']
 ```
 
 ## CurveIn
@@ -196,7 +196,7 @@ control offset; the final offset is zero. scale and rotation are the initial
 relative scale factor and added degrees. rate eases trajectory, pose and
 opacity together. Omitted pivot follows LyricRule's measured-center policy.
 
-[Source](../../kara_templater/scene_animation.py#L527)
+[Source](../../kara_templater/scene_animation.py#L538)
 
 ```python
 CurveIn(
@@ -248,7 +248,7 @@ easing (None follows rate); linear_rate gives constant-speed travel. Duration an
 An omitted pivot uses the local origin on direct objects and the measured
 target center when bound with LyricRule. Vec2() explicitly selects the origin.
 
-[Source](../../kara_templater/scene_animation.py#L486)
+[Source](../../kara_templater/scene_animation.py#L497)
 
 ```python
 DriftOut(
@@ -294,7 +294,7 @@ Reveal the incoming opacity from zero, using normalized progress.
 The final opacity is the captured base opacity, including any prior held
 animation. This works identically on a drawing or a visual parent.
 
-[Source](../../kara_templater/scene_animation.py#L376)
+[Source](../../kara_templater/scene_animation.py#L387)
 
 ```python
 FadeIn(
@@ -329,7 +329,7 @@ FadeIn.sample(
 
 Reduce the incoming opacity to zero, using normalized progress.
 
-[Source](../../kara_templater/scene_animation.py#L396)
+[Source](../../kara_templater/scene_animation.py#L407)
 
 ```python
 FadeOut(
@@ -377,7 +377,7 @@ Move up and return to the captured position over normalized progress.
 Height is in script pixels; a negative height moves downward. Durations and
 lyric singing anchors belong to clip binding, not to this animation.
 
-[Source](../../kara_templater/scene_animation.py#L412)
+[Source](../../kara_templater/scene_animation.py#L423)
 
 ```python
 Jump(
@@ -452,7 +452,7 @@ and lyric anchors; this animation works on ordinary objects and groups too.
 An omitted pivot uses the local origin on direct objects and the measured
 target center when bound with LyricRule. Vec2() explicitly selects the origin.
 
-[Source](../../kara_templater/scene_animation.py#L436)
+[Source](../../kara_templater/scene_animation.py#L447)
 
 ```python
 ScalePulse(
@@ -499,12 +499,12 @@ and mutable local channels pos, scale, skew, angle (degrees), alpha, pen
 basisOf(scale, skew, angle) returns the local linear transform.
 Supply the same motion in function for evaluation at authored boundaries.
 
-[Source](../../kara_templater/scene_animation.py#L603)
+[Source](../../kara_templater/scene_animation.py#L614)
 
 ```python
 ShaderMotion(
     function: Callable[[VisualState, float], VisualState],
-    channels: frozenset[Channel] = frozenset({'blur', 'border', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'}),
+    channels: frozenset[Channel] = frozenset({'blur', 'border', 'face_opacity', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'}),
     source: str = '',
     parameters: tuple[float, ...] = (),
     progress_scale: float = 1.0,
@@ -518,7 +518,7 @@ ShaderMotion(
 | Name | Type | Default |
 | --- | --- | --- |
 | `function` | `Callable[[VisualState, float], VisualState]` | `required` |
-| `channels` | `frozenset[Channel]` | `frozenset({'blur', 'border', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'})` |
+| `channels` | `frozenset[Channel]` | `frozenset({'blur', 'border', 'face_opacity', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'})` |
 | `source` | `str` | `''` |
 | `parameters` | `tuple[float, ...]` | `()` |
 | `progress_scale` | `float` | `1.0` |
@@ -545,7 +545,7 @@ in the first quarter. Set fast_reveal=False to fade along the travel curve.
 An exit moves from rest to offset and fades throughout. Hook playback
 interpolates eligible intervals directly from the offset and easing.
 
-[Source](../../kara_templater/scene_animation.py#L340)
+[Source](../../kara_templater/scene_animation.py#L351)
 
 ```python
 Slide(
@@ -588,7 +588,7 @@ Protocol for a pure normalized-progress state animation with explicitly declared
 
 Implement sample without depending on prior frame evaluation.
 
-[Source](../../kara_templater/scene_animation.py#L218)
+[Source](../../kara_templater/scene_animation.py#L229)
 
 ### StateAnimation.channels
 
@@ -614,12 +614,12 @@ Custom pure evaluator. Declare written channels for conflict detection.
 Randomness must be tied to object identity, not callback invocation order.
 Standalone outputs require a compilable animation declaration.
 
-[Source](../../kara_templater/scene_animation.py#L584)
+[Source](../../kara_templater/scene_animation.py#L595)
 
 ```python
 StateFunction(
     function: Callable[[VisualState, float], VisualState],
-    channels: frozenset[Channel] = frozenset({'blur', 'border', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'}),
+    channels: frozenset[Channel] = frozenset({'blur', 'border', 'face_opacity', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'}),
 )
 ```
 
@@ -628,7 +628,7 @@ StateFunction(
 | Name | Type | Default |
 | --- | --- | --- |
 | `function` | `Callable[[VisualState, float], VisualState]` | `required` |
-| `channels` | `frozenset[Channel]` | `frozenset({'blur', 'border', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'})` |
+| `channels` | `frozenset[Channel]` | `frozenset({'blur', 'border', 'face_opacity', 'fill', 'opacity', 'outline', 'position', 'rotation', 'scale', 'shadow', 'skew'})` |
 
 ### StateFunction.sample
 
@@ -645,7 +645,7 @@ StateFunction.sample(
 
 A target reached at a positive local time, with an incoming easing curve.
 
-[Source](../../kara_templater/scene_animation.py#L565)
+[Source](../../kara_templater/scene_animation.py#L576)
 
 ```python
 StateKeyframe(
@@ -669,7 +669,7 @@ A sparse set of VisualState targets for interpolation.
 
 Omitted channels retain the incoming state.
 
-[Source](../../kara_templater/scene_animation.py#L147)
+[Source](../../kara_templater/scene_animation.py#L155)
 
 ```python
 StatePatch(
@@ -679,6 +679,7 @@ StatePatch(
     rotation: float | None = None,
     skew: Vec2 | None = None,
     opacity: float | None = None,
+    face_opacity: float | None = None,
     fill: Color | None = None,
     outline: Color | None = None,
     border: float | None = None,
@@ -696,6 +697,7 @@ StatePatch(
 | `rotation` | `float \| None` | `None` |
 | `skew` | `Vec2 \| None` | `None` |
 | `opacity` | `float \| None` | `None` |
+| `face_opacity` | `float \| None` | `None` |
 | `fill` | `Color \| None` | `None` |
 | `outline` | `Color \| None` | `None` |
 | `border` | `float \| None` | `None` |
@@ -746,7 +748,7 @@ A finite seconds interval, including zero-length singing spans.
 
 The binding context determines whether its endpoints are absolute or local.
 
-[Source](../../kara_templater/scene_animation.py#L70)
+[Source](../../kara_templater/scene_animation.py#L72)
 
 ```python
 TimeSpan(
@@ -778,7 +780,7 @@ Type: `TimeSpan`.
 
 Author sequential/parallel plays. Times are local to the object's birth.
 
-[Source](../../kara_templater/scene_animation.py#L748)
+[Source](../../kara_templater/scene_animation.py#L761)
 
 ```python
 Timeline()
@@ -868,7 +870,7 @@ available for custom behavior needing the complete incoming VisualState.
 An omitted pivot uses the local origin on direct objects; LyricRule resolves
 it to the measured target center. Pass Vec2() to explicitly keep the origin.
 
-[Source](../../kara_templater/scene_animation.py#L235)
+[Source](../../kara_templater/scene_animation.py#L246)
 
 ```python
 Transform(
@@ -914,7 +916,7 @@ Interpolate a StatePatch from the incoming VisualState using normalized progress
 
 The patch determines the written channels.
 
-[Source](../../kara_templater/scene_animation.py#L318)
+[Source](../../kara_templater/scene_animation.py#L329)
 
 ```python
 Tween(
@@ -951,11 +953,11 @@ Tween.sample(
 
 Finite drawing state in script pixels, degrees, RGB colors, and opacity 0 through 1.
 
-Position, scale, rotation, skew, paint, blur, and shadow compose through the
-scene hierarchy.
-shadow_opacity multiplies the drawing opacity for the shadow alone.
+Transforms and opacity compose through the scene hierarchy. Each drawing's
+face_opacity multiplies opacity for its fill and outline. Its shadow_opacity
+multiplies opacity for its drop shadow.
 
-[Source](../../kara_templater/scene_animation.py#L96)
+[Source](../../kara_templater/scene_animation.py#L98)
 
 ```python
 VisualState(
@@ -970,6 +972,7 @@ VisualState(
     blur: float = 0,
     shadow: Vec2 = Vec2(x=0, y=0),
     shadow_opacity: float = 1,
+    face_opacity: float = 1,
 )
 ```
 
@@ -988,6 +991,7 @@ VisualState(
 | `blur` | `float` | `0` |
 | `shadow` | `Vec2` | `Vec2(x=0, y=0)` |
 | `shadow_opacity` | `float` | `1` |
+| `face_opacity` | `float` | `1` |
 
 ### VisualState.singular
 
@@ -1041,7 +1045,7 @@ ease_out(
 
 Return normalized Scene animation progress unchanged.
 
-[Source](../../kara_templater/scene_animation.py#L51)
+[Source](../../kara_templater/scene_animation.py#L53)
 
 ```python
 linear_rate(
@@ -1053,7 +1057,7 @@ linear_rate(
 
 Ease Scene animation progress smoothly between endpoints.
 
-[Source](../../kara_templater/scene_animation.py#L56)
+[Source](../../kara_templater/scene_animation.py#L58)
 
 ```python
 smooth_rate(
@@ -1068,7 +1072,7 @@ Quintic easing with zero velocity and acceleration at both endpoints.
 Input is normalized progress in [0, 1]; outside that interval the polynomial
 extrapolates. Use as a rate for shared animations or inside custom curves.
 
-[Source](../../kara_templater/scene_animation.py#L61)
+[Source](../../kara_templater/scene_animation.py#L63)
 
 ```python
 smoother_rate(

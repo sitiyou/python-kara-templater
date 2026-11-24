@@ -3,14 +3,6 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import Highlight, HighlightPass, StatePatch, TimeSpan
-from kara_templater.model import (
-    Box,
-    LaidOutLine,
-    LaidOutSegment,
-    LaidOutUnit,
-    Segment,
-    TextUnit,
-)
 from kara_templater.timeline import (
     DisplayWindow,
     ProgressCurve,
@@ -120,89 +112,3 @@ def test_overlapping_passes_require_separate_highlights():
         )
 
 
-def test_layout_mapping_preserves_ruby_partition_and_static_units():
-    segments = (Segment(100, 200, "ab"), Segment(300, 400, "c"))
-    layout = LaidOutLine(
-        Box(0, 0, 90, 20),
-        (
-            LaidOutUnit(
-                TextUnit("word", segments),
-                Box(0, 0, 90, 20),
-                (
-                    LaidOutSegment(segments[0], 0, 60, None),
-                    LaidOutSegment(segments[1], 60, 90, None),
-                ),
-            ),
-            LaidOutUnit(TextUnit(" "), Box(90, 0, 10, 20), ()),
-        ),
-    )
-    tracks = tuple(
-        Highlight(
-            str(index),
-            index,
-            tuple(
-                HighlightPass(
-                    TimeSpan(part.source.start_ms / 1000, part.source.end_ms / 1000),
-                    Region(part.left, part.right),
-                )
-                for part in unit.segments
-            ),
-            StatePatch(),
-        )
-        for index, unit in enumerate(layout.units)
-        if unit.segments
-    )
-    assert len(tracks) == 1
-    assert tracks[0].regions(0.25) == (Region(0, 60),)
-    assert len(tracks[0].regions(0.35)) == 1
-    assert tracks[0].regions(0.35)[0].left == 0
-    assert tracks[0].regions(0.35)[0].right == pytest.approx(75)
-
-
-def test_unit_order_is_spatial_not_temporal_with_adjacent_and_instant_segments():
-    schedules = (
-        (Segment(1000, 1100), Segment(1100, 1300)),
-        (Segment(700, 1200),),
-        (Segment(900, 900),),
-    )
-    units = tuple(
-        LaidOutUnit(
-            TextUnit(str(i), segments),
-            Box(i * 100, 0, 100, 20),
-            tuple(
-                LaidOutSegment(
-                    s,
-                    i * 100 + j * 100 / len(segments),
-                    i * 100 + (j + 1) * 100 / len(segments),
-                    None,
-                )
-                for j, s in enumerate(segments)
-            ),
-        )
-        for i, segments in enumerate(schedules)
-    )
-    tracks = tuple(
-        Highlight(
-            str(index),
-            index,
-            tuple(
-                HighlightPass(
-                    TimeSpan(part.source.start_ms / 1000, part.source.end_ms / 1000),
-                    Region(part.left, part.right),
-                )
-                for part in unit.segments
-            ),
-            StatePatch(),
-        )
-        for index, unit in enumerate(units)
-    )
-    assert [t.unit for t in tracks] == [0, 1, 2]
-    # The later written unit sings first; both are active at 1050 ms.
-    assert tracks[0].regions(1.05) == (Region(0, 25),)
-    assert tracks[1].regions(1.05) == (Region(100, 170),)
-    assert tracks[0].regions(1.1) == (Region(0, 50),)
-    assert len(tracks[0].regions(1.2)) == 1
-    assert tracks[0].regions(1.2)[0].left == 0
-    assert tracks[0].regions(1.2)[0].right == pytest.approx(75)
-    assert tracks[2].regions(0.899) == ()
-    assert tracks[2].regions(0.9) == (Region(200, 300),)

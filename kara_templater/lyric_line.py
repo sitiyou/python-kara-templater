@@ -242,8 +242,8 @@ class _LyricBinding:
     offset: float
     hold: bool
 
-    catalog_exit: bool = False
-    singing_release: bool = False
+    flexible: bool = False
+    fit_end: Literal["display", "before_exit"] | None = None
 
     def retarget(self, names: Mapping[str, str], delay: float) -> _LyricBinding:
         target = self.target
@@ -301,6 +301,10 @@ class LyricLine(ObjectGroup):
     independent: tuple[ObjectGroup, ...] = ()
     track_index: int = 0
     required_display: tuple[TimeSpan, ...] = ()
+    _fit_display: bool = field(default=False, repr=False, compare=False)
+    _flexible_end: float = field(default=0, repr=False, compare=False)
+    _optional_display: tuple[TimeSpan, ...] = field(default=(), repr=False, compare=False)
+    _optional_objects: frozenset[str] = field(default=frozenset(), repr=False, compare=False)
     _scheduled: tuple[_LyricBinding, ...] = field(default=(), repr=False)
     _at_placement: tuple[Callable[[LyricLine, float, float], LyricLine], ...] | None = field(default=None, repr=False, compare=False)
 

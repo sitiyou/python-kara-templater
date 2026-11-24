@@ -2,19 +2,26 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from collections.abc import Callable, Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property
 from hashlib import sha256
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 
 from ._karaoke_motion import RowSlide
+from ._source_records import (
+    GENERATED_PREFIX,
+    SOURCE_PREFIX,
+    generated_prefix,
+    read_source_marker,
+    source_prefix,
+    strip_generated_records,
+    write_source_marker,
+)
 from .appearance import _EMPTY_THEME, KaraokeTheme, PaintPair
 from .ass import Document, Line, Style
 from .composition import Glow
-from .coverage_animation import GlowFunction
 from .cues import (
     CueContent,
     CueContext,
@@ -26,8 +33,7 @@ from .cues import (
 from .document_lyrics import DocumentLyrics, parse_document_lyrics
 from .document_text import DocumentText, _read_document_text, _soft_break
 from .geometry import Vec2, finite
-from .import_ass import SOURCE_PREFIX, SourceBinding, source_marker, source_prefix
-from .karaoke_effects import KaraokeEffects, _transition_window
+from .karaoke_effects import KaraokeEffects
 from .lyric_highlights import LyricGradient, LyricHighlights, _style_material
 from .lyric_layout import (
     KaraokeRows,
@@ -56,7 +62,6 @@ from .scene_lyrics import (
     VectorGuide,
     layout_lyrics,
 )
-from .scene_output import _scene_source_records
 from .scene_text import DocumentLayout, _union
 from .sources import EventOrigin, SourceRef
 
@@ -236,7 +241,7 @@ def _sources(document: Document, owner: str) -> tuple[LyricSource, ...]:
         marked = record.comment and record.effect.startswith(prefix)
         if record.comment and not marked:
             continue
-        if record.effect.startswith("kara:scene:v1:"):
+        if record.effect.startswith(GENERATED_PREFIX):
             continue
         if record.effect.startswith(SOURCE_PREFIX) and not marked:
             continue
@@ -245,10 +250,7 @@ def _sources(document: Document, owner: str) -> tuple[LyricSource, ...]:
         if not text.timing:
             continue
         if marked:
-            identifier, separator, effect = record.effect[len(prefix) :].partition(":")
-            if not separator or not identifier:
-                raise ValueError(f"record {index}: damaged lyric source marker")
-            identifier, effect = unquote(identifier), unquote(effect)
+            identifier, effect = read_source_marker(record.effect, prefix, index)
         else:
             digest = sha256(record.serialize().encode()).hexdigest()[:20]
             identifier, occurrence = f"ass:{digest}", 1
@@ -296,10 +298,10 @@ def _retime(layout: LyricLayout, display: Lifetime) -> LyricLayout:
 def _visual_spans(line: LyricLine) -> tuple[TimeSpan, ...]:
     """Read authored intervals without invoking frame callbacks."""
     spans = list(line.required_display)
-    nodes: dict[str, SceneObject] = {}
 
     def collect(node: SceneObject, window: TimeSpan | None = None) -> None:
-        nodes[node.id] = node
+        if node.id in line._optional_objects:
+            return
         # Shared lyric windows are adjusted after allocation. Explicit child
         # windows remain fixed, including restrictions from intermediate groups.
         if node is not line and node.lifetime != line.lifetime:
@@ -321,18 +323,6 @@ def _visual_spans(line: LyricLine) -> tuple[TimeSpan, ...]:
                 collect(child, window)
 
     collect(line)
-    for node in nodes.values():
-        if not isinstance(node, ObjectGroup) or node.coverage is None:
-            continue
-        for name, glow in node.coverage.glows.items():
-            if isinstance(glow, GlowFunction) and glow.required_interval is not None:
-                owner = nodes[name]
-                span = glow.required_interval
-                spans.append(
-                    TimeSpan(
-                        owner.time_origin + span.start, owner.time_origin + span.end
-                    )
-                )
     return tuple(spans)
 
 
@@ -469,15 +459,10 @@ def _preview_slice(
         return slice(0, None)
     entry = exit = release = 0.0
     for effect in track.effects:
-        if (type(effect) is not KaraokeEffects or effect.entry not in {"none", "fade", "tilt_pop"}
-                or effect.exit not in {"none", "fade", "spin_flip"}
-                or effect.singing not in {"none", "zoom_pulse"}
-                or effect.decoration != "none" or effect.stroke_flash or effect.glow or effect.base_glow or effect._secondary_width
-                or any(m is not None and type(m) is not LyricGradient for m in (effect.material, effect.base_material))):
+        padding = effect._preview_padding() if type(effect) is KaraokeEffects else None
+        if padding is None:
             return slice(0, None)
-        entry += _transition_window(effect.entry, effect.entry_duration, entering=True)
-        exit += _transition_window(effect.exit, effect.exit_duration, entering=False)
-        release += 0.30 if effect.singing == "zoom_pulse" else 0
+        entry, exit, release = padding
     lanes: dict[int, list[int]] = {}
     windows: list[tuple[float, float]] = []
     singing: list[tuple[float, float]] = []
@@ -558,21 +543,39 @@ def prepare_tracks(
     and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
     or references them from visible objects.
     """
+    return _prepare_tracks(
+        document, build_tracks=lambda _document, _sources: tracks,
+        owner=owner, inputs=inputs, theme=theme,
+        bpm=bpm, preview_interval=preview_interval,
+    )
+
+
+def _prepare_tracks(
+    document: Document,
+    *,
+    build_tracks: Callable[[Document, tuple[LyricSource, ...]], tuple[Track, ...]],
+    owner: str,
+    inputs: tuple[LyricSource, ...] = (),
+    theme: KaraokeTheme = _EMPTY_THEME,
+    bpm: float | None = None,
+    preview_interval: tuple[float, float] | None = None,
+) -> LyricScene:
     window = Lifetime(*preview_interval) if preview_interval is not None else None
     _validate_bpm(bpm)
     if not owner:
         raise ValueError("lyric scene owner cannot be empty")
-    if len({track.id for track in tracks}) != len(tracks):
-        raise ValueError("duplicate Track ids")
     source_document = deepcopy(document)
-    source_document.records = _scene_source_records(
-        source_document.records, "kara:scene:v1:" + quote(owner, safe="") + ":", set()
+    source_document.records = strip_generated_records(
+        source_document.records, generated_prefix(owner), set()
     )
     if any(source.record_index is not None for source in inputs):
         raise ValueError(
             "explicit inputs must be structured sources without ASS record ownership"
         )
     sources = (*_sources(source_document, owner), *deepcopy(inputs))
+    tracks = build_tracks(source_document, sources)
+    if len({track.id for track in tracks}) != len(tracks):
+        raise ValueError("duplicate Track ids")
     source_by_id = {source.id: source for source in sources}
     if len(source_by_id) != len(sources):
         raise ValueError("duplicate lyric source ids")
@@ -709,12 +712,7 @@ def prepare_tracks(
                     cued.lyrics, tags=tags, inline=cued.inline, independent=cued.independent,
                     track_index=track_index,
                 )
-            line = replace(line, _at_placement=())
-            # Catalog paint, singing releases and particle tails may be clipped
-            # with their host. Keep independently authored effects and cues fixed.
-            soft_visual: Counter[TimeSpan] = Counter()
-            fixed_scheduled: list[_LyricBinding] = []
-            soft_end = 0.0
+            line = replace(line, _at_placement=(), _fit_display=track.tail is None)
             for effect in track.effects:
                 if isinstance(effect, LyricRule):
                     continue
@@ -725,26 +723,11 @@ def prepare_tracks(
                 # Catalog colors were bound once for the Track and its cues.
                 # Subclasses and custom callables keep their own entry point.
                 apply = effect._decorate if type(effect) is KaraokeEffects else effect
-                before_effect = line
                 line = apply(line)
                 if not isinstance(line, LyricLine) or line.id != identity:
                     raise ValueError(
                         f"{identity}: visual factory must preserve lyric identity"
                     )
-                if track.tail is None and type(effect) is KaraokeEffects:
-                    soft_visual.update(Counter(_visual_spans(line)) - Counter(_visual_spans(before_effect)))
-                    # Utopia releases earlier characters at note boundaries. Only
-                    # the trailing group follows the final display edge.
-                    if effect.exit == "utopia":
-                        line = replace(line, _scheduled=tuple(
-                            replace(b, at="exit") if b.catalog_exit and isinstance(b.at, float)
-                            and abs(b.at + b.duration - line.lifetime.end) < 1e-8 else b
-                            for b in line._scheduled
-                        ))
-                    if line.lifetime.end > before_effect.lifetime.end:
-                        soft_end = line.lifetime.end
-                else:
-                    fixed_scheduled.extend(line._scheduled[len(before_effect._scheduled):])
             if line._scheduled:
                 bindings = (*bindings, *line._scheduled)
                 resolved[identity] = bindings
@@ -753,7 +736,7 @@ def prepare_tracks(
                     max(0, min(display.start, singing.start - entrance)),
                     max(display.end, singing.end + (minimum_hold + exit)),
                 )
-                scheduled = _reserved_animations(tuple(fixed_scheduled))
+                scheduled = _reserved_animations(tuple(b for b in line._scheduled if not b.flexible))
                 requested = _reserved_animations(line._scheduled)
                 if requested is not None:
                     display = Lifetime(min(display.start, requested.start), max(display.end, requested.end))
@@ -772,11 +755,12 @@ def prepare_tracks(
                     )
                 line = replace(line, _scheduled=())
             visual = _visual_spans(line)
-            if soft_visual:
-                display = Lifetime(min(display.start, min(s.start for s in soft_visual)),
-                                   max(display.end, max(s.end for s in soft_visual)))
-                visual = tuple((Counter(visual) - soft_visual).elements())
-            if line.lifetime.end > max(display.end, soft_end):
+            if line._optional_display:
+                display = Lifetime(
+                    min(display.start, *(span.start for span in line._optional_display)),
+                    max(display.end, *(span.end for span in line._optional_display)),
+                )
+            if line.lifetime.end > max(display.end, line._flexible_end):
                 visual = (*visual, TimeSpan(display.end, line.lifetime.end))
             if visual:
                 required = Lifetime(
@@ -876,10 +860,7 @@ def prepare_tracks(
                 assert isinstance(record, Line)
                 source_document.records[source.record_index] = replace(
                     record,
-                    effect=source_marker(
-                        owner,
-                        SourceBinding(source.record_index, source.id, source.effect),
-                    ),
+                    effect=write_source_marker(owner, source.id, source.effect),
                 )
             if window is not None and not any(
                 lifetime.start < window.end and window.start < lifetime.end
@@ -896,7 +877,10 @@ def prepare_tracks(
                     exit_scale = min(1.0, max(0.0, placement.display.end - item.singing.end) / item.exit)
             for decorate in line._at_placement or ():
                 line = decorate(line, entry_scale, exit_scale)
-            line = replace(line, _at_placement=None)
+            line = replace(
+                line, _at_placement=None, _fit_display=False, _flexible_end=0,
+                _optional_display=(), _optional_objects=frozenset(),
+            )
             line = replace(
                 line,
                 state=replace(
@@ -932,13 +916,13 @@ def prepare_tracks(
                 motion = binding.animation
                 hold = binding.hold
                 duration = binding.duration * scale
-                if item._adaptive_handoff and binding.singing_release and isinstance(binding.at, (int, float)):
+                if item._adaptive_handoff and binding.fit_end == "before_exit" and isinstance(binding.at, (int, float)):
                     release_end = placement.display.end - item.exit * exit_scale
                     room = max(item.singing.end, release_end) - binding.at - binding.offset
                     if room < duration:
                         motion = _animation_prefix(motion, max(0.0, room) / duration)
                         duration, hold = room, False
-                if binding.catalog_exit and isinstance(binding.at, (int, float)) and item._adaptive_handoff:
+                if binding.fit_end == "display" and isinstance(binding.at, (int, float)) and item._adaptive_handoff:
                     duration = min(duration, placement.display.end - binding.at - binding.offset)
                 if duration <= 0:
                     continue

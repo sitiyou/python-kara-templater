@@ -1,14 +1,11 @@
 """Source traversal independent of layout, paint ranges and singing tracks."""
 
-from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal, overload
-
-from .model import KaraokeLine, Segment, TextUnit
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .karaoke import KaraokeItem
+    pass
 
 
 @contextmanager
@@ -68,69 +65,3 @@ class SourceRef:
                 raise ValueError("source indices must be nonnegative integers")
         if self.segment_index is not None and self.unit_index is None:
             raise ValueError("segment reference requires a unit index")
-
-    def resolve(self, item: "KaraokeItem") -> KaraokeLine | TextUnit | Segment:
-        """Return the original source object; never a layout or generated copy."""
-        if item.id != self.item_id:
-            raise ValueError(
-                f"source reference belongs to {self.item_id!r}, not {item.id!r}"
-            )
-        if self.unit_index is None:
-            return item.source
-        try:
-            unit = item.source.units[self.unit_index]
-            return (
-                unit
-                if self.segment_index is None
-                else unit.segments[self.segment_index]
-            )
-        except IndexError as error:
-            raise ValueError(
-                f"source reference is outside item structure: {self!r}"
-            ) from error
-
-
-@overload
-def walk_karaoke(
-    items: Iterable["KaraokeItem"], *, level: Literal["line"]
-) -> Iterator[tuple[SourceRef, KaraokeLine]]: ...
-
-
-@overload
-def walk_karaoke(
-    items: Iterable["KaraokeItem"], *, level: Literal["unit"]
-) -> Iterator[tuple[SourceRef, TextUnit]]: ...
-
-
-@overload
-def walk_karaoke(
-    items: Iterable["KaraokeItem"], *, level: Literal["segment"] = "segment"
-) -> Iterator[tuple[SourceRef, Segment]]: ...
-
-
-def walk_karaoke(
-    items: Iterable["KaraokeItem"],
-    *,
-    level: Literal["line", "unit", "segment"] = "segment",
-) -> Iterator[tuple[SourceRef, KaraokeLine | TextUnit | Segment]]:
-    """Visit sources in input order, including empty and zero-duration sources.
-
-    Static units appear at unit level and have no segment visits. Times never
-    sort or filter the source; simultaneous lines and repeated readings retain
-    distinct addresses. IDs are validated before any visits are yielded.
-    """
-    if level not in {"line", "unit", "segment"}:
-        raise ValueError("source traversal level must be line, unit or segment")
-    items = tuple(items)
-    if len({item.id for item in items}) != len(items):
-        raise ValueError("duplicate karaoke item ids")
-    for item in items:
-        if level == "line":
-            yield SourceRef(item.id), item.source
-            continue
-        for unit_index, unit in enumerate(item.source.units):
-            if level == "unit":
-                yield SourceRef(item.id, unit_index), unit
-                continue
-            for segment_index, segment in enumerate(unit.segments):
-                yield SourceRef(item.id, unit_index, segment_index), segment

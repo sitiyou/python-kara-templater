@@ -70,7 +70,7 @@ def test_native_motion_bounds_error_keeps_original_clocks_and_matches_static_pix
     if crop:
         node = replace(node, lifetime=Lifetime(1.25, 2.5), clock_start=0)
     doc = Document.create(width=300, height=100)
-    budget = SceneBudget(fps=1, clip_error_px=0.75)
+    budget = SceneBudget(clip_error_px=0.75)
     result = Scene(doc).add(node).ass.compile(native_tweens=True, budget=budget)
     assert result.objects[0].strategy == "native-clip"
     assert 4 < result.event_count < 30
@@ -246,7 +246,7 @@ def test_parent_fade_and_child_pulse_use_distinct_original_clocks(crop):
         parent = replace(parent, lifetime=Lifetime(1.75, 3), clock_start=0)
     doc = Document.create(width=300, height=100)
     result = (
-        Scene(doc).add(parent).ass.compile(native_tweens=True, budget=SceneBudget(fps=1))
+        Scene(doc).add(parent).ass.compile(native_tweens=True, budget=SceneBudget())
     )
     assert result.objects[0].strategy == "native-clip"
     assert result.event_count < 30

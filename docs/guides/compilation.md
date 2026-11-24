@@ -11,7 +11,7 @@ compilation preserve caller-owned source objects.
 ## Choose semantics before tuning cost
 
 Static geometry, moves, supported tweens and rectangle keyframes lower to ASS tags.
-Frame sampling, paint fields, feather strips and coverage groups raise SceneCompileError.
+Frame sampling, gradients and feather strips raise SceneCompileError.
 
 Scene event boundaries round to the nearest centisecond, with exact half steps
 rounding to the even centisecond. `max_time_quantization` reports the largest

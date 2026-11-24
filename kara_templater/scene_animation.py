@@ -17,6 +17,7 @@ type Channel = Literal[
     "rotation",
     "skew",
     "opacity",
+    "face_opacity",
     "fill",
     "outline",
     "border",
@@ -30,6 +31,7 @@ CHANNELS: frozenset[Channel] = frozenset(
         "rotation",
         "skew",
         "opacity",
+        "face_opacity",
         "fill",
         "outline",
         "border",
@@ -97,9 +99,9 @@ class TimeSpan:
 class VisualState:
     """Finite drawing state in script pixels, degrees, RGB colors, and opacity 0 through 1.
 
-    Position, scale, rotation, skew, paint, blur, and shadow compose through the
-    scene hierarchy.
-    shadow_opacity multiplies the drawing opacity for the shadow alone.
+    Transforms and opacity compose through the scene hierarchy. Each drawing's
+    face_opacity multiplies opacity for its fill and outline. Its shadow_opacity
+    multiplies opacity for its drop shadow.
     """
 
     position: Vec2 = Vec2()
@@ -113,6 +115,7 @@ class VisualState:
     blur: float = 0
     shadow: Vec2 = Vec2()
     shadow_opacity: float = 1
+    face_opacity: float = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.fill, Color) or not isinstance(self.outline, Color):
@@ -122,11 +125,16 @@ class VisualState:
             raise TypeError(
                 "visual position, scale, skew and shadow must be Vec2 values"
             )
-        finite(self.rotation, self.opacity, self.border, self.blur, self.shadow_opacity)
+        finite(
+            self.rotation, self.opacity, self.border, self.blur,
+            self.shadow_opacity, self.face_opacity,
+        )
         if not 0 <= self.opacity <= 1 or self.border < 0 or self.blur < 0:
             raise ValueError("opacity must be in 0..1, border/blur must be nonnegative")
         if not 0 <= self.shadow_opacity <= 1:
             raise ValueError("shadow opacity must be in 0..1")
+        if not 0 <= self.face_opacity <= 1:
+            raise ValueError("face opacity must be in 0..1")
 
     @property
     def singular(self) -> bool:
@@ -156,6 +164,7 @@ class StatePatch:
     rotation: float | None = None
     skew: Vec2 | None = None
     opacity: float | None = None
+    face_opacity: float | None = None
     fill: Color | None = None
     outline: Color | None = None
     border: float | None = None
@@ -171,6 +180,7 @@ class StatePatch:
             ("rotation", self.rotation),
             ("skew", self.skew),
             ("opacity", self.opacity),
+            ("face_opacity", self.face_opacity),
             ("fill", self.fill),
             ("outline", self.outline),
             ("border", self.border),
@@ -212,6 +222,7 @@ class StatePatch:
             scalar(base.blur, self.blur),
             vector(base.shadow, self.shadow),
             base.shadow_opacity,
+            scalar(base.face_opacity, self.face_opacity),
         )
 
 
@@ -693,6 +704,8 @@ def merge_channels(
         value.border if "border" in channels else base.border,
         value.blur if "blur" in channels else base.blur,
         value.shadow if "shadow" in channels else base.shadow,
+        base.shadow_opacity,
+        value.face_opacity if "face_opacity" in channels else base.face_opacity,
     )
 
 

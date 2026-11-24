@@ -181,7 +181,7 @@ def test_hook_rasterizes_paths_and_text_without_an_ass_event(monkeypatch):
 
 def test_static_border_rounds_an_acute_glyph_tip():
     from kara_templater import VectorPath
-    from kara_templater._gpu_scene import path_coverage
+    from kara_templater._path_raster import path_coverage
 
     # A narrow V in the middle of the mask leaves room for a miter spike.
     path = VectorPath.polygon(Vec2(2, 2), Vec2(18, 2), Vec2(10, 22))
@@ -274,7 +274,7 @@ def test_lyric_extrusion_follows_body_and_ruby_without_singing_clip():
 def test_extruded_antialiased_edge_composites_to_the_swept_silhouette():
     from PIL import Image
 
-    from kara_templater._gpu_scene import _sweep_mask
+    from kara_templater._path_raster import _sweep_mask
 
     face = Image.frombytes("L", (6, 1), bytes([0, 128, 255, 128, 0, 0]))
     side = _sweep_mask(face, Vec2(1, 0))

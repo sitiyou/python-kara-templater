@@ -12,27 +12,25 @@ Use `--check` to verify that committed pages match the current public API.
 
 | Topic | Symbols |
 | --- | --- |
-| [Documents and lyric input](documents.md) | 27 |
+| [Documents and lyric input](documents.md) | 20 |
 | [Scenes and compilation](scenes.md) | 20 |
 | [Animation and timing](animation.md) | 34 |
-| [Track authoring](tracks.md) | 26 |
-| [Text measurement and layout](text.md) | 28 |
+| [Track authoring](tracks.md) | 25 |
+| [Text measurement and layout](text.md) | 21 |
 | [Geometry and paths](geometry.md) | 29 |
-| [Colors and appearance](paint.md) | 34 |
+| [Colors and appearance](paint.md) | 31 |
 | [Lyric cues](cues.md) | 13 |
 | [Particles and references](particles.md) | 14 |
-| [Coverage and raster output](coverage.md) | 7 |
 | [Regions and progress curves](native.md) | 4 |
 
 ## Symbol index
 
-236 public exports.
+211 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [Animation](animation.md#animation)
 - [AnimationClip](animation.md#animationclip)
 - [AnimationSequence](animation.md#animationsequence)
-- [AssImportError](documents.md#assimporterror)
 - [BLACK](paint.md#black)
 - [BLUE](paint.md#blue)
 - [BackRate](animation.md#backrate)
@@ -46,8 +44,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [ColorRamp](paint.md#colorramp)
 - [ColorStop](paint.md#colorstop)
 - [Contour](geometry.md#contour)
-- [Coverage](coverage.md#coverage)
-- [CoveragePartition](coverage.md#coveragepartition)
 - [CubicSegment](geometry.md#cubicsegment)
 - [CueContent](cues.md#cuecontent)
 - [CueContext](cues.md#cuecontext)
@@ -77,26 +73,18 @@ Use `--check` to verify that committed pages match the current public API.
 - [GeometryAnimation](geometry.md#geometryanimation)
 - [GeometryError](geometry.md#geometryerror)
 - [Glow](paint.md#glow)
-- [GlowFunction](coverage.md#glowfunction)
 - [Glyph](animation.md#glyph)
 - [Highlight](paint.md#highlight)
 - [HighlightArrival](paint.md#highlightarrival)
 - [HighlightPass](paint.md#highlightpass)
-- [ImportSettings](documents.md#importsettings)
-- [ImportedKaraoke](documents.md#importedkaraoke)
 - [Jump](animation.md#jump)
 - [KaraokeDecoration](tracks.md#karaokedecoration)
 - [KaraokeEffects](tracks.md#karaokeeffects)
 - [KaraokeEntry](tracks.md#karaokeentry)
 - [KaraokeExit](tracks.md#karaokeexit)
-- [KaraokeItem](tracks.md#karaokeitem)
-- [KaraokeLine](text.md#karaokeline)
 - [KaraokeRows](tracks.md#karaokerows)
 - [KaraokeSinging](tracks.md#karaokesinging)
 - [KaraokeTheme](paint.md#karaoketheme)
-- [LaidOutLine](text.md#laidoutline)
-- [LaidOutSegment](text.md#laidoutsegment)
-- [LaidOutUnit](text.md#laidoutunit)
 - [Layout](tracks.md#layout)
 - [LayoutCapabilityError](text.md#layoutcapabilityerror)
 - [LayoutContext](tracks.md#layoutcontext)
@@ -124,7 +112,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [LyricScene](tracks.md#lyricscene)
 - [LyricSegment](documents.md#lyricsegment)
 - [LyricSource](tracks.md#lyricsource)
-- [LyricSweep](paint.md#lyricsweep)
 - [LyricTarget](tracks.md#lyrictarget)
 - [LyricUnit](documents.md#lyricunit)
 - [MAGENTA](paint.md#magenta)
@@ -135,13 +122,10 @@ Use `--check` to verify that committed pages match the current public API.
 - [ORANGE](paint.md#orange)
 - [ObjectGroup](scenes.md#objectgroup)
 - [ObjectReport](scenes.md#objectreport)
-- [OutputCapabilityError](coverage.md#outputcapabilityerror)
+- [OutputCapabilityError](paint.md#outputcapabilityerror)
 - [PINK](paint.md#pink)
 - [PURPLE](paint.md#purple)
 - [Paint](paint.md#paint)
-- [PaintActivity](paint.md#paintactivity)
-- [PaintBand](paint.md#paintband)
-- [PaintField](paint.md#paintfield)
 - [PaintPair](paint.md#paintpair)
 - [ParticleContext](particles.md#particlecontext)
 - [ParticleFactory](particles.md#particlefactory)
@@ -157,8 +141,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [PreparedHook](scenes.md#preparedhook)
 - [ProgressCurve](native.md#progresscurve)
 - [RED](paint.md#red)
-- [RasterEstimate](coverage.md#rasterestimate)
-- [RasterSettings](coverage.md#rastersettings)
 - [Record](documents.md#record)
 - [RectangleClip](scenes.md#rectangleclip)
 - [RectangleFunction](scenes.md#rectanglefunction)
@@ -177,16 +159,13 @@ Use `--check` to verify that committed pages match the current public API.
 - [SceneObject](scenes.md#sceneobject)
 - [SceneReferenceError](scenes.md#scenereferenceerror)
 - [SceneResult](scenes.md#sceneresult)
-- [ScopeOpacity](coverage.md#scopeopacity)
 - [SecondaryOutline](paint.md#secondaryoutline)
-- [Segment](text.md#segment)
 - [ShaderMotion](animation.md#shadermotion)
 - [ShaderPaint](paint.md#shaderpaint)
 - [SignalCue](cues.md#signalcue)
 - [SingingSpan](text.md#singingspan)
 - [SingingTag](documents.md#singingtag)
 - [Slide](animation.md#slide)
-- [SoftSweep](paint.md#softsweep)
 - [SourceRef](documents.md#sourceref)
 - [Sparkle](particles.md#sparkle)
 - [StateAnimation](animation.md#stateanimation)
@@ -205,7 +184,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [TextRange](text.md#textrange)
 - [TextRun](documents.md#textrun)
 - [TextToken](documents.md#texttoken)
-- [TextUnit](text.md#textunit)
 - [TimeExpr](animation.md#timeexpr)
 - [TimeSpan](animation.md#timespan)
 - [Timeline](animation.md#timeline)
@@ -232,12 +210,10 @@ Use `--check` to verify that committed pages match the current public API.
 - [echoes](particles.md#echoes)
 - [emit_particles](particles.md#emit_particles)
 - [flatten](geometry.md#flatten)
-- [import_karaoke](documents.md#import_karaoke)
 - [intersect_convex](geometry.md#intersect_convex)
 - [layout_characters](text.md#layout_characters)
 - [layout_document_lyrics](text.md#layout_document_lyrics)
 - [layout_document_text](text.md#layout_document_text)
-- [layout_line](text.md#layout_line)
 - [layout_lyrics](text.md#layout_lyrics)
 - [layout_path](geometry.md#layout_path)
 - [linear_rate](animation.md#linear_rate)
@@ -246,9 +222,8 @@ Use `--check` to verify that committed pages match the current public API.
 - [merge_geometry](geometry.md#merge_geometry)
 - [morph](geometry.md#morph)
 - [outline_text](geometry.md#outline_text)
-- [paint_pair_from_style](documents.md#paint_pair_from_style)
+- [paint_pair_from_style](paint.md#paint_pair_from_style)
 - [parse_document_lyrics](documents.md#parse_document_lyrics)
-- [parse_karaoke](documents.md#parse_karaoke)
 - [path_boolean](geometry.md#path_boolean)
 - [path_bounds](geometry.md#path_bounds)
 - [prepare_tracks](tracks.md#prepare_tracks)
@@ -263,4 +238,3 @@ Use `--check` to verify that committed pages match the current public API.
 - [text_to_path](geometry.md#text_to_path)
 - [there_and_back](animation.md#there_and_back)
 - [union_regions](native.md#union_regions)
-- [walk_karaoke](documents.md#walk_karaoke)

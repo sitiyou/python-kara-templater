@@ -8,7 +8,7 @@ from xml.sax.saxutils import escape
 
 import pytest
 
-from kara_templater import KaraokeLine, Segment, Style, TextUnit, layout_line
+from kara_templater import Box, Style, Vec2, text_extents
 from kara_templater.characters import (
     LayoutCapabilityError,
     TextRange,
@@ -23,8 +23,8 @@ def test_karaoke_guide_dots_have_verified_ink_and_separate_timing_regions():
     layout, chars = measured("●●●")
     assert [c.text for c in chars] == ["●", "●", "●"]
     assert all(c.ink_bounds is not None and c.target.drawable for c in chars)
-    assert chars[0].timing_region.left == layout.box.left
-    assert chars[-1].timing_region.right == layout.box.right
+    assert chars[0].timing_region.left == layout.left
+    assert chars[-1].timing_region.right == layout.right
     assert all(
         a.timing_region.right == b.timing_region.left for a, b in pairwise(chars)
     )
@@ -49,7 +49,7 @@ def test_japanese_iteration_mark_keeps_source_and_verified_ink():
     assert [c.text for c in chars] == ["時", "々"]
     assert [c.source for c in chars] == [TextRange(0, 0, 1), TextRange(0, 1, 2)]
     assert all(c.ink_bounds is not None and c.target.drawable for c in chars)
-    assert chars[1].timing_region.right == layout.box.right
+    assert chars[1].timing_region.right == layout.right
     assert select_characters(chars, TextRange(0, 1, 2)) == (chars[1],)
 
 
@@ -71,7 +71,7 @@ def test_modern_hangul_jamo_preserve_syllable_clusters_and_source_offsets(
     layout, chars = measured(decomposed, style)
     assert tuple((c.source.start, c.source.end) for c in chars) == ranges
     assert "".join(c.text for c in chars) == decomposed
-    assert layout.box == reference_layout.box
+    assert layout == reference_layout
     assert [(c.box, c.ink_bounds, c.timing_region, c.font_faces) for c in chars] == [
         (c.box, c.ink_bounds, c.timing_region, c.font_faces) for c in reference
     ]
@@ -96,15 +96,13 @@ def test_missing_glyph_is_rejected_in_controlled_font_environment(tmp_path):
         + "</cachedir></fontconfig>"
     )
     code = """
-from kara_templater import FontFace, KaraokeLine, TextUnit, Style, layout_line, layout_characters
+from kara_templater import FontFace, Style, layout_characters
 from kara_templater.characters import LayoutCapabilityError
 style = Style(fontname="DejaVu Sans", fontsize=40)
 for text in ("A", "a\\u0301", " "):
-    layout = layout_line(KaraokeLine((TextUnit(text),)), style=style)
-    assert layout_characters(layout, style=style)
-layout = layout_line(KaraokeLine((TextUnit("\\U00031350"),)), style=style)
+    assert layout_characters(text, style=style)
 try:
-    layout_characters(layout, style=style)
+    layout_characters("\U00031350", style=style)
 except LayoutCapabilityError as error:
     assert "U+31350" in str(error) and "missing glyph" in str(error), error
     assert error.source_indices == ((0, None),)
@@ -112,12 +110,10 @@ except LayoutCapabilityError as error:
 else:
     raise AssertionError("missing-glyph outline was accepted as a drawable character")
 fallback_style = Style(fontname="KaraTestNonexistentFamily", fontsize=40)
-layout = layout_line(KaraokeLine((TextUnit("A"),)), style=fallback_style)
-characters = layout_characters(layout, style=fallback_style)
+characters = layout_characters("A", style=fallback_style)
 assert characters[0].font_faces == (FontFace("DejaVu Sans", "Book"),), characters[0].font_faces
 mixed_style = Style(fontname="Kara Test Primary", fontsize=40)
-layout = layout_line(KaraokeLine((TextUnit("AB"),)), style=mixed_style)
-characters = layout_characters(layout, style=mixed_style)
+characters = layout_characters("AB", style=mixed_style)
 assert [c.text for c in characters] == ["A", "B"]
 assert characters[0].font_faces == (FontFace("Kara Test Primary", "Regular"),)
 assert characters[1].font_faces == (FontFace("DejaVu Sans", "Book"),)
@@ -154,10 +150,9 @@ else:
 
 
 def measured(text, style=STYLE):
-    layout = layout_line(
-        KaraokeLine((TextUnit(text, (Segment(1000, 2000),)),)), style=style
-    )
-    return layout, layout_characters(layout, style=style)
+    width, height, _, _ = text_extents(replace(style, outline=0), text)
+    origin = Vec2((1920 - width) / 2, 1080 - style.margin_v - height)
+    return Box(origin.x, origin.y, width, height), layout_characters(text, style=style, origin=origin)
 
 
 def test_actual_font_faces_cover_clusters_and_survive_renderer_reuse():
@@ -184,8 +179,8 @@ def test_combining_mark_source_mapping_and_space_advance():
     ]
     assert chars[1].box.width > 0 and not chars[1].target.drawable
     assert chars[0].ink_bounds is not None
-    assert chars[0].box.left == pytest.approx(layout.units[0].box.left, abs=1 / 64)
-    assert chars[-1].box.right == pytest.approx(layout.units[0].box.right, abs=0.2)
+    assert chars[0].box.left == pytest.approx(layout.left, abs=1 / 64)
+    assert chars[-1].box.right == pytest.approx(layout.right, abs=0.2)
     assert select_characters(chars, TextRange(0, 0, 2)) == (chars[0],)
     with pytest.raises(LayoutCapabilityError, match="cuts a drawable cluster"):
         select_characters(chars, TextRange(0, 0, 1))
@@ -202,7 +197,7 @@ def test_unicode_spacing_retains_advance_without_a_pulse_target(space):
     assert chars[1].ink_bounds is None
     assert chars[0].timing_region.right == chars[1].timing_region.left
     assert chars[1].timing_region.right == chars[2].timing_region.left
-    assert chars[-1].timing_region.right == layout.box.right
+    assert chars[-1].timing_region.right == layout.right
 
 
 def test_printed_lyric_star_has_its_own_visible_source_range():
@@ -233,7 +228,7 @@ def test_positioned_cluster_outlines_match_original_subpixel_phase(text):
 
     style = replace(STYLE, fontsize=52)
     layout, chars = measured(text, style)
-    original = _shape(style, text, layout.box.left)[4]
+    original = _shape(style, text, layout.left)[4]
     cursor = 0
     for char in chars:
         isolated = _shape(style, char.text, char.box.left)[4]
@@ -247,10 +242,10 @@ def test_positioned_cluster_outlines_match_original_subpixel_phase(text):
             assert segments == reference_segments
             assert face == reference_face
             for (x, y), (rx, ry) in zip(points, reference, strict=True):
-                assert x + layout.box.left == pytest.approx(
+                assert x + layout.left == pytest.approx(
                     rx + char.box.left, abs=1 / 64
                 )
-                assert y + layout.box.top == pytest.approx(
+                assert y + layout.top == pytest.approx(
                     ry + char.box.top, abs=1 / 64
                 )
         cursor += len(isolated)
@@ -276,8 +271,8 @@ def test_pinned_oblique_keeps_ink_overhang_separate_from_timing():
         and (c.ink_bounds.left < c.box.left or c.ink_bounds.right > c.box.right)
         for c in chars
     )
-    assert chars[0].timing_region.left == layout.box.left
-    assert chars[-1].timing_region.right == layout.box.right
+    assert chars[0].timing_region.left == layout.left
+    assert chars[-1].timing_region.right == layout.right
 
 
 @pytest.mark.parametrize(
@@ -300,12 +295,6 @@ def test_cjk_kana_and_precomposed_hangul_can_be_drawn_independently():
         assert all(c.target.drawable for c in chars)
 
 
-def test_font_style_mismatch_rejected():
-    layout, _ = measured("AB")
-    with pytest.raises(LayoutCapabilityError, match="does not match"):
-        layout_characters(layout, style=replace(STYLE, fontsize=20))
-
-
 def test_native_shapes_survive_subsequent_measurements():
     from kara_templater.characters import _shape
 
@@ -322,7 +311,7 @@ def test_spacing_and_scale_preserve_measured_positions():
     style = replace(STYLE, spacing=5, scale_x=125, scale_y=80)
     layout, chars = measured("ABC", style)
     assert len(chars) == 3
-    assert chars[-1].box.right == pytest.approx(layout.box.right, abs=0.2)
+    assert chars[-1].box.right == pytest.approx(layout.right, abs=0.2)
 
 
 def test_measured_characters_feed_common_arrival_without_edge_rounding_loss():

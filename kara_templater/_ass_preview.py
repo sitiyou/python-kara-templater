@@ -6,8 +6,8 @@ from math import ceil, cos, isfinite, log, radians, sin, sqrt
 
 from PIL import Image, ImageChops, ImageFilter
 
-from ._gpu_scene import path_coverage
 from ._native_types import RasterImage
+from ._path_raster import path_coverage
 from .ass import Document, Style
 from .document_text import _overrides
 from .geometry import Contour, CubicSegment, LineSegment, Segment2D, Vec2, VectorPath

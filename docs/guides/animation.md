@@ -104,7 +104,7 @@ A factory may instead return a Timeline sequence with its own authored duration.
 | StateReference callbacks and StateLookup times | Absolute Scene seconds |
 | Timeline.play, TimeSpan, AnimationSequence | Seconds |
 | Track preview/tail, LyricRule offset/duration and semantic anchors | Seconds |
-| KaraokeItem window, Segment, Line | Milliseconds |
+| ASS Line and DisplayWindow | Milliseconds |
 | ASS serialization and generated event boundaries | Centiseconds: 10 ms |
 
 ## Scene clips and timelines
@@ -114,7 +114,7 @@ from its start. Set `clock_start` to retain an earlier absolute origin when
 cropping visibility: an object visible during `Lifetime(2, 3)` with
 `clock_start=1` evaluates local time 1.5 at absolute second 2.5. `time_origin`
 reports the effective origin. State animations, paint, geometry, masks and
-coverage callbacks share it; references continue using absolute seconds.
+geometry callbacks share it; references continue using absolute seconds.
 The origin must be nonnegative and no later than the display end. Visibility
 may also begin before the origin: `Lifetime(0.5, 3)` with `clock_start=1`
 passes local time -0.25 to geometry, paint and mask callbacks at second 0.75.
@@ -123,12 +123,12 @@ state animations remain unstarted before their clip start; the clock is neither
 clamped nor restarted. A delayed copy shifts both the display window and an explicit origin. Animations and
 breakpoints may precede visibility, but cannot extend beyond its end.
 
-Custom geometry, paint, glow, coverage partitions and scope opacity may declare
+Custom geometry and clips may declare
 signed local breakpoints. Owning objects validate their absolute times against
 Scene zero and the display end. Paint activity and a glow's `required_interval`
 use the same signed clock; activity describes when a material changes, whereas
 `required_interval` reserves visibility during lyric layout. Ordinary animation
-clip starts, including `GlowFunction.from_animation`, remain nonnegative local
+clip starts remain nonnegative local
 offsets from the chosen origin.
 
 An AnimationClip has a nonnegative start relative to the object's birth, a

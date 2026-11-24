@@ -3,28 +3,35 @@
 """
 
 from dataclasses import replace
+from math import cos, radians, sin
 
 from kara_templater import (
     CYAN,
     CueMarker,
     CuePreset,
     Document,
-    FollowObject,
     Lifetime,
     Line,
     PathObject,
     Scene,
-    StateKeyframe,
-    StatePatch,
+    ShaderMotion,
     Style,
     TextCue,
-    Timeline,
     Vec2,
     VectorPath,
     VisualState,
     bind_cues,
     layout_document_text,
 )
+
+START = Vec2(300, 300)
+TRAVEL = Vec2(220, -40)
+TURN = 12
+HALF_TIME = 2.5
+
+
+def _swing(state: VisualState, progress: float) -> VisualState:
+    return replace(state, position=START + TRAVEL * progress, rotation=TURN * progress)
 
 
 def build() -> Scene:
@@ -67,13 +74,39 @@ def build() -> Scene:
             opacity=0,
         ),
     )
-    lyric = bound.group(position=Vec2(300, 300))
-    motion = Timeline().keyframes(
-        StateKeyframe(2.5, StatePatch(position=Vec2(520, 260), rotation=12)),
-        StateKeyframe(5, StatePatch(position=Vec2(300, 300), rotation=0)),
+    lyric = bound.group(position=START)
+    lyric = replace(lyric, children=(*lyric.children, anchor))
+    motion = ShaderMotion(
+        _swing, frozenset({"position", "rotation"}),
+        "pos=pairAt(data)+pairAt(data+2)*p; angle=item(data+4)*p;",
+        (START.x, START.y, TRAVEL.x, TRAVEL.y, TURN),
     )
-    lyric = replace(lyric, children=(*lyric.children, anchor), animations=motion.clips)
-    count = replace(bound.independent[0], reference=FollowObject(anchor.id))
+    returning = replace(
+        motion, function=lambda state, p: _swing(state, 1 - p),
+        source="float q=1.-p; pos=pairAt(data)+pairAt(data+2)*q; angle=item(data+4)*q;",
+    )
+    lyric = lyric.animate(motion, duration=HALF_TIME).animate(
+        returning, at=HALF_TIME, duration=HALF_TIME,
+    )
+    count = bound.independent[0]
+    onset = count.lifetime.start / HALF_TIME
+    travel = (count.lifetime.end - count.lifetime.start) / HALF_TIME
+    point = anchor.state.position
+
+    def follow(state: VisualState, progress: float) -> VisualState:
+        phase = onset + progress * travel
+        angle = radians(TURN * phase)
+        offset = Vec2(point.x * cos(angle) - point.y * sin(angle),
+                      point.x * sin(angle) + point.y * cos(angle))
+        return replace(state, position=START + TRAVEL * phase + offset)
+
+    count = count.animate(ShaderMotion(
+        follow, frozenset({"position"}), """
+        float phase=item(data+7)+p*item(data+8);
+        pos=pairAt(data)+pairAt(data+2)*phase
+            +basisOf(vec2(1.),vec2(0.),item(data+4)*phase)*pairAt(data+5);
+        """, (START.x, START.y, TRAVEL.x, TRAVEL.y, TURN, point.x, point.y, onset, travel),
+    ), duration=count.lifetime.end - count.lifetime.start)
     scene = Scene(document).add(lyric, count)
     scene.replace_source(record)
     return scene

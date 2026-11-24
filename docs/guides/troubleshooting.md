@@ -19,9 +19,9 @@ reproduces it. Keep the traceback and exception cause when debugging callbacks.
 | PlayRes mismatch | Check Document script dimensions and the resolution used by the renderer or preview |
 | Editable Track rejects source style | Use native mode for unsupported underline/strikeout/angle/BorderStyle, or author the desired geometry explicitly |
 | A pulse disappears or a soft wipe looks sharper after export | Check which ASS path produced the file. [Check the supported effects](choosing-output.md) before changing the timing or colors. |
-| Glow is cut off at a color front | Native clipping is post-render; use explicit coverage/raster material semantics for color-before-blur |
-| Group alpha looks too dense | Ordinary groups apply alpha per drawing layer; choose explicit offscreen/coverage composition when required |
-| Event, byte, active, path, band, or boolean budget fails | Inspect SceneResult/ObjectReport, simplify the effect, or deliberately raise the relevant SceneBudget/RasterSettings limit |
+| Glow is cut off at a color front | Set `blend_glow=True` on an automatic wipe with matching halo blur and border |
+| Group alpha looks too dense | Groups apply alpha to each drawing. Check the opacity of overlapping child layers |
+| Event, byte, active, path or boolean budget fails | Inspect SceneResult/ObjectReport, simplify the effect, or deliberately raise the relevant SceneBudget limit |
 | Raster colors differ by tiny rectangles | Check RGB/full-resolution chroma composition, color matrix, and spatial error settings before comparing YUV420 output |
 | Regeneration duplicates or leaves effects | Use a stable owner and preserve generated source/provenance markers |
 | Same callback differs after seeking | Remove previous-frame state and global random draws; declare dependencies and breakpoints |

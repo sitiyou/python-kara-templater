@@ -58,7 +58,7 @@ main = Track(id="main", layout=VerseRows(),
 
 - A `LyricRule` selects lyric targets and declares their animation clocks.
 - A callable receives a measured `LyricLine` and returns its decorated replacement.
-  `LyricHighlights`, `LyricSweep`, `LyricEcho` and `LyricParticles` are callable
+  `LyricHighlights`, `LyricEcho` and `LyricParticles` are callable
   built-ins; an ordinary Python function has the same contract.
 
 Timing rules resolve once from the source before decoration. Callable effects
@@ -82,7 +82,8 @@ from kara_templater import (
     FadeIn,
     FadeOut,
     LyricRule,
-    LyricSweep,
+    LyricHighlights,
+    StatePatch,
     ScalePulse,
     Track,
     prepare_tracks,
@@ -97,12 +98,12 @@ scene = prepare_tracks(
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
                 LyricRule("syllable", "singing", ScalePulse()),
                 LyricRule("line", "exit", FadeOut(), duration=0.2),
-                LyricSweep(fill=CYAN, width=0),
+                LyricHighlights.from_singing(StatePatch(fill=CYAN)),
             ),
         ),
     ),
 )
-scene.ass.compile().document.save("output.ass")
+scene.export("output.hook")
 ```
 
 A rule selects targets and binds a common animation to an anchor. It does not
@@ -213,9 +214,8 @@ that box together with reserved inline cue bounds. Dynamic geometry callbacks
 are not sampled to guess a footprint; declare a box covering the intended motion.
 
 Appearance composition uses explicit Python factories and immutable replacements.
-Apply base role or range appearance first, then select singing colors with
-LyricSweep's target factory. Unspecified paint channels retain their base values;
-returning `None` skips that target. There is no separate CSS selector cascade.
+Apply base role or range appearance first, then declare singing colors with
+LyricHighlights.
 
 LyricLine exposes line, syllable, segment, character, ruby and cue targets.
 `line.query(...)` selects existing targets without reparenting. Ancestor/descendant
@@ -238,29 +238,20 @@ a rule factory can locate the target in `line.layout.ruby`, take that reading's
 `layout.bounds` center, and subtract the glyph's original
 `object.state.position`. Pass that local point as `ScalePulse(pivot=..., peak=...)`.
 Bind the factory with `LyricRule("ruby", "singing", factory)`. Each glyph retains
-the reading's singing clock; LyricSweep also uses the full reading bounds for its
-sweep. This changes neither parentage nor the body animation.
+the reading's singing clock.
 
-LyricSweep provides per-syllable soft color transitions. LyricHighlights provides
-named passes with union, priority or layered ownership; HighlightArrival binds
+LyricHighlights provides per-syllable transitions and named passes with union, priority or layered ownership; HighlightArrival binds
 animations to measured character crossings. Factories may choose colors or glow
 by target. Python styles and factories construct appearance without embedding
-custom runtime tags in the output. See [materials](materials.md),
-[animation](animation.md), and [parallel_tracks.py](../../examples/parallel_tracks.py).
+custom runtime tags in the output. See [materials](materials.md) and
+[animation](animation.md).
 
-All paths compile through Scene. Clip layers, coverage and whole-group RGBA
-composition have different blur/alpha semantics and explicit costs. Unsupported
-source styles are diagnosed rather than silently discarded; there is no Track
-native/editable mode switch. See [compilation](compilation.md) for sampling,
-continuous native tween eligibility and budgets.
+Export the composed scene as a Hook. See [ASS compilation](compilation.md)
+for the standard ASS compatibility path.
 
 Visual factories can reserve authored time before allocation. LyricHighlights
-adds its absolute pass intervals; GlowFunction.from_animation declares its
-local animation interval. Existing object animations and explicit
-`line.required_display` intervals also participate. Unknown callback duration
-is not inferred by sampling it or by treating every breakpoint as a visibility
-requirement; a custom glow can declare `required_interval`, or the factory can
-return a line with explicit absolute `required_display` intervals.
+adds its absolute pass intervals. Existing object animations and explicit
+`line.required_display` intervals also participate.
 
 Attached decorations with their own lifetimes reserve their visible intervals,
 including any time restrictions imposed by independently timed parent groups.

@@ -10,10 +10,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Literal, Self
 
 from .ass import Document, Line
-from .coverage_animation import Coverage
 from .geometry import Vec2, VectorPath, finite
 from .object_references import StateReference
-from .paint_fields import Extrusion, PaintActivity, PaintField, ShaderPaint
+from .paint_fields import Extrusion, LinearGradient, ShaderPaint
 from .path_animation import GeometryAnimation
 from .path_geometry import GeometryError
 from .scene_animation import (
@@ -30,6 +29,22 @@ from .sources import EventOrigin
 if TYPE_CHECKING:
     from .scene_evaluation import SceneEvaluator
     from .scene_output import SceneBudget, SceneEstimate, SceneResult
+
+
+class SceneCompileError(ValueError):
+    """An invalid scene or exceeded compilation limit with object_id and optional source origin.
+
+    Callback causes remain available for diagnosis.
+    """
+
+    def __init__(
+        self, message: str, *, object_id: str = "", origin: EventOrigin | None = None
+    ) -> None:
+        super().__init__(f"{object_id}: {message}" if object_id else message)
+        self.object_id = object_id
+        self.origin = origin
+        if origin is not None:
+            self.add_note(f"effect={origin.effect}; sources={origin.sources!r}")
 
 
 @dataclass(frozen=True)
@@ -230,7 +245,7 @@ class VisualNode:
     layer: int = 0
     origin: EventOrigin | None = None
     clip: RectangleClip | VectorClip | None = None
-    material: PaintField | None = None
+    material: LinearGradient | None = None
     reference: StateReference | None = None
 
     @property
@@ -248,6 +263,8 @@ class VisualNode:
             raise ValueError("visual objects require a nonempty id")
         if type(self.layer) is not int:
             raise TypeError("layer must be an integer")
+        if self.material is not None and not isinstance(self.material, LinearGradient):
+            raise TypeError("material must be a LinearGradient")
         if (
             isinstance(self.clip, (RectangleClip, VectorClip))
             and self.clip.deform is not None
@@ -257,25 +274,6 @@ class VisualNode:
             )
         ):
             raise ValueError("clip breakpoint outside object lifetime")
-        if self.material is not None:
-            finite(*self.material.breakpoints)
-            if any(
-                t < -self.time_origin or t > self.lifetime.end - self.time_origin
-                for t in self.material.breakpoints
-            ):
-                raise ValueError("paint breakpoint outside object lifetime")
-            if isinstance(self.material, PaintActivity):
-                for interval in self.material.active_intervals:
-                    if (
-                        interval.start < -self.time_origin
-                        or interval.end <= interval.start
-                        or interval.end > self.lifetime.end - self.time_origin
-                        or interval.start not in self.material.breakpoints
-                        or interval.end not in self.material.breakpoints
-                    ):
-                        raise ValueError(
-                            "paint activity must fit the lifetime and declare its endpoints as breakpoints"
-                        )
         if self.reference is not None:
             finite(*self.reference.breakpoints)
             if any(
@@ -462,14 +460,6 @@ class ObjectGroup(VisualNode):
     """
 
     children: tuple[SceneObject, ...]
-    coverage: Coverage | None = None
-
-    def _retarget_copy(self, names: Mapping[str, str], delay: float) -> Self:
-        copied = super()._retarget_copy(names, delay)
-        return replace(
-            copied,
-            coverage=None if self.coverage is None else self.coverage.retarget(names),
-        )
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -689,7 +679,7 @@ class AssOutput:
         """Compile a new ASS Document and reports under explicit Scene budgets.
 
         ASS supports native motion and hard clips. Frame sampling, paint fields,
-        feathered wipes and coverage groups raise SceneCompileError.
+        and feathered wipes raise SceneCompileError.
         on_estimate runs after preflight and before frame callbacks; raising
         cancels compilation without changing the scene or source document.
         """

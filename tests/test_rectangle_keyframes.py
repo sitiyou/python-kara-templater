@@ -5,7 +5,6 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
-    Coverage,
     Document,
     Lifetime,
     ObjectGroup,
@@ -45,9 +44,8 @@ def test_known_curve_holds_pauses_resets_and_preserves_empty_coordinates():
     assert mask.breakpoints == (0, 0.2, 0.4, 0.6)
 
 
-@pytest.mark.parametrize("coverage", (False, True))
 @pytest.mark.parametrize("inverse", (False, True))
-def test_known_curve_uses_common_sampling_and_keeps_clock_after_crop(coverage, inverse):
+def test_known_curve_uses_common_sampling_and_keeps_clock_after_crop(inverse):
     doc = Document.create(width=32, height=32)
     leaf = PathObject(
         id="masked",
@@ -60,13 +58,8 @@ def test_known_curve_uses_common_sampling_and_keeps_clock_after_crop(coverage, i
         id="root",
         lifetime=leaf.lifetime,
         children=(leaf,),
-        coverage=Coverage() if coverage else None,
     )
-    if coverage:
-        with pytest.raises(SceneCompileError, match="coverage groups"):
-            Scene(doc).add(group).ass.compile()
-        return
-    budget = SceneBudget(fps=10)
+    budget = SceneBudget()
     result = Scene(doc).add(group).ass.compile(budget=budget)
     for time, front in ((1100, 4), (1200, 8), (1300, 8), (1400, 2), (1600, 12)):
         reference = (
@@ -109,7 +102,7 @@ def test_native_curve_preserves_cropped_clock_pauses_resets_and_event_cost(inver
         clip=RectangleClip(0, 0, 16, 12, inverse=inverse, deform=curve()),
     )
     scene = Scene(doc).add(leaf)
-    result = scene.ass.compile(native_tweens=True, budget=SceneBudget(fps=1, max_events=4))
+    result = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=4))
     assert result.event_count == 4
     assert result.objects[0].strategy == "native-clip"
     events = result.document.lines
@@ -160,11 +153,6 @@ def test_native_curve_maps_local_bounds_and_falls_back_for_custom_animation():
     )
     with pytest.raises(SceneCompileError, match="frame sampling"):
         Scene(doc).add(animated).ass.compile()
-    group = ObjectGroup(
-        id="coverage", lifetime=leaf.lifetime, children=(leaf,), coverage=Coverage()
-    )
-    with pytest.raises(SceneCompileError, match="coverage groups"):
-        Scene(doc).add(group).ass.compile()
 
 
 @pytest.mark.parametrize("inverse", (False, True))

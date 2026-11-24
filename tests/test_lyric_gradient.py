@@ -48,21 +48,18 @@ def test_studio_text_glow_converts_pen_radius_and_gaussian_deviation():
     assert Glow.from_studio(BLUE, radius=0, outline=3) == Glow(BLUE, opacity=0)
 
 
-@pytest.mark.parametrize("strategy", ("clip", "coverage"))
-def test_base_paint_is_owned_by_unsung_layers_and_their_glow(strategy):
+def test_base_paint_is_owned_by_unsung_layers_and_their_glow():
     _, original = subject()
     painted = LyricHighlights.from_singing(
         StatePatch(fill=RED), base_paint=StatePatch(opacity=0),
         base_glow=Glow(BLUE, opacity=0.2), glow=Glow(RED, opacity=0.4),
-        strategy=strategy,
     )(original)
     objects = {node.id: node for node in nodes(painted)}
     for target in (*painted.query("character"), *painted.query("ruby")):
         assert objects[target.node_id].state.opacity == 0
         sung = [objects[name] for name in target.aliases if "/highlight:" in name and not name.endswith("/glow")]
         assert sung and all(node.state.opacity == 1 for node in sung)
-        if strategy == "clip":
-            assert objects[f"{target.node_id}/glow"].state.opacity == 0
+        assert objects[f"{target.node_id}/glow"].state.opacity == 0
     assert all(node.state.opacity == 1 for node in nodes(original))
     with pytest.raises(ValueError, match="geometry"):
         LyricHighlights.from_singing(StatePatch(), base_paint=StatePatch(scale=Vec2(2, 2)))
@@ -109,17 +106,6 @@ def test_gradient_follows_centered_scale_and_translation_in_scene():
     a, b = before.transform.apply(target.center), after.transform.apply(target.center)
     assert (a.x, a.y) == pytest.approx((b.x, b.y))
     assert after.scale.x == pytest.approx(before.scale.x * 1.2)
-
-
-@pytest.mark.parametrize("unsung", [False, True])
-def test_material_coverage_combination_fails_during_preparation(unsung):
-    _, line = subject()
-    gradient = LyricGradient((RED, BLUE))
-    with pytest.raises(ValueError, match="materials require clip"):
-        LyricHighlights.from_singing(
-            StatePatch(), strategy="coverage", material=None if unsung else gradient,
-            base_material=gradient if unsung else None,
-        )(line)
 
 
 def test_horizontal_ramp_uses_the_same_body_coordinates_for_glyphs_and_readings():

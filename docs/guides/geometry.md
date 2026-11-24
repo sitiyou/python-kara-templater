@@ -88,7 +88,7 @@ ending at event-local time zero. The combined animation/keyframe boundaries
 must align with the centisecond grid for this animated optimization. A spatial
 bound that cannot fit that grid raises an error, as does exceeding event limits.
 Rotating or shearing animations, parent geometry animations, inherited masks, materials,
-references and coverage can require frame sampling and raise SceneCompileError.
+references can require frame sampling and raise SceneCompileError.
 ASS compilation also rejects arbitrary `RectangleFunction` callbacks.
 
 In a Hook export, a normal screen-space rectangle on a group intersects the

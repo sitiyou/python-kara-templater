@@ -178,65 +178,6 @@ def test_blur_workspace_budget_and_radius_are_checked_before_filtering():
     )
 
 
-def test_material_is_selected_before_blur_and_preserves_single_alpha():
-    from kara_templater import BLUE, RED, WHITE, Region
-    from kara_templater._material_raster import (
-        CoverageMask,
-        MaterialBand,
-        paint_coverage,
-    )
-
-    mask = CoverageMask(20, 30, 16, 8, b"\xff" * 128)
-    x, y, mixed = paint_coverage(
-        mask,
-        (
-            MaterialBand(Region(20, 28), BLUE),
-            MaterialBand(Region(28, 36), RED),
-        ),
-        blur_radius=3,
-    )
-    ux, uy, uniform = paint_coverage(
-        mask, (MaterialBand(Region(20, 36), WHITE),), blur_radius=3
-    )
-    assert (x, y, mixed.width, mixed.height) == (ux, uy, uniform.width, uniform.height)
-    assert mixed.rgba[3::4] == uniform.rgba[3::4]
-    # Both colors spread past the material boundary; no post-blur hard clip.
-    for column in (27, 28):
-        offset = ((34 - y) * mixed.width + column - x) * 4
-        red, green, blue, alpha = mixed.rgba[offset : offset + 4]
-        assert 0 < red < 255 and green == 0 and 0 < blue < 255 and alpha > 0
-    assert roundtrip(mixed) == mixed
-
-
-def test_fractional_material_partition_and_opacity_are_premultiplied():
-    from kara_templater import BLUE, RED, Region
-    from kara_templater._material_raster import (
-        CoverageMask,
-        MaterialBand,
-        paint_coverage,
-    )
-
-    mask = CoverageMask(0, 0, 1, 1, b"\xff")
-    _, _, frame = paint_coverage(
-        mask,
-        (
-            MaterialBand(Region(0, 0.5), RED, 0.5),
-            MaterialBand(Region(0.5, 1), BLUE, 1),
-        ),
-    )
-    assert frame.rgba[3] == 191
-    # Check premultiplied energy: 8-bit planes quantize before unpremultiplication.
-    assert frame.rgba[0] * frame.rgba[3] / 255 == pytest.approx(63.75, abs=1)
-    assert frame.rgba[2] * frame.rgba[3] / 255 == pytest.approx(127.5, abs=1)
-    with pytest.raises(ValueError, match="partition"):
-        paint_coverage(mask, (MaterialBand(Region(0, 0.5), RED),))
-    with pytest.raises(ValueError, match="partition"):
-        paint_coverage(
-            mask,
-            (MaterialBand(Region(0, 0.8), RED), MaterialBand(Region(0.5, 1), BLUE)),
-        )
-
-
 def test_colored_frames_share_the_same_group_alpha_and_translation():
     canvas = RasterCanvas(2, 2)
     frame = RasterFrame(1, 1, bytes((255, 0, 0, 128)))

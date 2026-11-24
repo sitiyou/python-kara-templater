@@ -143,12 +143,16 @@ def test_timeline_takeover_release_and_random_access():
 def test_parallel_channels_conflicts_and_declared_writes():
     timeline = Timeline().play(
         Tween(StatePatch(opacity=0)),
+        Tween(StatePatch(face_opacity=0.2)),
         Tween(StatePatch(position=Vec2(10, 0))),
         duration=1,
     )
-    node = text(animations=timeline.clips)
-    assert node.at(0.5).opacity == 0.5
-    assert node.at(0.5).position == Vec2(5, 0)
+    node = text(animations=timeline.clips, state=VisualState(face_opacity=0.6, shadow_opacity=0.35))
+    state = node.at(0.5)
+    assert state.opacity == 0.5
+    assert state.face_opacity == pytest.approx(0.4)
+    assert state.shadow_opacity == 0.35
+    assert state.position == Vec2(5, 0)
     with pytest.raises(ValueError, match="overlapping animation"):
         timeline.play(Tween(StatePatch(opacity=0.2)), duration=1, at=0.5)
     function = StateFunction(

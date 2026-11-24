@@ -15,7 +15,9 @@ by --before/--after. --pulse accepts none, char, chars, or syllable. Character
 arrival, simultaneous characters, and a shared syllable pulse have different
 clocks and pivots. --fade-in-ms/--fade-out-ms control fades;
 --lead-ms/--tail-ms extend the display window without rewriting singing time.
-Black drop shadows retain the source style's opacity in both output formats.
+Black drop shadows retain the source style's opacity through changes in lyric
+color and face opacity in both output formats. Fades apply to the entire line,
+including its drop shadow.
 Omit --tail-ms for the automatic one-second tail including the fade, with
 200 ms of preferred hold when room permits. Pass --tail-ms 0 to request just the required animation time.
 Repeat --style to restrict imported styles. --owner selects a stable generation

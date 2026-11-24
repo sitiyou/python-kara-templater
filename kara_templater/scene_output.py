@@ -16,6 +16,8 @@ from ._scene_clipping import (
     ResolvedMasks,
     SceneClipError,
 )
+from ._scene_tree import SceneLeaf, scene_leaves
+from ._source_records import generated_prefix, strip_generated_records
 from .ass import EVENT_FORMAT, STYLE_FORMAT, Document, Line, Style
 from .composition import Color
 from .easing import ease_out
@@ -24,13 +26,11 @@ from .layout import text_extents
 from .path_geometry import intersect_convex, path_bounds
 from .path_motion import MoveAlong
 from .scene import (
-    NativeEvent,
-    ObjectGroup,
     PathObject,
     RectangleClip,
     RectangleKeyframes,
     Scene,
-    SceneObject,
+    SceneCompileError,
     TextObject,
     VectorClip,
     _CellWipeClip,
@@ -54,28 +54,12 @@ from .scene_animation import (
 )
 from .scene_evaluation import SceneEvaluator, SceneReferenceError, compose_states
 from .sources import EventOrigin
-from .text_geometry import _VectorGuideText, outline_text, text_to_path
-
-
-class SceneCompileError(ValueError):
-    """An invalid scene or exceeded compilation limit with object_id and optional source origin.
-
-    Callback causes remain available for diagnosis.
-    """
-
-    def __init__(
-        self, message: str, *, object_id: str = "", origin: EventOrigin | None = None
-    ) -> None:
-        super().__init__(f"{object_id}: {message}" if object_id else message)
-        self.object_id = object_id
-        self.origin = origin
-        if origin is not None:
-            self.add_note(f"effect={origin.effect}; sources={origin.sources!r}")
+from .text_geometry import outline_text
 
 
 @dataclass(frozen=True, kw_only=True)
 class SceneBudget:
-    """Positive whole-scene sampling and resource limits.
+    """Positive whole-scene ASS resource limits.
 
     ASS compilation enforces limits on events, bytes, active drawings, geometry
     and boolean work. It does not sample at fps or generate paint bands.
@@ -83,12 +67,10 @@ class SceneBudget:
     pixels, including endpoint rounding, before renderer pixel quantization.
     """
 
-    fps: int = 50
     max_events: int = 25_000
     max_bytes: int = 10 * 1024 * 1024
     max_active: int = 1_000
     max_path_points: int = 4_096
-    max_bands: int = 1_024
     max_boolean_work: int = 1_000_000
     clip_error_px: float = 0.75
 
@@ -97,20 +79,14 @@ class SceneBudget:
         if self.clip_error_px <= 0:
             raise ValueError("clip error must be positive")
         for value in (
-            self.fps,
             self.max_events,
             self.max_bytes,
             self.max_active,
             self.max_path_points,
-            self.max_bands,
             self.max_boolean_work,
         ):
             if type(value) is not int or value < 1:
                 raise ValueError("scene budgets must be positive integers")
-        if self.fps > 100:
-            raise ValueError(
-                "ASS centisecond event grid supports at most 100 samples/s"
-            )
 
 
 @dataclass(frozen=True)
@@ -157,12 +133,7 @@ class _ScalePolynomial:
 
 
 @dataclass(frozen=True)
-class _Leaf:
-    node: TextObject | PathObject
-    parents: tuple[ObjectGroup, ...]
-    start: float
-    end: float
-    evaluator: SceneEvaluator
+class _Leaf(SceneLeaf):
     affine_pen_scale: Vec2 | None = None
     rectangle_anchor: Vec2 | None = None
     scale_polynomials: tuple[_ScalePolynomial, ...] = ()
@@ -188,7 +159,6 @@ class _Leaf:
                 isinstance(self.node.clip, (RectangleClip, VectorClip))
                 and self.node.clip.deform is not None
             )
-            or (self.node.material is not None and self.node.material.breakpoints)
             or (isinstance(self.node, PathObject) and self.node.deform is not None)
             or any(parent.animations for parent in self.parents)
             or any(
@@ -207,63 +177,6 @@ class _Leaf:
             )
             or any(p.state.scale.x != p.state.scale.y for p in self.parents)
         )
-
-    def at(self, time: float) -> VisualState:
-        return self.evaluator.at(self.node.id, time)
-
-
-def _leaves(
-    scene: Scene,
-    evaluator: SceneEvaluator,
-    *,
-    collect_coverage: bool = True,
-) -> tuple[
-    tuple[_Leaf, ...],
-    tuple[NativeEvent, ...],
-    tuple[ObjectGroup, ...],
-    tuple[str, ...],
-]:
-    leaves: list[_Leaf] = []
-    native: list[NativeEvent] = []
-    coverage: list[ObjectGroup] = []
-    order: list[str] = []
-    ids: set[str] = set()
-
-    def visit(
-        node: SceneObject | NativeEvent, parents: tuple[ObjectGroup, ...]
-    ) -> None:
-        if node.id in ids:
-            raise SceneCompileError(
-                "duplicate object identity or group cycle", object_id=node.id
-            )
-        ids.add(node.id)
-        if isinstance(node, NativeEvent):
-            native.append(node)
-            order.append(node.id)
-            return
-        if isinstance(node, ObjectGroup):
-            if collect_coverage and node.coverage is not None:
-                start = max(n.lifetime.start for n in (*parents, node))
-                end = min(n.lifetime.end for n in (*parents, node))
-                if end > start:
-                    coverage.append(node)
-                    order.append(node.id)
-                return
-            for child in node.children:
-                visit(child, (*parents, node))
-            return
-        start = max(n.lifetime.start for n in (*parents, node))
-        end = min(n.lifetime.end for n in (*parents, node))
-        if end > start:
-            if isinstance(node, _VectorGuideText):
-                node = text_to_path(node, path=node.outline.path)
-            leaves.append(_Leaf(node, parents, start, end, evaluator))
-            order.append(node.id)
-
-    for node in scene.objects:
-        visit(node, ())
-    return tuple(leaves), tuple(native), tuple(coverage), tuple(order)
-
 
 def _native_move(leaf: _Leaf) -> bool:
     node = leaf.node
@@ -412,11 +325,11 @@ def _number(value: float) -> str:
     return "0" if result == "-0" else result
 
 
-def _opacity_tags(opacity: float, filled: bool, shadow_opacity: float = 1) -> str:
-    alpha = f"&H{round((1 - opacity) * 255):02X}&"
-    if filled and shadow_opacity == 1:
+def _opacity_tags(state: VisualState, filled: bool) -> str:
+    alpha = f"&H{round((1 - state.opacity * state.face_opacity) * 255):02X}&"
+    shadow = f"&H{round((1 - state.opacity * state.shadow_opacity) * 255):02X}&"
+    if filled and alpha == shadow:
         return rf"\alpha{alpha}"
-    shadow = f"&H{round((1 - opacity * shadow_opacity) * 255):02X}&"
     face = rf"\1a{alpha}\2a{alpha}" if filled else r"\1a&HFF&"
     return face + rf"\3a{alpha}\4a{shadow}"
 
@@ -428,7 +341,7 @@ def _tween_tag(
     tags = {
         "scale": rf"\fscx{_number(target.scale.x * 100)}\fscy{_number(target.scale.y * 100)}",
         "rotation": rf"\frz{_number(-target.rotation)}",
-        "opacity": _opacity_tags(target.opacity, filled, target.shadow_opacity),
+        "opacity": _opacity_tags(target, filled),
         "fill": rf"\1c{_color(target.fill)}\2c{_color(target.fill)}",
         "outline": rf"\3c{_color(target.outline)}",
         "border": rf"\bord{_number(target.border)}",
@@ -1082,7 +995,7 @@ def _tags(state: VisualState, pen_scale: Vec2 | None = None, *, filled: bool = T
         rf"\fscx{_number(state.scale.x * 100)}\fscy{_number(state.scale.y * 100)}"
         rf"\frz{_number(-state.rotation)}\frx0\fry0\fax{_number(state.skew.x)}\fay{_number(state.skew.y)}"
         rf"\1c{_color(state.fill)}\2c{_color(state.fill)}\3c{_color(state.outline)}\4c&H000000&"
-        rf"{_opacity_tags(state.opacity, filled, state.shadow_opacity)}{border}\blur{_number(state.blur)}\be0"
+        rf"{_opacity_tags(state, filled)}{border}\blur{_number(state.blur)}\be0"
         rf"\xshad{_number(state.shadow.x)}\yshad{_number(state.shadow.y)}"
     )
 
@@ -1329,33 +1242,6 @@ def _insert_events(
     records[end:end] = generated
 
 
-def _scene_source_records(
-    records: list[str | Style | Line],
-    prefix: str,
-    replace_records: set[int],
-) -> list[str | Style | Line]:
-    """Strip owned output pairs before any importer removes their Dialogue."""
-    retained: list[str | Style | Line] = []
-    skip_native = False
-    for index, record in enumerate(records):
-        if skip_native:
-            if not isinstance(record, Line) or record.comment:
-                raise SceneCompileError("damaged native-event provenance marker")
-            skip_native = False
-            continue
-        if isinstance(record, Line) and record.effect.startswith(prefix):
-            skip_native = record.comment and record.text == "kara native event follows"
-            continue
-        retained.append(
-            replace(record, comment=True)
-            if index in replace_records and isinstance(record, Line)
-            else record
-        )
-    if skip_native:
-        raise SceneCompileError("native-event provenance marker has no following event")
-    return retained
-
-
 def compile_scene(
     scene: Scene,
     *,
@@ -1377,13 +1263,11 @@ def compile_scene(
         raise SceneCompileError(
             str(error), object_id=error.object_id, origin=error.origin
         ) from error
-    leaves, native, coverage, object_order = _leaves(scene, evaluator)
-    if coverage:
-        group = coverage[0]
-        raise SceneCompileError(
-            "ASS does not support raster coverage groups",
-            object_id=group.id, origin=group.origin,
-        )
+    visible, native, object_order = scene_leaves(scene, evaluator)
+    leaves = tuple(
+        _Leaf(leaf.node, leaf.parents, leaf.start, leaf.end, leaf.evaluator)
+        for leaf in visible
+    )
     for leaf in leaves:
         node = leaf.node
         if node.extrusion is not None and node.extrusion.offset != Vec2():
@@ -1529,9 +1413,9 @@ def compile_scene(
             )
     if estimate > budget.max_events:
         raise SceneCompileError("native event budget exceeded")
-    prefix = "kara:scene:v1:" + quote(scene.owner, safe="") + ":"
+    prefix = generated_prefix(scene.owner)
     output = deepcopy(scene.document)
-    output.records = _scene_source_records(
+    output.records = strip_generated_records(
         output.records, prefix, scene.replace_records
     )
     for index in scene.replace_records:

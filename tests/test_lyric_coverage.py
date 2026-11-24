@@ -1,4 +1,4 @@
-"""Lyric ownership and edits use the normal Scene coverage strategy."""
+"""Lyric highlighting preserves source ownership and defers callbacks."""
 
 from dataclasses import replace
 
@@ -26,7 +26,7 @@ from kara_templater import (
     prepare_tracks,
 )
 
-BUDGET = SceneBudget(fps=10, max_events=100_000, max_active=10_000)
+BUDGET = SceneBudget(max_events=100_000, max_active=10_000)
 
 
 def source():
@@ -58,7 +58,6 @@ def paint(line: LyricLine) -> LyricLine:
             for index, unit in enumerate(line.layout.lyrics.units)
             for box in (line.layout.body.range_bounds(unit.start, unit.end),)
         ),
-        strategy="coverage",
     )(line)
 
 
@@ -94,8 +93,7 @@ def test_preparation_defers_animation_callbacks_and_preserves_source():
     scene = prepare_tracks(doc, tracks=(config,))
     assert not calls
     assert doc.dumps() == before
-    assert scene.lines[0].coverage is not None
-    assert scene.lines[0].coverage.partitions
+    assert scene.lines[0].query("character")[0].aliases
 
 
 def test_unselected_sources_are_preserved():

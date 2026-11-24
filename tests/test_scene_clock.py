@@ -5,13 +5,8 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
-    RED,
-    WHITE,
-    Coverage,
     Document,
     FadeIn,
-    Glow,
-    GlowFunction,
     Lifetime,
     ObjectGroup,
     PathFunction,
@@ -19,7 +14,6 @@ from kara_templater import (
     RectangleClip,
     RectangleFunction,
     Scene,
-    SoftSweep,
     StatePatch,
     Tween,
     Vec2,
@@ -29,8 +23,7 @@ from kara_templater import (
 )
 
 
-@pytest.mark.parametrize("coverage", (False, True))
-def test_cropped_visibility_preserves_all_local_clocks_and_delayed_copy(coverage):
+def test_cropped_visibility_preserves_all_local_clocks_and_delayed_copy():
     leaf = PathObject(
         id="shape",
         lifetime=Lifetime(1, 3),
@@ -41,7 +34,6 @@ def test_cropped_visibility_preserves_all_local_clocks_and_delayed_copy(coverage
             max_points=4,
             breakpoints=(1,),
         ),
-        material=SoftSweep(left=20, right=70, start=0, duration=2, fill=(WHITE, RED)),
         clip=RectangleClip(
             0,
             0,
@@ -54,18 +46,6 @@ def test_cropped_visibility_preserves_all_local_clocks_and_delayed_copy(coverage
         id="root",
         lifetime=leaf.lifetime,
         children=(leaf,),
-        coverage=Coverage(
-            glows={
-                leaf.id: GlowFunction(
-                    lambda state, t: Glow(RED, blur=t),
-                    max_blur=2,
-                    max_border=0,
-                    breakpoints=(1,),
-                )
-            }
-        )
-        if coverage
-        else None,
     ).animate(FadeIn(), duration=2)
     cropped = replace(
         group,
@@ -95,8 +75,7 @@ def test_visibility_clock_validation_and_echo_preserve_original_progress():
             replace(node, clock_start=origin)
 
 
-@pytest.mark.parametrize("coverage", (False, True))
-def test_visibility_before_clock_origin_preserves_signed_callback_time(coverage):
+def test_visibility_before_clock_origin_preserves_signed_callback_time():
     samples = []
 
     def geometry(path, time):
@@ -114,7 +93,6 @@ def test_visibility_before_clock_origin_preserves_signed_callback_time(coverage)
         id="root",
         lifetime=leaf.lifetime,
         children=(leaf,),
-        coverage=Coverage() if coverage else None,
     )
     early = replace(
         original,
@@ -128,7 +106,7 @@ def test_visibility_before_clock_origin_preserves_signed_callback_time(coverage)
     assert copied.children[0].at(2.75) == leaf.state
 
 
-def test_signed_geometry_and_partition_breakpoints_cannot_precede_scene_zero():
+def test_signed_geometry_breakpoints_cannot_precede_scene_zero():
 
     shape = PathObject(
         id="shape",

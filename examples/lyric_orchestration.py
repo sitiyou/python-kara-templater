@@ -21,12 +21,13 @@ from kara_templater import (
     LayoutLine,
     Lifetime,
     Line,
+    LyricHighlights,
     LyricRule,
     LyricScene,
-    LyricSweep,
     PathObject,
     Placement,
     SceneBudget,
+    StatePatch,
     Style,
     TextCue,
     Track,
@@ -158,7 +159,7 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
             LyricRule("line", "enter", fade, duration=0.15),
             LyricRule("line", "exit", FadeOut(), duration=0.15),
             LyricRule("segment", "singing", Jump(height=8)),
-            LyricSweep(fill=PINK, width=16, step=2),
+            LyricHighlights.from_singing(StatePatch(fill=PINK), hook_feather=16),
         ),
         cues={
             "bars": CuePreset(
@@ -174,7 +175,7 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
         layout=Layout(position=Vec2(100, 50)),
         effects=(
             LyricRule("line", "enter", fade, duration=0.15),
-            LyricSweep(fill=CYAN, width=12, step=2),
+            LyricHighlights.from_singing(StatePatch(fill=CYAN), hook_feather=12),
         ),
     )
     scene = prepare_tracks(song(dense=dense), tracks=(main, harmony))

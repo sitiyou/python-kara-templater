@@ -89,16 +89,6 @@ def structured(document: Document, lyrics: "DocumentLyrics") -> LyricScene:
     return prepare_tracks(document, tracks=(Track(id="main"),), inputs=(source,))
 
 
-def paint_targets(line: LyricLine) -> LyricLine:
-    from kara_templater import RED, Color, LyricSweep
-
-    def color(line: LyricLine, target: LyricTarget) -> Color | None:
-        return RED if target.role == "character" else None
-
-    assert_type(LyricSweep(fill=color)(line), LyricLine)
-    return LyricSweep(fill=color, outline=color)(line)
-
-
 def bind_selected(line: LyricLine, target: LyricTarget) -> LyricLine:
     assert_type(line.bind(LyricRule(target, "singing", Jump())), LyricLine)
     return line.bind(LyricRule(line.query("ruby"), "singing", Jump()))

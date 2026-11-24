@@ -138,7 +138,7 @@ def test_char_fade_changes_with_playback_time_inside_one_sampling_interval():
     scene = subject(text=r"{\k50}H", end=1500, entry="char_fade", exit="char_fade",
                     singing="none", entry_duration=0.6, exit_duration=0.6)
     line, = scene.lines
-    script = scene.ass.compile(native_tweens=True, budget=SceneBudget(fps=25)).document.dumps()
+    script = scene.ass.compile(native_tweens=True, budget=SceneBudget()).document.dumps()
 
     def coverage(ms):
         return sum(rasterize(script, ms, (640, 360)).rgba[3::4])
@@ -880,15 +880,37 @@ def test_scanline_colors_the_visible_second_outline(motion, front, native_rim):
 def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
     from kara_templater import LinearGradient, LyricGradient
 
-    sky = LyricGradient((Color(15, 100, 212), Color(230, 249, 255)), step=4)
+    sky = LyricGradient((Color(15, 100, 212), Color(230, 249, 255)))
     scene = subject(text=r"{\k60}H", singing="scanline", entry="none", exit="none",
-                    scanline_mode="role", scanline_material=sky, scanline_width=8, scanline_softness=2)
+                    scanline_material=sky, scanline_width=8, scanline_softness=2)
     fronts = [n for n in _walk(scene.lines[0]) if ":front:" in n.id]
     brushes = [n.material for n in fronts if isinstance(n.material, LinearGradient)]
     assert len(brushes) == len(fronts) and all(g.outline for g in brushes)
     assert any(g.fill == g.outline for g in brushes)  # solid core
     assert any(g.fill != g.outline for g in brushes)  # softened edges
     assert any(d.gradient is not None for d in SceneFrames(scene).at(1.3))
+
+
+def test_scanline_uses_the_bound_paint_when_highlight_id_changes(tmp_path, monkeypatch):
+    from kara_templater.lyric_highlights import _SingingHighlights
+
+    def render(name):
+        scene = subject(
+            text=r"{\k60}H", singing="scanline", entry="none", exit="none",
+            scanline_width=8, scanline_softness=2,
+        )
+        output = tmp_path / name
+        scene.export(output, fps=30)
+        return output.read_bytes()
+
+    before = render("original.hook")
+    build = _SingingHighlights.__call__
+
+    def rename(self, line):
+        return tuple(replace(item, id="custom:" + item.id) for item in build(self, line))
+
+    monkeypatch.setattr(_SingingHighlights, "__call__", rename)
+    assert render("renamed.hook") == before
 
 
 def test_stretch_has_sharp_core_and_five_fading_themed_halos():
@@ -991,7 +1013,7 @@ def test_scanline_lifts_gradient_stops_on_the_selected_side(mode):
 
     def paint(line, target):
         calls.append(target.id)
-        return LyricGradient((Color(100, 0, 0), Color(0, 40, 0)), step=4)(line, target)
+        return LyricGradient((Color(100, 0, 0), Color(0, 40, 0)))(line, target)
 
     scene = subject(
         text=r"{\k100}H",

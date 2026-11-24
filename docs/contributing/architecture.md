@@ -45,9 +45,7 @@ The CLI default recipe uses this frontend, including its source-position
 allocator and before/after paint rules. Effect scripts return a Scene or declare
 Tracks. No new lyrics are pre-encoded into NativeEvents before compilation.
 
-ObjectGroup.coverage declares explicit component and material bindings. Coverage, ordinary per-layer drawing, and completed-group
-RGBA rasterization have different composition semantics and explicit budgets.
-They are not interchangeable names for one rendering operation.
+Object groups carry hierarchy, inherited opacity and clipping.
 
 The KaraokeRows preset fits cells to shaped ink and side bearings. Glyph-local paint
 and clipping use the pen origin, which may differ from the left edge of the cell.

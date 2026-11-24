@@ -6,14 +6,11 @@ Records, decoded text, input selection, and source mappings. Raw Line clocks use
 
 ## Contents
 
-- [AssImportError](#assimporterror)
 - [CueMarker](#cuemarker)
 - [Document](#document)
 - [DocumentLyrics](#documentlyrics)
 - [DocumentText](#documenttext)
 - [EventOrigin](#eventorigin)
-- [ImportSettings](#importsettings)
-- [ImportedKaraoke](#importedkaraoke)
 - [Line](#line)
 - [LyricMapping](#lyricmapping)
 - [LyricSegment](#lyricsegment)
@@ -27,28 +24,8 @@ Records, decoded text, input selection, and source mappings. Raw Line clocks use
 - [TextIssue](#textissue)
 - [TextRun](#textrun)
 - [TextToken](#texttoken)
-- [import_karaoke](#import_karaoke)
-- [paint_pair_from_style](#paint_pair_from_style)
 - [parse_document_lyrics](#parse_document_lyrics)
-- [parse_karaoke](#parse_karaoke)
 - [read_document_text](#read_document_text)
-- [walk_karaoke](#walk_karaoke)
-
-## AssImportError
-
-Failure at a zero-based Document.records position, before a lyric exists.
-
-[Source](../../kara_templater/import_ass.py#L21)
-
-```python
-AssImportError(
-    message: str,
-    *,
-    record_index: int,
-    style: str,
-    item_id: str | None = None,
-)
-```
 
 ## CueMarker
 
@@ -279,7 +256,7 @@ Source dependencies, not a claim that one segment owns an event's time.
 A body glyph can depend on every segment in its unit. Explicit tracks are
 independent of source segments; their IDs are recorded separately.
 
-[Source](../../kara_templater/sources.py#L28)
+[Source](../../kara_templater/sources.py#L25)
 
 ```python
 EventOrigin(
@@ -296,53 +273,6 @@ EventOrigin(
 | `sources` | `tuple[SourceRef, ...]` | `required` |
 | `effect` | `str` | `required` |
 | `track_ids` | `tuple[str, ...]` | `()` |
-
-## ImportSettings
-
-Track ASS-import display padding and optional style selection.
-
-lead_ms/tail_ms extend visibility independently of the original singing
-intervals.
-
-[Source](../../kara_templater/import_ass.py#L37)
-
-```python
-ImportSettings(
-    lead_ms: int = 0,
-    tail_ms: int = 0,
-    styles: tuple[str, ...] | None = None,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `lead_ms` | `int` | `0` |
-| `tail_ms` | `int` | `0` |
-| `styles` | `tuple[str, ...] \| None` | `None` |
-
-## ImportedKaraoke
-
-Structured lyric items plus source-record bindings for owner-aware regeneration.
-
-Importing does not itself replace or execute source events.
-
-[Source](../../kara_templater/import_ass.py#L61)
-
-```python
-ImportedKaraoke(
-    items: tuple[KaraokeItem, ...],
-    sources: tuple[SourceBinding, ...],
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `items` | `tuple[KaraokeItem, ...]` | `required` |
-| `sources` | `tuple[SourceBinding, ...]` | `required` |
 
 ## Line
 
@@ -546,7 +476,7 @@ Address within an item, stable while its source structure is unchanged.
 Item order, layout and effects do not affect addresses. Editing/reordering
 units or segments creates a new source structure; indices are not edit IDs.
 
-[Source](../../kara_templater/sources.py#L51)
+[Source](../../kara_templater/sources.py#L48)
 
 ```python
 SourceRef(
@@ -563,16 +493,6 @@ SourceRef(
 | `item_id` | `str` | `required` |
 | `unit_index` | `int \| None` | `None` |
 | `segment_index` | `int \| None` | `None` |
-
-### SourceRef.resolve
-
-Return the original source object; never a layout or generated copy.
-
-```python
-SourceRef.resolve(
-    item: KaraokeItem,
-) -> KaraokeLine | TextUnit | Segment
-```
 
 ## Style
 
@@ -739,35 +659,6 @@ TextToken(
 | `offset` | `int` | `required` |
 | `override` | `bool` | `False` |
 
-## import_karaoke
-
-Import supported timed ASS lyrics into KaraokeItem values with stable source bindings.
-
-Preserve source timing and report unsupported tags with record/style context.
-
-[Source](../../kara_templater/import_ass.py#L186)
-
-```python
-import_karaoke(
-    document: Document,
-    *,
-    owner: str = 'default',
-    settings: ImportSettings | None = None,
-) -> ImportedKaraoke
-```
-
-## paint_pair_from_style
-
-ASS secondary is unsung, primary is sung; decode AABBGGRR at this boundary.
-
-[Source](../../kara_templater/import_ass.py#L266)
-
-```python
-paint_pair_from_style(
-    style: Style,
-) -> PaintPair
-```
-
 ## parse_document_lyrics
 
 Project text|ruby and # continuations; all singing times remain absolute.
@@ -786,21 +677,6 @@ parse_document_lyrics(
 ) -> DocumentLyrics
 ```
 
-## parse_karaoke
-
-Read k/kf/K/ko durations, kt offsets, text|ruby, and # continuations.
-
-These tags import timing only; appearance and animation come from the recipe.
-Unsupported override tags are diagnosed instead of silently losing layout.
-
-[Source](../../kara_templater/import_ass.py#L85)
-
-```python
-parse_karaoke(
-    line: Line,
-) -> KaraokeLine
-```
-
 ## read_document_text
 
 Bind one event's text while preserving every original byte of its text.
@@ -817,38 +693,4 @@ read_document_text(
     document: Document,
     record_index: int,
 ) -> DocumentText
-```
-
-## walk_karaoke
-
-Visit sources in input order, including empty and zero-duration sources.
-
-Static units appear at unit level and have no segment visits. Times never
-sort or filter the source; simultaneous lines and repeated readings retain
-distinct addresses. IDs are validated before any visits are yielded.
-
-[Source](../../kara_templater/sources.py#L111)
-
-```python
-walk_karaoke(
-    items: Iterable[KaraokeItem],
-    *,
-    level: Literal['line'],
-) -> Iterator[tuple[SourceRef, KaraokeLine]]
-```
-
-```python
-walk_karaoke(
-    items: Iterable[KaraokeItem],
-    *,
-    level: Literal['unit'],
-) -> Iterator[tuple[SourceRef, TextUnit]]
-```
-
-```python
-walk_karaoke(
-    items: Iterable[KaraokeItem],
-    *,
-    level: Literal['segment'] = 'segment',
-) -> Iterator[tuple[SourceRef, Segment]]
 ```

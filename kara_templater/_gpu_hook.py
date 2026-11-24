@@ -201,6 +201,7 @@ def _draw_record(
         feather,
         custom,
         kind,
+        draw.face_opacity,
     )
     m = draw.transform
     transform = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty)
@@ -463,7 +464,7 @@ def _timeline(
             if span.alternate_masks is not None:
                 # Select the native border bitmap at playback opacity without
                 # sampling an entire fade or exporting a per-frame command list.
-                mode = 1 if round((1 - draw.opacity) * 255) == 0 else -1
+                mode = 1 if round((1 - draw.opacity * draw.face_opacity) * 255) == 0 else -1
                 variants = [(draw.images, mode), (span.alternate_masks, -mode)]
             for images, mode in variants:
                 motion = _motion_record(table, span, fps, origin, mode)
@@ -734,44 +735,57 @@ float sampleMask(int geom,vec2 local) {
     return textureLod(KARAMASK,texel/vec2(textureSize(KARAMASK,0)),0.).r;
 }
 float gaussianEdge(float distance,float sigma) {
-    float z=distance/(1.41421356*sigma), z2=z*z;
+    float z=clamp(distance/(1.41421356*sigma),-5.,5.), z2=z*z;
     return 0.5+0.5*sign(z)*sqrt(max(0.,1.-exp(-z2*(1.27323954+0.147*z2)/(1.+0.147*z2))));
 }
-float fixedCoverage(int stroke,vec2 local,mat2 basis,mat2 toLocal,int role,float alpha) {
-    if(role==2) local-=pairAt(stroke+5);
+float blurredStroke(float distance,float pen,float sigma,bool cutout) {
+    float backing=gaussianEdge(pen-distance,sigma);
+    return cutout ? max(backing-gaussianEdge(-distance,sigma),0.) : backing;
+}
+float segmentDistanceSquared(vec2 delta,vec2 direction) {
+    float t=clamp(dot(delta,direction)/max(dot(direction,direction),1e-20),0.,1.);
+    vec2 residual=delta-t*direction;
+    return dot(residual,residual);
+}
+float fixedCoverage(int stroke,int geom,vec2 local,mat2 basis,mat2 toLocal,int role,float faceAlpha) {
     float pen=item(stroke+2), sigma=item(stroke+3), pad=pen+1.+4.*sigma;
+    float raster=sigma>0. ? sampleMask(geom,local) : 0.;
+    if(role==2) local-=pairAt(stroke+5);
     int grid=refAt(stroke), cols=refAt(grid+2), rows=refAt(grid+3);
     vec2 center=(local-pairAt(grid))/16.;
     mat2 axes=transpose(toLocal);
     // Pull a screen-space pen back to a conservative local rectangle for the cell lookup.
     vec2 reach=pad*vec2(length(axes[0]),length(axes[1]))/16.;
+    if(sigma>0.) reach=max(reach,vec2(pad/16.));
     vec2 lo=center-reach, hi=center+reach, last=vec2(cols-1,rows-1);
-    if(any(lessThan(hi,vec2(0))) || any(greaterThanEqual(lo,last+1.))) return 0.;
+    if(any(lessThan(hi,vec2(0))) || any(greaterThanEqual(lo,last+1.))) return raster;
     ivec2 firstCell=ivec2(floor(clamp(lo,vec2(0),last)));
     ivec2 lastCell=ivec2(floor(clamp(hi,vec2(0),last)));
-    float nearest=pad*pad;
+    float nearest=pad*pad, localNearest=pad*pad;
     for(int row=firstCell.y;row<=lastCell.y;row++) {
         for(int col=firstCell.x;col<=lastCell.x;col++) {
             int bucket=grid+refAt(grid+4+row*cols+col);
             int count=refAt(bucket);
             for(int i=0;i<count;i++) {
                 int line=grid+refAt(bucket+1+i);
-                vec2 delta=basis*(local-pairAt(line)), direction=basis*pairAt(line+2);
-                float t=clamp(dot(delta,direction)/max(dot(direction,direction),1e-20),0.,1.);
-                vec2 residual=delta-t*direction;
-                nearest=min(nearest,dot(residual,residual));
+                vec2 delta=local-pairAt(line), direction=pairAt(line+2);
+                nearest=min(nearest,segmentDistanceSquared(basis*delta,basis*direction));
+                if(sigma>0.) localNearest=min(localNearest,segmentDistanceSquared(delta,direction));
             }
         }
     }
     float face=sampleMask(refAt(stroke+1),local), distance=sqrt(nearest);
-    bool cutout=item(stroke+4)==0. || (role==1 && alpha<1.-0.5/255.);
+    bool cutout=item(stroke+4)==0. || (role==1 && faceAlpha<1.-0.5/255.);
     if(sigma==0.) {
         float edge=clamp(0.5+pen-distance,0.,1.);
         return cutout ? max(edge-face,0.) : max(edge,face);
     }
-    float signedDistance=face>=0.5 ? -distance : distance;
-    float backing=gaussianEdge(pen-signedDistance,sigma);
-    return cutout ? max(backing-gaussianEdge(-signedDistance,sigma),0.) : backing;
+    // Keep the convolved silhouette and correct only for the pen's change of metric.
+    // The two corrections cancel for an isometry, even on corners and thin strokes.
+    float side=face>=0.5 ? -1. : 1.;
+    float screenStroke=blurredStroke(side*distance,pen,sigma,cutout);
+    float localStroke=blurredStroke(side*sqrt(localNearest),pen,sigma,cutout);
+    return clamp(raster+screenStroke-localStroke,0.,1.);
 }
 vec4 hook() {
     vec4 bg=HOOKED_tex(HOOKED_pos);
@@ -808,7 +822,7 @@ vec4 hook() {
             alpha=mix(alpha,item(end+6),reveal);
             }
             int mode=refAt(motion+6);
-            if(mode!=0 && (mode>0)!=(alpha>=1.-0.5/255.)) continue;
+            if(mode!=0 && (mode>0)!=(alpha*item(p+10)>=1.-0.5/255.)) continue;
         }
         if(alpha<=0. || determinant(basis)==0.) continue;
         mat2 toLocal=inverse(basis);
@@ -835,7 +849,9 @@ vec4 hook() {
             edgeDistance=min(pos.x-rect.x,rect.z-pos.x);
             if(!insideRect(pos,rect)) continue;
         }
-        float coverage=useFixed ? fixedCoverage(fixedStroke,local,basis,toLocal,refAt(p+9),alpha) : sampleMask(g,local);
+        float coverage=useFixed
+            ? fixedCoverage(fixedStroke,g,local,basis,toLocal,refAt(p+9),alpha*item(p+10))
+            : sampleMask(g,local);
         float a=coverage*item(p+3)*alpha;
         int feather=refAt(p+7);
         vec3 ink;

@@ -1,6 +1,6 @@
 """Typed karaoke authoring and animation for standard ASS and libplacebo."""
 
-from .appearance import KaraokeTheme, PaintPair
+from .appearance import KaraokeTheme, PaintPair, paint_pair_from_style
 from .ass import Document, Line, Record, Style
 from .characters import (
     CharacterTarget,
@@ -31,7 +31,6 @@ from .composition import (
     Paint,
     SecondaryOutline,
 )
-from .coverage_animation import Coverage, CoveragePartition, GlowFunction, ScopeOpacity
 from .cues import (
     BarsCue,
     CueContent,
@@ -67,15 +66,6 @@ from .easing import BackRate, ease_in, ease_in_out, ease_out, there_and_back
 from .fonts import LoadedFont, load_font
 from .geometry import Affine2D, Contour, CubicSegment, LineSegment, Vec2, VectorPath
 from .group_geometry import merge_geometry
-from .import_ass import (
-    AssImportError,
-    ImportedKaraoke,
-    ImportSettings,
-    import_karaoke,
-    paint_pair_from_style,
-    parse_karaoke,
-)
-from .karaoke import KaraokeItem
 from .karaoke_cues import SignalCue, VolumeCue
 from .karaoke_effects import (
     KaraokeDecoration,
@@ -84,7 +74,7 @@ from .karaoke_effects import (
     KaraokeExit,
     KaraokeSinging,
 )
-from .layout import layout_line, text_extents
+from .layout import text_extents
 from .lyric_effects import LyricEcho, ScatterOut, lyric_effects
 from .lyric_highlights import (
     Highlight,
@@ -103,17 +93,8 @@ from .lyric_line import (
     LyricRule,
     LyricTarget,
 )
-from .lyric_paint import LyricSweep
 from .lyric_particles import LyricParticles, Petal, Ribbon, Sparkle
-from .model import (
-    Box,
-    KaraokeLine,
-    LaidOutLine,
-    LaidOutSegment,
-    LaidOutUnit,
-    Segment,
-    TextUnit,
-)
+from .model import Box
 from .object_references import (
     FollowObject,
     ReferenceFunction,
@@ -133,11 +114,7 @@ from .paint_fields import (
     ColorStop,
     Extrusion,
     LinearGradient,
-    PaintActivity,
-    PaintBand,
-    PaintField,
     ShaderPaint,
-    SoftSweep,
 )
 from .parameters import Animation, Canvas, Glyph, LengthExpr, Note, TimeExpr
 from .particles import (
@@ -169,7 +146,7 @@ from .path_geometry import (
 )
 from .path_layout import PathItem, layout_path
 from .path_motion import MoveAlong
-from .raster_settings import OutputCapabilityError, RasterEstimate, RasterSettings
+from .raster_settings import OutputCapabilityError
 from .scene import (
     Lifetime,
     NativeEvent,
@@ -180,6 +157,7 @@ from .scene import (
     RectangleFunction,
     RectangleKeyframes,
     Scene,
+    SceneCompileError,
     SceneObject,
     TextObject,
     VectorClip,
@@ -222,7 +200,6 @@ from .scene_lyrics import (
 from .scene_output import (
     ObjectReport,
     SceneBudget,
-    SceneCompileError,
     SceneEstimate,
     SceneResult,
 )
@@ -232,7 +209,7 @@ from .scene_text import (
     SingingSpan,
     layout_document_text,
 )
-from .sources import EventOrigin, SourceRef, walk_karaoke
+from .sources import EventOrigin, SourceRef
 from .text_geometry import TextOutline, outline_text, text_to_path
 from .timeline import (
     DisplayWindow,
@@ -253,7 +230,6 @@ __all__ = [
     "LyricScene",
     "LyricEffect",
     "LyricSource",
-    "LyricSweep",
     "LyricGlow",
     "LyricHighlights",
     "LyricEcho",
@@ -281,7 +257,6 @@ __all__ = [
     "Affine2D",
     "AnimationClip",
     "AnimationSequence",
-    "AssImportError",
     "BLACK",
     "BLUE",
     "BarsCue",
@@ -295,8 +270,6 @@ __all__ = [
     "ColorRamp",
     "ColorStop",
     "Contour",
-    "Coverage",
-    "CoveragePartition",
     "CubicSegment",
     "CueContent",
     "CueContext",
@@ -324,18 +297,10 @@ __all__ = [
     "GeometryError",
     "Glow",
     "SecondaryOutline",
-    "GlowFunction",
-    "ImportSettings",
-    "ImportedKaraoke",
     "Jump",
     "ScalePulse",
     "DriftOut",
     "Transform",
-    "KaraokeItem",
-    "KaraokeLine",
-    "LaidOutLine",
-    "LaidOutSegment",
-    "LaidOutUnit",
     "Layout",
     "LayoutCapabilityError",
     "Lifetime",
@@ -358,9 +323,6 @@ __all__ = [
     "PINK",
     "PURPLE",
     "Paint",
-    "PaintActivity",
-    "PaintBand",
-    "PaintField",
     "PaintPair",
     "ParticleContext",
     "ParticleFactory",
@@ -375,8 +337,6 @@ __all__ = [
     "PositionedText",
     "ProgressCurve",
     "RED",
-    "RasterEstimate",
-    "RasterSettings",
     "Record",
     "RectangleClip",
     "RectangleFunction",
@@ -394,11 +354,8 @@ __all__ = [
     "SceneReferenceError",
     "SceneResult",
     "Timeline",
-    "ScopeOpacity",
-    "Segment",
     "SingingSpan",
     "SingingTag",
-    "SoftSweep",
     "SourceRef",
     "Slide",
     "StateAnimation",
@@ -419,7 +376,6 @@ __all__ = [
     "TextRange",
     "TextRun",
     "TextToken",
-    "TextUnit",
     "TimeSpan",
     "Track",
     "Tween",
@@ -438,13 +394,11 @@ __all__ = [
     "echoes",
     "emit_particles",
     "flatten",
-    "import_karaoke",
     "intersect_convex",
     "layout_characters",
     "layout_document_lyrics",
     "layout_lyrics",
     "layout_document_text",
-    "layout_line",
     "layout_path",
     "linear_rate",
     "load_font",
@@ -453,7 +407,6 @@ __all__ = [
     "outline_text",
     "paint_pair_from_style",
     "parse_document_lyrics",
-    "parse_karaoke",
     "path_boolean",
     "path_bounds",
     "prepare_tracks",
@@ -467,5 +420,4 @@ __all__ = [
     "text_extents",
     "text_to_path",
     "union_regions",
-    "walk_karaoke",
 ]

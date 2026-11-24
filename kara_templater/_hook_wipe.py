@@ -3,11 +3,11 @@
 from dataclasses import dataclass, replace
 
 from ._hook_motion import _curve
+from ._scene_tree import SceneLeaf
 from .lyric_highlights import _FeatheredSingingClip
 from .paint_fields import LinearGradient
 from .scene import RectangleKeyframes, _LyricPaintClip
 from .scene_animation import VisualState
-from .scene_output import _Leaf
 
 
 @dataclass(frozen=True)
@@ -18,7 +18,7 @@ class SingingWipe:
     edge: int
 
 
-def singing_wipe(before: _Leaf, after: _Leaf) -> SingingWipe | None:
+def singing_wipe(before: SceneLeaf, after: SceneLeaf) -> SingingWipe | None:
     first, second = before.node, after.node
     a, b = first.clip, second.clip
     if not isinstance(a, _LyricPaintClip) or not isinstance(b, (_LyricPaintClip, _FeatheredSingingClip)):

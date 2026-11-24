@@ -1,4 +1,4 @@
-"""Named highlight ownership projected into common masks or coverage partitions."""
+"""Named highlight ownership projected into common masks."""
 
 from __future__ import annotations
 
@@ -10,21 +10,21 @@ from statistics import NormalDist
 from typing import Literal
 
 from .composition import _ASS_BLUR_TO_SIGMA, Color, Glow, SecondaryOutline
-from .coverage_animation import Coverage, CoveragePartition, GlowFunction
 from .document_lyrics import LyricUnit
 from .document_text import SingingSpan
 from .geometry import Vec2, finite
 from .lyric_line import LyricLine, LyricTarget, _line_x
 from .model import Box
-from .paint_fields import ColorRamp, ColorStop, LinearGradient, PaintField, _mix
+from .paint_fields import ColorRamp, ColorStop, LinearGradient, _mix
 from .parameters import LengthExpr, _width
-from .raster_settings import RasterSettings
 from .scene import (
     ObjectGroup,
+    PathObject,
     RectangleClip,
     RectangleFunction,
     RectangleKeyframes,
     SceneObject,
+    TextObject,
     _CellWipeClip,
     _ColorStripClip,
     _LyricPaintClip,
@@ -35,14 +35,9 @@ from .scene_text import PositionedText
 from .text_geometry import _VectorGuideText
 from .timeline import Region, union_regions
 
-type LyricGlow = (
-    Glow
-    | GlowFunction
-    | Callable[[LyricLine, LyricTarget], Glow | GlowFunction | None]
-    | None
-)
+type LyricGlow = Glow | Callable[[LyricLine, LyricTarget], Glow | None] | None
 
-type _ResolvedStyleMaterial = PaintField | Callable[[LyricLine, LyricTarget], PaintField | None] | None
+type _ResolvedStyleMaterial = LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None
 type LyricMaterial = _ResolvedStyleMaterial | Mapping[str, LyricGradient]
 
 
@@ -58,7 +53,7 @@ def _style_material(source: LyricMaterial, style: str | None) -> _ResolvedStyleM
 def _resolve_material(
     source: LyricMaterial, line: LyricLine, target: LyricTarget,
     character: PositionedText | None = None,
-) -> PaintField | None:
+) -> LinearGradient | None:
     source = _style_material(source, target.source_style)
     value = source(line, target) if callable(source) else source
     if (character is not None and isinstance(source, LyricGradient)
@@ -75,8 +70,8 @@ def _resolve_material(
             *(s for s in value.fill.stops if left < s.position < right),
             ColorStop(right, value.fill.at(right)),
         )))
-    if value is not None and not isinstance(value, PaintField):
-        raise TypeError("lyric material factory must return a PaintField or None")
+    if value is not None and not isinstance(value, LinearGradient):
+        raise TypeError("lyric material factory must return a LinearGradient or None")
     return value
 
 
@@ -86,13 +81,11 @@ class LyricGradient:
     Horizontal colors span all body glyphs sharing an ASS style and their readings.
 
     Pass as material to LyricHighlights.from_singing. Coordinates are derived
-    from undecorated glyph bounds, independent of glow/outline;
-    step is color-band width in local script pixels. This factory produces an
+    from undecorated glyph bounds. This factory produces an
     ordinary LinearGradient and inherits its renderer restrictions.
     """
 
     colors: tuple[Color, ...]
-    step: int = 1
     axis: Literal["x", "y"] = "y"
 
     def __post_init__(self) -> None:
@@ -100,8 +93,6 @@ class LyricGradient:
             raise ValueError("lyric gradient axis must be x or y")
         if len(self.colors) < 2 or not all(isinstance(c, Color) for c in self.colors):
             raise ValueError("lyric gradient needs at least two Color values")
-        if type(self.step) is not int or self.step < 1:
-            raise ValueError("lyric gradient step must be a positive integer")
 
     def __call__(self, line: LyricLine, target: LyricTarget) -> LinearGradient:
         """Resolve a local fill gradient once during lyric preparation."""
@@ -121,7 +112,7 @@ class LyricGradient:
                 ColorStop(left + extent * index / (len(self.colors) - 1), color)
                 for index, color in enumerate(self.colors)
             )),
-            axis=self.axis, step=self.step, space="local",
+            axis=self.axis, space="local",
         )
 
 
@@ -131,12 +122,12 @@ def _hard_glow_border(glow: LyricGlow) -> float:
 
 def _resolve_glow(
     glow: LyricGlow, line: LyricLine, target: LyricTarget
-) -> Glow | GlowFunction | None:
-    if glow is None or isinstance(glow, (Glow, GlowFunction)):
+) -> Glow | None:
+    if glow is None or isinstance(glow, Glow):
         return glow
     value = glow(line, target)
-    if value is not None and not isinstance(value, (Glow, GlowFunction)):
-        raise TypeError("lyric glow factory must return Glow, GlowFunction or None")
+    if value is not None and not isinstance(value, Glow):
+        raise TypeError("lyric glow factory must return Glow or None")
     return value
 
 
@@ -234,7 +225,7 @@ class Highlight:
         if self.repeat not in ("hold", "reset") or self.end not in ("hold", "hide"):
             raise ValueError("invalid highlight lifecycle")
         if not self.paint.channels <= frozenset(
-            ("fill", "outline", "border", "blur", "shadow", "opacity")
+            ("fill", "outline", "border", "blur", "shadow", "opacity", "face_opacity")
         ):
             raise ValueError("highlight paint cannot change layout geometry")
         self.paint.interpolate(VisualState(), 1)
@@ -553,19 +544,6 @@ class _Ownership:
         return RectangleKeyframes((*approach_keys, *keys,
                                    (end + self.edge_duration, bounds(finish + sign * padding))))
 
-    def world_regions(self, state: VisualState, time: float) -> tuple[Region, ...]:
-        if state.rotation % 360 or state.skew.x or state.scale.x <= 0:
-            raise ValueError(
-                "coverage highlights require positive horizontal axis-aligned geometry"
-            )
-        return tuple(
-            Region(
-                state.position.x + region.left * state.scale.x,
-                state.position.x + region.right * state.scale.x,
-            )
-            for region in self.local_regions(time)
-        )
-
     def rectangle(
         self, index: int, time: float
     ) -> tuple[float, float, float, float] | None:
@@ -629,14 +607,24 @@ def _split_glow(
     return tuple(pieces)
 
 
+@dataclass(frozen=True)
+class _PaintLayers:
+    face: TextObject | PathObject
+    secondary: TextObject | PathObject | None
+    glow: TextObject | PathObject | None
+
+
+@dataclass(frozen=True)
+class _GlyphPaint:
+    waiting: _PaintLayers
+    sung: tuple[_PaintLayers, ...]
+
+
 @dataclass(frozen=True, kw_only=True)
 class LyricHighlights:
     """Build named union/priority/layer highlights with common visual objects.
 
-    Clip mode clips completed drawing layers (including separate static glow).
-    Its glow uses ordinary per-layer alpha and is cut after blur. Coverage mode
-    assigns fractional material ownership before blur and closes component alpha;
-    it rejects intentional layered overlap, which has different compositing.
+    Each drawing uses ordinary per-layer alpha, with its glow clipped after blur.
     Existing masks/materials must be composed explicitly instead of overwritten.
     Ownership reaching a unit's outer edges includes its overhang, outline and
     glow, so a completed full-unit highlight owns the complete drawing. Interior
@@ -651,9 +639,7 @@ class LyricHighlights:
 
     highlights: tuple[Highlight, ...] | Callable[[LyricLine], tuple[Highlight, ...]]
     mode: Literal["union", "priority", "layer"] = "union"
-    strategy: Literal["clip", "coverage"] = "clip"
     glow: LyricGlow = None
-    settings: RasterSettings = RasterSettings()
     base_paint: StatePatch = StatePatch()
     base_material: LyricMaterial = None
     hook_feather: float | LengthExpr = 0
@@ -699,19 +685,17 @@ class LyricHighlights:
         base_paint: StatePatch | None = None,
         base_material: LyricMaterial = None,
         material: LyricMaterial = None,
-        strategy: Literal["clip", "coverage"] = "clip",
         hook_feather: float | LengthExpr = 0,
         segment_colors: Mapping[tuple[int, int], Color] | None = None,
         ruby_fill: Color | None = None,
         edge_duration: float = _EDGE_SECONDS,
         blend_glow: bool = True,
         front_color: Color | None = None,
-        settings: RasterSettings | None = None,
     ) -> LyricHighlights:
         """Sweep source singing across body/ruby without authoring clip geometry.
 
         secondary_outline surrounds both states. sung_secondary_outline overrides the sung rim.
-        Both use the clip strategy and can be combined with glow.
+        Both can be combined with glow.
         With reverse=True, each timed unit fills from its right edge.
         With wipe=False, each timed unit switches paint at completion.
         Singing progress uses undecorated measured text bounds. For a single
@@ -726,12 +710,11 @@ class LyricHighlights:
         checkpoints. With ruby_reading_units=True, visible reading characters instead
         receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
         Known rectangle keyframes allow continuous native ASS lowering. Repeated
-        intervals retain the general ownership evaluator; coverage keeps its
-        color-before-blur semantics. Source singing clocks never change.
+        intervals retain the general ownership evaluator. Source singing clocks stay intact.
         base_material paints the unsung drawing. material paints the sung drawing, leaving the separate glow
-        color intact. It accepts a PaintField or a (line, target) factory called
+        color intact. It accepts a LinearGradient or a (line, target) factory called
         once during preparation; use LyricGradient for measured vertical colors.
-        Materials require clip strategy. Local gradients currently require a
+        Local gradients currently require a
         positive single singing interval and axis-aligned scale/translation.
         base_paint changes only the unsung drawing; sung layers retain the
         original appearance before applying paint. Use base_paint with opacity=0
@@ -746,8 +729,6 @@ class LyricHighlights:
             base_material=base_material,
             hook_feather=hook_feather,
             front_color=front_color,
-            strategy=strategy,
-            settings=RasterSettings() if settings is None else settings,
             base_paint=StatePatch() if base_paint is None else base_paint,
         )
 
@@ -757,17 +738,10 @@ class LyricHighlights:
             raise ValueError("sweep edge duration must be nonnegative")
         if not isinstance(self.hook_feather, LengthExpr):
             _width(self.hook_feather, 0, 0, "hook feather")
-        if self.base_paint.channels - {"fill", "outline", "opacity", "border", "blur", "shadow"}:
+        if self.base_paint.channels - {"fill", "outline", "opacity", "border", "blur", "shadow", "face_opacity"}:
             raise ValueError("highlight base paint cannot change geometry")
-        if self.mode not in ("union", "priority", "layer") or self.strategy not in (
-            "clip",
-            "coverage",
-        ):
-            raise ValueError("invalid highlight mode/strategy")
-        if self.mode == "layer" and self.strategy == "coverage":
-            raise ValueError(
-                "layered highlights need separate visual components, not coverage union"
-            )
+        if self.mode not in ("union", "priority", "layer"):
+            raise ValueError("invalid highlight mode")
 
     def __call__(self, line: LyricLine) -> LyricLine:
         """Return decorated visuals, reserving each target's shifted pass intervals.
@@ -775,14 +749,16 @@ class LyricHighlights:
         Pass times use original source seconds. A copied target's delay shifts
         both rendering and required_display; source singing spans stay unchanged.
         """
-        return self._bind(line, self._widths(line))
+        return self._bind(line, self._widths(line))[0]
 
     def _widths(self, line: LyricLine) -> dict[float, float]:
         layouts = (line.layout.body, *(reading.layout for reading in line.layout.ruby))
         sizes = {c.object.font_size for layout in layouts for c in layout.characters}
         return {s: _width(self.hook_feather, s, line.layout.script_height, f"{line.id}: hook_feather") for s in sizes}
 
-    def _bind(self, line: LyricLine, widths: dict[float, float]) -> LyricLine:
+    def _bind(
+        self, line: LyricLine, widths: dict[float, float],
+    ) -> tuple[LyricLine, dict[str, _GlyphPaint]]:
         highlights = (
             self.highlights
             if isinstance(self.highlights, tuple)
@@ -799,7 +775,6 @@ class LyricHighlights:
             return (
                 self.edge_duration
                 if automatic
-                and self.strategy == "clip"
                 and len(highlight.passes) == 1
                 and highlight.passes[0].time.duration > 0
                 else 0
@@ -825,18 +800,9 @@ class LyricHighlights:
             end = max(line.lifetime.end, *(span.end for span in required))
             line = line.with_display(replace(line.lifetime, start=start, end=end))
             line = replace(line, required_display=(*line.required_display, *required))
-        if self.strategy == "clip" and any(
-            isinstance(glow, GlowFunction)
-            for glow in (self.glow, *(h.glow for h in highlights))
-        ):
-            raise ValueError("dynamic glow requires coverage strategy")
-        if line.coverage is not None:
-            raise ValueError("compose existing coverage settings explicitly")
         replacements: dict[str, tuple[SceneObject, ...]] = {}
+        paint: dict[str, _GlyphPaint] = {}
         aliases: dict[str, tuple[str, ...]] = {}
-        partitions: dict[str, CoveragePartition] = {}
-        glows: dict[str, Glow | GlowFunction] = {}
-        components: list[str] = []
         nodes: dict[str, SceneObject] = {}
 
         def collect(node: SceneObject) -> None:
@@ -866,19 +832,13 @@ class LyricHighlights:
                 for highlight in chosen
             )
             before_material = _resolve_material(self.base_material, line, target, character)
-            if self.strategy == "coverage" and (before_material is not None or any(h.material is not None for h in chosen)):
-                raise ValueError("highlight materials require clip strategy")
             base_glow = _resolve_glow(self.glow, line, target)
-            if self.strategy == "clip" and any(
-                isinstance(glow, GlowFunction)
-                for glow in (base_glow, *(h.glow for h in chosen))
-            ):
-                raise ValueError("dynamic glow requires coverage strategy")
             node = nodes[target.node_id]
             if node.clip is not None or node.material is not None or target.aliases:
                 raise ValueError(
                     f"{node.id}: compose existing masks/materials explicitly"
                 )
+            assert not isinstance(node, ObjectGroup)
             source = line.layout.lyrics.units[unit]
             body = line.layout.body.range_bounds(source.start, source.end)
             vertical = automatic and line.layout._vertical
@@ -887,8 +847,6 @@ class LyricHighlights:
                 return
             scale = character.layout_scale
             assert scale is not None
-            if vertical and self.strategy == "coverage":
-                raise ValueError("vertical singing requires clip strategy")
             local_y = vertical and character.object.state.rotation == 0
             pen = character.object.state.position
             base = _Ownership(
@@ -916,10 +874,8 @@ class LyricHighlights:
             states = (self.base_paint.interpolate(node.state, 1), *(h.paint.interpolate(node.state, 1) for h in chosen))
             rims = (self.secondary_outline, *(h.secondary_outline for h in chosen))
             has_rim = any(rim and rim.width for rim in rims)
-            if has_rim and self.strategy == "coverage":
-                raise ValueError("secondary outlines require clip strategy")
             has_backing = has_rim or base_glow is not None or any(h.glow for h in chosen)
-            if self.strategy == "clip" and has_backing and any(
+            if has_backing and any(
                 clip.animation.channels & {"fill", "outline", "border", "blur", "shadow"} for clip in node.animations
             ):
                 raise ValueError("compose existing paint animations with glow or secondary outline explicitly")
@@ -946,6 +902,7 @@ class LyricHighlights:
                 / scale.x
             )
             pieces: list[SceneObject] = []
+            primary_layers: list[_PaintLayers] = []
             for highlight in (None, *sorted(chosen, key=lambda h: h.priority)):
                 identity = (
                     node.id
@@ -970,50 +927,37 @@ class LyricHighlights:
                         state=highlight.paint.interpolate(piece.state, 1),
                         material=material,
                     )
-                if self.strategy == "clip":
-                    feather = (
-                        widths[character.object.font_size] / scale.x
-                        if native_singing and not vertical
-                        else 0
-                    )
-                    drawings = tuple(
-                        replace(
-                            piece.copy(
-                                id=identity
-                                if index == 0
-                                else f"{identity}/region:{index}"
+                feather = (
+                    widths[character.object.font_size] / scale.x
+                    if native_singing and not vertical
+                    else 0
+                )
+                drawings = tuple(
+                    replace(
+                        piece.copy(
+                            id=identity
+                            if index == 0
+                            else f"{identity}/region:{index}"
+                        ),
+                        clip=_LyricPaintClip(
+                            0,
+                            0,
+                            1,
+                            1,
+                            space="local",
+                            deform=(
+                                ownership.singing_keyframes(padding + feather, feather)
+                                if native_singing
+                                else RectangleFunction(
+                                    partial(ownership.rectangle, index),
+                                    base.breakpoints,
+                                )
                             ),
-                            clip=_LyricPaintClip(
-                                0,
-                                0,
-                                1,
-                                1,
-                                space="local",
-                                deform=(
-                                    ownership.singing_keyframes(padding + feather, feather)
-                                    if native_singing
-                                    else RectangleFunction(
-                                        partial(ownership.rectangle, index),
-                                        base.breakpoints,
-                                    )
-                                ),
-                            ),
-                        )
-                        for index in range(1 if native_singing else ownership.clip_regions)
+                        ),
                     )
-                else:
-                    partitions[identity] = CoveragePartition(
-                        ownership.world_regions,
-                        max_regions=base.max_regions,
-                        inside=highlight is not None,
-                        breakpoints=base.breakpoints,
-                    )
-                    glow = base_glow if highlight is None else highlight.glow
-                    if glow is not None:
-                        assert isinstance(glow, (Glow, GlowFunction))
-                        glows[identity] = glow
-                    drawings = (piece,)
-                for piece in drawings:
+                    for index in range(1 if native_singing else ownership.clip_regions)
+                )
+                for index, piece in enumerate(drawings):
                     plain_clip = piece.clip
                     if (vertical and target.role == "character" and native_singing
                             and len(chosen[0].passes) == 1 and not chosen[0].passes[0].reverse
@@ -1025,8 +969,7 @@ class LyricHighlights:
                         )
                         piece = replace(piece, clip=plain_clip)
                     if (
-                        self.strategy == "clip"
-                        and native_singing
+                        native_singing
                         and highlight is not None
                         and widths[character.object.font_size]
                         and not vertical
@@ -1052,19 +995,21 @@ class LyricHighlights:
                     pieces.append(piece)
                     rim = self.secondary_outline if highlight is None else highlight.secondary_outline
                     glow = base_glow if highlight is None else highlight.glow
+                    secondary = halo_layer = None
                     if rim and rim.width:
                         rim_clip = plain_clip
                         if isinstance(piece.clip, _FeatheredSingingClip) and self.secondary_outline and self.secondary_outline.width:
                             rim_clip = replace(piece.clip, unsung_fill=self.secondary_outline.color,
                                                unsung_outline=self.secondary_outline.color, unsung_gradient=None,
                                                front_color=None)
-                        pieces.append(replace(
+                        secondary = replace(
                             piece.copy(id=f"{piece.id}/secondary-outline"),
                             extrusion=None, material=None, filled=False, layer=piece.layer - 1, clip=rim_clip,
                             state=replace(piece.state, fill=rim.color, outline=rim.color, blur=0,
                                           border=piece.state.border + rim.width, shadow=Vec2()),
-                        ))
-                    if self.strategy == "clip" and isinstance(glow, Glow):
+                        )
+                        pieces.append(secondary)
+                    if isinstance(glow, Glow):
                         halo = piece.copy(id=f"{piece.id}/glow")
                         halo = replace(
                             halo,
@@ -1098,18 +1043,12 @@ class LyricHighlights:
                             pieces.extend(_split_glow(halo, other.color, other_alpha, ownership, padding))
                         else:
                             pieces.append(halo)
+                            halo_layer = halo
+                    if index == 0:
+                        primary_layers.append(_PaintLayers(piece, secondary, halo_layer))
+            paint[node.id] = _GlyphPaint(primary_layers[0], tuple(primary_layers[1:]))
             aliases[node.id] = tuple(piece.id for piece in pieces[1:])
-            if self.strategy == "coverage":
-                component = ObjectGroup(
-                    id=f"{node.id}/material",
-                    lifetime=node.lifetime,
-                    children=tuple(pieces),
-                    origin=node.origin,
-                )
-                components.append(component.id)
-                replacements[node.id] = (component,)
-            else:
-                replacements[node.id] = tuple(pieces)
+            replacements[node.id] = tuple(pieces)
 
         for drawing in drawings:
             bind(*drawing)
@@ -1134,15 +1073,7 @@ class LyricHighlights:
                 replace(target, aliases=aliases.get(target.node_id, target.aliases))
                 for target in line.targets
             ),
-            coverage=Coverage(
-                components=tuple(components),
-                partitions=partitions,
-                glows=glows,
-                settings=self.settings,
-            )
-            if self.strategy == "coverage"
-            else None,
-        )
+        ), paint
 
 
 @dataclass(frozen=True, kw_only=True)

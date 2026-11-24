@@ -3,11 +3,11 @@
 from dataclasses import dataclass, replace
 from typing import Literal
 
+from .appearance import paint_pair_from_style
 from .ass import Document, Line, Style
 from .composition import Color, Paint
 from .document_text import _packed_color
 from .geometry import Vec2
-from .import_ass import paint_pair_from_style
 from .lyric_highlights import (
     Highlight,
     HighlightArrival,
@@ -16,7 +16,7 @@ from .lyric_highlights import (
 )
 from .lyric_layout import Layout, LayoutContext, LayoutLine, Placement
 from .lyric_line import LyricLine, LyricRule
-from .orchestration import LyricScene, Track, _SourceById, _sources, prepare_tracks
+from .orchestration import LyricScene, LyricSource, Track, _prepare_tracks, _SourceById
 from .scene_animation import FadeIn, FadeOut, ScalePulse, StatePatch, TimeSpan
 from .timeline import Region
 
@@ -89,15 +89,14 @@ class _Paint:
 
     def __call__(self, line: LyricLine) -> LyricLine:
         return LyricHighlights.from_singing(
-            StatePatch(fill=self.after.fill, opacity=self.after.opacity),
+            StatePatch(fill=self.after.fill, face_opacity=self.after.opacity),
             edge_duration=0,
-            base_paint=StatePatch(fill=self.before.fill, opacity=self.before.opacity),
+            base_paint=StatePatch(fill=self.before.fill, face_opacity=self.before.opacity),
         )(line)
 
 
 def _measurement_style(style: Style) -> Style:
-    # The recipe represents before/after alpha as ordinary object opacity.
-    # Measurement styles must not reapply those channels.
+    # The highlighting pass applies before/after face alpha after measurement.
     fields = dict(style.fields)
     for key, value in fields.items():
         if key.lower() in (
@@ -136,36 +135,40 @@ def preset_scene(
         rules.append(LyricRule("character", "singing", ScalePulse()))
     elif pulse == "syllable":
         rules.append(LyricRule("syllable", "singing", ScalePulse()))
-    tracks = []
-    source_styles = document.styles
-    measurement_styles = tuple(_measurement_style(s) for s in source_styles.values())
-    for source in _sources(document, owner):
-        if styles is not None and source.style not in styles:
-            continue
-        assert source.record_index is not None
-        record = document.records[source.record_index]
-        assert isinstance(record, Line)
-        style = source_styles[source.style]
-        pair = paint_pair_from_style(style)
-        unsung = pair.before if before is None else replace(pair.before, fill=before)
-        sung = pair.after if after is None else replace(pair.after, fill=after)
-        tracks.append(
-            Track(
-                id=source.id,
-                source=_SourceById(source.id),
-                layout=_SourcePlacement(
-                    align=style.align,
-                    left=record.margin_l or style.margin_l,
-                    right=record.margin_r or style.margin_r,
-                    vertical=record.margin_v or style.margin_v,
-                ),
-                preview=preview,
-                tail=tail,
-                effects=(
-                    *(tuple(rules)),
-                    _Paint(unsung, sung),
-                ),
-                styles=measurement_styles,
+
+    def build_tracks(doc: Document, sources: tuple[LyricSource, ...]) -> tuple[Track, ...]:
+        tracks = []
+        source_styles = doc.styles
+        measurement_styles = tuple(_measurement_style(s) for s in source_styles.values())
+        for source in sources:
+            if styles is not None and source.style not in styles:
+                continue
+            assert source.record_index is not None
+            record = doc.records[source.record_index]
+            assert isinstance(record, Line)
+            style = source_styles[source.style]
+            pair = paint_pair_from_style(style)
+            unsung = pair.before if before is None else replace(pair.before, fill=before)
+            sung = pair.after if after is None else replace(pair.after, fill=after)
+            tracks.append(
+                Track(
+                    id=source.id,
+                    source=_SourceById(source.id),
+                    layout=_SourcePlacement(
+                        align=style.align,
+                        left=record.margin_l or style.margin_l,
+                        right=record.margin_r or style.margin_r,
+                        vertical=record.margin_v or style.margin_v,
+                    ),
+                    preview=preview,
+                    tail=tail,
+                    effects=(
+                        *(tuple(rules)),
+                        _Paint(unsung, sung),
+                    ),
+                    styles=measurement_styles,
+                )
             )
-        )
-    return prepare_tracks(document, tracks=tuple(tracks), owner=owner)
+        return tuple(tracks)
+
+    return _prepare_tracks(document, build_tracks=build_tracks, owner=owner)

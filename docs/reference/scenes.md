@@ -34,7 +34,7 @@ An absolute half-open seconds interval with 0 <= start < end.
 Parent lifetimes further restrict child visibility without changing local
 animation clocks.
 
-[Source](../../kara_templater/scene.py#L35)
+[Source](../../kara_templater/scene.py#L50)
 
 ```python
 Lifetime(
@@ -67,7 +67,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L548)
+[Source](../../kara_templater/scene.py#L538)
 
 ```python
 NativeEvent(
@@ -95,23 +95,22 @@ Hook output supports normal screen-space rectangle clips with static
 bounds or RectangleKeyframes evaluated on the group's clock. A parent
 rectangle intersects child clips without replacing their local clocks.
 
-[Source](../../kara_templater/scene.py#L453)
+[Source](../../kara_templater/scene.py#L451)
 
 ```python
 ObjectGroup(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
     origin: EventOrigin | None = None,
     clip: RectangleClip | VectorClip | None = None,
-    material: PaintField | None = None,
+    material: LinearGradient | None = None,
     reference: StateReference | None = None,
     children: tuple[SceneObject, ...],
-    coverage: Coverage | None = None,
 )
 ```
 
@@ -121,16 +120,15 @@ ObjectGroup(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
 | `origin` | `EventOrigin \| None` | `None` |
 | `clip` | `RectangleClip \| VectorClip \| None` | `None` |
-| `material` | `PaintField \| None` | `None` |
+| `material` | `LinearGradient \| None` | `None` |
 | `reference` | `StateReference \| None` | `None` |
 | `children` | `tuple[SceneObject, ...]` | `required` |
-| `coverage` | `Coverage \| None` | `None` |
 
 ### ObjectGroup.animate
 
@@ -186,7 +184,7 @@ Type: `float`.
 
 ASS lowering strategy, source origin, event count and observed geometry costs.
 
-[Source](../../kara_templater/scene_output.py#L123)
+[Source](../../kara_templater/scene_output.py#L99)
 
 ```python
 ObjectReport(
@@ -218,20 +216,20 @@ Coordinates are local to its local origin and parent transforms. Set filled=Fals
 for an outline-only drawing. The border radius uses script pixels by default.
 With scale_border=True the radius is measured in local path coordinates.
 
-[Source](../../kara_templater/scene.py#L412)
+[Source](../../kara_templater/scene.py#L410)
 
 ```python
 PathObject(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
     origin: EventOrigin | None = None,
     clip: RectangleClip | VectorClip | None = None,
-    material: PaintField | None = None,
+    material: LinearGradient | None = None,
     reference: StateReference | None = None,
     path: VectorPath,
     deform: GeometryAnimation | None = None,
@@ -248,13 +246,13 @@ PathObject(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
 | `origin` | `EventOrigin \| None` | `None` |
 | `clip` | `RectangleClip \| VectorClip \| None` | `None` |
-| `material` | `PaintField \| None` | `None` |
+| `material` | `LinearGradient \| None` | `None` |
 | `reference` | `StateReference \| None` | `None` |
 | `path` | `VectorPath` | `required` |
 | `deform` | `GeometryAnimation \| None` | `None` |
@@ -330,7 +328,7 @@ Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 Prepare a new snapshot after changing the scene. Window exports share measured
 masks and the resolved object hierarchy. Each output has its own playback clock.
 
-[Source](../../kara_templater/scene.py#L634)
+[Source](../../kara_templater/scene.py#L624)
 
 ```python
 PreparedHook(
@@ -383,7 +381,7 @@ A positive-area normal or inverse rectangle in screen or object-local space.
 
 Optional deformation evaluates local seconds and can produce an empty mask.
 
-[Source](../../kara_templater/scene.py#L153)
+[Source](../../kara_templater/scene.py#L168)
 
 ```python
 RectangleClip(
@@ -415,7 +413,7 @@ Pure signed-local-seconds rectangle bounds; None denotes an empty mask.
 
 The owning object validates breakpoint times against its absolute clock.
 
-[Source](../../kara_templater/scene.py#L56)
+[Source](../../kara_templater/scene.py#L71)
 
 ```python
 RectangleFunction(
@@ -451,7 +449,7 @@ the first is the left limit and the second takes effect at that time.
 Zero width or height is an empty mask, with its coordinates retained for
 interpolation. The owning object validates absolute breakpoint times.
 
-[Source](../../kara_templater/scene.py#L83)
+[Source](../../kara_templater/scene.py#L98)
 
 ```python
 RectangleKeyframes(
@@ -500,7 +498,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L566)
+[Source](../../kara_templater/scene.py#L556)
 
 ```python
 Scene(
@@ -603,24 +601,22 @@ Scene.replace_source(
 
 ## SceneBudget
 
-Positive whole-scene sampling and resource limits.
+Positive whole-scene ASS resource limits.
 
 ASS compilation enforces limits on events, bytes, active drawings, geometry
 and boolean work. It does not sample at fps or generate paint bands.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
 
-[Source](../../kara_templater/scene_output.py#L76)
+[Source](../../kara_templater/scene_output.py#L60)
 
 ```python
 SceneBudget(
     *,
-    fps: int = 50,
     max_events: int = 25000,
     max_bytes: int = 10485760,
     max_active: int = 1000,
     max_path_points: int = 4096,
-    max_bands: int = 1024,
     max_boolean_work: int = 1000000,
     clip_error_px: float = 0.75,
 )
@@ -630,12 +626,10 @@ SceneBudget(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `fps` | `int` | `50` |
 | `max_events` | `int` | `25000` |
 | `max_bytes` | `int` | `10485760` |
 | `max_active` | `int` | `1000` |
 | `max_path_points` | `int` | `4096` |
-| `max_bands` | `int` | `1024` |
 | `max_boolean_work` | `int` | `1000000` |
 | `clip_error_px` | `float` | `0.75` |
 
@@ -645,7 +639,7 @@ An invalid scene or exceeded compilation limit with object_id and optional sourc
 
 Callback causes remain available for diagnosis.
 
-[Source](../../kara_templater/scene_output.py#L60)
+[Source](../../kara_templater/scene.py#L34)
 
 ```python
 SceneCompileError(
@@ -660,7 +654,7 @@ SceneCompileError(
 
 Estimated ASS event count before emission.
 
-[Source](../../kara_templater/scene_output.py#L116)
+[Source](../../kara_templater/scene_output.py#L92)
 
 ```python
 SceneEstimate(
@@ -748,7 +742,7 @@ A newly compiled ASS Document with object reports, final cost metrics, diagnosti
 
 Caller-owned input objects remain unchanged.
 
-[Source](../../kara_templater/scene_output.py#L135)
+[Source](../../kara_templater/scene_output.py#L111)
 
 ```python
 SceneResult(
@@ -791,20 +785,20 @@ Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
 
-[Source](../../kara_templater/scene.py#L368)
+[Source](../../kara_templater/scene.py#L366)
 
 ```python
 TextObject(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
     origin: EventOrigin | None = None,
     clip: RectangleClip | VectorClip | None = None,
-    material: PaintField | None = None,
+    material: LinearGradient | None = None,
     reference: StateReference | None = None,
     text: str,
     font: str = 'DejaVu Sans',
@@ -827,13 +821,13 @@ TextObject(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
 | `origin` | `EventOrigin \| None` | `None` |
 | `clip` | `RectangleClip \| VectorClip \| None` | `None` |
-| `material` | `PaintField \| None` | `None` |
+| `material` | `LinearGradient \| None` | `None` |
 | `reference` | `StateReference \| None` | `None` |
 | `text` | `str` | `required` |
 | `font` | `str` | `'DejaVu Sans'` |
@@ -905,7 +899,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L191)
+[Source](../../kara_templater/scene.py#L206)
 
 ```python
 VectorClip(
@@ -936,20 +930,20 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L213)
+[Source](../../kara_templater/scene.py#L228)
 
 ```python
 VisualNode(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
     origin: EventOrigin | None = None,
     clip: RectangleClip | VectorClip | None = None,
-    material: PaintField | None = None,
+    material: LinearGradient | None = None,
     reference: StateReference | None = None,
 )
 ```
@@ -960,13 +954,13 @@ VisualNode(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1, face_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
 | `origin` | `EventOrigin \| None` | `None` |
 | `clip` | `RectangleClip \| VectorClip \| None` | `None` |
-| `material` | `PaintField \| None` | `None` |
+| `material` | `LinearGradient \| None` | `None` |
 | `reference` | `StateReference \| None` | `None` |
 
 ### VisualNode.animate

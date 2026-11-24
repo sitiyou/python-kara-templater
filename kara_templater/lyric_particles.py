@@ -194,8 +194,6 @@ class LyricParticles:
 
     def __call__(self, line: LyricLine) -> LyricLine:
         """Preflight all emissions, then construct visuals and reserve their tails."""
-        if line.coverage is not None:
-            raise ValueError("lyric particles require ordinary clip-mode visuals")
         plans = []
         total = 0
         if self.placement == "line":

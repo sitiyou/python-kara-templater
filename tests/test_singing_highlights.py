@@ -88,7 +88,7 @@ def test_automatic_shoulders_reserve_layout_time_without_changing_singing():
     assert result.query("character")[0].singing == line.query("character")[0].singing
 
 
-def test_single_pass_lowers_at_one_fps_and_matches_static_boundary_pixels():
+def test_single_pass_matches_static_boundary_pixels():
     doc, line = make_line()
     line = LyricHighlights.from_singing(
         StatePatch(fill=RED),
@@ -98,7 +98,7 @@ def test_single_pass_lowers_at_one_fps_and_matches_static_boundary_pixels():
     )(line)
     canvas = Document.create(width=160, height=96, styles=tuple(doc.styles.values()))
     scene = Scene(canvas).add(line)
-    native = scene.ass.compile(budget=SceneBudget(fps=1), native_tweens=True)
+    native = scene.ass.compile(budget=SceneBudget(), native_tweens=True)
     assert any(obj.strategy == "native-clip" for obj in native.objects)
     # Both include the separate 20 ms shoulders, the 80 ms syllable and handoff.
     for time in (980, 1000, 1080, 1230, 1250):
@@ -172,18 +172,6 @@ def test_soft_glow_blends_premultiplied_color(before_alpha):
         sung = (state.opacity - before_alpha) / (1 - before_alpha)
         assert state.fill.red * state.opacity == pytest.approx(255 * sung, abs=0.5)
         assert state.fill.blue * state.opacity == pytest.approx(255 * before_alpha * (1 - sung), abs=0.5)
-
-
-def test_coverage_uses_body_ownership_without_clip_shoulders():
-    _, line = make_line()
-    line = replace(line, lifetime=Lifetime(1, 1.23))
-    result = LyricHighlights.from_singing(
-        StatePatch(fill=RED),
-        strategy="coverage",
-        glow=Glow(RED, blur=3),
-    )(line)
-    assert result.lifetime == line.lifetime
-    assert result.coverage is not None
 
 
 def test_delayed_copy_offsets_each_ruby_glyphs_own_wipe():

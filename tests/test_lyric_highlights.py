@@ -27,7 +27,7 @@ from kara_templater.lyric_highlights import _owners
 from kara_templater.scene_animation import TimeSpan
 from kara_templater.timeline import Region, union_regions
 
-BUDGET = SceneBudget(fps=10, max_events=40_000, max_active=10_000)
+BUDGET = SceneBudget(max_events=40_000, max_active=10_000)
 
 
 def source():
@@ -77,13 +77,11 @@ def test_priority_layer_and_union_have_distinct_overlap_contracts():
         _owners((red, replace(blue, priority=0)), 1.5, "layer")
 
 
-@pytest.mark.parametrize("strategy", ("clip", "coverage"))
 def test_highlighted_line_uses_common_scene_and_target_aliases_follow_animation(
-    strategy,
 ):
     doc, line = source()
     decorated = LyricHighlights(
-        highlights=highlights, mode="priority", strategy=strategy
+        highlights=highlights, mode="priority"
     )(line)
     target = decorated.query("character")[0]
     assert len(target.aliases) >= 2
@@ -114,8 +112,6 @@ def test_disjoint_regions_and_repeat_reset_keep_explicit_round_clocks():
         highlight, passes=(first, replace(repeat, region=Region(20, 30))), repeat="hold"
     )
     assert disjoint.regions(3.5) == (Region(0, 10), Region(20, 25))
-    with pytest.raises(ValueError, match="separate visual components"):
-        LyricHighlights(highlights=(highlight,), mode="layer", strategy="coverage")
 
 
 def test_zero_duration_highlight_is_complete_at_its_start():
@@ -128,17 +124,8 @@ def test_zero_duration_highlight_is_complete_at_its_start():
     assert highlight.regions(1) == (Region(10, 30),)
 
 
-def test_sweep_cannot_silently_repaint_only_one_highlight_contribution():
-    from kara_templater import LyricSweep
-
-    _, line = source()
-    decorated = LyricHighlights(highlights=highlights, mode="priority")(line)
-    with pytest.raises(ValueError, match="compose existing material/highlight"):
-        LyricSweep(fill=RED)(decorated)
-
-
 def test_clip_glow_is_separate_layers_with_shared_character_motion():
-    from kara_templater import Glow, GlowFunction
+    from kara_templater import Glow
 
     doc, line = source()
     red = replace(
@@ -160,16 +147,10 @@ def test_clip_glow_is_separate_layers_with_shared_character_motion():
             evaluator.at(identity, 1.5).position
             == evaluator.at(target.node_id, 1.5).position
         )
-    with pytest.raises(ValueError, match="dynamic glow"):
-        LyricHighlights(
-            highlights=(red,),
-            glow=GlowFunction(lambda state, time: Glow(), max_blur=0, max_border=0),
-        )(line)
 
 
-@pytest.mark.parametrize("strategy", ("clip", "coverage"))
-def test_glow_factories_resolve_once_per_target_and_validate_dynamic_strategy(strategy):
-    from kara_templater import Glow, GlowFunction
+def test_glow_factories_resolve_once_per_target():
+    from kara_templater import Glow
 
     doc, line = source()
     calls = []
@@ -180,16 +161,11 @@ def test_glow_factories_resolve_once_per_target_and_validate_dynamic_strategy(st
 
     red = replace(highlights(line)[0], glow=choose)
     LyricHighlights(
-        highlights=(red,), glow=choose, strategy=strategy
+        highlights=(red,), glow=choose
     )(line)
     expected = [target.id for target in line.query("character") for _ in range(2)]
     assert calls == expected
 
-    def dynamic(line, target):
-        return GlowFunction(lambda state, time: Glow(), max_blur=0, max_border=0)
-
-    with pytest.raises(ValueError, match="dynamic glow"):
-        LyricHighlights(highlights=(replace(red, glow=dynamic),))(line)
 
 
 def test_explicit_target_selected_before_painting_uses_current_aliases():
@@ -207,8 +183,7 @@ def test_explicit_target_selected_before_painting_uses_current_aliases():
         ).position + Vec2(0, -12)
 
 
-@pytest.mark.parametrize("strategy", ("clip", "coverage"))
-def test_delayed_highlight_copy_reserves_and_renders_the_same_interval(strategy):
+def test_delayed_highlight_copy_reserves_and_renders_the_same_interval():
     doc, line = source()
     original = doc.dumps()
     box = line.layout.body.bounds
@@ -221,7 +196,6 @@ def test_delayed_highlight_copy_reserves_and_renders_the_same_interval(strategy)
                 StatePatch(fill=RED),
             ),
         ),
-        strategy=strategy,
     )
     before = effect(line).copy(id="copy", delay=2)
     after = effect(line.copy(id="copy", delay=2))

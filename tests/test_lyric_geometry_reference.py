@@ -1,11 +1,9 @@
 """Compiled lyric geometry compared with independent whole-text ASS rendering."""
 
-from dataclasses import replace
 
 import pytest
 
 from kara_templater import (
-    Coverage,
     Document,
     LayoutCapabilityError,
     Line,
@@ -16,11 +14,7 @@ from kara_templater import (
 )
 
 SIZE = (160, 100)
-BUDGET = SceneBudget(fps=10, max_events=100_000, max_active=20_000)
-
-
-def coverage(line: LyricLine) -> LyricLine:
-    return replace(line, coverage=Coverage())
+BUDGET = SceneBudget(max_events=100_000, max_active=20_000)
 
 
 @pytest.mark.parametrize("field,value", (("Angle", "10"), ("BorderStyle", "3")))
@@ -33,7 +27,7 @@ def test_unsupported_source_geometry_fails_before_visual_factory(field, value):
 
     def factory(line: LyricLine) -> LyricLine:
         calls.append(line)
-        return coverage(line)
+        return line
 
     with pytest.raises(
         LayoutCapabilityError, match="border style 1 and zero style angle"

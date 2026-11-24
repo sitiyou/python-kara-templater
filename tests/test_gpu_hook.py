@@ -8,11 +8,15 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
+    WHITE,
     Color,
+    Contour,
     Document,
     DriftOut,
     Extrusion,
     Lifetime,
+    Line,
+    LineSegment,
     ObjectGroup,
     PathObject,
     ProgressCurve,
@@ -21,11 +25,15 @@ from kara_templater import (
     ScalePulse,
     Scene,
     StateFunction,
+    Style,
+    TextObject,
     Vec2,
     VectorPath,
     VisualState,
     ease_in,
 )
+from kara_templater._cli_preset import preset_scene
+from kara_templater._raster import rasterize
 
 
 def test_large_hook_record_and_curve_addresses_survive_float32_storage():
@@ -75,6 +83,75 @@ def test_hook_keeps_fixed_border_under_inherited_scale_and_a_pulse(tmp_path, vul
         assert pixel(frame, 62, 20) < 5
     assert pixel(0, 63, 64) < 5
     assert pixel(1, 63, 64) > 250
+
+
+def _render_hook(scene, directory, *, fps=2, background="black", duration=1):
+    scene.export(directory / "test.hook", fps=fps, duration=duration)
+    return subprocess.check_output(
+        [
+            "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi",
+            "-i", f"color={background}:s=160x120:r={fps}:d={duration}", "-vf",
+            "libplacebo=custom_shader_path=test.hook:format=rgb24",
+            "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ],
+        cwd=directory,
+    )
+
+
+@pytest.mark.parametrize("filled", [False, True])
+def test_hook_blurred_fixed_border_is_continuous_near_unit_scale(tmp_path, vulkan, filled):
+    scene = Scene(Document.create(width=160, height=120)).add(
+        TextObject(
+            id="blurred", text="A", font_size=52, filled=filled, lifetime=Lifetime(0, 1),
+            state=VisualState(position=Vec2(55, 25), fill=Color(0, 0, 0), outline=WHITE,
+                              border=6, blur=8),
+        ).animate(ScalePulse(peak=1.001, peak_at=0.5), duration=1)
+    )
+    pixels = _render_hook(scene, tmp_path)[::3]
+    first, second = pixels[:160 * 120], pixels[160 * 120:]
+    assert max(first) > 50
+    assert sum(10 < value < 40 for value in first) > 200
+    assert max(abs(a - b) for a, b in zip(first, second, strict=True)) <= 5
+
+
+def test_hook_fixed_outline_closes_drawing_contours(tmp_path, vulkan):
+    contour = Contour(Vec2(), (LineSegment(Vec2(20, 0)), LineSegment(Vec2(20, 20))), closed=False)
+    scene = Scene(Document.create(width=160, height=120)).add(
+        PathObject(
+            id="open-contour", path=VectorPath((contour,)), filled=False, lifetime=Lifetime(0, 1),
+            state=VisualState(position=Vec2(42, 24), scale=Vec2(2, 2), outline=WHITE, border=3),
+        )
+    )
+    pixels = _render_hook(scene, tmp_path)[::3]
+    assert pixels[44 * 160 + 60] > 200
+    assert pixels[44 * 160 + 55] < 5
+
+
+def test_preset_preserves_face_and_shadow_alpha_through_highlight_and_fades(tmp_path, vulkan):
+    document = Document.create(
+        width=160, height=120,
+        styles=(Style(fontname="DejaVu Sans", fontsize=32, outline=0, shadow=18),),
+    )
+    document.styles["Default"].fields.update(
+        PrimaryColour="&H800000FF", SecondaryColour="&HC00000FF", BackColour="&H80000000",
+    )
+    document.records.append(Line(text=r"{\k150}A", start_time=500, end_time=2000))
+    scene = preset_scene(
+        document, owner="test", before=None, after=None, pulse="none", fade_in=0.25,
+        fade_out=0.5, preview=0.5, tail=0, styles=None,
+    )
+    hook = _render_hook(scene, tmp_path, fps=8, background="white", duration=2.5)
+    rendered_ass = scene.ass.compile().document.dumps()
+    frame_size = 160 * 120 * 3
+    for frame, face_alpha, shadow_alpha in ((1, 32, 64), (2, 63, 127), (6, 127, 127), (18, 64, 64)):
+        rgba = rasterize(rendered_ass, frame * 125, (160, 120)).rgba
+        red, green, alpha = rgba[::4], rgba[1::4], rgba[3::4]
+        assert max(a for r, g, a in zip(red, green, alpha, strict=True) if r > g) == pytest.approx(face_alpha, abs=2)
+        assert max(a for r, a in zip(red, alpha, strict=True) if r == 0) == pytest.approx(shadow_alpha, abs=2)
+        rgb = hook[frame * frame_size:(frame + 1) * frame_size]
+        red, green = rgb[::3], rgb[1::3]
+        assert max(r - g for r, g in zip(red, green, strict=True)) == pytest.approx(face_alpha, abs=3)
+        assert max(255 - r for r, g in zip(red, green, strict=True) if r == g) == pytest.approx(shadow_alpha, abs=3)
 
 
 @pytest.fixture

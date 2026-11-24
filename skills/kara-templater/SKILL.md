@@ -35,7 +35,7 @@ Examples include their own lyrics so they can run on their own. To reuse a desig
 For reusable styling, expose a sequence named `tracks` in an effect file. To prepare tracks and add custom scene objects, expose `build(document) -> Scene` instead. From a source checkout, run the alternating-colour builder with its matching lyric fixture:
 
 ```sh
-python -m examples.track_colors preview.ass
+python -m examples.track_colors preview.hook
 ```
 
 For a standalone libplacebo hook, prepare the Scene in Python and call `scene.export("preview.hook", fps=60)` with the delivery frame rate. See the [CLI contracts](../../docs/guides/cli.md), [output guide](../../docs/guides/choosing-output.md) and [API reference](../../docs/reference/README.md).

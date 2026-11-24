@@ -1,4 +1,4 @@
-"""Inline cue releases keep ruby anchored; independent labels stay screen-fixed.
+"""Inline cues reserve room next to ruby and independent labels stay screen-fixed.
 
 """
 
@@ -41,9 +41,9 @@ def build() -> Scene:
     cued = bind_lyric_cues(
         layout,
         {
-            "bars": CuePreset(factory=BarsCue(), keep_space=False),
+            "bars": CuePreset(factory=BarsCue()),
             "numbers": CuePreset(
-                factory=TextCue(font_size=48), trigger=2.5, keep_space=False
+                factory=TextCue(font_size=48), trigger=2.5
             ),
             "labels": CuePreset(
                 factory=TextCue(labels=("READY", "SET", "GO"), font_size=32),

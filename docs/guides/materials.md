@@ -47,15 +47,9 @@ duet = KaraokeEffects(base_material=LyricGradient((Color.hex("#FFF1D8"), Color.h
 Styles absent from the mapping use the recipe's solid sung paint.
 A custom material factory can also read `target.source_style`.
 
-For custom appearance, `material` also accepts a `PaintField` or a factory taking
-`(line, target)` and returning a field (or None). The factory runs once per target
-and highlight during preparation, not per frame. Explicit `Highlight` declarations
-accept the same material parameter.
-
-This uses the local `LinearGradient` backend: currently it requires clip strategy,
-a single positive singing interval, and axis-aligned scale/translation. Repeated
-singing and coverage-mode material composition are not supported by this backend.
-Standard ASS rejects paint fields during compilation.
+A material factory takes `(line, target)` and returns a LinearGradient or None.
+The factory runs once per target and highlight during preparation. Explicit
+Highlight declarations accept the same parameter. Export gradients with Hook.
 
 ## Paint separate visual roles
 
@@ -67,43 +61,15 @@ Border and blur widths are script pixels. Geometry scaling does not implicitly
 animate those channels; animate border/blur alongside scale when their widths
 should grow with the text.
 
-SoftSweep is a spatial color field with (unsung, sung) fill/outline pairs,
-independent front widths, a script-space range, start, duration, and rate.
-Material time, including SoftSweep.start, is local seconds from the owning
-object's `time_origin`. Delayed copies retain that local clock. Custom fields
-can use signed local times when visibility precedes the origin; see
-[animation clocks](animation.md#scene-clips-and-timelines).
-LinearGradient uses ColorRamp/ColorStop values along x or y. The hook evaluates the fill and outline ramps independently.
-
-Other scene materials use script-space color coordinates. Group motion changes which
-parts of the object encounter a field; for a different attachment rule, author
-the field or object transformation explicitly. Fill and outline bands are
-independent of a separately drawn constant glow.
+LinearGradient uses ColorRamp and ColorStop along either axis. Hook evaluates
+the fill and outline ramps independently. Set `space="local"` to move the
+gradient with its drawing. The default screen-space gradient stays fixed.
 
 ## Lyric paint and animation
 
-LyricSweep binds soft fill/outline fronts to measured lyric targets. Its color
-factories receive a LyricLine and LyricTarget once during construction.
-Object animations evaluate before the paint field. LyricSweep uses that evaluated
-fill/outline as the unsung color and its configured colors as the sung endpoint;
-an omitted channel retains the evaluated color everywhere. Binding the animation
-before or after applying the sweep gives the same result. To animate the sung
-endpoint itself, supply a custom PaintField that resolves both colors from time
-and the incoming state. Color factories return Color or None and are checked when
-the sweep is applied to a line. Returning None retains that target's animated
-channel; if both fill and outline are omitted, its existing material is untouched.
-For example, `LyricSweep(fill=lambda line, target: PINK if target.role == "character" else None)`
-sweeps the body while leaving ruby unchanged.
-Body and ruby colors are chosen explicitly by target; mixed body colors do not
-implicitly choose a ruby color. A factory may inspect the target role, source
-range or tags and return the desired color. Selection changes paint without
-splitting lyric units, reshaping clusters or retiming their singing spans.
-Zero-duration singing (`\k0`) switches to the sung color at its start; it does
-not acquire an artificial animation duration. Delayed copies shift that switch
-with their visual clock.
 LyricHighlights binds named HighlightPass regions with union, priority or layered
 ownership. A Highlight carries a StatePatch and optional Glow; body/ruby glow
-factories may return different widths, colors or dynamic GlowFunction values.
+factories may return different widths and colors.
 Each pass has explicit measured horizontal bounds and absolute seconds.
 Use `HighlightPass(time, region, reverse=True)` to sweep that region from right to left.
 `HighlightArrival` then triggers when the front reaches the right edge of each
@@ -111,9 +77,7 @@ character. The text keeps its original position and reading order. Split a
 body region across several passes to keep a pause between adjacent portions, or
 reuse the whole region for a repeated traversal. A new `round` with `repeat="reset"`
 discards the previous round's coverage; `repeat="hold"` keeps completed regions.
-Ruby-weighted body partitions are an author choice: compute those bounds from
-measured readings and pass them as Regions. LyricSweep instead traverses the
-whole unit for each source interval. For nonlinear speed with exact character
+Use measured reading bounds as Regions to choose custom body partitions. For nonlinear speed with exact character
 arrival times, pass `ProgressCurve.at` as the rate and its `arrival` method as
 `inverse_rate`, and declare the curve's time knots as pass-local breakpoints.
 
@@ -151,14 +115,8 @@ original end it reaches the right edge. These shoulders do not consume singing
 time or move its clocks. Body, outline, glow and ruby share this rule. Enable
 `native_tweens=True` when compiling to lower eligible linear passes into
 continuous ASS clip animations, independent of the scene sampling FPS.
-Repeated source intervals retain the general ownership path; coverage retains
-its color-before-blur behavior without adding clip shoulders. Existing custom
-`HighlightPass` regions and clocks remain explicit and unchanged.
-
-The clip strategy creates ordinary before/after layers and optional static glow
-layers. Coverage assigns fractional material ownership before blur. Dynamic glow
-requires the explicit coverage strategy. Existing masks and materials require
-explicit composition rather than silent replacement. The same target mapping
+Repeated source intervals use the general ownership evaluator. Custom
+HighlightPass regions and clocks remain explicit. The same target mapping
 keeps highlight and glow copies synchronized with character animations.
 When ownership reaches a unit's outer edge, it includes the glyph's overhang,
 outline and glow. A completed whole-unit pass therefore owns the entire drawing;
@@ -170,43 +128,4 @@ color, so a fading halo keeps its visible hue. The engine approximates
 the Gaussian color transition with up to eight narrow moving strips between
 the two outer colors. Each strip follows the same singing clock as the text.
 These blended strips require hook export. For ASS, choose separate halos with `blend_glow=False`. Differences in
-halo geometry keep the ordinary clipped layers. Use coverage to
-partition actual glyph ink before blurring, including across gaps in a glyph.
-
-GlowFunction.from_animation reuses the common animation evaluator and infers
-spatial bounds for linear Tweens and nested sequences:
-
-```python
-from kara_templater import (
-    RED, Glow, GlowFunction, StatePatch, Timeline, Tween,
-)
-
-sequence = (
-    Timeline()
-    .play(Tween(StatePatch(fill=RED, blur=10)), duration=0.1)
-    .wait(0.7)
-    .play(Tween(StatePatch(blur=2)), duration=0.2)
-    .animation
-)
-
-glow = GlowFunction.from_animation(sequence, base=Glow(blur=2))
-
-```
-
-Use this field in Coverage.glows or a coverage LyricHighlights configuration.
-Its time is local to the visual leaf's `time_origin`; the example starts there.
-Use start and duration to place or stretch it, and hold=False to restore the base
-glow after it ends. fill maps to glow color; blur, border and opacity map directly.
-Other channels are rejected. Custom spatial animations or easing callbacks need
-explicit max_blur/max_border; inference never samples user code. Explicit bounds
-must also cover the base and any known targets. World scaling is not implicit;
-use a GlowFunction callback for geometry-dependent glow sizes.
-The field does not extend that leaf's lifetime or reserve a layout row. Arrange
-display time explicitly when a glow continues after singing. Bounds include all
-callback results, including any geometry-dependent scaling the callback adds.
-
-## Explicit composition choices
-
-Ordinary groups pass opacity and clips to each drawing layer. Explicit
-coverage groups request per-pixel material composition and cannot export to
-ASS or hook. See [export formats](choosing-output.md).
+halo geometry use separate clipped layers.

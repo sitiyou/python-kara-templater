@@ -9,8 +9,7 @@ the selected fonts.
 
 Text, vector drawings, transforms, clips, alpha, color, blur, and multiple timed
 events provide the building blocks. The compiler supports static text and paths, native movement, eligible transforms and
-hard wipes. Effects that require per-frame events, spatial color bands or raster
-coverage groups raise `SceneCompileError` during export. Use the hook exporter for
+hard wipes. Effects that require per-frame events or gradients raise `SceneCompileError` during export. Use the hook exporter for
 glyph gradients, feathered wipes and procedural particle motion. See
 [Choose an output](guides/choosing-output.md).
 

@@ -11,25 +11,18 @@ Font-dependent layout, source clusters, and editable body/ruby binding. Unicode 
 - [DocumentLayout](#documentlayout)
 - [DrawableCharacter](#drawablecharacter)
 - [FontFace](#fontface)
-- [KaraokeLine](#karaokeline)
-- [LaidOutLine](#laidoutline)
-- [LaidOutSegment](#laidoutsegment)
-- [LaidOutUnit](#laidoutunit)
 - [LayoutCapabilityError](#layoutcapabilityerror)
 - [LoadedFont](#loadedfont)
 - [LyricLayout](#lyriclayout)
 - [PositionedRuby](#positionedruby)
 - [PositionedText](#positionedtext)
-- [Segment](#segment)
 - [SingingSpan](#singingspan)
 - [StudioSpacing](#studiospacing)
 - [TextRange](#textrange)
-- [TextUnit](#textunit)
 - [VectorGuide](#vectorguide)
 - [layout_characters](#layout_characters)
 - [layout_document_lyrics](#layout_document_lyrics)
 - [layout_document_text](#layout_document_text)
-- [layout_line](#layout_line)
 - [layout_lyrics](#layout_lyrics)
 - [load_font](#load_font)
 - [select_characters](#select_characters)
@@ -41,7 +34,7 @@ An axis-aligned layout rectangle in script pixels.
 
 right, center, and middle are derived from left, top, width, and height.
 
-[Source](../../kara_templater/model.py#L60)
+[Source](../../kara_templater/model.py#L4)
 
 ```python
 Box(
@@ -86,7 +79,7 @@ An independently drawable cluster supplied by layout, never a codepoint.
 A layout backend must establish that the cluster can be drawn independently.
 This model deliberately does not split text or claim shaping support.
 
-[Source](../../kara_templater/characters.py#L14)
+[Source](../../kara_templater/characters.py#L15)
 
 ```python
 CharacterTarget(
@@ -190,7 +183,7 @@ An independently drawable shaped cluster with unit-local source range, advance/i
 A cluster can contain several Unicode code points. Add pen_offset to the
 allocated box origin to draw the cluster with ordinary ASS font metrics.
 
-[Source](../../kara_templater/characters.py#L77)
+[Source](../../kara_templater/characters.py#L78)
 
 ```python
 DrawableCharacter(
@@ -232,7 +225,7 @@ Type: `CharacterTarget`.
 
 Face names and em-to-ASS-size ratio from FreeType. Names determine equality.
 
-[Source](../../kara_templater/characters.py#L68)
+[Source](../../kara_templater/characters.py#L69)
 
 ```python
 FontFace(
@@ -250,103 +243,11 @@ FontFace(
 | `style` | `str` | `required` |
 | `em_ratio` | `float` | `1.0` |
 
-## KaraokeLine
-
-An ordered tuple of TextUnit values forming one lyric line.
-
-It contains source content and timing, independently of its measured layout.
-
-[Source](../../kara_templater/model.py#L50)
-
-```python
-KaraokeLine(
-    units: tuple[TextUnit, ...],
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `units` | `tuple[TextUnit, ...]` | `required` |
-
-## LaidOutLine
-
-The measured line box and ordered laid-out units.
-
-Each unit still references its original structured source.
-
-[Source](../../kara_templater/model.py#L113)
-
-```python
-LaidOutLine(
-    box: Box,
-    units: tuple[LaidOutUnit, ...],
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `box` | `Box` | `required` |
-| `units` | `tuple[LaidOutUnit, ...]` | `required` |
-
-## LaidOutSegment
-
-A singing segment with its measured horizontal interval and optional reading box.
-
-Geometry belongs to layout; times belong to its source Segment.
-
-[Source](../../kara_templater/model.py#L88)
-
-```python
-LaidOutSegment(
-    source: Segment,
-    left: float,
-    right: float,
-    ruby: Box | None,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `source` | `Segment` | `required` |
-| `left` | `float` | `required` |
-| `right` | `float` | `required` |
-| `ruby` | `Box \| None` | `required` |
-
-## LaidOutUnit
-
-A source TextUnit paired with a layout box and measured segments.
-
-Unit geometry can contain multiple repeated singing intervals.
-
-[Source](../../kara_templater/model.py#L101)
-
-```python
-LaidOutUnit(
-    source: TextUnit,
-    box: Box,
-    segments: tuple[LaidOutSegment, ...],
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `source` | `TextUnit` | `required` |
-| `box` | `Box` | `required` |
-| `segments` | `tuple[LaidOutSegment, ...]` | `required` |
-
 ## LayoutCapabilityError
 
 The available metrics cannot establish a safe independent drawing.
 
-[Source](../../kara_templater/characters.py#L39)
+[Source](../../kara_templater/characters.py#L40)
 
 Construction: `LayoutCapabilityError(*args)` using the inherited exception constructor.
 
@@ -494,31 +395,6 @@ Local size of one em of the cluster's primary shaped face, in script pixels.
 
 Type: `float`.
 
-## Segment
-
-A source singing interval in milliseconds with optional ruby text.
-
-Zero duration is allowed as source data; positive visual animation lifetimes are
-handled separately.
-
-[Source](../../kara_templater/model.py#L6)
-
-```python
-Segment(
-    start_ms: int,
-    end_ms: int,
-    ruby: str = '',
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `start_ms` | `int` | `required` |
-| `end_ms` | `int` | `required` |
-| `ruby` | `str` | `''` |
-
 ## SingingSpan
 
 Source text offsets and original absolute singing times, including zero duration.
@@ -577,7 +453,7 @@ Half-open Python string offsets in an immutable source unit.
 Offsets are source references, not drawable character indices. A range used
 for painting must end on the verified cluster boundaries.
 
-[Source](../../kara_templater/characters.py#L43)
+[Source](../../kara_templater/characters.py#L44)
 
 ```python
 TextRange(
@@ -594,34 +470,6 @@ TextRange(
 | `unit_index` | `int` | `required` |
 | `start` | `int` | `required` |
 | `end` | `int` | `required` |
-
-## TextUnit
-
-One body text unit with ordered, nonoverlapping singing segments.
-
-Static units can have no segments and repeated singing retains a single body
-string. ruby_continuation joins the preceding annotated unit. ruby_spillback
-allows a wide joined reading to extend to the left as well as the right.
-
-[Source](../../kara_templater/model.py#L27)
-
-```python
-TextUnit(
-    text: str,
-    segments: tuple[Segment, ...] = (),
-    ruby_continuation: bool = False,
-    ruby_spillback: bool = True,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `text` | `str` | `required` |
-| `segments` | `tuple[Segment, ...]` | `()` |
-| `ruby_continuation` | `bool` | `False` |
-| `ruby_spillback` | `bool` | `True` |
 
 ## VectorGuide
 
@@ -650,19 +498,19 @@ VectorGuide(
 
 ## layout_characters
 
-Measure verified clusters in the original unit layout, without relayout.
+Measure independently drawable clusters and source ranges in a text run.
 
-Ink bounds are conservative outline control-point bounds (no blur/stroke),
-not exact raster extents. TextRange identities are independent of timing and
-appearance. Empty-outline spaces retain advance but are not pulse targets.
+Origin is the top-left of the run in script pixels, with (0, 0) as the default. Ink bounds exclude
+decoration. Spaces retain their advance even when they have no outline.
 
-[Source](../../kara_templater/characters.py#L224)
+[Source](../../kara_templater/characters.py#L225)
 
 ```python
 layout_characters(
-    layout: LaidOutLine,
+    text: str,
     *,
     style: Style,
+    origin: Vec2 | None = None,
     palt: bool = False,
 ) -> tuple[DrawableCharacter, ...]
 ```
@@ -700,7 +548,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L447)
+[Source](../../kara_templater/scene_text.py#L445)
 
 ```python
 layout_document_text(
@@ -710,25 +558,6 @@ layout_document_text(
     id: str | None = None,
     display: Lifetime | None = None,
 ) -> DocumentLayout
-```
-
-## layout_line
-
-Measure a structured KaraokeLine with body and reading styles at the requested resolution.
-
-Return layout boxes without changing source singing intervals.
-
-[Source](../../kara_templater/layout.py#L89)
-
-```python
-layout_line(
-    source: KaraokeLine,
-    *,
-    style: Style,
-    ruby_style: Style | None = None,
-    resolution: tuple[int, int] = (1920, 1080),
-    palt: bool = False,
-) -> LaidOutLine
 ```
 
 ## layout_lyrics
@@ -791,7 +620,7 @@ Select complete drawable clusters covered by a TextRange.
 Reject boundaries that cut a cluster instead of silently expanding or reshaping
 the selection.
 
-[Source](../../kara_templater/characters.py#L339)
+[Source](../../kara_templater/characters.py#L346)
 
 ```python
 select_characters(
@@ -810,7 +639,7 @@ typographic box. Blank lines retain their font metrics. The result uses
 the widest line, the sum of line heights and the largest padded descent.
 Set outline to zero to measure native advances. Shadows are excluded.
 
-[Source](../../kara_templater/layout.py#L10)
+[Source](../../kara_templater/layout.py#L5)
 
 ```python
 text_extents(

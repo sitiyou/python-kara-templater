@@ -1,8 +1,8 @@
 """One lyric line with three alternating colors, configured entirely in Python.
 
-python -m examples.track_colors output.ass
+python -m examples.track_colors output.hook
 Use --effect examples/track_colors.py with the CLI to process an ASS containing
-ABCABC. The builder produces a normal Scene using the common lyric frontend.
+ABCABC timed as six syllables. The builder produces a normal Scene using the common lyric frontend.
 """
 
 import argparse
@@ -13,25 +13,37 @@ from kara_templater import (
     BLUE,
     GREEN,
     RED,
-    Color,
     Document,
     Layout,
+    LyricHighlights,
     LyricLine,
     LyricRule,
-    LyricSweep,
-    LyricTarget,
     ScalePulse,
     Scene,
+    StatePatch,
     Track,
     Vec2,
     prepare_tracks,
 )
 
 
-def color(line: LyricLine, target: LyricTarget) -> Color:
-    """Choose by shaped cluster, without defining clocks or splitting source text."""
-    index = line.query(target.role).index(target)
-    return (RED, GREEN, BLUE)[index % 3]
+def color(line: LyricLine) -> LyricLine:
+    """Choose a sung color for each authored syllable."""
+    palette = (RED, GREEN, BLUE)
+    return LyricHighlights.from_singing(
+        StatePatch(fill=RED),
+        segment_colors={
+            (index, segment): palette[index % len(palette)]
+            for index, unit in enumerate(line.layout.lyrics.units)
+            for segment in range(len(unit.segments))
+        },
+    )(line)
+
+
+def sample() -> Document:
+    source = document(fontname="DejaVu Sans", text="ABCABC")
+    source.lines[0].text = "".join(r"{\k50}" + letter for letter in "ABCABC")
+    return source
 
 
 TRACKS = (
@@ -43,7 +55,7 @@ TRACKS = (
         tail=0,
         effects=(
             LyricRule("syllable", "singing", ScalePulse(peak=1.08)),
-            LyricSweep(fill=color, width=0),
+            color,
         ),
     ),
 )
@@ -58,9 +70,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    result = build(document(fontname="DejaVu Sans", text="ABCABC")).ass.compile()
-    result.document.save(args.output)
-    print(f"{result.event_count} events → {args.output}")
+    build(sample()).export(args.output)
 
 
 if __name__ == "__main__":

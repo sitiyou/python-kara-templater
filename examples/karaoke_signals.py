@@ -64,6 +64,7 @@ def build() -> LyricScene:
                 },
                 effects=(KaraokeEffects(
                     singing="none",
+                    entry_duration=0.1,  # Finish the line fade before the first bar flash.
                     secondary_outline=SecondaryOutline(Color.hex("#9675BD"), width=3),
                     sung_secondary_outline=SecondaryOutline(Color.hex("#FFCB86"), width=3),
                 ),),

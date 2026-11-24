@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from kara_templater import KaraokeLine, Style, TextUnit, layout_characters, layout_line
+from kara_templater import Style, layout_characters
 from kara_templater.fonts import load_font
 
 
@@ -24,14 +24,12 @@ def test_registered_resources_leave_font_selection_to_each_style():
     fonts = Path(__file__).parent / "fonts"
     primary = load_font(fonts / "KaraTestPrimary.ttf")
     dejavu = load_font(fonts / "DejaVuSans.ttf")
-    source = KaraokeLine((TextUnit("A"),))
     styles = (
         Style(name="Body", fontname=primary.family, fontsize=40),
         Style(name="Ruby", fontname=dejavu.family, fontsize=20),
     )
     for style in (*styles, styles[0]):
-        layout = layout_line(source, style=style)
-        chars = layout_characters(layout, style=style)
+        chars = layout_characters("A", style=style)
         assert {face.family for char in chars for face in char.font_faces} == {
             style.fontname
         }

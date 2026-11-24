@@ -13,7 +13,6 @@ from kara_templater import (
     RectangleKeyframes,
     ScalePulse,
     Scene,
-    SceneBudget,
     Vec2,
     VectorPath,
     VisualState,
@@ -22,7 +21,8 @@ from kara_templater import (
     smoother_rate,
 )
 from kara_templater._raster import rasterize
-from kara_templater.scene_output import _eased_rectangle_leaf, _leaves
+from kara_templater._scene_tree import scene_leaves
+from kara_templater.scene_output import _eased_rectangle_leaf, _Leaf
 
 
 def subject(duration=2, rate=smooth_rate):
@@ -52,7 +52,7 @@ def motion_probes(clips):
 def test_curve_bounds_between_grid_points_preserve_source_and_endpoints(duration, rate):
     node = subject(duration, rate)
     scene = Scene(Document.create(width=128, height=96)).add(node)
-    original = _leaves(scene, scene.evaluator())[0][0]
+    original = _first_leaf(scene)
     lowered = _eased_rectangle_leaf(original)
     assert lowered is not original
     assert _eased_rectangle_leaf(original, max_sections=1) is original
@@ -77,7 +77,6 @@ def test_native_motion_matches_independent_static_frames(rate):
     scene = Scene(doc).add(node)
     result = scene.ass.compile(native_tweens=True)
     assert result.objects[0].strategy == "native-clip-eased"
-    assert scene.ass.compile(native_tweens=True, budget=SceneBudget(fps=10)).event_count == result.event_count
     assert isinstance(node.clip, RectangleClip)
     assert isinstance(node.clip.deform, RectangleKeyframes)
     for ms in (200, 710, 840, 1260, 1930, 2150, 2300, 2500, 2690):
@@ -110,7 +109,7 @@ def test_native_motion_matches_independent_static_frames(rate):
 def test_unrepresentable_cubic_or_source_clocks_keep_original_sampling(duration):
     node = subject(duration)
     scene = Scene(Document.create(width=128, height=96)).add(node)
-    leaf = _leaves(scene, scene.evaluator())[0][0]
+    leaf = _first_leaf(scene)
     assert _eased_rectangle_leaf(leaf) is leaf
 
 
@@ -119,7 +118,7 @@ def test_linear_travel_does_not_hide_eased_pivot_curvature_by_endpoint_cancellat
                       scale=0.9, travel_rate=linear_rate)
     node = replace(subject(), animations=()).animate(motion, duration=1)
     scene = Scene(Document.create(width=128, height=96)).add(node)
-    original = _leaves(scene, scene.evaluator())[0][0]
+    original = _first_leaf(scene)
     lowered = _eased_rectangle_leaf(original)
     assert lowered is not original
     for time in motion_probes(lowered.node.animations):
@@ -130,5 +129,9 @@ def test_linear_travel_does_not_hide_eased_pivot_curvature_by_endpoint_cancellat
         replace(motion, travel_rate=lambda p: p * p), duration=1,
     )
     scene = Scene(scene.document).add(custom)
-    leaf = _leaves(scene, scene.evaluator())[0][0]
+    leaf = _first_leaf(scene)
     assert _eased_rectangle_leaf(leaf) is leaf
+
+def _first_leaf(scene: Scene) -> _Leaf:
+    leaf = scene_leaves(scene, scene.evaluator())[0][0]
+    return _Leaf(leaf.node, leaf.parents, leaf.start, leaf.end, leaf.evaluator)

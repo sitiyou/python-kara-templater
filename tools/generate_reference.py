@@ -36,7 +36,7 @@ PUBLIC = frozenset(api.__all__)
 GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     "documents": (
         "Documents and lyric input",
-        ("ass", "document_text", "document_lyrics", "import_ass", "sources"),
+        ("ass", "document_text", "document_lyrics", "sources"),
         "Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric singing spans and Track authoring use seconds. See [Documents](../guides/documents.md).",
     ),
     "scenes": (
@@ -51,7 +51,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "tracks": (
         "Track authoring",
-        ("karaoke", "orchestration", "lyric_layout", "lyric_line", "lyric_effects", "karaoke_effects"),
+        ("orchestration", "lyric_layout", "lyric_line", "lyric_effects", "karaoke_effects"),
         "Independent lyric streams, allocation and semantic bindings into one Scene. Singing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).",
     ),
     "text": (
@@ -80,8 +80,8 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
             "composition",
             "appearance",
             "paint_fields",
+            "raster_settings",
             "lyric_highlights",
-            "lyric_paint",
         ),
         "RGB colors, typed appearance, spatial fields, and material animation. Pixel distances and opacity in 0..1 are authoring values; ASS encodings are output details. See [materials](../guides/materials.md).",
     ),
@@ -94,14 +94,6 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
         "Particles and references",
         ("particles", "object_references", "lyric_particles"),
         "Deterministic emissions, delayed copies, and pure world-space dependencies. Time values use seconds. See [particles](../guides/particles.md).",
-    ),
-    "coverage": (
-        "Coverage and raster output",
-        (
-            "coverage_animation",
-            "raster_settings",
-        ),
-        "Explicit coverage/material and whole-group RGBA output. These retain distinct composition semantics and require deliberate resource limits. See [materials](../guides/materials.md).",
     ),
     "native": (
         "Regions and progress curves",

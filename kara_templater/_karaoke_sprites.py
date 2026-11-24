@@ -476,8 +476,7 @@ def painted_particle(
                 if pen.border and outline is None:
                     yield replace(node, id=node.id + "/stroke", filled=False)
                     node = replace(node, state=replace(node.state, border=0))
-                material = LinearGradient(axis="y", space="local", fill=fill, outline=outline,
-                                          step=max(1, ceil(unit / 5)))
+                material = LinearGradient(axis="y", space="local", fill=fill, outline=outline)
                 yield replace(node, material=material)
                 return
     if tint is not None:

@@ -37,16 +37,6 @@ def test_cli_track_configuration_and_scene_builder(tmp_path):
         assert fragment in output.read_text(encoding="utf-8-sig")
 
 
-def test_cli_refuses_material_recipe_without_overwriting_output(tmp_path):
-    from examples._lyrics import document
-
-    source = tmp_path / "source.ass"
-    document(fontname="DejaVu Sans", text="ABCABC").save(source)
-    output = tmp_path / "result.ass"
-    output.write_text("existing subtitle")
-    run = cli(source, output, "--effect", EXAMPLE.parents[1] / "examples/track_colors.py")
-    assert run.returncode == 1 and "paint fields" in run.stderr
-    assert output.read_text() == "existing subtitle"
 
 
 def test_cli_sampling_error_keeps_source_and_writes_no_partial_file(tmp_path):

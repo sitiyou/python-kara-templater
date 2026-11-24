@@ -11,13 +11,14 @@ from ._gpu_scene import (
     DrawCommand,
     GpuClip,
     SceneFrames,
-    _cutout_border,
     _ExtrusionSide,
 )
 from ._karaoke_motion import RowSlide, ZoomScale
 from ._native_types import RasterImage
+from ._path_raster import cutout_border
+from ._scene_tree import SceneLeaf
 from .easing import ease_in, ease_in_out, ease_out
-from .scene import RectangleClip, RectangleKeyframes, VisualNode
+from .scene import RectangleClip, RectangleKeyframes, SceneCompileError, VisualNode
 from .scene_animation import (
     AnimationClip,
     DriftOut,
@@ -38,7 +39,6 @@ from .scene_animation import (
     smoother_rate,
 )
 from .scene_evaluation import compose_states
-from .scene_output import SceneCompileError, _Leaf
 from .timeline import ProgressCurve
 
 _IDENTITY = VisualState()
@@ -118,7 +118,7 @@ def _curve(
 
 
 def _poses(
-    leaf: _Leaf,
+    leaf: SceneLeaf,
     owner: VisualNode,
     clip: AnimationClip,
     time: float,
@@ -173,7 +173,7 @@ def _varies(clip: AnimationClip) -> bool:
 
 
 def spans(
-    frames: SceneFrames, leaf: _Leaf, fps: int, first: int, stop: int
+    frames: SceneFrames, leaf: SceneLeaf, fps: int, first: int, stop: int
 ) -> Iterator[Span]:
     def grid(seconds: float) -> int:
         return ceil(round(seconds * fps, 9))
@@ -310,15 +310,15 @@ def spans(
         )
         draw = frames.draw_state(leaf, state, clip, varying_basis=varying_basis)
         alternate = None
-        if not isinstance(leaf, _ExtrusionSide) and motion and _cutout_border(leaf.node, state) != _cutout_border(
-            leaf.node, motion.end
-        ):
+        filled = leaf.node.filled
+        cutout = cutout_border(state, filled)
+        if (not isinstance(leaf, _ExtrusionSide) and motion
+                and cutout != cutout_border(motion.end, filled)):
             other = replace(state, opacity=motion.end.opacity)
             alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).images
-        if not isinstance(leaf, _ExtrusionSide) and shader is not None and leaf.node.filled and state.border > 0:
-            other = replace(
-                state, opacity=1 if _cutout_border(leaf.node, state) else 0.5
-            )
+        if (not isinstance(leaf, _ExtrusionSide) and shader is not None and filled
+                and state.border > 0 and round((1 - state.face_opacity) * 255) == 0):
+            other = replace(state, opacity=1 if cutout else 0.5)
             alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).images
         yield Span(
             lo,

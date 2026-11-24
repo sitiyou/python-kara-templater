@@ -126,8 +126,6 @@ class LyricEcho:
 
     def __call__(self, line: LyricLine) -> LyricLine:
         """Expand a bounded onset schedule into copies under the glyph's parent."""
-        if line.coverage is not None:
-            raise ValueError("lyric echo requires ordinary clip-mode visuals")
         nodes: dict[str, SceneObject] = {}
 
         def collect(node: SceneObject) -> None:

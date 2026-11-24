@@ -6,9 +6,7 @@ import pytest
 
 from kara_templater import (
     RED,
-    Coverage,
     Document,
-    GlowFunction,
     Highlight,
     HighlightPass,
     Layout,
@@ -25,10 +23,8 @@ from kara_templater import (
 )
 
 
-@pytest.mark.parametrize("effect", ("clip", "coverage", "glow"))
 @pytest.mark.parametrize("preview", (0, 1))
 def test_authored_visual_time_reaches_allocator_before_factory_output_is_clipped(
-    effect,
     preview,
 ):
     source = Document.create(
@@ -46,14 +42,6 @@ def test_authored_visual_time_reaches_allocator_before_factory_output_is_clipped
 
     def factory(line):
         factories.append(line.id)
-        if effect == "glow":
-            glow = GlowFunction.from_animation(
-                Tween(StatePatch(blur=4)), start=1 - line.lifetime.start, duration=1.4
-            )
-            return replace(
-                line,
-                coverage=Coverage(glows={line.query("character")[0].node_id: glow}),
-            )
         box = line.layout.body.bounds
         return LyricHighlights(
             highlights=(
@@ -64,7 +52,6 @@ def test_authored_visual_time_reaches_allocator_before_factory_output_is_clipped
                     StatePatch(fill=RED),
                 ),
             ),
-            strategy=effect,
         )(line)
 
     scene = prepare_tracks(
@@ -79,49 +66,6 @@ def test_authored_visual_time_reaches_allocator_before_factory_output_is_clipped
     assert len(allocations) == 1
     assert allocations[0].required.end == pytest.approx(2.4)
     assert scene.lines[0].lifetime.end == pytest.approx(2.4)
-    assert source.dumps() == original
-
-
-def test_factory_tail_participates_in_capacity_and_preview_trim_keeps_clock():
-    from kara_templater import VisualState
-
-    source = Document.create(
-        styles=(Style(fontname="DejaVu Sans", fontsize=24, shadow=0, outline=0),)
-    )
-    source.records.extend(
-        (
-            Line(text=r"{\k100}A", start_time=1000, end_time=2000),
-            Line(text=r"{\k100}B", start_time=2500, end_time=3500),
-        )
-    )
-    calls = []
-
-    def factory(line):
-        calls.append(line.id)
-        target = line.query("character")[0]
-        glow = GlowFunction.from_animation(
-            Tween(StatePatch(blur=4)),
-            start=target.singing[0].start - line.time_origin,
-            duration=1.2,
-        )
-        return replace(line, coverage=Coverage(glows={target.node_id: glow}))
-
-    config = Track(id="main", preview=1, tail=0, layout=Layout(rows=1), effects=(factory,))
-    scene = prepare_tracks(source, tracks=(config,))
-    assert len(calls) == 2 and len(set(calls)) == 2
-    second = scene.lines[1]
-    assert second.lifetime.start == pytest.approx(2.2)
-    assert second.time_origin == 1.5
-    assert second.lifetime.end == pytest.approx(3.7)
-    assert second.coverage is not None
-    glow = next(iter(second.coverage.glows.values()))
-    assert isinstance(glow, GlowFunction)
-    sampled = glow.sample(VisualState(), 3.1 - second.time_origin)
-    assert sampled is not None and sampled.blur == pytest.approx(2)
-    source.records[-1] = Line(text=r"{\k100}B", start_time=2100, end_time=3100)
-    original = source.dumps()
-    with pytest.raises(ValueError, match="occupied"):
-        prepare_tracks(source, tracks=(config,))
     assert source.dumps() == original
 
 
@@ -195,10 +139,10 @@ def test_attached_decoration_reserves_visible_tail_but_external_visual_does_not(
     from kara_templater._raster import rasterize
 
     attached_only = Scene(source, replace_records={len(source.records) - 1}).add(line)
-    output = attached_only.ass.compile(budget=SceneBudget(fps=10)).document.dumps()
+    output = attached_only.ass.compile(budget=SceneBudget()).document.dumps()
     assert any(rasterize(output, 2300, (96, 64)).rgba[3::4])
     assert not any(rasterize(output, 2500, (96, 64)).rgba[3::4])
-    scene.ass.compile(budget=SceneBudget(fps=10, max_events=100_000))
+    scene.ass.compile(budget=SceneBudget(max_events=100_000))
     assert len(calls) == 1
     assert source.dumps() == original
 
@@ -274,9 +218,7 @@ def test_factory_early_decoration_extends_visibility_without_restarting_animatio
     assert line.layout.body.singing[0].start == 1
 
 
-@pytest.mark.parametrize("strategy", ("clip", "coverage"))
 def test_early_highlight_matches_explicit_preview_without_moving_existing_animation(
-    strategy,
 ):
     from kara_templater import FadeIn, Lifetime
 
@@ -302,7 +244,6 @@ def test_early_highlight_matches_explicit_preview_without_moving_existing_animat
                     StatePatch(fill=RED),
                 ),
             ),
-            strategy=strategy,
         )(line)
 
     scenes = tuple(
@@ -326,59 +267,6 @@ def test_early_highlight_matches_explicit_preview_without_moving_existing_animat
         assert scene.lines[0].lifetime == Lifetime(0.5, 2)
         assert scene.lines[0].required_display == (TimeSpan(0.5, 1.5),)
     assert source.dumps() == original
-
-
-def test_signed_glow_requirement_reserves_early_window_before_sampling():
-    from kara_templater import Glow, Lifetime
-
-    source = Document.create(
-        styles=(Style(fontname="DejaVu Sans", fontsize=24, shadow=0, outline=0),)
-    )
-    source.records.append(Line(text=r"{\k100}A", start_time=1000, end_time=2000))
-    samples = []
-    allocations = []
-
-    class Inspect(Layout):
-        def allocate(self, lines, context):
-            assert samples == []
-            allocations.extend(lines)
-            return super().allocate(lines, context)
-
-    def glow(state, time):
-        samples.append(time)
-        return Glow(RED, blur=1)
-
-    def factory(line):
-        return replace(
-            line,
-            coverage=Coverage(
-                glows={
-                    line.query("character")[0].node_id: GlowFunction(
-                        glow,
-                        max_blur=1,
-                        max_border=0,
-                        breakpoints=(-0.5, 0.5),
-                        required_interval=TimeSpan(-0.5, 0.5),
-                    ),
-                }
-            ),
-        )
-
-    scene = prepare_tracks(
-        source,
-        tracks=(
-            Track(
-                id="main",
-                preview=0,
-                tail=0,
-                layout=Inspect(),
-                effects=(factory,),
-            ),
-        ),
-    )
-    assert allocations[0].required == TimeSpan(0.5, 2)
-    assert scene.lines[0].lifetime == Lifetime(0.5, 2)
-    assert scene.lines[0].time_origin == 1
 
 
 @pytest.mark.parametrize(

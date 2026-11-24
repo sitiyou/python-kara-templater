@@ -5,22 +5,19 @@ from dataclasses import replace
 from kara_templater import (
     BLUE,
     RED,
-    Coverage,
     Document,
-    Glow,
     Lifetime,
     ObjectGroup,
     PathObject,
     Scene,
     SceneBudget,
-    ScopeOpacity,
     Vec2,
     VectorPath,
     VisualState,
 )
 from kara_templater._raster import rasterize
 
-BUDGET = SceneBudget(fps=10, max_events=20_000, max_active=5_000)
+BUDGET = SceneBudget(max_events=20_000, max_active=5_000)
 
 
 _POSITION = Vec2(5, 5)
@@ -48,20 +45,6 @@ def pixel(result, x=10, y=10):
     frame = rasterize(result.document.dumps(), 500, (64, 48))
     offset = (y * 64 + x) * 4
     return tuple(frame.rgba[offset : offset + 4])
-
-
-def test_copy_retargets_material_and_scope_ownership():
-    root = replace(
-        group(),
-        coverage=Coverage(
-            glows={"first": Glow(color=RED, blur=1)},
-            scope_opacities={"first": (ScopeOpacity("word", lambda t: 1),)},
-        ),
-    )
-    clone = root.copy(id="copy", delay=1)
-    assert clone.coverage is not None
-    assert tuple(clone.coverage.glows) == ("copy/first",)
-    assert clone.coverage.scope_opacities["copy/first"][0].owner == "copy"
 
 
 def test_scene_order_is_independent_of_identity_and_exposure_start():

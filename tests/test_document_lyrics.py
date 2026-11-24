@@ -256,29 +256,21 @@ def test_studio_cells_keep_explicit_tracking_between_clusters_and_ink_timed():
 @pytest.mark.parametrize(("marker", "kind"), [("", "join"), ("!", "break"), ("！", "break"),
                                               ("<", "spill"), ("＜", "spill")])
 def test_adjacent_wide_ruby_groups_and_continuation_clocks(marker, kind):
-    from kara_templater import layout_line, parse_karaoke
-
     doc, index = document(r"{\k10}M｜a{\k10}N｜" + marker + r"long{\k10}＃｜word")
-    line = doc.lines[0]
     scene = layout_document_lyrics(doc, index, min_outline_gap=None)
-    simple = layout_line(parse_karaoke(line), style=doc.styles["Default"])
-    boxes = [u.box for u in simple.units]
-    readings = [s.ruby for u in simple.units for s in u.segments if s.ruby]
-    for hosts, ruby in ((boxes, readings), ([c.bounds for c in scene.body.characters],
-                                            [r.layout.bounds for r in scene.ruby])):
-        first, second = hosts
-        r1, r2, r3 = ruby
-        assert r3.left == pytest.approx(r2.right)
-        if kind == "join":
-            assert r1.left == pytest.approx(first.left)
-            assert r2.left == pytest.approx(r1.right)
+    first, second = (c.bounds for c in scene.body.characters)
+    r1, r2, r3 = (r.layout.bounds for r in scene.ruby)
+    assert r3.left == pytest.approx(r2.right)
+    if kind == "join":
+        assert r1.left == pytest.approx(first.left)
+        assert r2.left == pytest.approx(r1.right)
+    else:
+        assert r1.center == pytest.approx(first.center)
+        if kind == "spill":
+            assert (r2.left + r3.right) / 2 == pytest.approx(second.center)
+            assert r2.left == pytest.approx(first.right, abs=0.25)
         else:
-            assert r1.center == pytest.approx(first.center)
-            if kind == "spill":
-                assert (r2.left + r3.right) / 2 == pytest.approx(second.center)
-                assert r2.left == pytest.approx(first.right, abs=0.25)
-            else:
-                assert r2.left == pytest.approx(second.left)
+            assert r2.left == pytest.approx(second.left)
     assert [r.segment_index for r in scene.ruby] == [0, 0, 1]
     assert [s.singing.end - s.singing.start for s in scene.lyrics.units[-1].segments] == pytest.approx([0.1, 0.1])
 
