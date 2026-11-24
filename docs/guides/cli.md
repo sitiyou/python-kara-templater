@@ -15,6 +15,7 @@ by --before/--after. --pulse accepts none, char, chars, or syllable. Character
 arrival, simultaneous characters, and a shared syllable pulse have different
 clocks and pivots. --fade-in-ms/--fade-out-ms control fades;
 --lead-ms/--tail-ms extend the display window without rewriting singing time.
+Black drop shadows retain the source style's opacity in both output formats.
 Omit --tail-ms for the automatic one-second tail including the fade, with
 200 ms of preferred hold when room permits. Pass --tail-ms 0 to request just the required animation time.
 Repeat --style to restrict imported styles. --owner selects a stable generation
@@ -62,6 +63,8 @@ belong in that function; the CLI rejects conflicting import/raster flags.
 Scene builders also choose their owner inside the function; --owner applies to
 preset and Track inputs.
 
---max-events, --max-bytes, and --max-active constrain final Scene output. Budget
-or callback errors report source notes and do not save a partial output file.
+`--max-bytes` limits the complete Hook file or the generated ASS event bytes.
+With `--ass`, `--max-events` also limits the number of generated events and
+`--max-active` limits how many can overlap. A budget error leaves the output
+path untouched.
 Use `python -m kara_templater` when the console entry point is not on PATH.

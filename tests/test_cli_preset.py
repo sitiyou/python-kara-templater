@@ -7,6 +7,7 @@ import pytest
 
 from kara_templater import Document, Line, Style
 from kara_templater._cli_preset import preset_scene
+from kara_templater._gpu_scene import SceneFrames
 from kara_templater._raster import rasterize
 
 
@@ -126,3 +127,22 @@ def test_changing_style_selection_restores_unselected_source_and_preserves_other
     assert (
         preset(second, styles=("Other",)).ass.compile().document.dumps() == second.dumps()
     )
+
+
+@pytest.mark.parametrize("alpha", [127, 255])
+def test_preset_keeps_independent_shadow_alpha_in_both_outputs(alpha):
+    document = Document.create(styles=(Style(fontname="DejaVu Sans", outline=0, shadow=12),))
+    document.styles["Default"].fields["BackColour"] = f"&H{alpha:02X}000000"
+    document.records.append(Line(text=r"{\k100}A", start_time=1000, end_time=2000))
+    scene = preset(document, fade_in=0.2)
+    compiled = scene.ass.compile().document
+    assert all(
+        rf"\4a&H{alpha:02X}&" in line.text for line in compiled.lines if not line.comment
+    )
+    shadows = {
+        image[5] & 255
+        for draw in SceneFrames(scene).at(2 - 0.001)
+        for image in draw.images
+        if image[4] == 2
+    }
+    assert shadows == (set() if alpha == 255 else {alpha})

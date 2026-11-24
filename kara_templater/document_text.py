@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import shlex
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Literal
 
@@ -234,10 +235,15 @@ def read_document_text(document: Document, record_index: int) -> DocumentText:
     or the event style. Unhandled tags are retained and explicitly diagnosed.
     Cue presets are resolved later by the effect registry, never executed here.
     """
+    return _read_document_text(document, record_index, document.styles, _soft_break(document))
+
+
+def _read_document_text(
+    document: Document, record_index: int, styles: Mapping[str, Style], soft_break: str
+) -> DocumentText:
     record = document.records[record_index]
     if not isinstance(record, Line):
         raise TypeError(f"record {record_index} is not an ASS event")
-    styles = document.styles
     if record.style not in styles:
         raise ValueError(f"record {record_index}: unknown style {record.style!r}")
     baseline = _appearance(styles[record.style])
@@ -248,7 +254,6 @@ def read_document_text(document: Document, record_index: int) -> DocumentText:
     cues: list[CueMarker] = []
     issues: list[TextIssue] = []
     offset = 0
-    soft_break = _soft_break(document)
     position = 0
     while position < len(record.text):
         start = position

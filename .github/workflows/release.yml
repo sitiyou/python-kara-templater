@@ -84,7 +84,7 @@ jobs:
                   shutil.copy2(package / name, check / name)
               # No kara_templater source directory is copied into the test cwd.
               subprocess.run([sys.executable, "-m", "pytest", "tests", "-v"], cwd=check, check=True)
-              subprocess.run(["kara-templater", "examples/karaoke.ass", "output.ass"], cwd=check, check=True)
+              subprocess.run(["kara-templater", "examples/karaoke.ass", "output.hook"], cwd=check, check=True)
           PY
       - uses: actions/upload-artifact@v6
         with:

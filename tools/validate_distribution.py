@@ -197,100 +197,51 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
     run([str(python), "-m", "tools.check_scene_types"], "negative-typing", check)
     artifacts = check / "output"
     artifacts.mkdir()
+    def export(arguments: list[str], target: Path, name: str) -> dict[str, str | int | float]:
+        elapsed = run([str(python), "-m", *arguments], name, check)
+        content = target.read_bytes()
+        if target.suffix == ".hook":
+            if b"//!HOOK MAIN" not in content:
+                raise AssertionError(f"{target.name} is missing its Hook program")
+        elif not content.decode("utf-8-sig").startswith("[Script Info]"):
+            raise AssertionError(f"{target.name} is not an ASS document")
+        return {
+            "name": name,
+            "format": target.suffix[1:],
+            "seconds": elapsed,
+            "bytes": len(content),
+            "sha256": hashlib.sha256(content).hexdigest(),
+        }
+
     examples = []
-    for path in sorted((check / "examples").glob("scene_*.py")):
-        target = artifacts / f"{path.stem}.ass"
-        duration = run(
-            [str(python), "-m", f"examples.{path.stem}", str(target)], path.stem, check
-        )
-        examples.append(
-            {
-                "module": f"examples.{path.stem}",
-                "seconds": duration,
-                "bytes": target.stat().st_size,
-                "sha256": sha256(target),
-            }
-        )
-    run(
-        [
-            str(python),
-            "-m",
-            "kara_templater",
-            "examples/karaoke.ass",
-            "output/default.ass",
-        ],
-        "default-cli",
-        check,
-    )
-    # Exercise the karaoke authoring entry points as installed-package clients,
-    # including the layout override and both effect script contracts.
     author_examples = []
-    for name, arguments in (
-        ("lyric_orchestration", ()),
-        ("lyric_orchestration_three", ("--rows", "3")),
-        ("lyric_orchestration_custom", ("--custom",)),
-        ("parallel_tracks", ()),
-        ("output_layers", ()),
-        ("track_colors", ()),
-        ("syllable_pulse", ()),
-        ("layered_glow", ()),
+    for suite, name, suffix in (
+        (examples, "scene_cues", ".ass"),
+        (examples, "scene_native_tween", ".ass"),
+        (author_examples, "lyric_pulse_drift", ".hook"),
+        (author_examples, "karaoke_catalog", ".hook"),
+        (author_examples, "slit_reveal", ".hook"),
+        (author_examples, "lyric_no_sweep", ".hook"),
     ):
-        module = (
-            "lyric_orchestration" if name.startswith("lyric_orchestration") else name
-        )
-        inputs = (
-            ["examples/karaoke.ass"]
-            if module == "syllable_pulse"
-            else ["tests/fixtures/layered_glow.ass"]
-            if module == "layered_glow"
-            else []
-        )
-        target = artifacts / f"{name}.ass"
-        duration = run(
-            [str(python), "-m", f"examples.{module}", *inputs, str(target), *arguments],
-            name,
-            check,
-        )
-        author_examples.append(
-            {
-                "name": name,
-                "seconds": duration,
-                "bytes": target.stat().st_size,
-                "sha256": sha256(target),
-            }
-        )
-    run(
-        [
-            str(python),
-            "-m",
-            "kara_templater",
-            "tests/fixtures/layered_glow.ass",
-            "output/layered_glow-builder.ass",
-            "--effect",
-            "examples/layered_glow.py",
-            "--max-events",
-            "30000",
-        ],
-        "layered-glow-builder-cli",
-        check,
-    )
+        target = artifacts / f"{name}{suffix}"
+        suite.append(export([f"examples.{name}", str(target)], target, name))
+
     (check / "tracks_recipe.py").write_text(
         "from kara_templater import Track, LyricRule, FadeIn\n"
-        "tracks = (Track(id='lyrics', effects=(LyricRule('line', 'enter', FadeIn(), duration=0.1),)),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricRule('line', 'enter', FadeIn(), duration=0.1),)),)\n",
+        encoding="utf-8",
     )
-    run(
-        [
-            str(python),
-            "-m",
-            "kara_templater",
-            "examples/karaoke.ass",
-            "output/tracks-cli.ass",
-            "--effect",
-            "tracks_recipe.py",
-        ],
-        "tracks-cli",
-        check,
-    )
+    cli_outputs = []
+    for name, suffix, flags in (
+        ("default-cli", ".hook", ()),
+        ("preset-ass-cli", ".ass", ("--ass",)),
+        ("builder-cli", ".hook", ("--effect", "examples/gpu_gradient.py")),
+        ("tracks-cli", ".ass", ("--ass", "--effect", "tracks_recipe.py")),
+    ):
+        target = artifacts / f"{name}{suffix}"
+        cli_outputs.append(export(
+            ["kara_templater", "examples/karaoke.ass", str(target), *flags], target, name
+        ))
     report = {
         "scope": "local platform wheel rebuilt from source archive, isolated import, full shipped tests and fixed scene examples; repaired cross-platform release wheels are separate",
         "archive": {
@@ -314,6 +265,7 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
         "pytest_summary": (logs / "pytest.log").read_text().splitlines()[-1],
         "scene_examples": examples,
         "karaoke_author_examples": author_examples,
+        "cli_outputs": cli_outputs,
         "builder_and_tracks_cli_passed": True,
         "default_cli_passed": True,
     }

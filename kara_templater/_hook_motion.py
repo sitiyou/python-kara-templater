@@ -303,18 +303,23 @@ def spans(
             )
             if state.opacity == 0 or state.singular:
                 continue
-        draw = frames.draw_state(leaf, state, clip)
+        varying_basis = (
+            motion is not None and replace(state.transform, tx=0, ty=0)
+            != replace(motion.end.transform, tx=0, ty=0)
+            or shader is not None and bool(shader.program.channels & {"scale", "skew", "rotation"})
+        )
+        draw = frames.draw_state(leaf, state, clip, varying_basis=varying_basis)
         alternate = None
         if not isinstance(leaf, _ExtrusionSide) and motion and _cutout_border(leaf.node, state) != _cutout_border(
             leaf.node, motion.end
         ):
             other = replace(state, opacity=motion.end.opacity)
-            alternate = frames.draw_state(leaf, other, clip).images
+            alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).images
         if not isinstance(leaf, _ExtrusionSide) and shader is not None and leaf.node.filled and state.border > 0:
             other = replace(
                 state, opacity=1 if _cutout_border(leaf.node, state) else 0.5
             )
-            alternate = frames.draw_state(leaf, other, clip).images
+            alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).images
         yield Span(
             lo,
             hi,

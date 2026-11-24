@@ -601,7 +601,7 @@ class Scene:
 
     def export(
         self, path: str | Path, *, fps: int = 60, start: float = 0,
-        duration: float | None = None,
+        duration: float | None = None, max_bytes: int | None = None,
     ) -> None:
         """Write a standalone libplacebo .hook for a constant-frame-rate video.
 
@@ -610,8 +610,9 @@ class Scene:
         the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
         subsequent frames pass through. Render at the exported fps on an opaque
         SDR video with matching aspect ratio. Includes glyph masks and effects.
+        max_bytes limits the complete file before replacing the destination.
         """
-        self.prepare_hook().export(path, fps=fps, start=start, duration=duration)
+        self.prepare_hook().export(path, fps=fps, start=start, duration=duration, max_bytes=max_bytes)
 
     def export_resources(
         self, directory: str | Path, *, fps: int = 60, start: float = 0,
@@ -644,7 +645,7 @@ class PreparedHook:
 
     def export(
         self, path: str | Path, *, fps: int = 60, start: float = 0,
-        duration: float | None = None,
+        duration: float | None = None, max_bytes: int | None = None,
     ) -> None:
         """Write a standalone libplacebo .hook for a constant-frame-rate video.
 
@@ -653,10 +654,11 @@ class PreparedHook:
         the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
         subsequent frames pass through. Render at the exported fps on an opaque
         SDR video with matching aspect ratio. Includes glyph masks and effects.
+        max_bytes limits the complete file before replacing the destination.
         """
         from ._gpu_hook import export_hook
 
-        export_hook(self._frames, Path(path), fps, start, duration)
+        export_hook(self._frames, Path(path), fps, start, duration, max_bytes=max_bytes)
 
     def export_resources(
         self, directory: str | Path, *, fps: int = 60, start: float = 0,

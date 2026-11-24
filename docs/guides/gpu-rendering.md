@@ -104,6 +104,9 @@ opacity, ordinary rectangle clips and continuous fill/outline linear gradients
 Dynamic stroke flashes and stretch halos share shaped contour segments. The shader computes round stroke coverage from the current pen radius. A fade on outlined
 text can reuse two native masks. The shader selects the translucent border
 when the fill fades so that the border does not show through the letter.
+Ordinary face outlines stay in script pixels during scaling. Set
+`scale_border=True` to scale the pen with the text or drawing. Hook byte budgets
+are checked before replacing the destination file.
 Normal screen-space rectangles on a group intersect the clips of each child
 drawing. A group's `RectangleKeyframes` use that group's clock, and each child
 keeps its own clip coordinates and clock. Group transforms move the content

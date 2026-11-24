@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from functools import cache, cached_property
@@ -24,7 +24,7 @@ from .cues import (
     bind_lyric_cues,
 )
 from .document_lyrics import DocumentLyrics, parse_document_lyrics
-from .document_text import DocumentText
+from .document_text import DocumentText, _read_document_text, _soft_break
 from .geometry import Vec2, finite
 from .import_ass import SOURCE_PREFIX, SourceBinding, source_marker, source_prefix
 from .karaoke_effects import KaraokeEffects, _transition_window
@@ -120,6 +120,16 @@ class LyricSource:
 
 def _all_sources(source: LyricSource) -> bool:
     return True
+
+
+@dataclass(frozen=True)
+class _SourceById:
+    """An exact selection the preset can resolve by index."""
+
+    id: str
+
+    def __call__(self, source: LyricSource) -> bool:
+        return source.id == self.id
 
 
 type LyricEffect = LyricRule | Callable[[LyricLine], LyricLine]
@@ -218,6 +228,8 @@ def _sources(document: Document, owner: str) -> tuple[LyricSource, ...]:
     prefix = source_prefix(owner)
     result: list[LyricSource] = []
     seen: set[str] = set()
+    styles = document.styles
+    soft_break = _soft_break(document)
     for index, record in enumerate(document.records):
         if not isinstance(record, Line):
             continue
@@ -229,7 +241,7 @@ def _sources(document: Document, owner: str) -> tuple[LyricSource, ...]:
         if record.effect.startswith(SOURCE_PREFIX) and not marked:
             continue
         # Selection operates on lyric inputs, not untimed template/drawing events.
-        text = document.text_at(index)
+        text = _read_document_text(document, index, styles, soft_break)
         if not text.timing:
             continue
         if marked:
@@ -561,10 +573,12 @@ def prepare_tracks(
             "explicit inputs must be structured sources without ASS record ownership"
         )
     sources = (*_sources(source_document, owner), *deepcopy(inputs))
-    if len({source.id for source in sources}) != len(sources):
+    source_by_id = {source.id: source for source in sources}
+    if len(source_by_id) != len(sources):
         raise ValueError("duplicate lyric source ids")
     scene = LyricScene(source_document, owner=owner)
     plans: list[LinePlan] = []
+    source_styles = tuple(source_document.styles.values())
     for declaration in tracks:
         track = deepcopy(declaration)
         palette = theme.overlay(track.theme)
@@ -576,8 +590,14 @@ def prepare_tracks(
         horizontal_rtl = track.right_to_left and not track.vertical
         studio_spacing = (isinstance(layout, KaraokeRows) and not track.palt if track.studio_spacing is None
                           else track.studio_spacing)
+        candidates: Iterable[LyricSource]
+        if isinstance(track.source, _SourceById):
+            source = source_by_id.get(track.source.id)
+            candidates = () if source is None else (source,)
+        else:
+            candidates = (source for source in sources if track.source(source))
         selected = sorted(
-            (source for source in sources if track.source(source)),
+            candidates,
             key=lambda source: min(
                 (
                     segment.singing.start
@@ -590,7 +610,7 @@ def prepare_tracks(
         selection = _preview_slice(selected, track, layout, window) if window else slice(0, None)
         original = selected
         selected = selected[selection]
-        view = Document([*source_document.records, *track.styles], source_document.meta)
+        view = Document([*source_styles, *track.styles], source_document.meta)
         allocation_inputs: list[LayoutLine] = []
         prepared: dict[str, LyricLine] = {}
         row_cues: dict[str, Vec2] = {}

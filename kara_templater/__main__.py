@@ -53,16 +53,21 @@ def main() -> None:
     parser.add_argument("--fade-out-ms", type=int, default=0)
     parser.add_argument("--ass", action="store_true", help="export native ASS")
     parser.add_argument("--fps", type=int, default=60, help="hook frame rate")
-    parser.add_argument("--max-events", type=int, default=10000)
-    parser.add_argument("--max-bytes", type=int, default=10 * 1024 * 1024)
-    parser.add_argument("--max-active", type=int, default=1000)
+    parser.add_argument("--max-events", type=int, help="limit generated ASS events")
+    parser.add_argument("--max-bytes", type=int, help="limit Hook file or generated ASS event bytes")
+    parser.add_argument("--max-active", type=int, help="limit simultaneously active ASS events")
     args = parser.parse_args()
     owner = "default" if args.owner is None else args.owner
     try:
+        if not args.ass and (args.max_events is not None or args.max_active is not None):
+            raise ValueError("--max-events and --max-active require --ass; use --max-bytes for Hook output")
+        if args.max_bytes is not None and args.max_bytes < 1:
+            raise ValueError("byte budget must be a positive integer")
+        defaults = SceneBudget()
         budget = SceneBudget(
-            max_events=args.max_events,
-            max_bytes=args.max_bytes,
-            max_active=args.max_active,
+            max_events=10000 if args.max_events is None else args.max_events,
+            max_bytes=defaults.max_bytes if args.max_bytes is None else args.max_bytes,
+            max_active=defaults.max_active if args.max_active is None else args.max_active,
         )
         if min(args.lead_ms, args.tail_ms or 0, args.fade_in_ms, args.fade_out_ms) < 0:
             raise ValueError("display padding and fade durations must be nonnegative")
@@ -142,7 +147,7 @@ def main() -> None:
             assert tracks is not None
             scene = prepare_tracks(document, tracks=tracks, owner=owner)
         if not args.ass:
-            scene.export(args.output, fps=args.fps)
+            scene.export(args.output, fps=args.fps, max_bytes=args.max_bytes)
             return
         result = scene.ass.compile(budget=budget)
         result.document.save(args.output)

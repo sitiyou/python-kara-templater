@@ -41,6 +41,42 @@ def test_large_hook_record_and_curve_addresses_survive_float32_storage():
     assert table.add(0.0, 0.5, 1.0) == curve
 
 
+def test_hook_keeps_fixed_border_under_inherited_scale_and_a_pulse(tmp_path, vulkan):
+    scene = Scene(Document.create(width=128, height=96))
+    for scaled, y in ((False, 12), (True, 56)):
+        drawing = PathObject(
+            id=f"outline-{y}",
+            path=VectorPath.rectangle(16, 12),
+            lifetime=Lifetime(0, 1),
+            filled=False,
+            scale_border=scaled,
+            state=VisualState(border=3, outline=Color(255, 255, 255)),
+        ).animate(ScalePulse(peak=2, peak_at=0.5), duration=1)
+        scene.add(ObjectGroup(
+            id=f"group-{y}", children=(drawing,), lifetime=Lifetime(0, 1),
+            state=VisualState(position=Vec2(66, y), scale=Vec2(0.5, 1.5)),
+        ))
+    scene.export(tmp_path / "outline.hook", fps=2)
+    frames = subprocess.check_output(
+        [
+            "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi",
+            "-i", "color=black:s=128x96:r=2:d=1", "-vf",
+            "libplacebo=custom_shader_path=outline.hook:format=rgb24",
+            "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ],
+        cwd=tmp_path,
+    )
+
+    def pixel(frame, x, y):
+        return frames[((frame * 96 + y) * 128 + x) * 3]
+
+    for frame in range(2):
+        assert pixel(frame, 63, 20) > 250
+        assert pixel(frame, 62, 20) < 5
+    assert pixel(0, 63, 64) < 5
+    assert pixel(1, 63, 64) > 250
+
+
 @pytest.fixture
 def vulkan():
     if not shutil.which("ffmpeg"):

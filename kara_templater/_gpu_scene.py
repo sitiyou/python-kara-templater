@@ -5,6 +5,8 @@ rectangle clips and LinearGradient. Unsupported composition fails explicitly.
 It does not serialize author callbacks or invent a second animation evaluator.
 """
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from dataclasses import dataclass, replace
 from math import ceil, floor, log, sqrt
@@ -13,7 +15,7 @@ import aggdraw  # ty: ignore[import-not-found]  # Extension module without a typ
 from PIL import Image, ImageChops, ImageFilter
 
 from . import _text_native
-from ._contour_stroke import ContourStroke
+from ._contour_stroke import ContourStroke, contour_grid
 from ._native_types import RasterImage
 from .composition import Color
 from .geometry import Affine2D, CubicSegment, Vec2, VectorPath, finite
@@ -31,6 +33,8 @@ from .scene import (
 from .scene_animation import VisualState, local_seconds
 from .scene_output import SceneCompileError, _Leaf, _leaves
 from .text_geometry import outline_text
+
+_STROKE_FACE = 5
 
 
 @dataclass(frozen=True)
@@ -68,6 +72,21 @@ class DrawCommand:
     border: float = 0
     side_shading: tuple[bytes, Color] | None = None
     inherited_clips: tuple[GpuClip, ...] = ()
+    fixed_stroke: FixedStroke | None = None
+
+
+@dataclass(frozen=True)
+class FixedStroke:
+    grid: tuple[float, ...]
+    face: RasterImage
+    sigma: float
+    filled: bool
+    shadow: Vec2
+
+
+def _isometry(transform: Affine2D) -> bool:
+    a, b, c, d = transform.a, transform.b, transform.c, transform.d
+    return max(abs(a * a + b * b - 1), abs(c * c + d * d - 1), abs(a * c + b * d)) < 1e-9
 
 
 class _ExtrusionSide(_Leaf):
@@ -105,23 +124,30 @@ def _cutout_border(node: TextObject | PathObject, state: VisualState) -> bool:
     return node.filled and state.border > 0 and round((1 - state.opacity) * 255) != 0
 
 
+type _CachedCoverage = tuple[tuple[RasterImage, ...], tuple[float, ...] | None]
+
+
 def _coverage(
-    leaf: _Leaf, state: VisualState, pixel_budget: int
-) -> tuple[RasterImage, ...]:
+    leaf: _Leaf, state: VisualState, pixel_budget: int, fixed: bool
+) -> _CachedCoverage:
     node = leaf.node
     if isinstance(node.shader_paint, ContourStroke):
         # Coverage is evaluated from geometry by the fragment shader.
-        return ((*node.shader_paint.bounds, 1, 0, b""),)
+        return ((*node.shader_paint.bounds, 1, 0, b""),), None
     path = (
         outline_text(node, max_points=200_000).path
         if isinstance(node, TextObject)
         else node.path
     )
     if path is None:
-        return ()
+        return (), None
     offset = node.extrusion.offset if isinstance(leaf, _ExtrusionSide) and node.extrusion else None
-    return path_coverage(path, state, node.filled, pixel_budget, node.id, sweep=offset,
-                         shaded=bool(node.extrusion and node.extrusion.back_color is not None))
+    images = path_coverage(
+        path, state, node.filled, pixel_budget, node.id, sweep=offset,
+        shaded=bool(node.extrusion and node.extrusion.back_color is not None),
+        keep_face=fixed,
+    )
+    return images, contour_grid(path, 1)[1] if fixed else None
 
 
 def _sweep_mask(mask: Image.Image, offset: Vec2, depth: Image.Image | None = None) -> Image.Image:
@@ -168,7 +194,7 @@ def _sweep_mask(mask: Image.Image, offset: Vec2, depth: Image.Image | None = Non
 
 def path_coverage(
     path: VectorPath, state: VisualState, filled: bool, pixel_budget: int, object_id: str, *,
-    sweep: Vec2 | None = None, shaded: bool = False,
+    sweep: Vec2 | None = None, shaded: bool = False, keep_face: bool = False,
 ) -> tuple[RasterImage, ...]:
     bounds = path_bounds(path)
     if not 0 <= state.blur <= 100:
@@ -252,6 +278,11 @@ def path_coverage(
         append(border_mask, 1, True)
     if filled:
         append(fill, 0, not state.border)
+    if keep_face:
+        if fill.getbbox() is not None:
+            append(fill, _STROKE_FACE, False)
+        else:
+            images.append((left, top, 1, 1, _STROKE_FACE, 0, b"\x00"))
     return tuple(images)
 
 
@@ -340,7 +371,7 @@ class SceneFrames:
             leaf.node.layer + sum(p.layer for p in leaf.parents),
             0 if isinstance(leaf, _ExtrusionSide) else 1,
         )))
-        self._cache: OrderedDict[tuple[object, ...], tuple[RasterImage, ...]] = (
+        self._cache: OrderedDict[tuple[object, ...], _CachedCoverage] = (
             OrderedDict()
         )
         self._bytes = 0
@@ -385,31 +416,54 @@ class SceneFrames:
         return replace(draw, inherited_clips=tuple(inherited)) if inherited else draw
 
     def draw_state(
-        self, leaf: _Leaf, state: VisualState, clip: GpuClip | None
+        self, leaf: _Leaf, state: VisualState, clip: GpuClip | None, *,
+        varying_basis: bool = False,
     ) -> DrawCommand:
         node = leaf.node
-        key = _shape_key(leaf, state)
-        images = self._cache.get(key)
-        if images is None:
-            images = _coverage(leaf, state, self._limit)
-            size = sum(len(image[6]) for image in images)
+        fixed = (
+            state.border > 0
+            and not node.scale_border
+            and not isinstance(leaf, _ExtrusionSide)
+            and not isinstance(node.shader_paint, ContourStroke)
+            and (varying_basis or not _isometry(state.transform))
+        )
+        key = (*_shape_key(leaf, state), fixed)
+        cached = self._cache.get(key)
+        if cached is None:
+            cached = _coverage(leaf, state, self._limit, fixed)
+            images, grid = cached
+            size = sum(len(image[6]) for image in images) + (8 * len(grid) if grid else 0)
             if size > self._limit:
                 raise SceneCompileError(
                     "GPU glyph coverage exceeds cache budget", object_id=node.id
                 )
             while self._bytes + size > self._limit:
-                _, old = self._cache.popitem(last=False)
-                self._bytes -= sum(len(image[6]) for image in old)
-            self._cache[key] = images
+                _, (old, old_grid) = self._cache.popitem(last=False)
+                self._bytes -= sum(len(image[6]) for image in old) + (8 * len(old_grid) if old_grid else 0)
+            self._cache[key] = cached
             self._bytes += size
         self._cache.move_to_end(key)
+        images, grid = cached
         tinted = []
         shading = None
+        stroke = None
         for x, y, w, h, kind, color, data in images:
+            if kind == _STROKE_FACE:
+                assert grid is not None
+                stroke = FixedStroke(
+                    grid, (x, y, w, h, kind, color, data), state.blur * 2 / sqrt(log(256)),
+                    node.filled,
+                    Vec2(round(state.shadow.x), round(state.shadow.y)),
+                )
+                continue
             if kind == 4:
                 assert node.extrusion is not None and node.extrusion.back_color is not None
                 shading = (data, node.extrusion.back_color)
                 continue
+            if kind == 2:
+                if not state.shadow_opacity:
+                    continue
+                color = round((1 - state.shadow_opacity) * 255)
             rgb = (
                 state.fill
                 if kind == 0
@@ -423,5 +477,6 @@ class SceneFrames:
         material = node.material
         assert material is None or isinstance(material, LinearGradient)
         return DrawCommand(
-            node.id, tuple(tinted), state.transform, state.opacity, material, clip, node.shader_paint, node.time_origin, state.border, shading
+            node.id, tuple(tinted), state.transform, state.opacity, material, clip,
+            node.shader_paint, node.time_origin, state.border, shading, fixed_stroke=stroke,
         )

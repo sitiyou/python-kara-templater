@@ -503,7 +503,7 @@ Type: `TimeSpan`.
 
 Inspectable source/view association and final layout/animation binding.
 
-[Source](../../kara_templater/orchestration.py#L194)
+[Source](../../kara_templater/orchestration.py#L204)
 
 ```python
 LinePlan(
@@ -678,7 +678,7 @@ LyricLine(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0)),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
@@ -702,7 +702,7 @@ LyricLine(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0))` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
@@ -941,7 +941,7 @@ LyricRule.singing_intervals(
 
 A normal Scene with immutable lyric arrangement snapshots for inspection.
 
-[Source](../../kara_templater/orchestration.py#L205)
+[Source](../../kara_templater/orchestration.py#L215)
 
 ```python
 LyricScene(
@@ -996,6 +996,7 @@ Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
 SDR video with matching aspect ratio. Includes glyph masks and effects.
+max_bytes limits the complete file before replacing the destination.
 
 ```python
 LyricScene.export(
@@ -1004,6 +1005,7 @@ LyricScene.export(
     fps: int = 60,
     start: float = 0,
     duration: float | None = None,
+    max_bytes: int | None = None,
 ) -> None
 ```
 
@@ -1269,7 +1271,7 @@ reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
 
-[Source](../../kara_templater/orchestration.py#L128)
+[Source](../../kara_templater/orchestration.py#L138)
 
 ```python
 Track(
@@ -1359,7 +1361,7 @@ cues visible in this half-open interval of absolute seconds. Strict rows with bo
 and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
 or references them from visible objects.
 
-[Source](../../kara_templater/orchestration.py#L523)
+[Source](../../kara_templater/orchestration.py#L535)
 
 ```python
 prepare_tracks(

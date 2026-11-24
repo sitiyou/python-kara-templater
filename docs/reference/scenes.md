@@ -102,7 +102,7 @@ ObjectGroup(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0)),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
@@ -121,7 +121,7 @@ ObjectGroup(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0))` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
@@ -225,7 +225,7 @@ PathObject(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0)),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
@@ -248,7 +248,7 @@ PathObject(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0))` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
@@ -330,7 +330,7 @@ Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 Prepare a new snapshot after changing the scene. Window exports share measured
 masks and the resolved object hierarchy. Each output has its own playback clock.
 
-[Source](../../kara_templater/scene.py#L633)
+[Source](../../kara_templater/scene.py#L634)
 
 ```python
 PreparedHook(
@@ -347,6 +347,7 @@ Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
 SDR video with matching aspect ratio. Includes glyph masks and effects.
+max_bytes limits the complete file before replacing the destination.
 
 ```python
 PreparedHook.export(
@@ -355,6 +356,7 @@ PreparedHook.export(
     fps: int = 60,
     start: float = 0,
     duration: float | None = None,
+    max_bytes: int | None = None,
 ) -> None
 ```
 
@@ -551,6 +553,7 @@ Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
 SDR video with matching aspect ratio. Includes glyph masks and effects.
+max_bytes limits the complete file before replacing the destination.
 
 ```python
 Scene.export(
@@ -559,6 +562,7 @@ Scene.export(
     fps: int = 60,
     start: float = 0,
     duration: float | None = None,
+    max_bytes: int | None = None,
 ) -> None
 ```
 
@@ -794,7 +798,7 @@ TextObject(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0)),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
@@ -823,7 +827,7 @@ TextObject(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0))` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |
@@ -939,7 +943,7 @@ VisualNode(
     *,
     id: str,
     lifetime: Lifetime,
-    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0)),
+    state: VisualState = VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1),
     clock_start: float | None = None,
     animations: tuple[AnimationClip, ...] = (),
     layer: int = 0,
@@ -956,7 +960,7 @@ VisualNode(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `lifetime` | `Lifetime` | `required` |
-| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0))` |
+| `state` | `VisualState` | `VisualState(position=Vec2(x=0, y=0), scale=Vec2(x=1, y=1), rotation=0, skew=Vec2(x=0, y=0), opacity=1, fill=Color(red=255, green=255, blue=255), outline=Color(red=0, green=0, blue=0), border=0, blur=0, shadow=Vec2(x=0, y=0), shadow_opacity=1)` |
 | `clock_start` | `float \| None` | `None` |
 | `animations` | `tuple[AnimationClip, ...]` | `()` |
 | `layer` | `int` | `0` |

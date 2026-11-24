@@ -31,6 +31,20 @@ class _Writer(Protocol):
     def write(self, data: bytes, /) -> int: ...
 
 
+class _BoundedWriter:
+    def __init__(self, target: _Writer, limit: int) -> None:
+        self.target = target
+        self.limit = limit
+        self.written = 0
+
+    def write(self, data: bytes, /) -> int:
+        if self.written + len(data) > self.limit:
+            raise ValueError(f"Hook byte budget exceeded (limit {self.limit} bytes)")
+        size = self.target.write(data)
+        self.written += size
+        return size
+
+
 class _Atlas:
     """Shelf-pack coverage. Clamp sampling inside each rectangle in the shader."""
 
@@ -161,7 +175,16 @@ def _draw_record(
             int(base is not None and base.space == "screen"),
             int(base is not None and base.axis == "y"),
         )
-    geom = table.add(x, y, w, h, u, v)
+    fixed = -1
+    if draw.fixed_stroke is not None and kind in (1, 2):
+        stroke = draw.fixed_stroke
+        fx, fy, fw, fh, _, _, face = stroke.face
+        mask = table.add(fx, fy, fw, fh, *atlas.add(fw, fh, face))
+        fixed = table.add(
+            table.add(*stroke.grid), mask, draw.border, stroke.sigma, int(stroke.filled),
+            stroke.shadow.x, stroke.shadow.y,
+        )
+    geom = table.add(x, y, w, h, u, v, fixed)
     custom = -1
     if draw.shader_paint is not None:
         shader = draw.shader_paint
@@ -275,7 +298,8 @@ def _motion_record(
 
 
 def _tiles(
-    image: RasterImage, transforms: tuple[Affine2D, ...], cols: int, rows: int
+    image: RasterImage, transforms: tuple[Affine2D, ...], cols: int, rows: int,
+    padding: float = 0,
 ) -> Iterator[int]:
     x, y, w, h, *_ = image
     corners = [
@@ -285,15 +309,15 @@ def _tiles(
         for t in (y, y + h)
     ]
     xs, ys = zip(*corners, strict=True)
-    for ty in range(max(0, floor(min(ys) / _TILE)), min(rows, ceil(max(ys) / _TILE))):
+    for ty in range(max(0, floor((min(ys) - padding) / _TILE)), min(rows, ceil((max(ys) + padding) / _TILE))):
         for tx in range(
-            max(0, floor(min(xs) / _TILE)), min(cols, ceil(max(xs) / _TILE))
+            max(0, floor((min(xs) - padding) / _TILE)), min(cols, ceil((max(xs) + padding) / _TILE))
         ):
             yield ty * cols + tx
 
 
 def _program_tiles(
-    instance: ShaderInstance, image: RasterImage, cols: int, rows: int
+    instance: ShaderInstance, image: RasterImage, cols: int, rows: int, padding: float = 0,
 ) -> Iterator[int]:
     program = instance.program
     if program.source not in (_TILT_POP, _SPIN_FLIP):
@@ -326,8 +350,8 @@ def _program_tiles(
                 # v*tan((1-v)*pi/2) <= 2/pi for 0 <= v <= 1.
                 bound = hypot(rx, ry) + abs(instance.base.scale.y * px)
             radius = max(radius, bound)
-    width = radius * hypot(outer.a, outer.c)
-    height = radius * hypot(outer.b, outer.d)
+    width = radius * hypot(outer.a, outer.c) + padding
+    height = radius * hypot(outer.b, outer.d) + padding
     for row in range(
         max(0, floor((fixed.y - height) / _TILE)),
         min(rows, ceil((fixed.y + height) / _TILE)),
@@ -455,10 +479,12 @@ def _timeline(
                         wipe,
                         inherited,
                     )
+                    stroke = draw.fixed_stroke
+                    padding = draw.border + 4 * stroke.sigma + 1 if stroke and image[4] in (1, 2) else 0
                     for tile in (
-                        _program_tiles(span.shader, image, cols, rows)
+                        _program_tiles(span.shader, image, cols, rows, padding)
                         if span.shader and span.shader.program.channels - {"opacity", "border"}
-                        else _tiles(image, transforms, cols, rows)
+                        else _tiles(image, transforms, cols, rows, padding)
                     ):
                         batch[tile].append(record)
             active_tiles[order] = batch
@@ -490,7 +516,10 @@ def export_hook(
     duration: float | None,
     *,
     resources: bool = False,
+    max_bytes: int | None = None,
 ) -> None:
+    if max_bytes is not None and (type(max_bytes) is not int or max_bytes < 1):
+        raise ValueError("Hook byte budget must be a positive integer")
     if type(fps) is not int or not 1 <= fps <= 240:
         raise ValueError("hook fps must be an integer in 1..240")
     if not isfinite(start) or start < 0 or abs(start * fps - round(start * fps)) > 1e-7:
@@ -561,12 +590,14 @@ def export_hook(
     with NamedTemporaryFile(dir=path.parent, delete=False) as out:
         temp = Path(out.name)
         try:
-            _texture(out, "KARAMASK", "r8", atlas.data, _WIDTH)
-            _texture(out, "KARADATA", "rgba32f", table.values.tobytes(), _WIDTH * 16)
-            out.write(source.encode())
+            writer = out if max_bytes is None else _BoundedWriter(out, max_bytes)
+            _texture(writer, "KARAMASK", "r8", atlas.data, _WIDTH)
+            _texture(writer, "KARADATA", "rgba32f", table.values.tobytes(), _WIDTH * 16)
+            writer.write(source.encode())
             out.close()
             temp.replace(path)
         finally:
+            out.close()
             temp.unlink(missing_ok=True)
 
 
@@ -691,6 +722,57 @@ void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha
     position=pairAt(b+15)+outerBasis*(pos+localBasis*pairAt(b+21));
     alpha*=item(b+10);
 }
+bool isometry(mat2 basis) {
+    return abs(dot(basis[0],basis[0])-1.)<1e-6
+        && abs(dot(basis[1],basis[1])-1.)<1e-6 && abs(dot(basis[0],basis[1]))<1e-6;
+}
+float sampleMask(int geom,vec2 local) {
+    vec2 uv=local-pairAt(geom), size=pairAt(geom+2);
+    if(any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,size))) return 0.;
+    if(item(geom+4)<0.) return 1.;
+    vec2 texel=pairAt(geom+4)+clamp(uv,vec2(0.5),size-0.5);
+    return textureLod(KARAMASK,texel/vec2(textureSize(KARAMASK,0)),0.).r;
+}
+float gaussianEdge(float distance,float sigma) {
+    float z=distance/(1.41421356*sigma), z2=z*z;
+    return 0.5+0.5*sign(z)*sqrt(max(0.,1.-exp(-z2*(1.27323954+0.147*z2)/(1.+0.147*z2))));
+}
+float fixedCoverage(int stroke,vec2 local,mat2 basis,mat2 toLocal,int role,float alpha) {
+    if(role==2) local-=pairAt(stroke+5);
+    float pen=item(stroke+2), sigma=item(stroke+3), pad=pen+1.+4.*sigma;
+    int grid=refAt(stroke), cols=refAt(grid+2), rows=refAt(grid+3);
+    vec2 center=(local-pairAt(grid))/16.;
+    mat2 axes=transpose(toLocal);
+    // Pull a screen-space pen back to a conservative local rectangle for the cell lookup.
+    vec2 reach=pad*vec2(length(axes[0]),length(axes[1]))/16.;
+    vec2 lo=center-reach, hi=center+reach, last=vec2(cols-1,rows-1);
+    if(any(lessThan(hi,vec2(0))) || any(greaterThanEqual(lo,last+1.))) return 0.;
+    ivec2 firstCell=ivec2(floor(clamp(lo,vec2(0),last)));
+    ivec2 lastCell=ivec2(floor(clamp(hi,vec2(0),last)));
+    float nearest=pad*pad;
+    for(int row=firstCell.y;row<=lastCell.y;row++) {
+        for(int col=firstCell.x;col<=lastCell.x;col++) {
+            int bucket=grid+refAt(grid+4+row*cols+col);
+            int count=refAt(bucket);
+            for(int i=0;i<count;i++) {
+                int line=grid+refAt(bucket+1+i);
+                vec2 delta=basis*(local-pairAt(line)), direction=basis*pairAt(line+2);
+                float t=clamp(dot(delta,direction)/max(dot(direction,direction),1e-20),0.,1.);
+                vec2 residual=delta-t*direction;
+                nearest=min(nearest,dot(residual,residual));
+            }
+        }
+    }
+    float face=sampleMask(refAt(stroke+1),local), distance=sqrt(nearest);
+    bool cutout=item(stroke+4)==0. || (role==1 && alpha<1.-0.5/255.);
+    if(sigma==0.) {
+        float edge=clamp(0.5+pen-distance,0.,1.);
+        return cutout ? max(edge-face,0.) : max(edge,face);
+    }
+    float signedDistance=face>=0.5 ? -distance : distance;
+    float backing=gaussianEdge(pen-signedDistance,sigma);
+    return cutout ? max(backing-gaussianEdge(-signedDistance,sigma),0.) : backing;
+}
 vec4 hook() {
     vec4 bg=HOOKED_tex(HOOKED_pos);
     // mpv supplies the media timestamp. FFmpeg can leave the parameter at -1.
@@ -729,9 +811,12 @@ vec4 hook() {
             if(mode!=0 && (mode>0)!=(alpha>=1.-0.5/255.)) continue;
         }
         if(alpha<=0. || determinant(basis)==0.) continue;
-        vec2 local=inverse(basis)*(screen-pos);
+        mat2 toLocal=inverse(basis);
+        vec2 local=toLocal*(screen-pos);
+        int fixedStroke=refAt(g+6);
+        bool useFixed=fixedStroke>=0 && !isometry(basis);
         vec2 uv=local-pairAt(g), size=pairAt(g+2);
-        if(any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,size))) continue;
+        if(!useFixed && (any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,size)))) continue;
         float edgeDistance=0.;
         int clip=refAt(cmd+3);
         bool waiting=false;
@@ -750,8 +835,7 @@ vec4 hook() {
             edgeDistance=min(pos.x-rect.x,rect.z-pos.x);
             if(!insideRect(pos,rect)) continue;
         }
-        vec2 mask=pairAt(g+4)+clamp(uv,vec2(0.5),size-0.5);
-        float coverage=item(g+4)<0. ? 1. : textureLod(KARAMASK,mask/vec2(textureSize(KARAMASK,0)),0.).r;
+        float coverage=useFixed ? fixedCoverage(fixedStroke,local,basis,toLocal,refAt(p+9),alpha) : sampleMask(g,local);
         float a=coverage*item(p+3)*alpha;
         int feather=refAt(p+7);
         vec3 ink;

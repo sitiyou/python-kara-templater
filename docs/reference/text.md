@@ -523,7 +523,7 @@ Segment(
 
 Source text offsets and original absolute singing times, including zero duration.
 
-[Source](../../kara_templater/document_text.py#L358)
+[Source](../../kara_templater/document_text.py#L363)
 
 ```python
 SingingSpan(
@@ -700,7 +700,7 @@ layout_document_lyrics(
 
 Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
-[Source](../../kara_templater/scene_text.py#L441)
+[Source](../../kara_templater/scene_text.py#L447)
 
 ```python
 layout_document_text(

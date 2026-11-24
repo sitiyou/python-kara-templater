@@ -412,9 +412,13 @@ def _number(value: float) -> str:
     return "0" if result == "-0" else result
 
 
-def _opacity_tags(opacity: float, filled: bool) -> str:
+def _opacity_tags(opacity: float, filled: bool, shadow_opacity: float = 1) -> str:
     alpha = f"&H{round((1 - opacity) * 255):02X}&"
-    return rf"\alpha{alpha}" if filled else rf"\1a&HFF&\3a{alpha}\4a{alpha}"
+    if filled and shadow_opacity == 1:
+        return rf"\alpha{alpha}"
+    shadow = f"&H{round((1 - opacity * shadow_opacity) * 255):02X}&"
+    face = rf"\1a{alpha}\2a{alpha}" if filled else r"\1a&HFF&"
+    return face + rf"\3a{alpha}\4a{shadow}"
 
 
 def _tween_tag(
@@ -424,7 +428,7 @@ def _tween_tag(
     tags = {
         "scale": rf"\fscx{_number(target.scale.x * 100)}\fscy{_number(target.scale.y * 100)}",
         "rotation": rf"\frz{_number(-target.rotation)}",
-        "opacity": _opacity_tags(target.opacity, filled),
+        "opacity": _opacity_tags(target.opacity, filled, target.shadow_opacity),
         "fill": rf"\1c{_color(target.fill)}\2c{_color(target.fill)}",
         "outline": rf"\3c{_color(target.outline)}",
         "border": rf"\bord{_number(target.border)}",
@@ -1078,7 +1082,7 @@ def _tags(state: VisualState, pen_scale: Vec2 | None = None, *, filled: bool = T
         rf"\fscx{_number(state.scale.x * 100)}\fscy{_number(state.scale.y * 100)}"
         rf"\frz{_number(-state.rotation)}\frx0\fry0\fax{_number(state.skew.x)}\fay{_number(state.skew.y)}"
         rf"\1c{_color(state.fill)}\2c{_color(state.fill)}\3c{_color(state.outline)}\4c&H000000&"
-        rf"{_opacity_tags(state.opacity, filled)}{border}\blur{_number(state.blur)}\be0"
+        rf"{_opacity_tags(state.opacity, filled, state.shadow_opacity)}{border}\blur{_number(state.blur)}\be0"
         rf"\xshad{_number(state.shadow.x)}\yshad{_number(state.shadow.y)}"
     )
 

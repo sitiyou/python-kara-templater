@@ -189,3 +189,18 @@ def test_cli_defaults_to_standalone_hook(tmp_path):
     result = cli(EXAMPLE, output, ass=False)
     assert result.returncode == 0, result.stderr
     assert b"//!HOOK MAIN" in output.read_bytes()
+
+
+def test_hook_cli_honors_exact_byte_budget_and_rejects_ass_only_limits(tmp_path):
+    output = tmp_path / "lyrics.hook"
+    assert cli(EXAMPLE, output, ass=False).returncode == 0
+    expected = output.read_bytes()
+    accepted = cli(EXAMPLE, output, "--max-bytes", len(expected), ass=False)
+    assert accepted.returncode == 0, accepted.stderr
+    rejected = cli(EXAMPLE, output, "--max-bytes", len(expected) - 1, ass=False)
+    assert rejected.returncode == 1 and "Hook byte budget exceeded" in rejected.stderr
+    for option in ("--max-events", "--max-active"):
+        rejected = cli(EXAMPLE, output, option, 1, ass=False)
+        assert rejected.returncode == 1 and "require --ass" in rejected.stderr
+    assert output.read_bytes() == expected
+    assert list(tmp_path.iterdir()) == [output]

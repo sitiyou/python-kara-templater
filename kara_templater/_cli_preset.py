@@ -16,7 +16,7 @@ from .lyric_highlights import (
 )
 from .lyric_layout import Layout, LayoutContext, LayoutLine, Placement
 from .lyric_line import LyricLine, LyricRule
-from .orchestration import LyricScene, Track, _sources, prepare_tracks
+from .orchestration import LyricScene, Track, _SourceById, _sources, prepare_tracks
 from .scene_animation import FadeIn, FadeOut, ScalePulse, StatePatch, TimeSpan
 from .timeline import Region
 
@@ -104,7 +104,6 @@ def _measurement_style(style: Style) -> Style:
             "primarycolour",
             "secondarycolour",
             "outlinecolour",
-            "backcolour",
         ):
             packed = _packed_color(value)
             fields[key] = f"&H00{packed & 0xFFFFFF:06X}"
@@ -138,20 +137,22 @@ def preset_scene(
     elif pulse == "syllable":
         rules.append(LyricRule("syllable", "singing", ScalePulse()))
     tracks = []
+    source_styles = document.styles
+    measurement_styles = tuple(_measurement_style(s) for s in source_styles.values())
     for source in _sources(document, owner):
         if styles is not None and source.style not in styles:
             continue
         assert source.record_index is not None
         record = document.records[source.record_index]
         assert isinstance(record, Line)
-        style = document.styles[source.style]
+        style = source_styles[source.style]
         pair = paint_pair_from_style(style)
         unsung = pair.before if before is None else replace(pair.before, fill=before)
         sung = pair.after if after is None else replace(pair.after, fill=after)
         tracks.append(
             Track(
                 id=source.id,
-                source=lambda candidate, identity=source.id: candidate.id == identity,
+                source=_SourceById(source.id),
                 layout=_SourcePlacement(
                     align=style.align,
                     left=record.margin_l or style.margin_l,
@@ -164,7 +165,7 @@ def preset_scene(
                     *(tuple(rules)),
                     _Paint(unsung, sung),
                 ),
-                styles=tuple(_measurement_style(s) for s in document.styles.values()),
+                styles=measurement_styles,
             )
         )
     return prepare_tracks(document, tracks=tuple(tracks), owner=owner)

@@ -57,7 +57,7 @@ A non-executable cue anchor with ID, preset key, decoded body offset, and inline
 markup quotes the declaration; its insertion point carries the serialized
 offset.
 
-[Source](../../kara_templater/document_text.py#L73)
+[Source](../../kara_templater/document_text.py#L74)
 
 ```python
 CueMarker(
@@ -226,7 +226,7 @@ A source-preserving decoded ASS text view with tokens, appearance runs, karaoke 
 
 Offsets count Unicode code points rather than bytes or shaped glyphs.
 
-[Source](../../kara_templater/document_text.py#L118)
+[Source](../../kara_templater/document_text.py#L119)
 
 ```python
 DocumentText(
@@ -521,7 +521,7 @@ A decoded karaoke timing tag at a text offset.
 Its seconds value is a duration for k/K/kf/ko and an absolute cursor offset for
 kt.
 
-[Source](../../kara_templater/document_text.py#L60)
+[Source](../../kara_templater/document_text.py#L61)
 
 ```python
 SingingTag(
@@ -639,7 +639,7 @@ The active style and resolved RGB channel colors for a text run.
 
 inline_colors records channels explicitly supplied by override tags.
 
-[Source](../../kara_templater/document_text.py#L32)
+[Source](../../kara_templater/document_text.py#L33)
 
 ```python
 TextAppearance(
@@ -669,7 +669,7 @@ A source offset and diagnostic message for text semantics a binder may reject.
 
 Parsing retains the original tokens for unsupported overrides.
 
-[Source](../../kara_templater/document_text.py#L105)
+[Source](../../kara_templater/document_text.py#L106)
 
 ```python
 TextIssue(
@@ -695,7 +695,7 @@ A half-open decoded text range with its resolved appearance.
 
 It preserves color/reset scopes independently of later glyph shaping.
 
-[Source](../../kara_templater/document_text.py#L47)
+[Source](../../kara_templater/document_text.py#L48)
 
 ```python
 TextRun(
@@ -721,7 +721,7 @@ An original literal or override token with its source Text-string offset.
 
 Raw text is retained even if a particular effect cannot interpret it.
 
-[Source](../../kara_templater/document_text.py#L20)
+[Source](../../kara_templater/document_text.py#L21)
 
 ```python
 TextToken(
@@ -810,7 +810,7 @@ that channel to the current style; r resets all channels to the named style
 or the event style. Unhandled tags are retained and explicitly diagnosed.
 Cue presets are resolved later by the effect registry, never executed here.
 
-[Source](../../kara_templater/document_text.py#L229)
+[Source](../../kara_templater/document_text.py#L230)
 
 ```python
 read_document_text(

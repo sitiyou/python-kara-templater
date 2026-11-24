@@ -295,7 +295,7 @@ def _style_supported(style: Style) -> None:
         raise LayoutCapabilityError(
             "document text binding does not yet lower underline/strikeout"
         )
-    for name in ("primarycolour", "secondarycolour", "outlinecolour", "backcolour"):
+    for name in ("primarycolour", "secondarycolour", "outlinecolour"):
         if _packed_color(fields.get(name, "&H00000000")) >> 24:
             raise LayoutCapabilityError(
                 "per-channel style alpha requires channel-opacity lowering"
@@ -388,7 +388,12 @@ def _layout_document_view(
                     f"record {record_index}: color/reset boundary splits shaped cluster {start}:{end}"
                 )
             source_style = styles[appearance.style]
-            if source_style.shadow and appearance.shadow != Color(0, 0, 0):
+            shadow_alpha = next(
+                (_packed_color(value) >> 24 for key, value in source_style.fields.items()
+                 if key.lower() == "backcolour"),
+                0,
+            )
+            if source_style.shadow and shadow_alpha < 255 and appearance.shadow != Color(0, 0, 0):
                 raise LayoutCapabilityError(
                     "colored shadows require separate shadow-color lowering"
                 )
@@ -410,6 +415,7 @@ def _layout_document_view(
                     outline=appearance.outline,
                     border=source_style.outline,
                     shadow=Vec2(source_style.shadow, source_style.shadow),
+                    shadow_opacity=1 - shadow_alpha / 255,
                 ),
                 origin=origin,
             )

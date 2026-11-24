@@ -99,6 +99,7 @@ class VisualState:
 
     Position, scale, rotation, skew, paint, blur, and shadow compose through the
     scene hierarchy.
+    shadow_opacity multiplies the drawing opacity for the shadow alone.
     """
 
     position: Vec2 = Vec2()
@@ -111,6 +112,7 @@ class VisualState:
     border: float = 0
     blur: float = 0
     shadow: Vec2 = Vec2()
+    shadow_opacity: float = 1
 
     def __post_init__(self) -> None:
         if not isinstance(self.fill, Color) or not isinstance(self.outline, Color):
@@ -120,9 +122,11 @@ class VisualState:
             raise TypeError(
                 "visual position, scale, skew and shadow must be Vec2 values"
             )
-        finite(self.rotation, self.opacity, self.border, self.blur)
+        finite(self.rotation, self.opacity, self.border, self.blur, self.shadow_opacity)
         if not 0 <= self.opacity <= 1 or self.border < 0 or self.blur < 0:
             raise ValueError("opacity must be in 0..1, border/blur must be nonnegative")
+        if not 0 <= self.shadow_opacity <= 1:
+            raise ValueError("shadow opacity must be in 0..1")
 
     @property
     def singular(self) -> bool:
@@ -207,6 +211,7 @@ class StatePatch:
             scalar(base.border, self.border),
             scalar(base.blur, self.blur),
             vector(base.shadow, self.shadow),
+            base.shadow_opacity,
         )
 
 
