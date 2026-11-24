@@ -1,0 +1,1 @@
+"""Standalone libplacebo Hook output."""

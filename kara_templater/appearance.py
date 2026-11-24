@@ -1,4 +1,4 @@
-"""Unsung and sung paint values projected from ASS styles."""
+"""Karaoke paint pairs and theme overrides."""
 
 from dataclasses import dataclass, field
 
@@ -9,9 +9,9 @@ from .document_text import _packed_color
 
 @dataclass(frozen=True)
 class PaintPair:
-    """The unsung and sung Paint values for one visual target.
+    """The Paint values before and after the karaoke transition.
 
-    Paint changes do not rewrite its source singing clock.
+    Paint changes do not rewrite the source timing.
     """
 
     before: Paint = field(default_factory=Paint)
@@ -24,33 +24,36 @@ class KaraokeTheme:
 
     An omitted role inherits from the outer theme. Ordinary catalog effects
     retain source outlines until an outline role is supplied. Duotone supplies
-    contrasting outlines for both singing states. Explicit effect colors win.
+    contrasting outlines for both sides of the wipe. Explicit effect colors win.
+    Before and after refer to the karaoke color transition at each point in
+    the glyph. With no wipe, the whole unit switches at once.
     """
 
-    sung: Color | None = None
-    unsung: Color | None = None
-    sung_outline: Color | None = None
-    unsung_outline: Color | None = None
+    after_fill: Color | None = None
+    before_fill: Color | None = None
+    after_outline: Color | None = None
+    before_outline: Color | None = None
     shine: Color | None = None
 
     def overlay(self, inner: "KaraokeTheme") -> "KaraokeTheme":
         """Override only roles supplied by the inner theme."""
         return KaraokeTheme(
-            sung=inner.sung or self.sung, unsung=inner.unsung or self.unsung,
-            sung_outline=inner.sung_outline or self.sung_outline,
-            unsung_outline=inner.unsung_outline or self.unsung_outline,
+            after_fill=inner.after_fill or self.after_fill,
+            before_fill=inner.before_fill or self.before_fill,
+            after_outline=inner.after_outline or self.after_outline,
+            before_outline=inner.before_outline or self.before_outline,
             shine=inner.shine or self.shine,
         )
 
 
 # One set of ink roles for the catalog. Unstyled lyrics retain their source paint.
-_DEFAULT_SUNG = Color(255, 90, 111)
-_DEFAULT_UNSUNG = Color(255, 255, 255)
+_DEFAULT_AFTER_FILL = Color(255, 90, 111)
+_DEFAULT_BEFORE_FILL = Color(255, 255, 255)
 _EMPTY_THEME = KaraokeTheme()
 
 
 def paint_pair_from_style(style: Style) -> PaintPair:
-    """ASS secondary is unsung, primary is sung; decode AABBGGRR at this boundary."""
+    """Decode the ASS secondary and primary colors as the before and after paints."""
 
     def decode(key: str, default: str) -> tuple[Color, float]:
         value = next(

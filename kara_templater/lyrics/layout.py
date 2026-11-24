@@ -4,19 +4,17 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from math import ceil, floor
 
-from .ass import Document, Line, Style
-from .characters import LayoutCapabilityError
-from .document_lyrics import DocumentLyrics, LyricUnit, RubyText
-from .document_text import DocumentText, SingingSpan, _appearance
-from .geometry import Vec2, VectorPath, finite
-from .layout import _ruby_group
-from .model import Box
-from .path_geometry import flatten
-from .scene import Lifetime, ObjectGroup
-from .scene_animation import VisualState
-from .scene_text import DocumentLayout, PositionedText, _layout_document_view, _union
-from .sources import EventOrigin, SourceRef
-from .text_geometry import TextOutline, _VectorGuideText
+from ..ass import Document, Line, Style
+from ..characters import LayoutCapabilityError
+from ..document_lyrics import DocumentLyrics, LyricUnit, RubyText
+from ..document_text import DocumentText, TimedTextSpan, _appearance
+from ..geometry import Box, Vec2, VectorPath, finite
+from ..path_geometry import flatten
+from ..scene import Lifetime, ObjectGroup
+from ..scene_animation import VisualState
+from ..sources import EventOrigin, SourceRef
+from ..text.layout import PositionedText, TextLayout, _layout_document_view, _union
+from ..text_geometry import TextOutline, _VectorGuideText
 
 
 @dataclass(frozen=True)
@@ -83,14 +81,14 @@ class StudioSpacing:
 class PositionedRuby:
     """A reading layout associated with a source unit/segment and decoded body range.
 
-    Its own text view retains source mappings and singing timing.
+    Its own text view retains source mappings and timing timing.
     """
 
     unit_index: int
     segment_index: int
     body_start: int
     body_end: int
-    layout: DocumentLayout
+    layout: TextLayout
 
 
 @dataclass(frozen=True)
@@ -101,7 +99,7 @@ class LyricLayout:
     """
 
     lyrics: DocumentLyrics
-    body: DocumentLayout
+    body: TextLayout
     ruby: tuple[PositionedRuby, ...]
     bounds: Box
     script_height: int = 1080
@@ -109,11 +107,11 @@ class LyricLayout:
 
     def _body_wipe(
         self, unit: LyricUnit, *, reading_units: bool, reverse: bool,
-    ) -> tuple[tuple[SingingSpan, float, float], ...]:
+    ) -> tuple[tuple[TimedTextSpan, float, float], ...]:
         parts = unit._body_parts(reading_units=reading_units)
         if (not reading_units or self._vertical or unit.end - unit.start < 2
                 or not any(s.ruby and s.ruby.source.text for s in unit.segments)
-                or len(unit._body_singing()) != 1):
+                or len(unit._body_timing()) != 1):
             return parts
         glyphs = [c for c in self.body.characters if unit.start <= c.start and c.end <= unit.end]
         if len(glyphs) < 2:
@@ -219,7 +217,7 @@ def _shift(item: PositionedText, dx: float, dy: float = 0) -> PositionedText:
     )
 
 
-def _place_guides(layout: DocumentLayout, guides: Mapping[str, VectorGuide]) -> DocumentLayout:
+def _place_guides(layout: TextLayout, guides: Mapping[str, VectorGuide]) -> TextLayout:
     """Replace the measured cells before clearance, ruby placement and RTL ordering."""
     delta = 0.0
     items = []
@@ -233,7 +231,7 @@ def _place_guides(layout: DocumentLayout, guides: Mapping[str, VectorGuide]) -> 
     return replace(layout, characters=tuple(items), bounds=_union(tuple(item.bounds for item in items)))
 
 
-def _rtl_cells(layout: DocumentLayout, axis: float) -> DocumentLayout:
+def _rtl_cells(layout: TextLayout, axis: float) -> TextLayout:
     """Reflect cell centers across the line, keeping each shaped glyph upright."""
     characters = tuple(
         replace(_shift(item, 2 * (axis - item.bounds.center)), _gap_shift=-item._gap_shift)
@@ -243,7 +241,7 @@ def _rtl_cells(layout: DocumentLayout, axis: float) -> DocumentLayout:
                    bounds=replace(layout.bounds, left=2 * axis - layout.bounds.right))
 
 
-def _studio_cells(layout: DocumentLayout, settings: StudioSpacing) -> DocumentLayout:
+def _studio_cells(layout: TextLayout, settings: StudioSpacing) -> TextLayout:
     """Measure N3 character cells around the ink of each already-shaped cluster."""
     x = layout.bounds.left
     characters = []
@@ -310,9 +308,9 @@ def _clear_outlines(
 
 
 def _reading_row(
-    readings: list[DocumentLayout], gap: float | None,
+    readings: list[TextLayout], gap: float | None,
     reserved_border: float, right_to_left: bool, secondary_width: float,
-) -> list[DocumentLayout]:
+) -> list[TextLayout]:
     """Apply outline clearance across all timing fragments of a horizontal annotation."""
     cells: list[PositionedText] = []
     cursor = 0.0
@@ -320,7 +318,7 @@ def _reading_row(
         cells.extend(_shift(c, cursor) for c in reading.characters)
         cursor += reading.bounds.width
     cells_with_clearance = _clear_outlines(tuple(cells), gap, reserved_border, right_to_left, secondary_width)
-    result: list[DocumentLayout] = []
+    result: list[TextLayout] = []
     start = 0
     for reading in readings:
         end = start + len(reading.characters)
@@ -330,7 +328,7 @@ def _reading_row(
     return result
 
 
-def _move(layout: DocumentLayout, dx: float, dy: float) -> DocumentLayout:
+def _move(layout: TextLayout, dx: float, dy: float) -> TextLayout:
     return replace(
         layout,
         characters=tuple(_shift(item, dx, dy) for item in layout.characters),
@@ -347,12 +345,12 @@ def _after_onset(start: float, display_end: float) -> float:
 
 def _reading_intervals(
     reading: PositionedRuby, unit: LyricUnit, *, wipe: bool = True,
-) -> tuple[SingingSpan, ...]:
+) -> tuple[TimedTextSpan, ...]:
     """Divide one reading checkpoint among shaped clusters on the source millisecond clock."""
     layout = reading.layout
-    source = unit.segments[reading.segment_index].singing
+    source = unit.segments[reading.segment_index].timing
     if not wipe:
-        spans = unit._body_singing()
+        spans = unit._body_timing()
         end = spans[0].end if len(spans) == 1 else source.end
         return (replace(source, start=end, end=end, start_offset=0, end_offset=len(layout.source.text)),)
     clusters = layout.characters
@@ -371,7 +369,7 @@ def _reading_intervals(
     ]
     # The first visual segment is still waiting at its exact onset in Studio.
     # Interior zero-duration checkpoints take effect immediately.
-    onset = next((s.singing.start for s in unit.segments if s.ruby and s.ruby.source.text.strip()), None)
+    onset = next((s.timing.start for s in unit.segments if s.ruby and s.ruby.source.text.strip()), None)
     intervals = []
     for i, glyph in enumerate(clusters):
         start, end = cuts[i:i + 2]
@@ -436,7 +434,7 @@ def layout_document_lyrics(
     min_outline_gap: float | None = None,
     reserved_border: float = 0,
 ) -> LyricLayout:
-    """Bind body/ruby without changing original singing or decoded source ranges.
+    """Bind body/ruby without changing original timing or decoded source ranges.
 
     Body text is shaped together before ruby spacing is applied. Unit boundaries
     crossing a shaping cluster are rejected when independent placement is needed.
@@ -489,7 +487,7 @@ def layout_lyrics(
     reading group and its body before animation. Negative values allow overlap.
     vertical stacks glyphs in measured font cells. ruby_gap then separates the body
     and reading cells horizontally, in script pixels.
-    No ASS event is required or synthesized. Singing intervals retain their full
+    No ASS event is required or synthesized. Timing intervals retain their full
     seconds precision; record indices, if present, are provenance only.
     """
     finite(ruby_gap, reserved_border, secondary_width, min_outline_gap or 0)
@@ -518,30 +516,30 @@ def layout_lyrics(
             raise ValueError(f"{id}: lyric units must cover contiguous body ranges")
         end = unit.end
         for segment in unit.segments:
-            if (segment.singing.start_offset, segment.singing.end_offset) != (
+            if (segment.timing.start_offset, segment.timing.end_offset) != (
                 unit.start,
                 unit.end,
             ):
-                raise ValueError(f"{id}: singing offsets do not match their lyric unit")
+                raise ValueError(f"{id}: timing offsets do not match their lyric unit")
             if (
                 not 0
                 <= segment.source_start
                 <= segment.source_end
                 <= len(lyrics.source.text)
             ):
-                raise ValueError(f"{id}: singing source range lies outside source text")
+                raise ValueError(f"{id}: timing source range lies outside source text")
             if segment.ruby is not None:
                 validate_text(segment.ruby.source)
     if end != len(lyrics.body.text):
         raise ValueError(f"{id}: lyric units must cover the complete body")
     record_index = lyrics.source.record_index
-    singing = tuple(
-        segment.singing for unit in lyrics.units for segment in unit.segments
+    timing = tuple(
+        segment.timing for unit in lyrics.units for segment in unit.segments
     )
     if guide_symbols and any(len(key) != 1 or key.isspace() for key in guide_symbols):
         raise ValueError("each vector guide marker must be one nonblank character")
     body = _layout_document_view(
-        document, lyrics.body, record_index, id=id, display=display, singing=singing,
+        document, lyrics.body, record_index, id=id, display=display, timing=timing,
         guide_markers=guide_symbols or (), palt=palt and not vertical,
     )
     cells = StudioSpacing() if studio_spacing is True else studio_spacing
@@ -565,9 +563,9 @@ def layout_lyrics(
                 id=f"{body.id}/ruby:{ui}:{si}",
                 palt=palt and not vertical,
                 display=body.lifetime,
-                singing=(
+                timing=(
                     replace(
-                        segment.singing,
+                        segment.timing,
                         start_offset=0,
                         end_offset=len(ruby.source.text),
                     ),
@@ -603,7 +601,7 @@ def layout_lyrics(
         for item in body.characters
     ]
     if vertical:
-        from ._vertical_lyrics import _vertical_from_font
+        from .._vertical_lyrics import _vertical_from_font
 
         measured = LyricLayout(
             lyrics, replace(body, characters=tuple(characters)), tuple(rubies),
@@ -705,3 +703,19 @@ def layout_lyrics(
         _union((body.bounds, *(r.layout.bounds for r in rubies))),
         document.meta.res_y,
     )
+
+
+def _ruby_group(
+    body: float, reading: float, spillback: bool, previous: float | None,
+) -> tuple[float, float, float | None]:
+    """Return body shift, reading offset and carried spill, as in karaskel.do_furigana_layout."""
+    if not reading:
+        return 0, 0, previous - body if previous is not None and previous > 0 else None
+    shift = max(0.0, previous or 0.0)
+    excess = reading - body
+    if excess <= 0:
+        return shift, -excess / 2, excess / 2
+    if spillback:
+        # Lua distinguishes an absent spill from zero (a flush preceding annotation).
+        return shift + (excess / 2 if previous is not None else 0), -excess / 2, excess / 2
+    return shift, 0, excess

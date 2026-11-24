@@ -7,6 +7,7 @@ Script-space geometry, masks, deformation, path layout, and authored writing/mor
 ## Contents
 
 - [Affine2D](#affine2d)
+- [Box](#box)
 - [Contour](#contour)
 - [CubicSegment](#cubicsegment)
 - [GeometryAnimation](#geometryanimation)
@@ -18,6 +19,7 @@ Script-space geometry, masks, deformation, path layout, and authored writing/mor
 - [PathFunction](#pathfunction)
 - [PathItem](#pathitem)
 - [Polyline](#polyline)
+- [Region](#region)
 - [TextOutline](#textoutline)
 - [TrailPath](#trailpath)
 - [Vec2](#vec2)
@@ -35,6 +37,7 @@ Script-space geometry, masks, deformation, path layout, and authored writing/mor
 - [resample_path](#resample_path)
 - [stroke](#stroke)
 - [text_to_path](#text_to_path)
+- [union_regions](#union_regions)
 
 ## Affine2D
 
@@ -73,6 +76,50 @@ Affine2D.apply(
     point: Vec2,
 ) -> Vec2
 ```
+
+## Box
+
+An axis-aligned layout rectangle in script pixels.
+
+right, center, and middle are derived from left, top, width, and height.
+
+[Source](../../kara_templater/geometry.py#L260)
+
+```python
+Box(
+    left: float,
+    top: float,
+    width: float,
+    height: float,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `left` | `float` | `required` |
+| `top` | `float` | `required` |
+| `width` | `float` | `required` |
+| `height` | `float` | `required` |
+
+### Box.center
+
+The horizontal midpoint of the layout rectangle.
+
+Type: `float`.
+
+### Box.middle
+
+The vertical midpoint of the layout rectangle.
+
+Type: `float`.
+
+### Box.right
+
+The rectangle left coordinate plus its width, in script pixels.
+
+Type: `float`.
 
 ## Contour
 
@@ -462,13 +509,55 @@ Polyline.slice(
 ) -> Polyline
 ```
 
+## Region
+
+A horizontal interval in script pixels; an empty interval is valid.
+
+[Source](../../kara_templater/geometry.py#L299)
+
+```python
+Region(
+    left: float,
+    right: float,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `left` | `float` | `required` |
+| `right` | `float` | `required` |
+
+### Region.at
+
+Interpolate a position across the region using normalized progress.
+
+```python
+Region.at(
+    progress: float,
+) -> float
+```
+
+### Region.center
+
+The midpoint of the horizontal region.
+
+Type: `float`.
+
+### Region.width
+
+The horizontal region extent in script pixels.
+
+Type: `float`.
+
 ## TextOutline
 
 Measured text geometry with layout bounds and actual font faces.
 
 path can be None for whitespace or empty ink; layout advance remains meaningful.
 
-[Source](../../kara_templater/text_geometry.py#L13)
+[Source](../../kara_templater/text_geometry.py#L20)
 
 ```python
 TextOutline(
@@ -891,7 +980,7 @@ morph(
 
 Shape at the source font's nominal scale; object transforms stay independent.
 
-[Source](../../kara_templater/text_geometry.py#L32)
+[Source](../../kara_templater/text_geometry.py#L39)
 
 ```python
 outline_text(
@@ -977,7 +1066,7 @@ Use the shaped outline or a supplied path in the text object's local coordinates
 Preserve visibility, animation and clip clocks, fill mode, and source identity.
 max_points limits native glyph extraction when path is omitted.
 
-[Source](../../kara_templater/text_geometry.py#L108)
+[Source](../../kara_templater/text_geometry.py#L115)
 
 ```python
 text_to_path(
@@ -987,4 +1076,16 @@ text_to_path(
     path: VectorPath | None = None,
     max_points: int = 4096,
 ) -> PathObject
+```
+
+## union_regions
+
+Merge coverage without filling gaps or painting overlaps twice.
+
+[Source](../../kara_templater/geometry.py#L328)
+
+```python
+union_regions(
+    regions: Iterable[Region],
+) -> tuple[Region, ...]
 ```

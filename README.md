@@ -4,7 +4,7 @@ Turn timed lyrics into animated karaoke subtitles. Style an existing ASS file
 from the command line, or write Python effects for lead and harmony vocals,
 ruby readings, and syllable highlights.
 
-![Japanese lyrics and their readings fill with gold as each syllable is sung](docs/examples/assets/chorus-hook.gif)
+![Japanese lyrics and their readings fill with gold as the highlight sweeps across each syllable](docs/examples/assets/chorus-hook.gif)
 
 [Getting started](docs/getting-started.md) · [Effect gallery](docs/examples/README.md) · [Documentation](docs/README.md)
 
@@ -25,7 +25,7 @@ The first-export tutorial shows how to render the sample over a plain background
 and replace it with your own lyrics. [Play your first export](docs/getting-started.md#preview-the-export)
 
 To write your own effect, start with a Track for each vocal part. Use the built-in
-entry, singing, and exit animations or add your own Scene objects.
+entry, highlight, and exit effects or add your own Scene objects.
 [Design a template](docs/tutorials/karaoke-design.md) · [Python API](docs/reference/README.md)
 
 [Contributing](docs/contributing/README.md) · [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY.md)

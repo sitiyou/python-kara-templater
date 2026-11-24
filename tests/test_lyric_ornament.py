@@ -17,6 +17,6 @@ def test_ornament_stays_fixed_and_outlives_the_opposite_text_exit():
     assert evaluator.at(right, 3.7).opacity == 0
     assert evaluator.at(left, 1).position == evaluator.at(left, 3.9).position
     assert evaluator.at(right, 1).position == evaluator.at(right, 3.4).position
-    assert scene.plans[0].input.required.end == pytest.approx(4.16)
+    assert scene.plans[0].layout_request.required_display.end == pytest.approx(4.16)
     result = scene.ass.compile(native_tweens=True)
     assert result.event_count < 100

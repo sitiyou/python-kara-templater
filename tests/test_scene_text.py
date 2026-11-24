@@ -15,7 +15,7 @@ from kara_templater.cues import (
 from kara_templater.geometry import Vec2, VectorPath
 from kara_templater.scene import Lifetime, PathObject, Scene
 from kara_templater.scene_animation import VisualState
-from kara_templater.scene_text import layout_document_text
+from kara_templater.text.layout import layout_document_text
 
 
 def document(text: str) -> Document:
@@ -36,7 +36,7 @@ def test_binding_preserves_color_scope_source_and_timing():
     assert layout.source.text == "AB CD"
     assert layout.characters[0].object.state.fill == Color(255, 0, 0)
     assert layout.characters[2].object.state.fill == Color(255, 255, 255)
-    assert [(s.start, s.end, s.start_offset, s.end_offset) for s in layout.singing] == [
+    assert [(s.start, s.end, s.start_offset, s.end_offset) for s in layout.timing] == [
         (1, 2, 0, 2),
         (2, 2, 2, 3),
         (3.5, 4, 3, 5),
@@ -90,7 +90,7 @@ def test_inline_and_independent_cues_share_model_without_changing_times():
     assert bound.text.characters == direct.text.characters
     assert bound.inline == direct.inline
     assert bound.independent == direct.independent
-    assert bound.text.singing == layout.singing
+    assert bound.text.timing == layout.timing
     assert bound.text.source.text == layout.source.text
     assert bound.text.characters[0].bounds.left == layout.characters[0].bounds.left + 78
     assert bound.independent[0].state.position == Vec2(50, 60)
@@ -136,7 +136,7 @@ def test_release_space_is_seekable_and_keeps_source_timing():
     assert (
         letter.at(0.5).position.x == layout.characters[0].object.state.position.x + 78
     )
-    assert bound.text.singing == layout.singing
+    assert bound.text.timing == layout.timing
 
 
 def test_custom_factory_gets_explicit_steps_and_source():
@@ -301,12 +301,12 @@ def test_volume_countdown_uses_its_flash_and_fill_beats(bpm):
 
 
 def test_tempo_volume_uses_the_same_clock_after_track_paint_is_bound():
-    from kara_templater import Track, VolumeCue, prepare_tracks
+    from kara_templater import Track, VolumeCue, build_lyric_scene
 
     marker = CueMarker("intro", "volume").markup()
     doc = document(marker + r"{\k400}{\k100}A")
     track = Track(id="main", cues={"volume": CuePreset(factory=VolumeCue())})
-    scene = prepare_tracks(doc, tracks=(track,), bpm=120)
+    scene = build_lyric_scene(doc, tracks=(track,), bpm=120)
     cue, = (node for node in scene.lines[0].children if "/cue:" in node.id)
     assert cue.lifetime == Lifetime(3, 5)
 

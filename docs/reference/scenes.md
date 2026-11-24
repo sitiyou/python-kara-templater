@@ -6,26 +6,167 @@ Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile
 
 ## Contents
 
+- [AssBudget](#assbudget)
+- [AssDialogue](#assdialogue)
+- [AssEstimate](#assestimate)
+- [AssObjectReport](#assobjectreport)
+- [AssResult](#assresult)
 - [Lifetime](#lifetime)
-- [NativeEvent](#nativeevent)
 - [ObjectGroup](#objectgroup)
-- [ObjectReport](#objectreport)
 - [PathObject](#pathobject)
 - [PreparedHook](#preparedhook)
 - [RectangleClip](#rectangleclip)
 - [RectangleFunction](#rectanglefunction)
 - [RectangleKeyframes](#rectanglekeyframes)
 - [Scene](#scene)
-- [SceneBudget](#scenebudget)
 - [SceneCompileError](#scenecompileerror)
-- [SceneEstimate](#sceneestimate)
 - [SceneEvaluator](#sceneevaluator)
 - [SceneObject](#sceneobject)
 - [SceneReferenceError](#scenereferenceerror)
-- [SceneResult](#sceneresult)
 - [TextObject](#textobject)
 - [VectorClip](#vectorclip)
 - [VisualNode](#visualnode)
+
+## AssBudget
+
+Positive whole-scene ASS resource limits.
+
+ASS compilation enforces limits on events, bytes, active drawings, geometry
+and boolean work. It does not sample at fps or generate paint bands.
+clip_error_px bounds known native rectangle-edge interpolation in screen
+pixels, including endpoint rounding, before renderer pixel quantization.
+
+[Source](../../kara_templater/output/ass_export.py#L60)
+
+```python
+AssBudget(
+    *,
+    max_events: int = 25000,
+    max_bytes: int = 10485760,
+    max_active: int = 1000,
+    max_path_points: int = 4096,
+    max_boolean_work: int = 1000000,
+    clip_error_px: float = 0.75,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `max_events` | `int` | `25000` |
+| `max_bytes` | `int` | `10485760` |
+| `max_active` | `int` | `1000` |
+| `max_path_points` | `int` | `4096` |
+| `max_boolean_work` | `int` | `1000000` |
+| `clip_error_px` | `float` | `0.75` |
+
+## AssDialogue
+
+Already-lowered Dialogue, including historical empty/negative intervals.
+
+Native timing follows Document serialization (negative times clamp to zero),
+rather than the positive display lifetime required by new visual objects.
+
+[Source](../../kara_templater/scene.py#L538)
+
+```python
+AssDialogue(
+    id: str,
+    event: Line,
+    origin: EventOrigin | None = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `event` | `Line` | `required` |
+| `origin` | `EventOrigin \| None` | `None` |
+
+## AssEstimate
+
+Estimated ASS event count before emission.
+
+[Source](../../kara_templater/output/ass_export.py#L92)
+
+```python
+AssEstimate(
+    estimated_events: int,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `estimated_events` | `int` | `required` |
+
+## AssObjectReport
+
+ASS lowering strategy, source origin, event count and observed geometry costs.
+
+[Source](../../kara_templater/output/ass_export.py#L99)
+
+```python
+AssObjectReport(
+    id: str,
+    strategy: str,
+    events: int,
+    origin: EventOrigin | None,
+    peak_path_points: int | None = None,
+    peak_clip_points: int | None = None,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `strategy` | `str` | `required` |
+| `events` | `int` | `required` |
+| `origin` | `EventOrigin \| None` | `required` |
+| `peak_path_points` | `int \| None` | `None` |
+| `peak_clip_points` | `int \| None` | `None` |
+
+## AssResult
+
+A newly compiled ASS Document with object reports, final cost metrics, diagnostics, and actual generated-event origins.
+
+Caller-owned input objects remain unchanged.
+
+[Source](../../kara_templater/output/ass_export.py#L111)
+
+```python
+AssResult(
+    document: Document,
+    objects: tuple[ass_export.AssObjectReport, ...],
+    event_count: int,
+    peak_active: int,
+    byte_count: int,
+    estimated_events: int,
+    max_time_quantization: float,
+    diagnostics: tuple[str, ...] = (),
+    event_origins: tuple[tuple[Line, EventOrigin | None], ...] = (),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `document` | `Document` | `required` |
+| `objects` | `tuple[ass_export.AssObjectReport, ...]` | `required` |
+| `event_count` | `int` | `required` |
+| `peak_active` | `int` | `required` |
+| `byte_count` | `int` | `required` |
+| `estimated_events` | `int` | `required` |
+| `max_time_quantization` | `float` | `required` |
+| `diagnostics` | `tuple[str, ...]` | `()` |
+| `event_origins` | `tuple[tuple[Line, EventOrigin \| None], ...]` | `()` |
 
 ## Lifetime
 
@@ -59,31 +200,6 @@ Lifetime.contains(
     time: float,
 ) -> bool
 ```
-
-## NativeEvent
-
-Already-lowered Dialogue, including historical empty/negative intervals.
-
-Native timing follows Document serialization (negative times clamp to zero),
-rather than the positive display lifetime required by new visual objects.
-
-[Source](../../kara_templater/scene.py#L538)
-
-```python
-NativeEvent(
-    id: str,
-    event: Line,
-    origin: EventOrigin | None = None,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `id` | `str` | `required` |
-| `event` | `Line` | `required` |
-| `origin` | `EventOrigin \| None` | `None` |
 
 ## ObjectGroup
 
@@ -179,34 +295,6 @@ ObjectGroup.copy(
 Absolute seconds origin for local animation, geometry and paint clocks.
 
 Type: `float`.
-
-## ObjectReport
-
-ASS lowering strategy, source origin, event count and observed geometry costs.
-
-[Source](../../kara_templater/scene_output.py#L99)
-
-```python
-ObjectReport(
-    id: str,
-    strategy: str,
-    events: int,
-    origin: EventOrigin | None,
-    peak_path_points: int | None = None,
-    peak_clip_points: int | None = None,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `id` | `str` | `required` |
-| `strategy` | `str` | `required` |
-| `events` | `int` | `required` |
-| `origin` | `EventOrigin \| None` | `required` |
-| `peak_path_points` | `int \| None` | `None` |
-| `peak_clip_points` | `int \| None` | `None` |
 
 ## PathObject
 
@@ -493,7 +581,7 @@ RectangleKeyframes.sample(
 
 ## Scene
 
-A Document-backed composition of visual objects and already-lowered NativeEvents.
+A Document-backed composition of visual objects and already-lowered ASS dialogues.
 
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
@@ -503,7 +591,7 @@ ASS Document and reports.
 ```python
 Scene(
     document: Document,
-    objects: list[SceneObject | NativeEvent] = _HAS_DEFAULT_FACTORY_CLASS(),
+    objects: list[SceneObject | AssDialogue] = _HAS_DEFAULT_FACTORY_CLASS(),
     replace_records: set[int] = _HAS_DEFAULT_FACTORY_CLASS(),
     owner: str = 'scene',
 )
@@ -514,7 +602,7 @@ Scene(
 | Name | Type | Default |
 | --- | --- | --- |
 | `document` | `Document` | `required` |
-| `objects` | `list[SceneObject \| NativeEvent]` | `list()` |
+| `objects` | `list[SceneObject \| AssDialogue]` | `list()` |
 | `replace_records` | `set[int]` | `set()` |
 | `owner` | `str` | `'scene'` |
 
@@ -524,7 +612,7 @@ Append typed visual/native objects and return this Scene for composition.
 
 ```python
 Scene.add(
-    *objects: SceneObject | NativeEvent,
+    *objects: SceneObject | AssDialogue,
 ) -> Self
 ```
 
@@ -599,40 +687,6 @@ Scene.replace_source(
 ) -> None
 ```
 
-## SceneBudget
-
-Positive whole-scene ASS resource limits.
-
-ASS compilation enforces limits on events, bytes, active drawings, geometry
-and boolean work. It does not sample at fps or generate paint bands.
-clip_error_px bounds known native rectangle-edge interpolation in screen
-pixels, including endpoint rounding, before renderer pixel quantization.
-
-[Source](../../kara_templater/scene_output.py#L60)
-
-```python
-SceneBudget(
-    *,
-    max_events: int = 25000,
-    max_bytes: int = 10485760,
-    max_active: int = 1000,
-    max_path_points: int = 4096,
-    max_boolean_work: int = 1000000,
-    clip_error_px: float = 0.75,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `max_events` | `int` | `25000` |
-| `max_bytes` | `int` | `10485760` |
-| `max_active` | `int` | `1000` |
-| `max_path_points` | `int` | `4096` |
-| `max_boolean_work` | `int` | `1000000` |
-| `clip_error_px` | `float` | `0.75` |
-
 ## SceneCompileError
 
 An invalid scene or exceeded compilation limit with object_id and optional source origin.
@@ -649,24 +703,6 @@ SceneCompileError(
     origin: EventOrigin | None = None,
 )
 ```
-
-## SceneEstimate
-
-Estimated ASS event count before emission.
-
-[Source](../../kara_templater/scene_output.py#L92)
-
-```python
-SceneEstimate(
-    estimated_events: int,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `estimated_events` | `int` | `required` |
 
 ## SceneEvaluator
 
@@ -735,42 +771,6 @@ SceneReferenceError(
     origin: EventOrigin | None = None,
 )
 ```
-
-## SceneResult
-
-A newly compiled ASS Document with object reports, final cost metrics, diagnostics, and actual generated-event origins.
-
-Caller-owned input objects remain unchanged.
-
-[Source](../../kara_templater/scene_output.py#L111)
-
-```python
-SceneResult(
-    document: Document,
-    objects: tuple[ObjectReport, ...],
-    event_count: int,
-    peak_active: int,
-    byte_count: int,
-    estimated_events: int,
-    max_time_quantization: float,
-    diagnostics: tuple[str, ...] = (),
-    event_origins: tuple[tuple[Line, EventOrigin | None], ...] = (),
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `document` | `Document` | `required` |
-| `objects` | `tuple[ObjectReport, ...]` | `required` |
-| `event_count` | `int` | `required` |
-| `peak_active` | `int` | `required` |
-| `byte_count` | `int` | `required` |
-| `estimated_events` | `int` | `required` |
-| `max_time_quantization` | `float` | `required` |
-| `diagnostics` | `tuple[str, ...]` | `()` |
-| `event_origins` | `tuple[tuple[Line, EventOrigin \| None], ...]` | `()` |
 
 ## TextObject
 

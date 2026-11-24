@@ -25,7 +25,7 @@ from kara_templater import (
     TimeSpan,
     Track,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
@@ -33,7 +33,7 @@ def highlights(line: LyricLine) -> tuple[Highlight, ...]:
     box = line.layout.body.bounds
     return (
         Highlight(
-            "sung",
+            "highlight",
             0,
             (HighlightPass(TimeSpan(1, 2), Region(box.left, box.right)),),
             StatePatch(fill=Color.hex("#33ddff")),
@@ -75,10 +75,10 @@ def build(
         )
     rules = (
         LyricRule("character", HighlightArrival(highlights=highlights), ScalePulse()),
-        LyricRule("character", "singing", ScalePulse()),
-        LyricRule("syllable", "singing", ScalePulse()),
+        LyricRule("character", "timing", ScalePulse()),
+        LyricRule("syllable", "timing", ScalePulse()),
     )
-    return prepare_tracks(
+    return build_lyric_scene(
         document,
         tracks=tuple(
             Track(

@@ -23,11 +23,22 @@ from ._karaoke_sprites import (
     painted_particle,
     star_burst,
 )
-from .appearance import _DEFAULT_SUNG, _DEFAULT_UNSUNG, _EMPTY_THEME, KaraokeTheme
+from .appearance import (
+    _DEFAULT_AFTER_FILL,
+    _DEFAULT_BEFORE_FILL,
+    _EMPTY_THEME,
+    KaraokeTheme,
+)
 from .composition import Color, Glow, SecondaryOutline
-from .document_text import SingingSpan
-from .geometry import Vec2, finite
-from .lyric_highlights import (
+from .document_text import TimedTextSpan
+from .geometry import Box, Vec2, finite
+from .lyric_line import (
+    LyricLine,
+    LyricRule,
+    LyricTarget,
+    _line_x,
+)
+from .lyrics.highlights import (
     HighlightArrival,
     LyricGlow,
     LyricGradient,
@@ -39,13 +50,6 @@ from .lyric_highlights import (
     _resolve_material,
     _style_material,
 )
-from .lyric_line import (
-    LyricLine,
-    LyricRule,
-    LyricTarget,
-    _line_x,
-)
-from .model import Box
 from .paint_fields import (
     ColorRamp,
     ColorStop,
@@ -133,7 +137,7 @@ type KaraokeExit = Literal[
     "snow",
     "snow_solid",
 ]
-type KaraokeSinging = Literal[
+type KaraokeHighlight = Literal[
     "none",
     "no_wipe",
     "utopia",
@@ -152,7 +156,7 @@ type KaraokeDecoration = Literal[
     "snow",
     "snow_solid",
 ]
-# Per sung glyph, independent of note length: (lifetime in seconds, particle count).
+# Per highlight glyph, independent of note length: (lifetime in seconds, particle count).
 _SING_BURSTS = {
     "ripple": (0.60, 3),
     "twinkle": (0.70, 7),
@@ -305,7 +309,7 @@ class _Burst:
     start: float
     duration: float
     count: int
-    phase: Literal["entry", "exit", "singing"]
+    phase: Literal["entry", "exit", "timing"]
 
 
 def _burst_seed(kind: str, entering: bool, exiting: bool) -> int:
@@ -328,7 +332,7 @@ def _transition_burst(
     total: float,
     entering: bool,
     display: Lifetime,
-    sung_end: float,
+    line_timing_end: float,
     stagger: float,
     index: int,
     count: int,
@@ -339,7 +343,7 @@ def _transition_burst(
     window = max(1, round(total * 1000))
     scale = window / 600
     start, end = round(display.start * 1000), round(display.end * 1000)
-    done = round(sung_end * 1000)
+    done = round(line_timing_end * 1000)
     if kind == "sparkle":
         if entering:
             return start / 1000, int(700 * scale) / 1000
@@ -423,7 +427,7 @@ def _character_offsets(line: LyricLine, hosts: dict[str, LyricTarget], spread: f
 def _utopia_exit_anchor(line: LyricLine, duration: float, release: float) -> Callable[[LyricLine, LyricTarget], tuple[TimeSpan, ...]]:
     """Leave after the next visible main character finishes, including for its preceding reading."""
     glyphs = tuple(line._glyph_regions(automatic=False))
-    last = max((s.end + target.delay for target in line.query("character") for s in target.singing),
+    last = max((s.end + target.delay for target in line.query("character") for s in target.timing),
                default=line.lifetime.end)
     tail = max(0, line.lifetime.end - last - duration)
     annotated = {reading.unit_index for reading in line.layout.ruby}
@@ -431,9 +435,9 @@ def _utopia_exit_anchor(line: LyricLine, duration: float, release: float) -> Cal
     group_ends: dict[int, float] = {}
     following = None
     for target, glyph, unit, _ in reversed(glyphs):
-        if target.role != "character" or not target.singing:
+        if target.role != "character" or not target.timing:
             continue
-        done = max(s.end for s in target.singing) + target.delay
+        done = max(s.end for s in target.timing) + target.delay
         at = following if following is not None and following >= done else done + tail
         at = max(done + release, at)
         if unit in annotated:
@@ -481,7 +485,7 @@ def _utopia(duration: float, target: LyricTarget) -> ScalePulse:
 
 
 @dataclass(frozen=True)
-class _SingingPulse:
+class _HighlightPulse:
     note: TimeSpan
     duration: float
     animation: ScalePulse | Transform
@@ -549,9 +553,9 @@ class _SingingPulse:
         yield self.note.start + self.duration
 
 
-def _singing_pulses(
+def _highlight_pulses(
     intervals: tuple[TimeSpan, ...], target: LyricTarget, *, zoom: bool, level: int,
-) -> tuple[_SingingPulse, ...]:
+) -> tuple[_HighlightPulse, ...]:
     pulses = []
     for i, note in enumerate(intervals):
         if zoom:
@@ -561,7 +565,7 @@ def _singing_pulses(
         else:
             duration = note.duration
             motion = _utopia(duration, target)
-        pulses.append(_SingingPulse(note, duration, motion))
+        pulses.append(_HighlightPulse(note, duration, motion))
     return tuple(pulses)
 
 
@@ -763,7 +767,7 @@ def _front_clock(
 
 
 def _sweeps(
-    parts: tuple[tuple[SingingSpan, float, float], ...],
+    parts: tuple[tuple[TimedTextSpan, float, float], ...],
     delay: float,
     bounds: Box,
     previous: tuple[_Sweep, ...],
@@ -844,7 +848,7 @@ type _BandPath = tuple[tuple[float, float, float], ...]
 
 
 def _band_path(path: _FrontPath, scale_x: float, origin: float,
-               pulses: tuple[_SingingPulse, ...], width: float) -> _BandPath:
+               pulses: tuple[_HighlightPulse, ...], width: float) -> _BandPath:
     """Keep the mapped front on the glyph, but express strip widths in canvas pixels."""
     if not pulses:
         return tuple((t, x, 1 / scale_x) for t, x in path)
@@ -883,7 +887,7 @@ def _band_path(path: _FrontPath, scale_x: float, origin: float,
 @dataclass(frozen=True)
 class _ScanlineLayer:
     drawing: TextObject
-    sung_brush: LinearGradient | None
+    highlight_brush: LinearGradient | None
     waiting_brush: LinearGradient | None
     sides: tuple[TextObject, TextObject] | None
 
@@ -908,7 +912,7 @@ def _hard_rims(
         backing = layers.secondary or layers.glow
         return _hard_rim(nodes[backing.id], border) if backing is not None else None
 
-    return rim(glyph.sung[0]) if glyph.sung else None, rim(glyph.waiting)
+    return rim(glyph.highlights[0]) if glyph.highlights else None, rim(glyph.base)
 
 
 def _outside_front(
@@ -936,7 +940,7 @@ def _outside_front(
 
 
 def _clip_rows(piece: TextObject, top: float, bottom: float) -> TextObject:
-    """Limit a horizontal singing clip to fixed rows in glyph-local coordinates."""
+    """Limit a horizontal timing clip to fixed rows in glyph-local coordinates."""
     clip = piece.clip
     assert isinstance(clip, RectangleClip) and isinstance(clip.deform, RectangleKeyframes)
     return replace(piece, clip=replace(clip, deform=RectangleKeyframes(tuple(
@@ -945,7 +949,7 @@ def _clip_rows(piece: TextObject, top: float, bottom: float) -> TextObject:
 
 
 def _fade_underpaint(node: TextObject, start: float) -> TextObject:
-    """Studio fades waiting and sung ink independently during a character exit."""
+    """Studio fades waiting and highlight ink independently during a character exit."""
     clip = node.clip
     if not isinstance(clip, RectangleClip) or not isinstance(clip.deform, RectangleKeyframes):
         return node
@@ -980,11 +984,11 @@ def _scanline_slices(
 
 @dataclass(frozen=True, kw_only=True)
 class KaraokeEffects:
-    """Compose entry, singing, exit and ornaments as one Track.effects callable.
+    """Compose entry, timing, exit and ornaments as one Track.effects callable.
 
     All durations are seconds, widths are script pixels; particle_size is a
     fraction of the shaped font’s em size. Entry/exit duration includes the
-    full stagger span. Zero disables that transition. `none` singing retains
+    full stagger span. Zero disables that transition. `none` timing retains
     ordinary wipe; `no_wipe` recolors the whole timed unit at completion. Utopia pulses
     within each note; zoom_pulse grows throughout the note and releases over .30 s.
     Ornament tails request display time and follow the host on a dense automatic track.
@@ -996,9 +1000,9 @@ class KaraokeEffects:
     Includes the Studio animation-menu families, independently implemented on
     this engine. It is a visual recipe, not an importer or pixel-identical renderer.
     Use ordinary LyricRule/custom effects alongside it. Apply once per line, before
-    another highlight factory; this recipe owns the base/sung appearance and masks.
+    another highlight factory; this recipe supplies both paints and masks for the color transition.
     secondary_outline adds a solid outer stroke to both states, independently of glow.
-    sung_secondary_outline overrides its sung color and width.
+    after_secondary_outline overrides its color and width after the transition.
     dual_outline derives contrasting outlines for unspecified roles.
     Decorations use seeded glyph-local trajectories; ruby receives text transitions
     and sweeps but not particles or outline flash. max_particles bounds the number
@@ -1014,7 +1018,7 @@ class KaraokeEffects:
 
     entry: KaraokeEntry = "fade"
     exit: KaraokeExit = "fade"
-    singing: KaraokeSinging = "utopia"
+    highlight: KaraokeHighlight = "utopia"
     entry_unit: Literal["preset", "character"] = "preset"
     exit_unit: Literal["preset", "character"] = "preset"
     reverse_wipe: bool = False
@@ -1022,14 +1026,14 @@ class KaraokeEffects:
     entry_duration: float = 0.3
     exit_duration: float = 0.3
     stagger: float = 7 / 12
-    sung: Color | None = None
-    unsung: Color | None = None
+    after_fill: Color | None = None
+    before_fill: Color | None = None
     material: LyricMaterial = None
     base_material: LyricMaterial = None
     glow: LyricGlow = None
     base_glow: LyricGlow = None
     secondary_outline: SecondaryOutline | None = None
-    sung_secondary_outline: SecondaryOutline | None = None
+    after_secondary_outline: SecondaryOutline | None = None
     particle_color: Color | tuple[Color, Color] | Literal["follow_before", "follow_after", "follow_mix", "illustrated"] | None = None
     particle_layers: Literal["solid", "stroke", "decor", "all"] = "solid"
     particle_glow_concentration: int = 0
@@ -1051,15 +1055,15 @@ class KaraokeEffects:
     scanline_color: Color | None = None
     hook_feather: float | LengthExpr = 0
     front_color: Color | None = None
-    unsung_outline: Color | None = None
-    sung_outline: Color | None = None
+    before_outline: Color | None = None
+    after_outline: Color | None = None
     dual_outline: bool = False
     stroke_flash: bool = False
     id: str = "karaoke"
 
     @property
     def _secondary_width(self) -> float:
-        return max((rim.width for rim in (self.secondary_outline, self.sung_secondary_outline) if rim), default=0)
+        return max((rim.width for rim in (self.secondary_outline, self.after_secondary_outline) if rim), default=0)
 
     @property
     def _hard_border(self) -> float:
@@ -1069,19 +1073,19 @@ class KaraokeEffects:
     def duotone(
         cls,
         *,
-        unsung: Color | None = None,
-        unsung_outline: Color | None = None,
-        sung: Color | None = None,
-        sung_outline: Color | None = None,
+        before_fill: Color | None = None,
+        before_outline: Color | None = None,
+        after_fill: Color | None = None,
+        after_outline: Color | None = None,
         feather: float | LengthExpr = Glyph.font_size / 6,
     ) -> "KaraokeEffects":
         """Wipe between two fill/outline pairs. The moving boundary carries no separate ink."""
         return cls(
-            singing="none",
-            sung=sung,
-            unsung=unsung,
-            sung_outline=sung_outline,
-            unsung_outline=unsung_outline,
+            highlight="none",
+            after_fill=after_fill,
+            before_fill=before_fill,
+            after_outline=after_outline,
+            before_outline=before_outline,
             hook_feather=feather, dual_outline=True,
         )
 
@@ -1089,7 +1093,7 @@ class KaraokeEffects:
         for value, choices in (
             (self.entry, KaraokeEntry),
             (self.exit, KaraokeExit),
-            (self.singing, KaraokeSinging),
+            (self.highlight, KaraokeHighlight),
             (self.decoration, KaraokeDecoration),
         ):
             if value not in get_args(choices.__value__):
@@ -1145,8 +1149,8 @@ class KaraokeEffects:
             raise ValueError("particle budget must be positive and seed an integer")
         if (
             not self.id
-            or (self.sung is not None and not isinstance(self.sung, Color))
-            or (self.unsung is not None and not isinstance(self.unsung, Color))
+            or (self.after_fill is not None and not isinstance(self.after_fill, Color))
+            or (self.before_fill is not None and not isinstance(self.before_fill, Color))
         ):
             raise ValueError("effects need an id and Color paints")
         if type(self.particle_glow_concentration) is not int or not -1 <= self.particle_glow_concentration <= 2:
@@ -1161,16 +1165,16 @@ class KaraokeEffects:
 
     def with_theme(self, theme: KaraokeTheme = _EMPTY_THEME) -> "KaraokeEffects":
         """Resolve effective color roles, leaving explicit materials and colors in place."""
-        sung = self.sung or theme.sung or _DEFAULT_SUNG
-        unsung = self.unsung or theme.unsung or _DEFAULT_UNSUNG
-        shine = self.shine or theme.shine or _mix(sung, Color(255, 255, 255), 0.80)
+        after_fill = self.after_fill or theme.after_fill or _DEFAULT_AFTER_FILL
+        before_fill = self.before_fill or theme.before_fill or _DEFAULT_BEFORE_FILL
+        shine = self.shine or theme.shine or _mix(after_fill, Color(255, 255, 255), 0.80)
         return replace(
-            self, sung=sung, unsung=unsung,
-            sung_outline=self.sung_outline or theme.sung_outline or (
-                _outline_for(sung) if self.dual_outline else None
+            self, after_fill=after_fill, before_fill=before_fill,
+            after_outline=self.after_outline or theme.after_outline or (
+                _outline_for(after_fill) if self.dual_outline else None
             ),
-            unsung_outline=self.unsung_outline or theme.unsung_outline or (
-                _outline_for(unsung) if self.dual_outline else None
+            before_outline=self.before_outline or theme.before_outline or (
+                _outline_for(before_fill) if self.dual_outline else None
             ),
             shine=shine, scanline_color=self.scanline_color or shine,
             particle_color=self.particle_color or "follow_after",
@@ -1180,14 +1184,14 @@ class KaraokeEffects:
         return (
             _transition_window(self.entry, self.entry_duration, entering=True),
             _transition_window(self.exit, self.exit_duration, entering=False),
-            _ZOOM_RELEASE if self.singing.startswith("zoom_pulse") else 0,
+            _ZOOM_RELEASE if self.highlight.startswith("zoom_pulse") else 0,
         )
 
     def _preview_padding(self) -> tuple[float, float, float] | None:
         """Bounds for finding relevant rows without shaping the whole song."""
         if (self.entry not in {"none", "fade", "tilt_pop"}
                 or self.exit not in {"none", "fade", "spin_flip"}
-                or self.singing not in {"none", "zoom_pulse"}
+                or self.highlight not in {"none", "zoom_pulse"}
                 or self.decoration != "none" or self.stroke_flash or self.glow or self.base_glow
                 or self._secondary_width or any(
                     m is not None and type(m) is not LyricGradient
@@ -1208,7 +1212,7 @@ class KaraokeEffects:
                 self,
                 entry=self.entry if self.entry in ("fade", "slide_in", "rise") else "none",
                 exit=self.exit if self.exit in ("fade", "slide_out", "rise") else "none",
-                singing="no_wipe" if self.singing == "no_wipe" else "none",
+                highlight="no_wipe" if self.highlight == "no_wipe" else "none",
                 decoration="none", stroke_flash=False,
             )._apply(line)
         return self._apply(line)
@@ -1218,7 +1222,7 @@ class KaraokeEffects:
         if any(marker in node.id for node in _walk(line)):
             raise ValueError("duplicate karaoke effect id")
         before = line
-        spans = [span for target in line.query("character") for span in target.singing]
+        spans = [span for target in line.query("character") for span in target.timing]
         first = min((s.start for s in spans), default=line.lifetime.start)
         last = max((s.end for s in spans), default=line.lifetime.end)
         delay = line.query("line")[0].delay
@@ -1244,17 +1248,17 @@ class KaraokeEffects:
             raise ValueError(
                 "KaraokeEffects must precede other highlight/material factories"
             )
-        highlighter = LyricHighlights.from_singing(
-            StatePatch(fill=self.sung, outline=self.sung_outline),
-            wipe=self.singing != "no_wipe",
+        highlighter = LyricHighlights.from_timing(
+            StatePatch(fill=self.after_fill, outline=self.after_outline),
+            wipe=self.highlight != "no_wipe",
             reverse=self.reverse_wipe,
             ruby_reading_units=self.ruby_reading_units,
-            base_paint=StatePatch(fill=self.unsung, outline=self.unsung_outline),
+            base_paint=StatePatch(fill=self.before_fill, outline=self.before_outline),
             material=self.material,
             base_material=self.base_material,
             glow=self.glow,
             base_glow=self.base_glow,
-            secondary_outline=self.secondary_outline, sung_secondary_outline=self.sung_secondary_outline,
+            secondary_outline=self.secondary_outline, after_secondary_outline=self.after_secondary_outline,
             hook_feather=self.hook_feather,
             front_color=self.front_color,
         )
@@ -1268,8 +1272,8 @@ class KaraokeEffects:
                     *line.required_display[len(before.required_display):],
                 ),
             )
-        pulses_by_target: dict[str, tuple[_SingingPulse, ...]] = {}
-        if self.singing.startswith(("utopia", "zoom_pulse")):
+        pulses_by_target: dict[str, tuple[_HighlightPulse, ...]] = {}
+        if self.highlight.startswith(("utopia", "zoom_pulse")):
             arrival = HighlightArrival(highlights=highlighter.highlights)
             for target, _, index, _ in line._glyph_regions(automatic=True):
                 unit = line.layout.lyrics.units[index]
@@ -1277,16 +1281,16 @@ class KaraokeEffects:
                     intervals = arrival(line, target)
                 else:
                     intervals = tuple(TimeSpan(s.start + target.delay, s.end + target.delay)
-                                      for s in target._visual_singing() if s.end > s.start)
-                pulses_by_target[target.node_id] = _singing_pulses(
-                    intervals, target, zoom=self.singing.startswith("zoom_pulse"), level=self.zoom_pulse_curve_level,
+                                      for s in target._visual_timing() if s.end > s.start)
+                pulses_by_target[target.node_id] = _highlight_pulses(
+                    intervals, target, zoom=self.highlight.startswith("zoom_pulse"), level=self.zoom_pulse_curve_level,
                 )
         # The character-transition painter keeps the ordinary wipe and resumes
         # the luminous band on the frame after its inclusive entry window.
-        singing_resume = line.lifetime.start + entry_total + 0.01 if first < entry_total else None
+        timing_resume = line.lifetime.start + entry_total + 0.01 if first < entry_total else None
         line = replace(
             self, entry_duration=entry_total, exit_duration=exit_total
-        )._ornaments(line, original, pulses_by_target, singing_resume, widths, paint)
+        )._ornaments(line, original, pulses_by_target, timing_resume, widths, paint)
         reading_edges = _reading_edges(line)
         for entering, kind, total in (
             (True, self.entry, entry_total),
@@ -1294,7 +1298,7 @@ class KaraokeEffects:
         ):
             if kind == "none" or total == 0:
                 continue
-            # A line at the start of the song can begin singing during its
+            # A line at the start of the song can begin timing during its
             # entrance. Reserve that actual span without asking for negative preroll.
             anchor = "enter" if entering else "exit"
             if entering and first < total:
@@ -1304,7 +1308,7 @@ class KaraokeEffects:
                 departures = line._resolve((LyricRule(
                     line.query("character", "ruby"), _utopia_exit_anchor(line, total, release),
                     partial(transition, kind=kind, entering=False, seed=self.seed,
-                            zoom_pivot=self.singing.startswith("zoom_pulse")),
+                            zoom_pivot=self.highlight.startswith("zoom_pulse")),
                     duration=total,
                 ),))
                 # Earlier notes use their own release. The trailing glyphs
@@ -1318,7 +1322,7 @@ class KaraokeEffects:
                 )))
                 continue
             animate = partial(transition, kind=kind, entering=entering, seed=self.seed,
-                              zoom_pivot=self.singing.startswith("zoom_pulse"))
+                              zoom_pivot=self.highlight.startswith("zoom_pulse"))
             if not individual and kind in {"fade", "slide_in", "slide_out", "rise"}:
                 line = line.schedule(LyricRule("line", anchor, animate, duration=total))
                 continue
@@ -1347,7 +1351,7 @@ class KaraokeEffects:
             rules = []
             for target in line.query("character", "ruby"):
                 for pulse in pulses_by_target[target.node_id]:
-                    rule = pulse.rule(target, singing_resume)
+                    rule = pulse.rule(target, timing_resume)
                     if rule is not None:
                         rules.append(rule)
             pulses = line._resolve(tuple(rules))
@@ -1369,10 +1373,10 @@ class KaraokeEffects:
         band: float, softness: float, top: float, bottom: float,
     ) -> Iterator[TextObject]:
         node, sides = layer.drawing, layer.sides
-        material, before_material = layer.sung_brush, layer.waiting_brush
+        material, before_material = layer.highlight_brush, layer.waiting_brush
         if self.scanline_mode == "brighten" and self.scanline_brightness == 0:
             return
-        assert self.scanline_color is not None and self.sung is not None and self.unsung is not None
+        assert self.scanline_color is not None and self.after_fill is not None and self.before_fill is not None
         before = after = (self.scanline_color, self.scanline_color, material)
         if self.scanline_mode != "color":
 
@@ -1386,19 +1390,19 @@ class KaraokeEffects:
                 )
 
             if sides:
-                sung, waiting = sides
+                highlight, waiting = sides
                 before = lifted(
                     waiting.state.fill, waiting.state.outline, before_material
                 )
-                after = lifted(sung.state.fill, sung.state.outline, material)
+                after = lifted(highlight.state.fill, highlight.state.outline, material)
             else:
                 before = lifted(
-                    self.unsung,
-                    self.unsung_outline or node.state.outline,
+                    self.before_fill,
+                    self.before_outline or node.state.outline,
                     before_material,
                 )
                 after = lifted(
-                    self.sung, self.sung_outline or node.state.outline, material
+                    self.after_fill, self.after_outline or node.state.outline, material
                 )
             if self.scanline_mode == "follow_before":
                 after = before
@@ -1467,8 +1471,8 @@ class KaraokeEffects:
         if self.decoration == "none" and self.entry not in _TRANSITION_COUNTS and self.exit not in _TRANSITION_COUNTS:
             return
         targets = line.query("character")
-        sung_end = max(
-            (span.end + target.delay for target in targets for span in target.singing),
+        line_timing_end = max(
+            (span.end + target.delay for target in targets for span in target.timing),
             default=line.lifetime.start,
         )
         for index, target in enumerate(targets):
@@ -1491,7 +1495,7 @@ class KaraokeEffects:
                     total,
                     entering,
                     line.lifetime,
-                    sung_end,
+                    line_timing_end,
                     self.stagger,
                     index,
                     len(targets),
@@ -1508,7 +1512,7 @@ class KaraokeEffects:
                 )
             if not node.text.strip():
                 continue
-            for segment in target.singing:
+            for segment in target.timing:
                 length = segment.end - segment.start
                 if length <= 0 or self.decoration == "none":
                     continue
@@ -1523,7 +1527,7 @@ class KaraokeEffects:
                     segment.start + target.delay,
                     duration,
                     count,
-                    "singing",
+                    "timing",
                 )
 
     def _follow_particle_ink(
@@ -1534,7 +1538,7 @@ class KaraokeEffects:
         role_tint = None
         if not isinstance(self.particle_color, str) or self.particle_color == "illustrated":
             return followed, role_tint
-        assert self.sung is not None and self.unsung is not None
+        assert self.after_fill is not None and self.before_fill is not None
         painted = {n.id: n for n in _walk(line)}
         centers: list[tuple[float, Color]] = []
         for target, glyph, _, _ in line._glyph_regions(automatic=False):
@@ -1542,11 +1546,11 @@ class KaraokeEffects:
                 continue
             inks: list[_ParticlePaint] = []
             glyph_paint = glyph_layers.get(target.node_id)
-            waiting = glyph_paint.waiting if glyph_paint else None
-            sung = glyph_paint.sung[0] if glyph_paint and glyph_paint.sung else None
+            waiting = glyph_paint.base if glyph_paint else None
+            highlight_layers = glyph_paint.highlights[0] if glyph_paint and glyph_paint.highlights else None
             for mode, source, layers, fallback in (
-                ("follow_before", self.base_material, waiting, self.unsung),
-                ("follow_after", self.material, sung, self.sung),
+                ("follow_before", self.base_material, waiting, self.before_fill),
+                ("follow_after", self.material, highlight_layers, self.after_fill),
             ):
                 if self.particle_color not in (mode, "follow_mix"):
                     continue
@@ -1598,7 +1602,7 @@ class KaraokeEffects:
         plans = tuple(self._burst_plans(line, nodes))
         if sum(plan.count for plan in plans) > self.max_particles:
             raise ValueError("karaoke particle budget exceeded before construction")
-        active = [(i, p) for i, p in enumerate(plans) if (p.phase != "singing") == transitions]
+        active = [(i, p) for i, p in enumerate(plans) if (p.phase != "timing") == transitions]
         if not active:
             return line
         followed, role_tint = self._follow_particle_ink(line, glyph_layers)
@@ -1746,7 +1750,7 @@ class KaraokeEffects:
                     start = line.lifetime.end - total * (1 - self.stagger) + fade_offsets[target.node_id]
                     glyph = glyph_layers.get(node.id)
                     backing = (
-                        (nodes[layer.id] for layer in (glyph.waiting.secondary, glyph.waiting.glow) if layer)
+                        (nodes[layer.id] for layer in (glyph.base.secondary, glyph.base.glow) if layer)
                         if glyph else ()
                     )
                     for ink in (node, *backing):
@@ -1834,7 +1838,7 @@ class KaraokeEffects:
         return _insert(line, additions, reserve=False, replacements=replacements)
 
     def _ornaments(self, line: LyricLine, nodes: dict[str, SceneObject],
-                   pulses_by_target: dict[str, tuple[_SingingPulse, ...]], band_start: float | None,
+                   pulses_by_target: dict[str, tuple[_HighlightPulse, ...]], band_start: float | None,
                    widths: dict[float, float], glyph_layers: dict[str, _GlyphPaint]) -> LyricLine:
         additions: dict[str, list[SceneObject]] = {}
         line = self._particles(line, nodes, additions, glyph_layers, transitions=False)
@@ -1856,11 +1860,11 @@ class KaraokeEffects:
                         exit_duration=self.exit_duration * exit_scale,
                     )._display_ornaments(placed, glyph_layers)
                 line = replace(line, _at_placement=(*line._at_placement, decorate))
-        if "scanline" not in self.singing and not self.stroke_flash:
+        if "scanline" not in self.highlight and not self.stroke_flash:
             return _insert(line, additions)
         # The front follows glyph motion. Studio flashes the original measured outline.
         aliases: dict[str, list[str]] = {}
-        painted_nodes = {n.id: n for n in _walk(line)} if "scanline" in self.singing else {}
+        painted_nodes = {n.id: n for n in _walk(line)} if "scanline" in self.highlight else {}
         replacements: dict[str, TextObject] = {}
         glyphs = tuple(line._glyph_regions(automatic=True))
         # At unit boundaries the moving band can still intersect ink on either side.
@@ -1879,18 +1883,18 @@ class KaraokeEffects:
         }
         edges: dict[int | None, dict[int, tuple[tuple[_Sweep, ...], tuple[_Sweep, ...]]]] = {}
         sweeps: dict[str, tuple[_Sweep, ...]] = {}
-        transformed_band = self.singing in {"utopia_scanline", "zoom_pulse_scanline"}
-        if "scanline" in self.singing:
+        transformed_band = self.highlight in {"utopia_scanline", "zoom_pulse_scanline"}
+        if "scanline" in self.highlight:
             intervals: dict[int | None, set[tuple[float, float]]] = {}
             reading_ends: dict[int, float] = {}
             for target, _, unit, _ in glyphs:
                 group, _slot = reading_slots.get(target.node_id, (None, unit))
-                spans = target._visual_singing()
+                spans = target._visual_timing()
                 intervals.setdefault(group, set()).update(
                     (s.start + target.delay, s.end + target.delay) for s in spans if s.end > s.start
                 )
                 if group is not None:
-                    reading_ends[group] = line.layout.lyrics.units[unit].segments[-1].singing.end + target.delay
+                    reading_ends[group] = line.layout.lyrics.units[unit].segments[-1].timing.end + target.delay
             clocks = {g: _front_clock(notes, reading_ends.get(g) if g is not None else None)
                       for g, notes in intervals.items()}
             body_clocks = {
@@ -1898,7 +1902,7 @@ class KaraokeEffects:
                 for i, unit in enumerate(line.layout.lyrics.units)
             }
             # A zero-duration space separates words on the page but contributes
-            # no sung endpoint. Keep the last timed word for the handoff frame.
+            # no highlight endpoint. Keep the last timed word for the handoff frame.
             previous_body_slots: list[int] = []
             previous_slot = -1
             for slot, lyric in enumerate(line.layout.lyrics.units):
@@ -1911,7 +1915,7 @@ class KaraokeEffects:
                 track = edges.setdefault(group, {})
                 body = group is None
                 previous = track.get(previous_body_slots[slot]) if body and not self.reverse_wipe else None
-                clock = body_clocks[unit] if body else ((target._reading_span or target.singing[0], 0, 1),)
+                clock = body_clocks[unit] if body else ((target._reading_span or target.timing[0], 0, 1),)
                 first_note, releases = clocks[group]
                 if not body and transformed_band:
                     # The animated painter sweeps each reading fragment across its font
@@ -1930,15 +1934,15 @@ class KaraokeEffects:
         ratio = line.layout.script_height / 1080
         band_width = max(1, round(16 * ratio)) if self.scanline_width is None else self.scanline_width
         band_softness = round(8 * ratio) if self.scanline_softness is None else self.scanline_softness
-        reading_hosts = _character_hosts(line) if reading_slots and "scanline" in self.singing else {}
-        run_spans = _scanline_run_spans(line) if "scanline" in self.singing else {}
+        reading_hosts = _character_hosts(line) if reading_slots and "scanline" in self.highlight else {}
+        run_spans = _scanline_run_spans(line) if "scanline" in self.highlight else {}
         for target, glyph, unit, _ in glyphs:
             node = nodes[target.node_id]
             if not isinstance(node, TextObject) or not node.text.strip():
                 continue
             material: LinearGradient | None = None
             span = run_spans.get(glyph.object.id)
-            if span is not None and self.singing == "zoom_pulse_scanline":
+            if span is not None and self.highlight == "zoom_pulse_scanline":
                 span = _line_x(glyph, glyph.bounds.left, glyph.bounds.right)
             before_material = None
             glyph_paint = glyph_layers.get(node.id)
@@ -1955,14 +1959,14 @@ class KaraokeEffects:
                     if isinstance(field, LinearGradient):
                         before_material = _brighten_gradient(field, self.scanline_brightness)
                 if self.scanline_mode != "follow_before":
-                    sung = next(
-                        (layers.face.material for layers in glyph_paint.sung if layers.face.material),
+                    highlight_material = next(
+                        (layers.face.material for layers in glyph_paint.highlights if layers.face.material),
                         None,
                     ) if glyph_paint else None
-                    field = _scanline_brush(self.material, target, span, sung)
+                    field = _scanline_brush(self.material, target, span, highlight_material)
                     if isinstance(field, LinearGradient):
                         material = _brighten_gradient(field, self.scanline_brightness)
-            if "scanline" in self.singing:
+            if "scanline" in self.highlight:
                 width = _width(band_width, node.font_size, line.layout.script_height, f"{node.id}: scanline_width")
                 softness = _width(band_softness, node.font_size, line.layout.script_height, f"{node.id}: scanline_softness")
                 if width == 0:
@@ -1971,9 +1975,9 @@ class KaraokeEffects:
                 scale = glyph.layout_scale
                 ink = glyph.ink_bounds or glyph.bounds
                 base = painted_nodes[target.node_id]
-                sung_piece = (
-                    painted_nodes[glyph_paint.sung[0].face.id]
-                    if glyph_paint and glyph_paint.sung else None
+                highlight_piece = (
+                    painted_nodes[glyph_paint.highlights[0].face.id]
+                    if glyph_paint and glyph_paint.highlights else None
                 )
                 rims = _hard_rims(glyph_paint, node.state.border, painted_nodes)
                 # The repaint uses the host pen. A soft adjustment only changes
@@ -2042,24 +2046,24 @@ class KaraokeEffects:
                 if (
                     native_pass
                     and isinstance(base, TextObject)
-                    and isinstance(sung_piece, TextObject)
+                    and isinstance(highlight_piece, TextObject)
                     and all(
                         isinstance(p.clip, RectangleClip)
                         and isinstance(p.clip.deform, RectangleKeyframes)
-                        for p in (base, sung_piece)
+                        for p in (base, highlight_piece)
                     )
                 ):
                     if (
                         softness > 0 and not inside_reading
-                        and _compatible_brushes(base.material, sung_piece.material, material, before_material)
+                        and _compatible_brushes(base.material, highlight_piece.material, material, before_material)
                     ):
-                        sides = sung_piece, base
-                    sung_rim, waiting_rim = rims
-                    if sung_rim and waiting_rim:
+                        sides = highlight_piece, base
+                    highlight_rim, waiting_rim = rims
+                    if highlight_rim and waiting_rim:
                         brush = material if self.scanline_mode == "color" else None
                         if _compatible_brushes(brush):
                             layers.append(
-                                _ScanlineLayer(sung_rim, brush, None, (sung_rim, waiting_rim))
+                                _ScanlineLayer(highlight_rim, brush, None, (highlight_rim, waiting_rim))
                             )
                 layers.append(_ScanlineLayer(band_node, material, before_material, sides))
                 pulses = pulses_by_target.get(target.node_id, ())
@@ -2069,8 +2073,8 @@ class KaraokeEffects:
                     if band_paths and layer.sides and (not transformed_band or softness > 0):
                         if not transformed_band:
                             strip_top, strip_bottom = -65536, 65536
-                        sung, waiting = layer.sides
-                        left_piece, right_piece = (waiting, sung) if self.reverse_wipe else (sung, waiting)
+                        highlight, waiting = layer.sides
+                        left_piece, right_piece = (waiting, highlight) if self.reverse_wipe else (highlight, waiting)
                         for piece, offset, left in (
                             (left_piece, -width / 2, True),
                             (right_piece, width / 2, False),
@@ -2100,7 +2104,7 @@ class KaraokeEffects:
             path = outline.path
             paint = contour_stroke(path, 0.8 * pen)
 
-            for index, span in enumerate(line.layout.lyrics.units[unit]._body_singing()):
+            for index, span in enumerate(line.layout.lyrics.units[unit]._body_timing()):
                 onset = span.start + target.delay
                 end = min(node.lifetime.end, onset + 0.24)
                 if end <= onset:

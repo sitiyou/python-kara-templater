@@ -46,8 +46,8 @@ def source_prefix(owner: str) -> str:
     return SOURCE_PREFIX + quote(owner, safe="") + ":"
 
 
-def write_source_marker(owner: str, item_id: str, effect: str) -> str:
-    return source_prefix(owner) + quote(item_id, safe="") + ":" + quote(effect, safe="")
+def write_source_marker(owner: str, source_id: str, effect: str) -> str:
+    return source_prefix(owner) + quote(source_id, safe="") + ":" + quote(effect, safe="")
 
 
 def read_source_marker(marker: str, prefix: str, index: int) -> tuple[str, str]:

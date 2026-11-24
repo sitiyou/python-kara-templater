@@ -143,7 +143,7 @@ The hook sweeps the filled silhouette and its hard border along the offset
 once per distinct shape, then caches the exposed side as a coverage mask.
 An outline-only path sweeps just its stroke. Transforms and fades move the
 face and side together. Within a scene layer all sides draw before the faces.
-A track applies the side to body and ruby and keeps singing paint on the face.
+A track applies the side to body and ruby and keeps timing paint on the face.
 Layout uses the front face's ordinary metrics. This appearance supports hook
 output, and an explicit ASS export reports the unsupported extrusion.
 

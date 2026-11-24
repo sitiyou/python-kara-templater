@@ -27,8 +27,8 @@ def test_custom_choices_preserve_author_rules_and_do_not_leak_state(
     scene = build(layout=layout)
     main = [plan for plan in scene.plans if plan.track_id == "main"]
     assert [plan.placement.row for plan in main] == rows
-    assert main[3].input.lead
-    assert "solo" in main[4].input.tags
+    assert main[3].layout_request.lead
+    assert "solo" in main[4].layout_request.tags
     assert main[4].placement.position == Vec2(300, 260)
     harmony = [plan for plan in scene.plans if plan.track_id == "harmony"]
     assert len(harmony) == 1 and harmony[0].placement.row == 0
@@ -36,7 +36,7 @@ def test_custom_choices_preserve_author_rules_and_do_not_leak_state(
     # Reuse exactly the same allocator instance for a different batch, then again
     # for the original song. Cursor/occupancy must remain call-local variables.
     layout.allocate(
-        tuple(plan.input for plan in harmony), LayoutContext(Box(0, 0, 960, 540))
+        tuple(plan.layout_request for plan in harmony), LayoutContext(Box(0, 0, 960, 540))
     )
     assert scene.lines == build(layout=layout).lines
     ordinary = build()
@@ -56,7 +56,7 @@ def test_same_song_and_animation_rules_support_any_builtin_row_count(rows):
     assert [plan.placement.row for plan in main] == [i % rows for i in range(3)] * 2
     assert all(plan.line.animations for plan in main)
     # Layout may trim optional visibility, so exit binding times can change;
-    # the authored animation definitions and source singing stay identical.
+    # the authored animation definitions and source timing stay identical.
     assert [
         [(clip.animation, clip.duration) for clip in line.animations]
         for line in scene.lines

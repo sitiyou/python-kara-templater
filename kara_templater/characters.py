@@ -5,11 +5,9 @@ from unicodedata import category, name
 
 from . import _metrics
 from .ass import Style
-from .geometry import Vec2
-from .layout import text_extents
-from .model import Box
+from .geometry import Box, Region, Vec2, _finite
 from .sources import _source_location
-from .timeline import Region, _finite
+from .text.measurement import text_extents
 
 
 @dataclass(frozen=True)

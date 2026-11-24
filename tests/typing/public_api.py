@@ -4,6 +4,7 @@ from typing import assert_type
 
 from kara_templater import (
     RED,
+    AssResult,
     BackRate,
     Color,
     Document,
@@ -11,10 +12,9 @@ from kara_templater import (
     EventOrigin,
     Line,
     LyricScene,
-    SceneResult,
     Style,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
     smooth_rate,
     there_and_back,
 )
@@ -32,9 +32,9 @@ def values_and_render(document: Document, track: Track) -> None:
     assert_type(smooth_rate(0.5), float)
     assert_type(there_and_back(0.5), float)
     assert_type(there_and_back(peak_at=0.2), BackRate)
-    prepared = prepare_tracks(document, tracks=(track,))
+    prepared = build_lyric_scene(document, tracks=(track,))
     assert_type(prepared, LyricScene)
-    assert_type(prepared.ass.compile(), SceneResult)
+    assert_type(prepared.ass.compile(), AssResult)
     assert_type(
         prepared.ass.compile().event_origins, tuple[tuple[Line, EventOrigin | None], ...]
     )

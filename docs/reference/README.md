@@ -12,16 +12,16 @@ Use `--check` to verify that committed pages match the current public API.
 
 | Topic | Symbols |
 | --- | --- |
-| [Documents and lyric input](documents.md) | 20 |
+| [Documents and lyric input](documents.md) | 21 |
 | [Scenes and compilation](scenes.md) | 20 |
-| [Animation and timing](animation.md) | 34 |
+| [Animation and timing](animation.md) | 35 |
 | [Track authoring](tracks.md) | 25 |
-| [Text measurement and layout](text.md) | 21 |
-| [Geometry and paths](geometry.md) | 29 |
-| [Colors and appearance](paint.md) | 31 |
+| [Text measurement and layout](text.md) | 19 |
+| [Geometry and paths](geometry.md) | 32 |
+| [Colors and appearance](paint.md) | 30 |
 | [Lyric cues](cues.md) | 13 |
 | [Particles and references](particles.md) | 14 |
-| [Regions and progress curves](native.md) | 4 |
+| [Raster previews](native.md) | 2 |
 
 ## Symbol index
 
@@ -31,11 +31,16 @@ Use `--check` to verify that committed pages match the current public API.
 - [Animation](animation.md#animation)
 - [AnimationClip](animation.md#animationclip)
 - [AnimationSequence](animation.md#animationsequence)
+- [AssBudget](scenes.md#assbudget)
+- [AssDialogue](scenes.md#assdialogue)
+- [AssEstimate](scenes.md#assestimate)
+- [AssObjectReport](scenes.md#assobjectreport)
+- [AssResult](scenes.md#assresult)
 - [BLACK](paint.md#black)
 - [BLUE](paint.md#blue)
 - [BackRate](animation.md#backrate)
 - [BarsCue](cues.md#barscue)
-- [Box](text.md#box)
+- [Box](geometry.md#box)
 - [CYAN](paint.md#cyan)
 - [Canvas](animation.md#canvas)
 - [Channel](animation.md#channel)
@@ -56,7 +61,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [CurveIn](animation.md#curvein)
 - [DisplayWindow](native.md#displaywindow)
 - [Document](documents.md#document)
-- [DocumentLayout](text.md#documentlayout)
 - [DocumentLyrics](documents.md#documentlyrics)
 - [DocumentText](documents.md#documenttext)
 - [DrawableCharacter](text.md#drawablecharacter)
@@ -82,17 +86,16 @@ Use `--check` to verify that committed pages match the current public API.
 - [KaraokeEffects](tracks.md#karaokeeffects)
 - [KaraokeEntry](tracks.md#karaokeentry)
 - [KaraokeExit](tracks.md#karaokeexit)
+- [KaraokeHighlight](tracks.md#karaokehighlight)
 - [KaraokeRows](tracks.md#karaokerows)
-- [KaraokeSinging](tracks.md#karaokesinging)
 - [KaraokeTheme](paint.md#karaoketheme)
 - [Layout](tracks.md#layout)
 - [LayoutCapabilityError](text.md#layoutcapabilityerror)
 - [LayoutContext](tracks.md#layoutcontext)
-- [LayoutLine](tracks.md#layoutline)
 - [LengthExpr](animation.md#lengthexpr)
 - [Lifetime](scenes.md#lifetime)
 - [Line](documents.md#line)
-- [LinePlan](tracks.md#lineplan)
+- [LineLayoutRequest](tracks.md#linelayoutrequest)
 - [LineSegment](geometry.md#linesegment)
 - [LinearGradient](paint.md#lineargradient)
 - [LoadedFont](text.md#loadedfont)
@@ -105,6 +108,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [LyricHighlights](paint.md#lyrichighlights)
 - [LyricLayout](text.md#lyriclayout)
 - [LyricLine](tracks.md#lyricline)
+- [LyricLinePlan](tracks.md#lyriclineplan)
 - [LyricMapping](documents.md#lyricmapping)
 - [LyricParticles](particles.md#lyricparticles)
 - [LyricRole](tracks.md#lyricrole)
@@ -117,12 +121,10 @@ Use `--check` to verify that committed pages match the current public API.
 - [MAGENTA](paint.md#magenta)
 - [MorphPath](geometry.md#morphpath)
 - [MoveAlong](geometry.md#movealong)
-- [NativeEvent](scenes.md#nativeevent)
 - [Note](animation.md#note)
 - [ORANGE](paint.md#orange)
 - [ObjectGroup](scenes.md#objectgroup)
-- [ObjectReport](scenes.md#objectreport)
-- [OutputCapabilityError](paint.md#outputcapabilityerror)
+- [OutputCapabilityError](native.md#outputcapabilityerror)
 - [PINK](paint.md#pink)
 - [PURPLE](paint.md#purple)
 - [Paint](paint.md#paint)
@@ -139,32 +141,27 @@ Use `--check` to verify that committed pages match the current public API.
 - [PositionedRuby](text.md#positionedruby)
 - [PositionedText](text.md#positionedtext)
 - [PreparedHook](scenes.md#preparedhook)
-- [ProgressCurve](native.md#progresscurve)
+- [ProgressCurve](animation.md#progresscurve)
 - [RED](paint.md#red)
 - [Record](documents.md#record)
 - [RectangleClip](scenes.md#rectangleclip)
 - [RectangleFunction](scenes.md#rectanglefunction)
 - [RectangleKeyframes](scenes.md#rectanglekeyframes)
 - [ReferenceFunction](particles.md#referencefunction)
-- [Region](native.md#region)
+- [Region](geometry.md#region)
 - [Ribbon](particles.md#ribbon)
 - [RubyText](documents.md#rubytext)
 - [ScalePulse](animation.md#scalepulse)
 - [ScatterOut](tracks.md#scatterout)
 - [Scene](scenes.md#scene)
-- [SceneBudget](scenes.md#scenebudget)
 - [SceneCompileError](scenes.md#scenecompileerror)
-- [SceneEstimate](scenes.md#sceneestimate)
 - [SceneEvaluator](scenes.md#sceneevaluator)
 - [SceneObject](scenes.md#sceneobject)
 - [SceneReferenceError](scenes.md#scenereferenceerror)
-- [SceneResult](scenes.md#sceneresult)
 - [SecondaryOutline](paint.md#secondaryoutline)
 - [ShaderMotion](animation.md#shadermotion)
 - [ShaderPaint](paint.md#shaderpaint)
 - [SignalCue](cues.md#signalcue)
-- [SingingSpan](text.md#singingspan)
-- [SingingTag](documents.md#singingtag)
 - [Slide](animation.md#slide)
 - [SourceRef](documents.md#sourceref)
 - [Sparkle](particles.md#sparkle)
@@ -179,6 +176,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [TextAppearance](documents.md#textappearance)
 - [TextCue](cues.md#textcue)
 - [TextIssue](documents.md#textissue)
+- [TextLayout](text.md#textlayout)
 - [TextObject](scenes.md#textobject)
 - [TextOutline](geometry.md#textoutline)
 - [TextRange](text.md#textrange)
@@ -186,7 +184,9 @@ Use `--check` to verify that committed pages match the current public API.
 - [TextToken](documents.md#texttoken)
 - [TimeExpr](animation.md#timeexpr)
 - [TimeSpan](animation.md#timespan)
+- [TimedTextSpan](documents.md#timedtextspan)
 - [Timeline](animation.md#timeline)
+- [TimingTag](documents.md#timingtag)
 - [Track](tracks.md#track)
 - [TrailPath](geometry.md#trailpath)
 - [Transform](animation.md#transform)
@@ -204,6 +204,7 @@ Use `--check` to verify that committed pages match the current public API.
 - [YELLOW](paint.md#yellow)
 - [bind_cues](cues.md#bind_cues)
 - [bind_lyric_cues](cues.md#bind_lyric_cues)
+- [build_lyric_scene](tracks.md#build_lyric_scene)
 - [ease_in](animation.md#ease_in)
 - [ease_in_out](animation.md#ease_in_out)
 - [ease_out](animation.md#ease_out)
@@ -226,7 +227,6 @@ Use `--check` to verify that committed pages match the current public API.
 - [parse_document_lyrics](documents.md#parse_document_lyrics)
 - [path_boolean](geometry.md#path_boolean)
 - [path_bounds](geometry.md#path_bounds)
-- [prepare_tracks](tracks.md#prepare_tracks)
 - [read_document_text](documents.md#read_document_text)
 - [resample_path](geometry.md#resample_path)
 - [select_characters](text.md#select_characters)
@@ -237,4 +237,4 @@ Use `--check` to verify that committed pages match the current public API.
 - [text_extents](text.md#text_extents)
 - [text_to_path](geometry.md#text_to_path)
 - [there_and_back](animation.md#there_and_back)
-- [union_regions](native.md#union_regions)
+- [union_regions](geometry.md#union_regions)

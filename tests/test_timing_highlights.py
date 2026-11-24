@@ -1,4 +1,4 @@
-"""Source singing owns body width independently of decorative raster margins."""
+"""Source timing owns body width independently of decorative raster margins."""
 
 from dataclasses import replace
 
@@ -8,6 +8,7 @@ from PIL import Image, ImageChops
 from kara_templater import (
     BLUE,
     RED,
+    AssBudget,
     Document,
     Glow,
     Lifetime,
@@ -18,7 +19,6 @@ from kara_templater import (
     RectangleClip,
     RectangleKeyframes,
     Scene,
-    SceneBudget,
     StatePatch,
     Style,
     layout_document_lyrics,
@@ -48,7 +48,7 @@ def leaves(node):
 @pytest.mark.parametrize("blur", (0, 10, 32))
 def test_short_syllable_front_reaches_body_edges_on_source_clock(blur):
     _, line = make_line()
-    effect = LyricHighlights.from_singing(
+    effect = LyricHighlights.from_timing(
         StatePatch(fill=RED, outline=BLUE, border=8),
         glow=Glow(RED, blur=blur, border=14),
         base_glow=Glow(BLUE, blur=blur, border=13),
@@ -69,7 +69,7 @@ def test_short_syllable_front_reaches_body_edges_on_source_clock(blur):
             # Base is a suffix; highlight is its exact complementary prefix.
             edge = 2 if "/highlight:" in identity else 0
             for progress in (0, 0.1, 0.25, 0.5, 0.9, 1):
-                span = unit.segments[0].singing
+                span = unit.segments[0].timing
                 time = span.start + (span.end - span.start) * progress
                 actual = node.clip.deform.bounds_at(time - node.time_origin)[edge]
                 expected = (
@@ -78,19 +78,19 @@ def test_short_syllable_front_reaches_body_edges_on_source_clock(blur):
                 assert actual == pytest.approx(expected)
 
 
-def test_automatic_shoulders_reserve_layout_time_without_changing_singing():
+def test_automatic_shoulders_reserve_layout_time_without_changing_timing():
     _, line = make_line()
     line = line.with_display(Lifetime(1, 1.23))
-    result = LyricHighlights.from_singing(StatePatch(fill=RED))(line)
+    result = LyricHighlights.from_timing(StatePatch(fill=RED))(line)
     assert result.lifetime.start == pytest.approx(0.98)
     assert result.lifetime.end == pytest.approx(1.25)
     assert result.layout.lyrics == line.layout.lyrics
-    assert result.query("character")[0].singing == line.query("character")[0].singing
+    assert result.query("character")[0].timing == line.query("character")[0].timing
 
 
 def test_single_pass_matches_static_boundary_pixels():
     doc, line = make_line()
-    line = LyricHighlights.from_singing(
+    line = LyricHighlights.from_timing(
         StatePatch(fill=RED),
         glow=Glow(RED, blur=3, border=3),
         base_glow=Glow(BLUE, blur=3, border=3),
@@ -98,7 +98,7 @@ def test_single_pass_matches_static_boundary_pixels():
     )(line)
     canvas = Document.create(width=160, height=96, styles=tuple(doc.styles.values()))
     scene = Scene(canvas).add(line)
-    native = scene.ass.compile(budget=SceneBudget(), native_tweens=True)
+    native = scene.ass.compile(budget=AssBudget(), native_tweens=True)
     assert any(obj.strategy == "native-clip" for obj in native.objects)
     # Both include the separate 20 ms shoulders, the 80 ms syllable and handoff.
     for time in (980, 1000, 1080, 1230, 1250):
@@ -135,9 +135,9 @@ def test_single_pass_matches_static_boundary_pixels():
 
 
 @pytest.mark.parametrize("reverse", [False, True])
-def test_two_color_soft_glow_meets_at_the_singing_front(reverse):
+def test_two_color_soft_glow_meets_at_the_timing_front(reverse):
     doc, line = make_line()
-    painted = LyricHighlights.from_singing(
+    painted = LyricHighlights.from_timing(
         StatePatch(fill=RED), reverse=reverse,
         glow=Glow.from_studio(RED, radius=4), base_glow=Glow.from_studio(BLUE, radius=4),
     )(line)
@@ -160,7 +160,7 @@ def test_two_color_soft_glow_meets_at_the_singing_front(reverse):
 @pytest.mark.parametrize("before_alpha", [0, 0.25])
 def test_soft_glow_blends_premultiplied_color(before_alpha):
     _, line = make_line()
-    effect = LyricHighlights.from_singing(
+    effect = LyricHighlights.from_timing(
         StatePatch(fill=RED), glow=Glow(RED, blur=4),
         base_glow=Glow(BLUE, blur=4, opacity=before_alpha),
     )(line)
@@ -168,16 +168,16 @@ def test_soft_glow_blends_premultiplied_color(before_alpha):
     strips = [node.state for node in leaves(effect) if node.id in char.aliases and "/band:" in node.id]
     assert strips and all(before_alpha < state.opacity < 1 for state in strips)
     for state in strips:
-        # Opacity gives the sung fraction independently of strip placement.
-        sung = (state.opacity - before_alpha) / (1 - before_alpha)
-        assert state.fill.red * state.opacity == pytest.approx(255 * sung, abs=0.5)
-        assert state.fill.blue * state.opacity == pytest.approx(255 * before_alpha * (1 - sung), abs=0.5)
+        # Opacity gives the highlight fraction independently of strip placement.
+        highlight = (state.opacity - before_alpha) / (1 - before_alpha)
+        assert state.fill.red * state.opacity == pytest.approx(255 * highlight, abs=0.5)
+        assert state.fill.blue * state.opacity == pytest.approx(255 * before_alpha * (1 - highlight), abs=0.5)
 
 
 def test_delayed_copy_offsets_each_ruby_glyphs_own_wipe():
     _, line = make_line(r"{\k8}A|reading{\k15}B|b")
     copied = line.copy(id="delayed", delay=2)
-    result = LyricHighlights.from_singing(
+    result = LyricHighlights.from_timing(
         StatePatch(fill=RED),
         glow=Glow(RED, blur=20),
     )(copied)
@@ -196,10 +196,10 @@ def test_delayed_copy_offsets_each_ruby_glyphs_own_wipe():
         )
 
 
-def test_ass_supports_instant_wipe_and_rejects_repeated_singing():
+def test_ass_supports_instant_wipe_and_rejects_repeated_timing():
     for text in (r"{\k0}A{\k23}B", r"{\k8}A{\k15}#"):
         doc, line = make_line(text)
-        result = LyricHighlights.from_singing(
+        result = LyricHighlights.from_timing(
             StatePatch(fill=RED),
             glow=Glow(RED, blur=2),
             blend_glow=False,

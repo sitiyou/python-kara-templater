@@ -80,7 +80,7 @@ class LengthExpr(_Expression):
 
 
 class TimeExpr(_Expression):
-    """Seconds measured from a singing interval or its bound animation."""
+    """Seconds measured from a timing interval or its bound animation."""
 
     def _seconds(self, note: float | None, animation: float | None, path: str) -> float:
         if self._field == "Animation.duration":
@@ -103,7 +103,7 @@ class Canvas:
 
 
 class Note:
-    """Note.duration reads the source singing interval, including each repeat."""
+    """Note.duration reads the source timing interval, including each repeat."""
 
     duration = TimeExpr("Note.duration")
 

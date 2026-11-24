@@ -7,13 +7,13 @@ from PIL import Image, ImageChops
 
 from kara_templater import (
     AnimationClip,
+    AssBudget,
     Color,
     Document,
     Lifetime,
     Line,
     ObjectGroup,
     Scene,
-    SceneBudget,
     SceneCompileError,
     StatePatch,
     Style,
@@ -77,7 +77,7 @@ def rgba(script: str, ms: int) -> Image.Image:
 
 def test_continuous_tween_matches_handwritten_ass_and_reduces_cost():
     scene = Scene(Document.create(width=640, height=360)).add(subject())
-    native = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=1))
+    native = scene.ass.compile(native_tweens=True, budget=AssBudget(max_events=1))
     assert native.event_count == native.estimated_events == 1
     assert scene.ass.compile().event_count == 1
     assert native.objects[0].strategy == "native-tween"
@@ -162,7 +162,7 @@ def test_sequential_and_parallel_path_tweens_preserve_capture_and_birth_clock():
         animations=tuple(reversed(clips)),
     )
     scene = Scene(Document.create(width=640, height=360)).add(node)
-    result = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=1))
+    result = scene.ass.compile(native_tweens=True, budget=AssBudget(max_events=1))
     assert result.event_count == 1
     assert result.objects[0].strategy == "native-tween"
     reference = Document.create(
@@ -240,7 +240,7 @@ def test_common_fades_on_parent_match_continuous_handwritten_ass():
         FadeOut(), at=1.6, duration=0.4
     )
     scene = Scene(Document.create(width=640, height=360)).add(parent)
-    native = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=1))
+    native = scene.ass.compile(native_tweens=True, budget=AssBudget(max_events=1))
     assert native.event_count == 1
     assert native.objects[0].strategy == "native-tween"
     assert scene.ass.compile().event_count == 1

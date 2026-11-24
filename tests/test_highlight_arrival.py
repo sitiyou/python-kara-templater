@@ -12,7 +12,7 @@ from kara_templater import (
     Scene,
     TimeSpan,
 )
-from kara_templater.timeline import Region
+from kara_templater.geometry import Region
 from tests.test_lyric_highlights import highlights, source
 
 
@@ -35,7 +35,7 @@ def test_measured_crossings_and_copy_clocks_use_shared_animations():
     clone = line.copy(id="copy", delay=3)
     shifted = anchor(clone, clone.query("character")[1])[0]
     assert shifted == TimeSpan(second.start + 3, second.end + 3)
-    assert clone.query("character")[1].singing == targets[1].singing
+    assert clone.query("character")[1].timing == targets[1].timing
     fixed = line.bind(LyricRule("character", anchor, Jump(), duration=0.2, hold=False))
     fixed_evaluator = Scene(doc).add(fixed).evaluator()
     plain = Scene(doc).add(line).evaluator()
@@ -115,7 +115,7 @@ def test_nonlinear_arrival_requires_declared_inverse_and_checks_range():
 
 
 def test_arrival_duration_is_reserved_before_layout_and_factory_runs_once():
-    from kara_templater import Track, prepare_tracks
+    from kara_templater import Track, build_lyric_scene
 
     doc, _ = source()
     calls = []
@@ -126,7 +126,7 @@ def test_arrival_duration_is_reserved_before_layout_and_factory_runs_once():
             highlights=highlights, names=frozenset(("red",)), duration=2
         )(line, target)
 
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -140,7 +140,7 @@ def test_arrival_duration_is_reserved_before_layout_and_factory_runs_once():
     plan = scene.plans[0]
     assert len(calls) == 2
     assert plan.placement.display.end > 3
-    assert plan.input.singing == TimeSpan(1, 2)
+    assert plan.layout_request.timing == TimeSpan(1, 2)
     for target in plan.line.query("character"):
         assert scene.evaluator().at(target.node_id, 2.5).opacity == 1
 

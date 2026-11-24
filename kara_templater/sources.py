@@ -1,4 +1,4 @@
-"""Source traversal independent of layout, paint ranges and singing tracks."""
+"""Source traversal independent of layout, paint ranges and timing tracks."""
 
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -47,19 +47,19 @@ class EventOrigin:
 
 @dataclass(frozen=True)
 class SourceRef:
-    """Address within an item, stable while its source structure is unchanged.
+    """Address within a lyric source, stable while its structure is unchanged.
 
-    Item order, layout and effects do not affect addresses. Editing/reordering
+    Source order, layout and effects do not affect addresses. Editing/reordering
     units or segments creates a new source structure; indices are not edit IDs.
     """
 
-    item_id: str
+    source_id: str
     unit_index: int | None = None
     segment_index: int | None = None
 
     def __post_init__(self) -> None:
-        if not isinstance(self.item_id, str) or not self.item_id:
-            raise ValueError("source reference needs a nonempty item id")
+        if not isinstance(self.source_id, str) or not self.source_id:
+            raise ValueError("source reference needs a nonempty source ID")
         for index in (self.unit_index, self.segment_index):
             if index is not None and (type(index) is not int or index < 0):
                 raise ValueError("source indices must be nonnegative integers")

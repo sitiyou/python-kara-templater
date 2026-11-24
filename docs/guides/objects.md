@@ -1,7 +1,7 @@
 # Objects, groups, and coordinates
 
 A Scene combines a Document with TextObject, PathObject, ObjectGroup, and
-already-lowered NativeEvent values. Visual objects are dataclasses: use
+already-lowered AssDialogue values. Visual objects are dataclasses: use
 `dataclasses.replace` to create an edited value and `scene.add(...)` to compose it.
 Object identities must be unique within a Scene, including group descendants.
 
@@ -41,12 +41,12 @@ it is not a substitute for world-space evaluation of an entire hierarchy.
 
 ## Native ASS and lowering
 
-NativeEvent inserts an already-lowered Dialogue into the same compilation
+AssDialogue inserts an already-lowered Dialogue into the same compilation
 pipeline. It preserves its ASS text and timing, including events with zero duration. Source origins remain
 available on the node and output result.
 
 Rotations, mirroring, and skew can require geometry lowering. Some text
-transforms become glyph paths instead of font-rendered text. Inspect ObjectReport
+transforms become glyph paths instead of font-rendered text. Inspect AssObjectReport
 strategy and geometry budgets to understand the resulting cost. Clip spaces and
 shared masks are explained in [geometry](geometry.md).
 

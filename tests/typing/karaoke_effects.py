@@ -15,7 +15,7 @@ def decorate(line: LyricLine) -> LyricLine:
     result = KaraokeEffects(
         entry="assemble_in",
         exit="snow",
-        singing="zoom_pulse_scanline",
+        highlight="zoom_pulse_scanline",
         decoration="twinkle_classic",
         material=LyricGradient((Color(0, 200, 255), Color(255, 100, 190))),
     )(line)

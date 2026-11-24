@@ -22,7 +22,7 @@ def test_cli_track_configuration_and_scene_builder(tmp_path):
         "from kara_templater import RED\n"
         "from kara_templater import Track\n"
         "from kara_templater import LyricHighlights, StatePatch\n"
-        "tracks = (Track(id='lyrics', effects=(LyricHighlights.from_singing(StatePatch(fill=RED)),)),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricHighlights.from_timing(StatePatch(fill=RED)),)),)\n"
     )
     scene_script = tmp_path / "scene.py"
     scene_script.write_text(
@@ -47,13 +47,13 @@ def test_cli_sampling_error_keeps_source_and_writes_no_partial_file(tmp_path):
         "from kara_templater import LyricRule\n"
         "def broken(state, progress):\n"
         "    raise RuntimeError('property failed')\n"
-        "tracks = (Track(id='lyrics', effects=(LyricRule('syllable', 'singing', StateFunction(broken, frozenset(('position',)))),)),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricRule('syllable', 'timing', StateFunction(broken, frozenset(('position',)))),)),)\n"
     )
     output = tmp_path / "result.ass"
     result = cli(EXAMPLE, output, "--effect", script)
     assert result.returncode == 1
     assert "requires frame sampling" in result.stderr
-    assert "SourceRef(item_id=" in result.stderr
+    assert "SourceRef(source_id=" in result.stderr
     assert not output.exists()
 
 
@@ -66,7 +66,7 @@ def test_cli_preflight_precedes_dynamic_callbacks(tmp_path):
         "def sample(state, progress):\n"
         "    print('PROPERTY_STARTED', flush=True)\n"
         "    return state\n"
-        "tracks = (Track(id='lyrics', effects=(LyricRule('syllable', 'singing', StateFunction(sample, frozenset(('position',)))),)),)\n"
+        "tracks = (Track(id='lyrics', effects=(LyricRule('syllable', 'timing', StateFunction(sample, frozenset(('position',)))),)),)\n"
     )
     output = tmp_path / "output.ass"
     rejected = cli(EXAMPLE, output, "--effect", script, "--max-events", 1)
@@ -115,7 +115,7 @@ def test_cli_multiple_readings_and_pause(tmp_path):
     assert any(line.text.endswith("b") for line in ruby)
 
 
-def test_cli_before_only_keeps_source_sung_color(tmp_path):
+def test_cli_before_only_keeps_source_highlight_color(tmp_path):
     source = Document.load(EXAMPLE)
     for style in source.styles.values():
         style.fields.update(PrimaryColour="&H00FF0000", SecondaryColour="&H0000FF00")

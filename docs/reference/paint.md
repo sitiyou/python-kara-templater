@@ -26,7 +26,6 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 - [LyricHighlights](#lyrichighlights)
 - [MAGENTA](#magenta)
 - [ORANGE](#orange)
-- [OutputCapabilityError](#outputcapabilityerror)
 - [PINK](#pink)
 - [PURPLE](#purple)
 - [Paint](#paint)
@@ -238,19 +237,19 @@ Glow.from_studio(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyric_highlights.py#L202)
+[Source](../../kara_templater/lyrics/highlights.py#L200)
 
 ```python
 Highlight(
     id: str,
     unit: int,
-    passes: tuple[HighlightPass, ...],
+    passes: tuple[highlights.HighlightPass, ...],
     paint: StatePatch,
     priority: int = 0,
     repeat: Literal['hold', 'reset'] = 'hold',
     end: Literal['hold', 'hide'] = 'hold',
     glow: LyricGlow = None,
-    material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, LyricGradient] = None,
+    material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, highlights.LyricGradient] = None,
     secondary_outline: SecondaryOutline | None = None,
 )
 ```
@@ -261,13 +260,13 @@ Highlight(
 | --- | --- | --- |
 | `id` | `str` | `required` |
 | `unit` | `int` | `required` |
-| `passes` | `tuple[HighlightPass, ...]` | `required` |
+| `passes` | `tuple[highlights.HighlightPass, ...]` | `required` |
 | `paint` | `StatePatch` | `required` |
 | `priority` | `int` | `0` |
 | `repeat` | `Literal['hold', 'reset']` | `'hold'` |
 | `end` | `Literal['hold', 'hide']` | `'hold'` |
 | `glow` | `LyricGlow` | `None` |
-| `material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
+| `material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, highlights.LyricGradient]` | `None` |
 | `secondary_outline` | `SecondaryOutline \| None` | `None` |
 
 ### Highlight.regions
@@ -291,12 +290,12 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyric_highlights.py#L1079)
+[Source](../../kara_templater/lyrics/highlights.py#L1077)
 
 ```python
 HighlightArrival(
     *,
-    highlights: tuple[Highlight, ...] | Callable[[LyricLine], tuple[Highlight, ...]],
+    highlights: tuple[highlights.Highlight, ...] | Callable[[LyricLine], tuple[highlights.Highlight, ...]],
     threshold: Literal['enter', 'center', 'complete'] = 'enter',
     selection: Literal['first', 'each'] = 'first',
     names: frozenset[str] = frozenset({}),
@@ -309,7 +308,7 @@ HighlightArrival(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `highlights` | `tuple[Highlight, ...] \| Callable[[LyricLine], tuple[Highlight, ...]]` | `required` |
+| `highlights` | `tuple[highlights.Highlight, ...] \| Callable[[LyricLine], tuple[highlights.Highlight, ...]]` | `required` |
 | `threshold` | `Literal['enter', 'center', 'complete']` | `'enter'` |
 | `selection` | `Literal['first', 'each']` | `'first'` |
 | `names` | `frozenset[str]` | `frozenset({})` |
@@ -337,7 +336,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyric_highlights.py#L134)
+[Source](../../kara_templater/lyrics/highlights.py#L132)
 
 ```python
 HighlightPass(
@@ -392,17 +391,19 @@ Color role overrides shared by catalog effects and their inherited cues.
 
 An omitted role inherits from the outer theme. Ordinary catalog effects
 retain source outlines until an outline role is supplied. Duotone supplies
-contrasting outlines for both singing states. Explicit effect colors win.
+contrasting outlines for both sides of the wipe. Explicit effect colors win.
+Before and after refer to the karaoke color transition at each point in
+the glyph. With no wipe, the whole unit switches at once.
 
 [Source](../../kara_templater/appearance.py#L21)
 
 ```python
 KaraokeTheme(
     *,
-    sung: Color | None = None,
-    unsung: Color | None = None,
-    sung_outline: Color | None = None,
-    unsung_outline: Color | None = None,
+    after_fill: Color | None = None,
+    before_fill: Color | None = None,
+    after_outline: Color | None = None,
+    before_outline: Color | None = None,
     shine: Color | None = None,
 )
 ```
@@ -411,10 +412,10 @@ KaraokeTheme(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `sung` | `Color \| None` | `None` |
-| `unsung` | `Color \| None` | `None` |
-| `sung_outline` | `Color \| None` | `None` |
-| `unsung_outline` | `Color \| None` | `None` |
+| `after_fill` | `Color \| None` | `None` |
+| `before_fill` | `Color \| None` | `None` |
+| `after_outline` | `Color \| None` | `None` |
+| `before_outline` | `Color \| None` | `None` |
 | `shine` | `Color \| None` | `None` |
 
 ### KaraokeTheme.overlay
@@ -474,11 +475,11 @@ type LyricGlow = Glow | Callable[[LyricLine, LyricTarget], Glow | None] | None
 Evenly spaced colors on measured lyrics. Vertical colors span each glyph.
 Horizontal colors span all body glyphs sharing an ASS style and their readings.
 
-Pass as material to LyricHighlights.from_singing. Coordinates are derived
+Pass as material to LyricHighlights.from_timing. Coordinates are derived
 from undecorated glyph bounds. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyric_highlights.py#L78)
+[Source](../../kara_templater/lyrics/highlights.py#L76)
 
 ```python
 LyricGradient(
@@ -521,16 +522,16 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyric_highlights.py#L623)
+[Source](../../kara_templater/lyrics/highlights.py#L621)
 
 ```python
 LyricHighlights(
     *,
-    highlights: tuple[Highlight, ...] | Callable[[LyricLine], tuple[Highlight, ...]],
+    highlights: tuple[highlights.Highlight, ...] | Callable[[LyricLine], tuple[highlights.Highlight, ...]],
     mode: Literal['union', 'priority', 'layer'] = 'union',
     glow: LyricGlow = None,
     base_paint: StatePatch = StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, face_opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None),
-    base_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, LyricGradient] = None,
+    base_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, highlights.LyricGradient] = None,
     hook_feather: float | LengthExpr = 0,
     edge_duration: float = 0.02,
     blend_glow: bool = True,
@@ -543,11 +544,11 @@ LyricHighlights(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `highlights` | `tuple[Highlight, ...] \| Callable[[LyricLine], tuple[Highlight, ...]]` | `required` |
+| `highlights` | `tuple[highlights.Highlight, ...] \| Callable[[LyricLine], tuple[highlights.Highlight, ...]]` | `required` |
 | `mode` | `Literal['union', 'priority', 'layer']` | `'union'` |
 | `glow` | `LyricGlow` | `None` |
 | `base_paint` | `StatePatch` | `StatePatch(position=None, scale=None, rotation=None, skew=None, opacity=None, face_opacity=None, fill=None, outline=None, border=None, blur=None, shadow=None)` |
-| `base_material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, LyricGradient]` | `None` |
+| `base_material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, highlights.LyricGradient]` | `None` |
 | `hook_feather` | `float \| LengthExpr` | `0` |
 | `edge_duration` | `float` | `0.02` |
 | `blend_glow` | `bool` | `True` |
@@ -559,7 +560,7 @@ LyricHighlights(
 Return decorated visuals, reserving each target's shifted pass intervals.
 
 Pass times use original source seconds. A copied target's delay shifts
-both rendering and required_display; source singing spans stay unchanged.
+both rendering and required_display; source timing spans stay unchanged.
 
 ```python
 LyricHighlights.__call__(
@@ -567,38 +568,38 @@ LyricHighlights.__call__(
 ) -> LyricLine
 ```
 
-### LyricHighlights.from_singing
+### LyricHighlights.from_timing
 
-Sweep source singing across body/ruby without authoring clip geometry.
+Sweep source timing across body/ruby without authoring clip geometry.
 
-secondary_outline surrounds both states. sung_secondary_outline overrides the sung rim.
+secondary_outline surrounds both states. after_secondary_outline sets the rim after the transition.
 Both can be combined with glow.
 With reverse=True, each timed unit fills from its right edge.
 With wipe=False, each timed unit switches paint at completion.
-Singing progress uses undecorated measured text bounds. For a single
+Timing progress uses undecorated measured text bounds. For a single
 linear interval in clip mode, outline/glow margins are traversed in
-separate shoulders before/after singing, reserved automatically. edge_duration
+separate shoulders before/after timing, reserved automatically. edge_duration
 sets their duration in seconds (default 0.02). segment_colors maps
-(unit index, reading index) to sung colors. Mapped segments sweep successive
+(unit index, reading index) to highlight colors. Mapped segments sweep successive
 equal portions of their body, holding their position through rests.
-ruby_fill overrides the sung fill of all readings independently.
+ruby_fill overrides the highlight fill of all readings independently.
 blend_glow=False gives each side a clipped halo with its own color.
 Contiguous timed readings divide their host wipe equally at reading
 checkpoints. With ruby_reading_units=True, visible reading characters instead
-receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
+receive equal distances and empty readings hold position. Each reading retains its individual timing interval.
 Known rectangle keyframes allow continuous native ASS lowering. Repeated
-intervals retain the general ownership evaluator. Source singing clocks stay intact.
-base_material paints the unsung drawing. material paints the sung drawing, leaving the separate glow
+intervals retain the general ownership evaluator. Source timing clocks stay intact.
+base_material paints the base drawing. material paints the highlight drawing, leaving the separate glow
 color intact. It accepts a LinearGradient or a (line, target) factory called
 once during preparation; use LyricGradient for measured vertical colors.
 Local gradients currently require a
-positive single singing interval and axis-aligned scale/translation.
-base_paint changes only the unsung drawing; sung layers retain the
+positive single timing interval and axis-aligned scale/translation.
+base_paint changes only the base drawing; highlight layers retain the
 original appearance before applying paint. Use base_paint with opacity=0
 to reveal text instead of recoloring an already visible baseline.
 
 ```python
-LyricHighlights.from_singing(
+LyricHighlights.from_timing(
     paint: StatePatch,
     *,
     wipe: bool = True,
@@ -607,17 +608,17 @@ LyricHighlights.from_singing(
     glow: LyricGlow = None,
     base_glow: LyricGlow = None,
     secondary_outline: SecondaryOutline | None = None,
-    sung_secondary_outline: SecondaryOutline | None = None,
+    after_secondary_outline: SecondaryOutline | None = None,
     base_paint: StatePatch | None = None,
-    base_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, LyricGradient] = None,
-    material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, LyricGradient] = None,
+    base_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, highlights.LyricGradient] = None,
+    material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, highlights.LyricGradient] = None,
     hook_feather: float | LengthExpr = 0,
     segment_colors: Mapping[tuple[int, int], Color] | None = None,
     ruby_fill: Color | None = None,
     edge_duration: float = 0.02,
     blend_glow: bool = True,
     front_color: Color | None = None,
-) -> LyricHighlights
+) -> highlights.LyricHighlights
 ```
 
 ## MAGENTA
@@ -634,21 +635,6 @@ Public constant:
 
 ```python
 ORANGE = Color(red=255, green=165, blue=0)
-```
-
-## OutputCapabilityError
-
-An output failure with optional source and absolute-time context.
-
-[Source](../../kara_templater/raster_settings.py#L6)
-
-```python
-OutputCapabilityError(
-    message: str,
-    *,
-    origin: EventOrigin | None = None,
-    time_ms: float | None = None,
-)
 ```
 
 ## PINK
@@ -699,9 +685,9 @@ Paint(
 
 ## PaintPair
 
-The unsung and sung Paint values for one visual target.
+The Paint values before and after the karaoke transition.
 
-Paint changes do not rewrite its source singing clock.
+Paint changes do not rewrite the source timing.
 
 [Source](../../kara_templater/appearance.py#L10)
 
@@ -795,9 +781,9 @@ YELLOW = Color(red=255, green=255, blue=0)
 
 ## paint_pair_from_style
 
-ASS secondary is unsung, primary is sung; decode AABBGGRR at this boundary.
+Decode the ASS secondary and primary colors as the before and after paints.
 
-[Source](../../kara_templater/appearance.py#L52)
+[Source](../../kara_templater/appearance.py#L55)
 
 ```python
 paint_pair_from_style(

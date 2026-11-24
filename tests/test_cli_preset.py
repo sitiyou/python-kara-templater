@@ -5,10 +5,11 @@ from typing import Literal
 
 import pytest
 
-from kara_templater import Document, Line, Style, orchestration
+from kara_templater import Document, Line, Style
 from kara_templater._cli_preset import preset_scene
-from kara_templater._gpu_scene import SceneFrames
 from kara_templater._raster import rasterize
+from kara_templater.lyrics import tracks
+from kara_templater.output.hook.draws import HookDrawResolver
 
 
 def preset(
@@ -41,14 +42,14 @@ def test_preset_reads_each_lyric_record_once(monkeypatch):
     )
     document.records.append(Line(text=r"{\k50}春|はる{\k50}office", end_time=1000))
     index = len(document.records) - 1
-    read = orchestration._read_document_text
+    read = tracks._read_document_text
     calls = []
 
     def count(source, record_index, styles, soft_break):
         calls.append(record_index)
         return read(source, record_index, styles, soft_break)
 
-    monkeypatch.setattr(orchestration, "_read_document_text", count)
+    monkeypatch.setattr(tracks, "_read_document_text", count)
     (plan,) = preset(document).plans
     assert calls == [index]
     assert plan.source.lyrics == document.lyrics_at(index)
@@ -91,7 +92,7 @@ def test_source_alignment_and_event_margins_survive_common_allocation(alignment,
     assert y == pytest.approx((180 - 25 - height, (180 - height) / 2, 25)[row])
     assert plan.placement.display.start == 0.8
     assert plan.placement.display.end == 3.4
-    assert [(s.start, s.end) for s in plan.line.query("syllable")[0].singing] == [
+    assert [(s.start, s.end) for s in plan.line.query("syllable")[0].timing] == [
         (1, 2)
     ]
 
@@ -112,7 +113,7 @@ def test_fill_alpha_and_instantaneous_highlight_render_without_style_mutation(de
     document.records.append(Line(text=r"{\kt100\k0}A", start_time=0, end_time=2000))
     original = document.dumps()
     scene = preset(document, pulse="char")
-    span = scene.lines[0].query("character")[0].singing[0]
+    span = scene.lines[0].query("character")[0].timing[0]
     assert span.start == span.end == 1
     result = scene.ass.compile()
     before = rasterize(result.document.dumps(), 500, (96, 64)).rgba
@@ -171,7 +172,7 @@ def test_preset_keeps_independent_shadow_alpha_in_both_outputs(alpha):
 
     planes = {
         (image[4], image[5] & 255)
-        for draw in SceneFrames(scene).at(2 - 0.001)
-        for image in draw.images
+        for draw in HookDrawResolver(scene).at(2 - 0.001)
+        for image in draw.mask_planes
     }
     assert planes == ({(0, 192)} if alpha == 255 else {(0, 192), (2, alpha)})

@@ -77,7 +77,7 @@ curves multiply and generally cannot use a linear native alpha transform.
 FadeIn must start at the node's clock origin, no later than visible exposure.
 Local mask bounds times linear scale produce quadratic screen edges. The
 compiler subdivides these sections until the encoded endpoint interpolation
-meets `SceneBudget.clip_error_px` (default 0.75 pixels), including endpoint
+meets `AssBudget.clip_error_px` (default 0.75 pixels), including endpoint
 coordinate rounding. It checks the quadratic error's extrema, rather than
 assuming arbitrary callbacks are linear. Renderer pixel quantization remains
 separate from this coordinate-error bound.

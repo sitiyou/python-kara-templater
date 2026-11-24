@@ -27,8 +27,8 @@ from .scene_animation import (
 from .sources import EventOrigin
 
 if TYPE_CHECKING:
+    from .output.ass_export import AssBudget, AssEstimate, AssResult
     from .scene_evaluation import SceneEvaluator
-    from .scene_output import SceneBudget, SceneEstimate, SceneResult
 
 
 class SceneCompileError(ValueError):
@@ -536,7 +536,7 @@ type SceneObject = TextObject | PathObject | ObjectGroup
 
 
 @dataclass(frozen=True)
-class NativeEvent:
+class AssDialogue:
     """Already-lowered Dialogue, including historical empty/negative intervals.
 
     Native timing follows Document serialization (negative times clamp to zero),
@@ -555,18 +555,18 @@ class NativeEvent:
 
 @dataclass
 class Scene:
-    """A Document-backed composition of visual objects and already-lowered NativeEvents.
+    """A Document-backed composition of visual objects and already-lowered ASS dialogues.
 
     add and source replacement configure generation; compile returns a new standard
     ASS Document and reports.
     """
 
     document: Document
-    objects: list[SceneObject | NativeEvent] = field(default_factory=list)
+    objects: list[SceneObject | AssDialogue] = field(default_factory=list)
     replace_records: set[int] = field(default_factory=set)
     owner: str = "scene"
 
-    def add(self, *objects: SceneObject | NativeEvent) -> Self:
+    def add(self, *objects: SceneObject | AssDialogue) -> Self:
         """Append typed visual/native objects and return this Scene for composition."""
         self.objects.extend(objects)
         return self
@@ -629,9 +629,9 @@ class PreparedHook:
     """
 
     def __init__(self, scene: Scene) -> None:
-        from ._gpu_scene import SceneFrames
+        from .output.hook.draws import HookDrawResolver
 
-        self._frames = SceneFrames(scene)
+        self._frames = HookDrawResolver(scene)
 
     def export(
         self, path: str | Path, *, fps: int = 60, start: float = 0,
@@ -646,7 +646,7 @@ class PreparedHook:
         SDR video with matching aspect ratio. Includes glyph masks and effects.
         max_bytes limits the complete file before replacing the destination.
         """
-        from ._gpu_hook import export_hook
+        from .output.hook.export import export_hook
 
         export_hook(self._frames, Path(path), fps, start, duration, max_bytes=max_bytes)
 
@@ -659,7 +659,7 @@ class PreparedHook:
         The clock and rendering contract match export(). Each .bin contains a
         row-aligned texture with dimensions given by textures.json.
         """
-        from ._gpu_hook import export_hook
+        from .output.hook.export import export_hook
 
         export_hook(self._frames, Path(directory), fps, start, duration, resources=True)
 
@@ -672,10 +672,10 @@ class AssOutput:
     def compile(
         self,
         *,
-        budget: SceneBudget | None = None,
+        budget: AssBudget | None = None,
         native_tweens: bool = True,
-        on_estimate: Callable[[SceneEstimate], None] | None = None,
-    ) -> SceneResult:
+        on_estimate: Callable[[AssEstimate], None] | None = None,
+    ) -> AssResult:
         """Compile a new ASS Document and reports under explicit Scene budgets.
 
         ASS supports native motion and hard clips. Frame sampling, paint fields,
@@ -683,11 +683,11 @@ class AssOutput:
         on_estimate runs after preflight and before frame callbacks; raising
         cancels compilation without changing the scene or source document.
         """
-        from .scene_output import SceneBudget, compile_scene
+        from .output.ass_export import AssBudget, compile_ass
 
-        return compile_scene(
+        return compile_ass(
             self.scene,
-            budget=SceneBudget() if budget is None else budget,
+            budget=AssBudget() if budget is None else budget,
             native_tweens=native_tweens,
             on_estimate=on_estimate,
         )

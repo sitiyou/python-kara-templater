@@ -4,28 +4,33 @@ from dataclasses import replace
 
 import pytest
 
-from kara_templater import KaraokeRows, Layout, LayoutContext, LayoutLine, Placement
-from kara_templater.geometry import Vec2
-from kara_templater.lyric_layout import validate_placements
-from kara_templater.model import Box
+from kara_templater import (
+    KaraokeRows,
+    Layout,
+    LayoutContext,
+    LineLayoutRequest,
+    Placement,
+)
+from kara_templater.geometry import Box, Vec2
+from kara_templater.lyrics.placement import validate_placements
 from kara_templater.scene import Lifetime
 from kara_templater.scene_animation import TimeSpan
 
 CONTEXT = LayoutContext(Box(80, 400, 500, 240))
 
 
-def line(name: str, start: float, end: float, *, fade: float = 0.2) -> LayoutLine:
-    return LayoutLine(
+def line(name: str, start: float, end: float, *, fade: float = 0.2) -> LineLayoutRequest:
+    return LineLayoutRequest(
         id=name,
-        singing=TimeSpan(start, end),
-        display=Lifetime(max(0, start - 0.6), end + 0.3),
+        timing=TimeSpan(start, end),
+        requested_display=Lifetime(max(0, start - 0.6), end + 0.3),
         bounds=Box(0, -10, 100, 50),
         entrance=fade,
         exit=fade,
     )
 
 
-def test_two_rows_trim_optional_windows_without_moving_singing():
+def test_two_rows_trim_optional_windows_without_moving_timing():
     lines = (line("a", 1, 2), line("b", 2, 3), line("c", 2.5, 3.5))
     placements = Layout(rows=2, gap=90).allocate(lines, CONTEXT)
     assert [p.row for p in placements] == [0, 1, 0]
@@ -38,10 +43,10 @@ def test_two_rows_trim_optional_windows_without_moving_singing():
     assert placements[2].adjustments == ("preview shortened after a",)
     assert placements[0].position == Vec2(80, 410)
     assert placements[1].position == Vec2(80, 500)
-    assert lines[2].singing == TimeSpan(2.5, 3.5)
+    assert lines[2].timing == TimeSpan(2.5, 3.5)
     three = Layout(rows=3).allocate(lines, CONTEXT)
     assert [p.row for p in three] == [0, 1, 2]
-    assert [p.display for p in three] == [item.display for item in lines]
+    assert [p.display for p in three] == [item.requested_display for item in lines]
 
 
 @pytest.mark.parametrize(("sizes", "gap", "pitch"), [
@@ -108,7 +113,7 @@ def test_override_uses_lead_tags_and_full_batch_without_extra_protocols(
 ):
     class Custom(Layout):
         def allocate(
-            self, lines: tuple[LayoutLine, ...], context: LayoutContext
+            self, lines: tuple[LineLayoutRequest, ...], context: LayoutContext
         ) -> tuple[Placement, ...]:
             result: list[Placement] = []
             cursor = 0
@@ -116,12 +121,12 @@ def test_override_uses_lead_tags_and_full_batch_without_extra_protocols(
                 if item.lead and reset_lead:
                     cursor = 0
                 if "solo" in item.tags:
-                    result.append(Placement(item.id, Vec2(300, 200), item.display))
+                    result.append(Placement(item.id, Vec2(300, 200), item.requested_display))
                     cursor += int(advance_solo)
                     continue
                 row = cursor % 2
                 result.append(
-                    Placement(item.id, Vec2(80, 400 + row * 90), item.display, row)
+                    Placement(item.id, Vec2(80, 400 + row * 90), item.requested_display, row)
                 )
                 cursor += 1
             return tuple(result)
@@ -146,7 +151,7 @@ def test_override_uses_lead_tags_and_full_batch_without_extra_protocols(
 
 def test_result_validation_enforces_identity_and_time_but_not_collision():
     lines = (line("a", 1, 2), line("b", 1, 2))
-    overlap = tuple(Placement(item.id, Vec2(), item.display) for item in lines)
+    overlap = tuple(Placement(item.id, Vec2(), item.requested_display) for item in lines)
     validate_placements(lines, overlap)
     with pytest.raises(ValueError, match="missing placements: b"):
         validate_placements(lines, overlap[:1])
@@ -160,7 +165,7 @@ def test_result_validation_enforces_identity_and_time_but_not_collision():
         )
     with pytest.raises(ValueError, match="duplicate layout input"):
         Layout().allocate((lines[0], lines[0]), CONTEXT)
-    with pytest.raises(ValueError, match="singing order"):
+    with pytest.raises(ValueError, match="timing order"):
         Layout().allocate((line("late", 3, 4), lines[0]), CONTEXT)
 
 
@@ -203,7 +208,7 @@ def test_studio_section_sync_fill_and_lane_reuse_match_playback_windows():
 
     times = ((2, 3), (4.2, 5.2), (6.5, 7.5), (8.8, 9.8), (11, 12.2),
              (17, 18), (18.2, 19))
-    lines = tuple(replace(line(str(i), a, b, fade=0), display=Lifetime(a-1.8,b+1))
+    lines = tuple(replace(line(str(i), a, b, fade=0), requested_display=Lifetime(a-1.8,b+1))
                   for i,(a,b) in enumerate(times))
     places = KaraokeRows().allocate(lines, CONTEXT)
     assert [p.row for p in places] == [0,1,0,1,0,0,1]
@@ -223,7 +228,7 @@ def test_partial_page_handoff_preserves_free_lane_preview(boundary, sync_all, lo
 
     times = [(2, 3), (4.2, 5.2), (6.5, 7.5), (8.8, 9.8), (11, 12.2)]
     lines = tuple(
-        replace(line(str(i), a, b, fade=0), display=Lifetime(a - 1.8, b + 1), lead=i == 1)
+        replace(line(str(i), a, b, fade=0), requested_display=Lifetime(a - 1.8, b + 1), lead=i == 1)
         for i, (a, b) in enumerate(times)
     )
     places = LeadReset(sync_each_page=sync_all).allocate(lines, CONTEXT)
@@ -237,7 +242,7 @@ def test_three_to_two_rows_clamps_upper_exit_after_page_sync():
 
     times = [(2, 3), (4.2, 5.2), (6.5, 7.5), (8.8, 9.8), (11, 12.2)]
     lines = tuple(
-        replace(line(str(i), a, b, fade=0), display=Lifetime(a - 1.8, b + 1))
+        replace(line(str(i), a, b, fade=0), requested_display=Lifetime(a - 1.8, b + 1))
         for i, (a, b) in enumerate(times)
     )
     places = KaraokeRows(rows=3, sync_ending=True, sync_each_page=True).allocate(lines, CONTEXT)
@@ -257,13 +262,13 @@ def test_bottom_three_row_short_page_uses_physical_lane_for_alignment():
 
 @pytest.mark.parametrize(("anchor", "top"), [("top", 60), ("center", 155), ("bottom", 251)])
 def test_vertical_columns_preserve_page_windows_across_block_anchors(anchor, top):
-    from kara_templater.lyric_layout import KaraokeRows
+    from kara_templater.lyrics.placement import KaraokeRows
 
     starts = (2, 3.2, 4.8, 6.1, 7.5)
     lines = tuple(
         replace(
             line(str(i), s, s + .9, fade=0),
-            display=Lifetime(s - 1.4, s + 1.9),
+            requested_display=Lifetime(s - 1.4, s + 1.9),
             bounds=Box(-20, 0, 64, 49), body_bounds=Box(-20, 0, 40, 49),
             _vertical=True,
         )
@@ -279,14 +284,14 @@ def test_vertical_columns_preserve_page_windows_across_block_anchors(anchor, top
 
 @pytest.mark.parametrize("count", [1, 3])
 def test_vertical_track_rotates_measured_columns_through_the_public_preset(count):
-    from kara_templater import Document, KaraokeRows, Line, Track, prepare_tracks
+    from kara_templater import Document, KaraokeRows, Line, Track, build_lyric_scene
 
     doc = Document.create(width=640, height=360)
     for i in range(5):
         doc.records.append(Line(start_time=2000 + 2000*i, end_time=2500 + 2000*i,
                                 text=r"{\k50}A|a" if i == 0 else r"{\k50}B"))
     stream = Track(id="main", vertical=True, layout=KaraokeRows(rows=count, anchor="top"))
-    places = [p.placement for p in prepare_tracks(doc, tracks=(stream,)).plans]
+    places = [p.placement for p in build_lyric_scene(doc, tracks=(stream,)).plans]
     assert [p.row for p in places] == [i % count for i in range(5)]
     assert all(p.position.y == 27 for p in places)
     assert all(a.position.x > b.position.x for a, b in zip(places[:count-1], places[1:count], strict=True))

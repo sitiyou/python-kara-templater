@@ -5,7 +5,7 @@ from math import atan2, degrees, hypot
 
 from .geometry import Vec2, finite
 from .object_references import FollowObject
-from .scene import NativeEvent, ObjectGroup, Scene, SceneObject
+from .scene import AssDialogue, ObjectGroup, Scene, SceneObject
 from .scene_animation import CHANNELS, VisualState
 from .sources import EventOrigin
 
@@ -81,13 +81,13 @@ class SceneEvaluator:
         self._parents: dict[str, str] = {}
         seen: set[str] = set()
 
-        def visit(node: SceneObject | NativeEvent, parent: str | None) -> None:
+        def visit(node: SceneObject | AssDialogue, parent: str | None) -> None:
             if node.id in seen:
                 raise SceneReferenceError(
                     "duplicate object identity or group cycle", object_id=node.id
                 )
             seen.add(node.id)
-            if isinstance(node, NativeEvent):
+            if isinstance(node, AssDialogue):
                 return
             self._nodes[node.id] = node
             if parent is not None:

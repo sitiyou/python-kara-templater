@@ -7,9 +7,9 @@ from typing import cast
 from ._cli_preset import preset_scene
 from .ass import Document
 from .composition import Color
-from .orchestration import Track, prepare_tracks
+from .lyrics.tracks import Track, build_lyric_scene
+from .output.ass_export import AssBudget
 from .scene import Scene
-from .scene_output import SceneBudget
 
 
 def main() -> None:
@@ -35,10 +35,10 @@ def main() -> None:
     parser.add_argument(
         "--before",
         type=Color.hex,
-        help="unsung #RRGGBB; defaults to ASS secondary color",
+        help="fill before the wipe #RRGGBB; defaults to ASS secondary color",
     )
     parser.add_argument(
-        "--after", type=Color.hex, help="sung #RRGGBB; defaults to ASS primary color"
+        "--after", type=Color.hex, help="fill after the wipe #RRGGBB; defaults to ASS primary color"
     )
     parser.add_argument(
         "--pulse", choices=("none", "char", "chars", "syllable"), default="none"
@@ -63,8 +63,8 @@ def main() -> None:
             raise ValueError("--max-events and --max-active require --ass; use --max-bytes for Hook output")
         if args.max_bytes is not None and args.max_bytes < 1:
             raise ValueError("byte budget must be a positive integer")
-        defaults = SceneBudget()
-        budget = SceneBudget(
+        defaults = AssBudget()
+        budget = AssBudget(
             max_events=10000 if args.max_events is None else args.max_events,
             max_bytes=defaults.max_bytes if args.max_bytes is None else args.max_bytes,
             max_active=defaults.max_active if args.max_active is None else args.max_active,
@@ -145,7 +145,7 @@ def main() -> None:
             )
         if scene is None:
             assert tracks is not None
-            scene = prepare_tracks(document, tracks=tracks, owner=owner)
+            scene = build_lyric_scene(document, tracks=tracks, owner=owner)
         if not args.ass:
             scene.export(args.output, fps=args.fps, max_bytes=args.max_bytes)
             return

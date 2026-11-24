@@ -3,12 +3,9 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import Highlight, HighlightPass, StatePatch, TimeSpan
-from kara_templater.timeline import (
-    DisplayWindow,
-    ProgressCurve,
-    Region,
-    union_regions,
-)
+from kara_templater._raster import DisplayWindow
+from kara_templater.easing import ProgressCurve
+from kara_templater.geometry import Region, union_regions
 
 
 @pytest.mark.parametrize(
@@ -21,14 +18,14 @@ def test_invalid_display_window(start, end):
 
 def test_piecewise_speed_pause_and_earliest_arrival():
     curve = ProgressCurve(((0, 0), (0.2, 0.4), (0.6, 0.4), (1, 1)))
-    singing = HighlightPass(
+    timing = HighlightPass(
         TimeSpan(1, 2), Region(20, 120), rate=curve.at, inverse_rate=curve.arrival
     )
-    assert singing.front(1.1) == pytest.approx(40)
-    assert singing.front(1.4) == pytest.approx(60)
-    assert singing.arrival(60) == pytest.approx(1.2)
-    assert singing.arrival(90) == pytest.approx(1.8)
-    assert singing.arrival(10) is None
+    assert timing.front(1.1) == pytest.approx(40)
+    assert timing.front(1.4) == pytest.approx(60)
+    assert timing.arrival(60) == pytest.approx(1.2)
+    assert timing.arrival(90) == pytest.approx(1.8)
+    assert timing.arrival(10) is None
     assert (
         ProgressCurve.two_stage(time_fraction=0.25, progress_fraction=0.5).at(0.25)
         == 0.5
@@ -70,12 +67,12 @@ def test_invalid_curves(knots):
 
 
 def test_zero_duration_and_empty_region():
-    singing = HighlightPass(TimeSpan(0.1, 0.1), Region(20, 120))
-    assert singing.front(0.099) == 20
-    assert singing.front(0.1) == 120
-    assert singing.arrival(70) == 0.1
+    timing = HighlightPass(TimeSpan(0.1, 0.1), Region(20, 120))
+    assert timing.front(0.099) == 20
+    assert timing.front(0.1) == 120
+    assert timing.arrival(70) == 0.1
     assert HighlightPass(TimeSpan(0.1, 0.2), Region(20, 20)).arrival(20) is None
-    track = Highlight("instant", 0, (singing,), StatePatch())
+    track = Highlight("instant", 0, (timing,), StatePatch())
     assert track.regions(0.1) == (Region(20, 120),)
 
 

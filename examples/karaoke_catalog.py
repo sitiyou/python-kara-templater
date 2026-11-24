@@ -14,13 +14,13 @@ from kara_templater import (
     KaraokeEffects,
     KaraokeEntry,
     KaraokeExit,
-    KaraokeSinging,
+    KaraokeHighlight,
     Layout,
     Line,
     LyricScene,
     Style,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 DEFAULTS = KaraokeEffects()
@@ -30,7 +30,7 @@ def build(
     *,
     entry: KaraokeEntry = DEFAULTS.entry,
     exit: KaraokeExit = DEFAULTS.exit,
-    singing: KaraokeSinging = DEFAULTS.singing,
+    highlight: KaraokeHighlight = DEFAULTS.highlight,
     decoration: KaraokeDecoration = DEFAULTS.decoration,
     stroke_flash: bool = False,
     recipe: KaraokeEffects | None = None,
@@ -53,7 +53,7 @@ def build(
     doc.records.append(
         Line(start_time=1400, end_time=4200, text=r"{\k35}君{\k35}と{\k70}空{\k140}へ")
     )
-    return prepare_tracks(
+    return build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -67,7 +67,7 @@ def build(
                     or KaraokeEffects(
                         entry=entry,
                         exit=exit,
-                        singing=singing,
+                        highlight=highlight,
                         decoration=decoration,
                         stroke_flash=stroke_flash,
                         seed=17,
@@ -84,7 +84,7 @@ def main() -> None:
     for name, alias, default in (
         ("entry", KaraokeEntry, DEFAULTS.entry),
         ("exit", KaraokeExit, DEFAULTS.exit),
-        ("singing", KaraokeSinging, DEFAULTS.singing),
+        ("highlight", KaraokeHighlight, DEFAULTS.highlight),
         ("decoration", KaraokeDecoration, DEFAULTS.decoration),
     ):
         parser.add_argument(
@@ -95,7 +95,7 @@ def main() -> None:
     scene = build(
         entry=args.entry,
         exit=args.exit,
-        singing=args.singing,
+        highlight=args.highlight,
         decoration=args.decoration,
         stroke_flash=args.stroke_flash,
     )

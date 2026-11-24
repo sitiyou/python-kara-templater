@@ -1,5 +1,7 @@
-from . import _metrics
-from .ass import Style
+"""Font and shaping measurements in script pixels."""
+
+from .. import _metrics
+from ..ass import Style
 
 
 def text_extents(style: Style, text: str, *, palt: bool = False) -> tuple[float, float, float, float]:
@@ -26,18 +28,3 @@ def text_extents(style: Style, text: str, *, palt: bool = False) -> tuple[float,
         style.outline,
     )
 
-
-def _ruby_group(
-    body: float, reading: float, spillback: bool, previous: float | None,
-) -> tuple[float, float, float | None]:
-    """Return body shift, reading offset and carried spill, as in karaskel.do_furigana_layout."""
-    if not reading:
-        return 0, 0, previous - body if previous is not None and previous > 0 else None
-    shift = max(0.0, previous or 0.0)
-    excess = reading - body
-    if excess <= 0:
-        return shift, -excess / 2, excess / 2
-    if spillback:
-        # Lua distinguishes an absent spill from zero (a flush preceding annotation).
-        return shift + (excess / 2 if previous is not None else 0), -excess / 2, excess / 2
-    return shift, 0, excess

@@ -24,8 +24,8 @@ from kara_templater import (
     Track,
     Vec2,
     VisualState,
+    build_lyric_scene,
     layout_document_lyrics,
-    prepare_tracks,
 )
 
 
@@ -53,7 +53,7 @@ def test_stagger_respects_explicit_order_and_last_exit_boundary():
 
 def test_stagger_reserves_whole_exit_and_does_not_change_source_clocks():
     doc, original = subject()
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -69,8 +69,8 @@ def test_stagger_reserves_whole_exit_and_does_not_change_source_clocks():
     )
     line = scene.plans[0].line
     assert line.lifetime.end == pytest.approx(2.5)
-    assert [t.singing for t in line.query("character")] == [
-        t.singing for t in original.query("character")
+    assert [t.timing for t in line.query("character")] == [
+        t.timing for t in original.query("character")
     ]
 
 
@@ -93,14 +93,14 @@ def test_scatter_is_seeded_target_specific_and_relative_to_incoming_state():
     doc, line = subject()
     targets = line.query("character")
     effect = ScatterOut(seed=42)
-    bound = line.bind(LyricRule("character", "after_singing", effect, duration=0.5))
+    bound = line.bind(LyricRule("character", "after_timing", effect, duration=0.5))
     evaluator = Scene(doc).add(bound).evaluator()
     for target in targets:
         animation = effect(LyricAnimationContext(line, target, None, 0.5))
         base = VisualState(opacity=0.3)
         assert animation.sample(base, 0.5) == effect(LyricAnimationContext(line, target, None, 0.5)).sample(base, 0.5)
         assert animation.sample(base, 0.5).opacity == pytest.approx(0.15)
-        end = max(span.end for span in target.singing)
+        end = max(span.end for span in target.timing)
         before = evaluator.at(target.node_id, end).transform.apply(target.center)
         after = evaluator.at(target.node_id, end + 0.5).transform.apply(target.center)
         assert abs(after.x - before.x) <= 24
@@ -129,7 +129,7 @@ def test_echo_accepts_shared_animation_sequence_and_pre_onset_delay():
     assert len(copies) == 3
     evaluator = Scene(doc).add(decorated).evaluator()
     for target, copy in zip(line.query("character"), copies, strict=True):
-        start = target.singing[0].start - 0.2
+        start = target.timing[0].start - 0.2
         assert copy.lifetime.start == pytest.approx(start)
         assert evaluator.at(copy.id, start + 0.2).opacity == pytest.approx(0.35)
         assert evaluator.at(copy.id, start + 0.4).opacity == pytest.approx(0.175)
@@ -140,15 +140,15 @@ def test_echo_accepts_shared_animation_sequence_and_pre_onset_delay():
         replace(effect, delay=-2)(line)
 
 
-def test_singing_stagger_is_explicit_shift_not_a_new_duration():
+def test_timing_stagger_is_explicit_shift_not_a_new_duration():
     _, line = subject()
     bindings = line._resolve(
-        (LyricRule("character", "singing", ScalePulse(), stagger=0.1),)
+        (LyricRule("character", "timing", ScalePulse(), stagger=0.1),)
     )
     for index, binding in enumerate(bindings):
         assert binding.offset == pytest.approx(index * 0.1)
         assert binding.duration == pytest.approx(
-            binding.target.singing[0].end - binding.target.singing[0].start
+            binding.target.timing[0].end - binding.target.timing[0].start
         )
 
 
@@ -159,13 +159,13 @@ def test_studies_keep_common_source_timing_and_independent_harmony(effect, japan
     assert [plan.track_id for plan in scene.plans] == ["main", "harmony"]
     main, harmony = (plan.line for plan in scene.plans)
     spans = main.query("syllable")
-    assert [(t.singing[0].start, t.singing[-1].end) for t in spans] == [
+    assert [(t.timing[0].start, t.timing[-1].end) for t in spans] == [
         (1, 1.25),
         (1.25, 1.5),
         (1.5, 2.5),
         (2.5, 4.5),
     ]
-    assert harmony.query("line")[0].singing[0].start == 2.5
+    assert harmony.query("line")[0].timing[0].start == 2.5
     assert bool(main.query("ruby")) == japanese
 
 

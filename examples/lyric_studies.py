@@ -41,8 +41,8 @@ from kara_templater import (
     Vec2,
     VectorPath,
     VisualState,
+    build_lyric_scene,
     linear_rate,
-    prepare_tracks,
 )
 
 type Effect = Literal[
@@ -102,7 +102,7 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
     )
     effects: list[LyricEffect] = [
         LyricRule("line", "enter", FadeIn(), duration=0.2),
-        LyricHighlights.from_singing(
+        LyricHighlights.from_timing(
             StatePatch(fill=CYAN, outline=Color.hex("#183744"), border=2),
             base_paint=StatePatch(opacity=0) if effect == "writing" else StatePatch(),
         ),
@@ -110,7 +110,7 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
     match effect:
         case "emphasis":
             effects.append(
-                LyricRule("character", "singing", ScalePulse(peak=1.12, peak_at=0.42))
+                LyricRule("character", "timing", ScalePulse(peak=1.12, peak_at=0.42))
             )
             effects.append(
                 LyricEcho(
@@ -162,7 +162,7 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
             effects.append(LyricParticles(factory=writing_dust, rate=28, seed=42))
         case "petals":
             effects.extend(
-                LyricRule(role, "after_singing", DriftOut(), offset=0.14, duration=0.56)
+                LyricRule(role, "after_timing", DriftOut(), offset=0.14, duration=0.56)
                 for role in ("character", "ruby")
             )
             effects.append(
@@ -186,7 +186,7 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
             effects.append(LyricParticles(factory=Sparkle(size=3), rate=18, seed=42))
     if effect not in ("scatter", "petals"):
         effects.append(LyricRule("line", "exit", FadeOut(), duration=0.25))
-    return prepare_tracks(
+    return build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -209,7 +209,7 @@ def build(effect: Effect = "sweep", *, japanese: bool = False) -> LyricScene:
                 layout=Layout(alignment="center"),
                 effects=(
                     LyricRule("line", "exit", FadeOut(), duration=0.3),
-                    LyricHighlights.from_singing(StatePatch(fill=PINK)),
+                    LyricHighlights.from_timing(StatePatch(fill=PINK)),
                 ),
             ),
         ),

@@ -14,14 +14,14 @@ reproduces it. Keep the traceback and exception cause when debugging callbacks.
 | Unknown cue preset/invalid marker | Match preset names, marker keys, quoting, offsets, and cluster boundaries to the input marker contract |
 | Multiple Tracks match a source | Make selectors disjoint, or combine the intended appearance into one Track |
 | Animation writes conflict | Check channel declarations, overlapping intervals, hold/release, and composition rules |
-| Unexpected time offset | Check seconds versus milliseconds, object birth versus absolute time, and separate display/singing clocks |
+| Unexpected time offset | Check seconds versus milliseconds, object birth versus absolute time, and separate display/timing clocks |
 | Object follows the wrong position | Distinguish local object evaluation from world-space SceneEvaluator references |
 | PlayRes mismatch | Check Document script dimensions and the resolution used by the renderer or preview |
 | Editable Track rejects source style | Use native mode for unsupported underline/strikeout/angle/BorderStyle, or author the desired geometry explicitly |
 | A pulse disappears or a soft wipe looks sharper after export | Check which ASS path produced the file. [Check the supported effects](choosing-output.md) before changing the timing or colors. |
 | Glow is cut off at a color front | Set `blend_glow=True` on an automatic wipe with matching halo blur and border |
 | Group alpha looks too dense | Groups apply alpha to each drawing. Check the opacity of overlapping child layers |
-| Event, byte, active, path or boolean budget fails | Inspect SceneResult/ObjectReport, simplify the effect, or deliberately raise the relevant SceneBudget limit |
+| Event, byte, active, path or boolean budget fails | Inspect AssResult/AssObjectReport, simplify the effect, or deliberately raise the relevant AssBudget limit |
 | Raster colors differ by tiny rectangles | Check RGB/full-resolution chroma composition, color matrix, and spatial error settings before comparing YUV420 output |
 | Regeneration duplicates or leaves effects | Use a stable owner and preserve generated source/provenance markers |
 | Same callback differs after seeking | Remove previous-frame state and global random draws; declare dependencies and breakpoints |

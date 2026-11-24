@@ -43,7 +43,7 @@ def lyric_effects(
 class ScatterOut:
     """A seeded lyric animation factory for rotating, drifting glyph exits.
 
-    Pass to LyricRule.animation with an exit/after_singing anchor. spread is the
+    Pass to LyricRule.animation with an exit/after_timing anchor. spread is the
     horizontal displacement range, rise the upward displacement, rotation the
     maximum added angle; units are script pixels/degrees. No timing is hidden in
     this factory: duration, pause and stagger belong to the rule.
@@ -76,7 +76,7 @@ class ScatterOut:
 
 @dataclass(frozen=True, kw_only=True)
 class LyricEcho:
-    """Emit offset, fading copies at each character/ruby singing onset.
+    """Emit offset, fading copies at each character/ruby timing onset.
 
     Copies use the selected glyph's prepared static appearance, optionally
     overridden by paint. They deliberately show the full glyph, without its
@@ -90,8 +90,8 @@ class LyricEcho:
     measured target center as default pivot, and is stretched to duration.
     The default is a linear fade, using native ASS where available. delay shifts
     all copy births relative to the onset; negative values allow approaching
-    copies before singing, but no copy may precede Scene zero. Required display
-    is extended without changing singing times.
+    copies before timing, but no copy may precede Scene zero. Required display
+    is extended without changing timing times.
     """
 
     id: str = "echo"
@@ -139,7 +139,7 @@ class LyricEcho:
             (target, index, span)
             for target in line.query(self.target)
             for node in (nodes[target.node_id],)
-            for index, span in enumerate(target.singing)
+            for index, span in enumerate(target.timing)
             if span.end > span.start
             and isinstance(node, TextObject)
             and node.text.strip()

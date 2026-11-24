@@ -8,22 +8,26 @@ from functools import lru_cache
 from itertools import groupby
 from math import ceil, floor
 
-from .ass import Document, Line, Style
-from .characters import (
+from ..ass import Document, Line, Style
+from ..characters import (
     DrawableCharacter,
     FontFace,
     LayoutCapabilityError,
     _measure_clusters,
 )
-from .composition import Color
-from .document_text import DocumentText, TextRun, _packed_color, resolve_singing
-from .document_text import SingingSpan as SingingSpan
-from .geometry import Vec2, VectorPath
-from .layout import text_extents
-from .model import Box
-from .scene import Lifetime, ObjectGroup, PathObject, TextObject
-from .scene_animation import AnimationClip, StateFunction, VisualState
-from .sources import EventOrigin, SourceRef
+from ..composition import Color
+from ..document_text import (
+    DocumentText,
+    TextRun,
+    TimedTextSpan,
+    _packed_color,
+    resolve_timing,
+)
+from ..geometry import Box, Vec2, VectorPath
+from ..scene import Lifetime, ObjectGroup, PathObject, TextObject
+from ..scene_animation import AnimationClip, StateFunction, VisualState
+from ..sources import EventOrigin, SourceRef
+from .measurement import text_extents
 
 
 @dataclass(frozen=True)
@@ -62,8 +66,8 @@ class PositionedText:
 
 
 @dataclass(frozen=True)
-class DocumentLayout:
-    """Measured editable text objects with decoded source ranges, singing spans, bounds, and source-record identity.
+class TextLayout:
+    """Measured editable text objects with decoded source ranges, timing spans, bounds, and source-record identity.
 
     Range backgrounds can optionally follow local text animation.
     """
@@ -73,7 +77,7 @@ class DocumentLayout:
     source: DocumentText
     lifetime: Lifetime
     characters: tuple[PositionedText, ...]
-    singing: tuple[SingingSpan, ...]
+    timing: tuple[TimedTextSpan, ...]
     bounds: Box
     _cue_gradient_edge: float | None = None
     _right_to_left: bool = False
@@ -322,10 +326,10 @@ def _layout_document_view(
     *,
     id: str | None = None,
     display: Lifetime | None = None,
-    singing: tuple[SingingSpan, ...] | None = None,
+    timing: tuple[TimedTextSpan, ...] | None = None,
     guide_markers: Collection[str] = (),
     palt: bool = False,
-) -> DocumentLayout:
+) -> TextLayout:
     """Measure an event into verified drawable clusters without changing its times.
 
     Inline colors override style colors. Caller changes to returned TextObjects
@@ -334,18 +338,18 @@ def _layout_document_view(
     shaping run, and painting half of a ligature is explicitly rejected.
     """
     source.require_supported()
-    if display is None or singing is None:
+    if display is None or timing is None:
         if record_index is None:
             raise ValueError(
-                "structured text needs explicit display and singing intervals"
+                "structured text needs explicit display and timing intervals"
             )
         record = document.records[record_index]
         if not isinstance(record, Line):
             raise TypeError("text binding requires an event record")
         if display is None:
             display = Lifetime(record.start_time / 1000, record.end_time / 1000)
-        if singing is None:
-            singing = resolve_singing(source, record.start_time / 1000)
+        if timing is None:
+            timing = resolve_timing(source, record.start_time / 1000)
     identifier = f"record:{record_index}" if id is None else id
     lifetime = display
     styles = document.styles
@@ -430,13 +434,13 @@ def _layout_document_view(
                 )
             )
         x += width
-    return DocumentLayout(
+    return TextLayout(
         identifier,
         record_index,
         source,
         lifetime,
         tuple(items),
-        singing,
+        timing,
         _union(tuple(item.bounds for item in items)),
         _palt=palt,
     )
@@ -448,7 +452,7 @@ def layout_document_text(
     *,
     id: str | None = None,
     display: Lifetime | None = None,
-) -> DocumentLayout:
+) -> TextLayout:
     """Bind a plain line; use layout_document_lyrics for ruby/continuations."""
     source = document.text_at(record_index)
     if any(character in source.text for character in "\n\r|｜#＃"):

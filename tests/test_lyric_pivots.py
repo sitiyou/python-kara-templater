@@ -36,7 +36,7 @@ def subject():
 @pytest.mark.parametrize("role", ("line", "syllable", "character", "ruby"))
 def test_default_pulse_keeps_measured_center_stationary(role):
     doc, original = subject()
-    bound = original.bind(LyricRule(role, "singing", ScalePulse(peak=1.3)))
+    bound = original.bind(LyricRule(role, "timing", ScalePulse(peak=1.3)))
     before = Scene(doc).add(original).evaluator()
     after = Scene(doc).add(bound).evaluator()
     for target in bound.query(role):
@@ -57,11 +57,11 @@ def test_default_pulse_keeps_measured_center_stationary(role):
 
 def test_sweep_and_glow_share_center_through_delayed_copy_and_sequence():
     doc, original = subject()
-    painted = LyricHighlights.from_singing(
+    painted = LyricHighlights.from_timing(
         StatePatch(fill=RED), glow=Glow(BLUE, blur=12, border=8, opacity=0.3)
     )(original).copy(id="copy", offset=Vec2(20, 30), delay=0.2)
     animation = Timeline().play(Transform(scale=lambda p: 1 + 0.2 * p), duration=1).animation
-    bound = painted.bind(LyricRule("character", "singing", animation))
+    bound = painted.bind(LyricRule("character", "timing", animation))
     before = Scene(doc).add(painted).evaluator()
     after = Scene(doc).add(bound).evaluator()
     for target in bound.query("character"):
@@ -83,14 +83,14 @@ def test_sweep_and_glow_share_center_through_delayed_copy_and_sequence():
 ))
 def test_explicit_origin_is_not_replaced_by_center(animation):
     _, line = subject()
-    bindings = line._resolve((LyricRule("character", "singing", animation),))
+    bindings = line._resolve((LyricRule("character", "timing", animation),))
     assert all(binding.animation is animation for binding in bindings)
 
 
 def test_drift_default_center_translates_by_authored_offset_only():
     doc, original = subject()
     bound = original.bind(LyricRule(
-        "character", "after_singing", DriftOut(offset=Vec2(12, -20)), duration=0.5,
+        "character", "after_timing", DriftOut(offset=Vec2(12, -20)), duration=0.5,
     ))
     before = Scene(doc).add(original).evaluator()
     after = Scene(doc).add(bound).evaluator()

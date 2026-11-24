@@ -17,7 +17,7 @@ from kara_templater import (
     Track,
     Tween,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
     smooth_rate,
 )
 from kara_templater.geometry import finite
@@ -35,15 +35,15 @@ class SyllablePulse:
             raise ValueError("pulse peak and release must be positive")
 
     def __call__(self, timing: LyricAnimationContext) -> StateAnimation:
-        if not timing.target.singing:
+        if not timing.target.timing:
             return Tween(StatePatch(scale=Vec2(1, 1)))
         targets = timing.line.query("syllable")
         index = targets.index(timing.target)
-        current = timing.target.singing[0]
+        current = timing.target.timing[0]
         following = targets[index + 1] if index + 1 < len(targets) else None
         next_span = (
-            following.singing[0]
-            if following is not None and following.singing
+            following.timing[0]
+            if following is not None and following.timing
             else None
         )
         timeline = Timeline()
@@ -68,7 +68,7 @@ class SyllablePulse:
 
 track = Track(
     id="lyrics",
-    effects=(LyricRule("syllable", "singing", SyllablePulse()),),
+    effects=(LyricRule("syllable", "timing", SyllablePulse()),),
 )
 
 
@@ -77,7 +77,7 @@ def main() -> None:
     parser.add_argument("input", type=Path)
     parser.add_argument("output", type=Path)
     args = parser.parse_args()
-    scene = prepare_tracks(Document.load(args.input), tracks=(track,))
+    scene = build_lyric_scene(Document.load(args.input), tracks=(track,))
     scene.ass.compile().document.save(args.output)
 
 

@@ -38,7 +38,7 @@ def test_whole_line_fade_and_syllable_jump_compose_without_manual_target_loop():
     line = original.bind(
         LyricRule("line", "enter", fade, duration=0.2),
         LyricRule("line", "exit", FadeOut(), duration=0.2),
-        LyricRule("syllable", "singing", Jump(height=10)),
+        LyricRule("syllable", "timing", Jump(height=10)),
     )
     assert line.animations[0].animation is fade
     assert line.at(0.1).opacity == pytest.approx(0.5)
@@ -79,16 +79,16 @@ def test_repeated_segments_have_distinct_identity_and_original_clocks():
     assert len(segments) == 2
     assert segments[0].id != segments[1].id
     assert segments[0].node_id == segments[1].node_id
-    assert [(t.singing[0].start, t.singing[0].end) for t in segments] == [
+    assert [(t.timing[0].start, t.timing[0].end) for t in segments] == [
         (1, 1.25),
         (1.5, 1.75),
     ]
-    bound = line.bind(LyricRule("segment", "singing", Jump()))
+    bound = line.bind(LyricRule("segment", "timing", Jump()))
     for time in (1.625, 1.125):
         assert bound.children[0].at(time).position.y == pytest.approx(
             line.children[0].state.position.y - 12
         )
-    assert line.query("syllable")[0].singing[0].end == 1.75
+    assert line.query("syllable")[0].timing[0].end == 1.75
 
 
 def test_query_keeps_hierarchy_and_suppresses_descendant_double_transform():
@@ -125,12 +125,12 @@ def test_copying_a_parent_group_retargets_nested_lyric_metadata():
     nested = copied.children[0]
     assert isinstance(nested, LyricLine)
     assert nested.query("line")[0].node_id == nested.id
-    animated = nested.bind(LyricRule("syllable", "singing", Jump()))
+    animated = nested.bind(LyricRule("syllable", "timing", Jump()))
     target = animated.query("character")[0].node_id
     baseline = Scene(doc).add(nested).evaluator().at(target, 5.25)
     actual = Scene(doc).add(animated).evaluator().at(target, 5.25)
     assert actual.position == baseline.position + Vec2(0, -12)
-    assert nested.query("syllable")[0].singing == line.query("syllable")[0].singing
+    assert nested.query("syllable")[0].timing == line.query("syllable")[0].timing
 
 
 def test_explicit_target_collection_deduplicates_ancestors_without_reparenting():
@@ -160,8 +160,8 @@ def test_explicit_foreign_targets_fail_before_any_animation_factory():
 
     with pytest.raises(ValueError, match="does not belong to line"):
         original.bind(
-            LyricRule("character", "singing", factory),
-            LyricRule(foreign, "singing", Jump()),
+            LyricRule("character", "timing", factory),
+            LyricRule(foreign, "timing", Jump()),
         )
     assert not calls
     with pytest.raises(ValueError, match="unknown lyric target role"):
@@ -177,15 +177,15 @@ def test_empty_and_filtered_selections_skip_factories_but_explicit_ruby_binds():
         return Jump()
 
     original.bind(
-        LyricRule("ruby", "singing", factory),
-        LyricRule((), "singing", factory),
-        LyricRule("character", "singing", factory, tags=frozenset(("other",))),
+        LyricRule("ruby", "timing", factory),
+        LyricRule((), "timing", factory),
+        LyricRule("character", "timing", factory, tags=frozenset(("other",))),
     )
     assert not calls
     _, with_ruby = subject()
     ruby = with_ruby.query("ruby")[0]
     bound = with_ruby.bind(
-        LyricRule(ruby, "singing", factory, tags=frozenset(("main",)))
+        LyricRule(ruby, "timing", factory, tags=frozenset(("main",)))
     )
     assert calls == [ruby.id]
     evaluator = Scene(Document.create()).add(bound).evaluator()

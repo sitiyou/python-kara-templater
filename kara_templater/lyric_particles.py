@@ -4,7 +4,7 @@ from dataclasses import dataclass, replace
 from math import ceil, cos, pi, sin
 from typing import Literal
 
-from .appearance import _DEFAULT_SUNG
+from .appearance import _DEFAULT_AFTER_FILL
 from .composition import Color
 from .geometry import Contour, CubicSegment, Vec2, VectorPath, finite
 from .lyric_line import LyricLine
@@ -58,7 +58,7 @@ class Sparkle:
         return PathObject(
             id=context.id, lifetime=Lifetime(context.birth, context.birth + self.duration),
             path=path, origin=context.origin, layer=1,
-            state=VisualState(position=position, fill=self.color or context.color or _DEFAULT_SUNG, border=0, opacity=0.9),
+            state=VisualState(position=position, fill=self.color or context.color or _DEFAULT_AFTER_FILL, border=0, opacity=0.9),
         ).animate(Tween(StatePatch(position=destination, opacity=0)), duration=self.duration)
 
 
@@ -99,7 +99,7 @@ class Petal:
         return PathObject(
             id=context.id, lifetime=Lifetime(context.birth, context.birth + self.duration),
             path=path, origin=context.origin, layer=1,
-            state=VisualState(position=context.position, fill=self.color or context.color or _DEFAULT_SUNG, border=0,
+            state=VisualState(position=context.position, fill=self.color or context.color or _DEFAULT_AFTER_FILL, border=0,
                               rotation=context.uniform("angle", 0, 360)),
         ).animate(ShaderMotion(
             motion.sample, motion.channels,
@@ -148,28 +148,28 @@ class Ribbon:
             id=context.id,
             lifetime=Lifetime(context.birth, context.birth + self.duration + self.lag),
             path=trail.full_path, deform=trail, origin=context.origin, layer=1,
-            state=VisualState(position=context.position, fill=self.color or context.color or _DEFAULT_SUNG,
-                              outline=self.color or context.color or _DEFAULT_SUNG, border=0.5, blur=0.6),
+            state=VisualState(position=context.position, fill=self.color or context.color or _DEFAULT_AFTER_FILL,
+                              outline=self.color or context.color or _DEFAULT_AFTER_FILL, border=0.5, blur=0.6),
         )
 
 
 @dataclass(frozen=True, kw_only=True)
 class LyricParticles:
-    """Emit particles at the singing front or throughout the measured lyric line.
+    """Emit particles at the timing front or throughout the measured lyric line.
 
-    placement="front" uses each singing segment. placement="line" scatters
+    placement="front" uses each timing segment. placement="line" scatters
     particles across the body bounds from the original preview start through the
-    last positive singing end, including unsung text and pauses. Its rate is per
+    last positive timing end, including base text and pauses. Its rate is per
     whole line, not per character or segment. Empty/zero-only lines emit nothing.
     Copy delays shift both schedules; later visual tails never extend emission.
     Line placement uses stable named random channels and captures a fixed point.
 
     color overrides the emission tint. Catalog or Track ink supplies the default;
     without one the emitter reads the source run. A factory color overrides it.
-    rate is particles per second per singing segment in front mode; duration comes from the
+    rate is particles per second per timing segment in front mode; duration comes from the
     particle factory. Repeated segments restart the front. Zero-length segments
     emit nothing. Particle births are rounded to the ASS 10 ms grid; source
-    singing clocks are unchanged. Position is captured in line-local layout coordinates at birth;
+    timing clocks are unchanged. Position is captured in line-local layout coordinates at birth;
     line transforms apply to particles, independent character motion does not
     retarget already emitted particles. Use a custom factory for different paths,
     shapes, animation and lifetimes through the existing ParticleContext protocol.
@@ -198,7 +198,7 @@ class LyricParticles:
         total = 0
         if self.placement == "line":
             target = line.query("line")[0]
-            spans = [span for span in target.singing if span.end > span.start]
+            spans = [span for span in target.timing if span.end > span.start]
             box = line.layout.body.bounds
             if not spans or not line.layout.lyrics.body.text.strip() or box.width <= 0:
                 return line
@@ -218,7 +218,7 @@ class LyricParticles:
                     continue
                 box = line.layout.body.range_bounds(unit.start, unit.end)
                 for segment_index, segment in enumerate(unit.segments):
-                    span = segment.singing
+                    span = segment.timing
                     duration = span.end - span.start
                     if duration <= 0 or box.width <= 0:
                         continue
@@ -239,7 +239,7 @@ class LyricParticles:
 
             offset = 0 if self.placement == "line" else line.layout.lyrics.units[unit].start
             source_color = next((r.appearance.primary for r in line.layout.body.source.runs
-                                 if r.start <= offset < r.end), _DEFAULT_SUNG)
+                                 if r.start <= offset < r.end), _DEFAULT_AFTER_FILL)
 
             def factory(context: ParticleContext, left: float = box.left,
                         right: float = box.right, top: float = box.top,

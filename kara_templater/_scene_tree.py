@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from .scene import (
-    NativeEvent,
+    AssDialogue,
     ObjectGroup,
     PathObject,
     Scene,
@@ -33,23 +33,23 @@ def scene_leaves(
     evaluator: SceneEvaluator,
 ) -> tuple[
     tuple[SceneLeaf, ...],
-    tuple[NativeEvent, ...],
+    tuple[AssDialogue, ...],
     tuple[str, ...],
 ]:
     leaves: list[SceneLeaf] = []
-    native: list[NativeEvent] = []
+    native: list[AssDialogue] = []
     order: list[str] = []
     ids: set[str] = set()
 
     def visit(
-        node: SceneObject | NativeEvent, parents: tuple[ObjectGroup, ...]
+        node: SceneObject | AssDialogue, parents: tuple[ObjectGroup, ...]
     ) -> None:
         if node.id in ids:
             raise SceneCompileError(
                 "duplicate object identity or group cycle", object_id=node.id
             )
         ids.add(node.id)
-        if isinstance(node, NativeEvent):
+        if isinstance(node, AssDialogue):
             native.append(node)
             order.append(node.id)
             return

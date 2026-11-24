@@ -18,7 +18,7 @@ from kara_templater import (
     Timeline,
     TimeSpan,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
     smooth_rate,
 )
 
@@ -34,13 +34,13 @@ def test_unequal_repeats_choose_independent_peaks_and_preserve_aliases():
         calls.append(timing)
         return pulse(timing)
 
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(
-        lambda line: line.schedule(LyricRule("character", "singing", adaptive)),
-        LyricHighlights.from_singing(StatePatch(fill=CYAN)),
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(
+        lambda line: line.schedule(LyricRule("character", "timing", adaptive)),
+        LyricHighlights.from_timing(StatePatch(fill=CYAN)),
     )),))
     a, b = scene.lines[0].query("character")
     assert [call.duration for call in calls] == [0.25, 1, 0]
-    assert calls[0].target.singing == calls[1].target.singing == a.singing
+    assert calls[0].target.timing == calls[1].target.timing == a.timing
     assert [call.interval for call in calls] == [
         TimeSpan(1, 1.25), TimeSpan(1.5, 2.5), TimeSpan(2.5, 2.5),
     ]
@@ -61,20 +61,20 @@ def test_override_and_custom_intervals_are_the_factory_clock():
     calls = []
 
     def choose(timing: LyricAnimationContext):
-        calls.append((timing.interval, timing.duration, timing.target.singing))
+        calls.append((timing.interval, timing.duration, timing.target.timing))
         return ScalePulse(peak=1.1)
 
     def anchors(line, target):
         return (TimeSpan(0.5, 0.6), TimeSpan(2.5, 3))
 
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(
         LyricRule("character", anchors, choose, duration=0.2, offset=0.1),
     )),))
     target = scene.lines[0].query("character")[0]
     assert [(span, duration) for span, duration, _ in calls] == [
         (TimeSpan(0.5, 0.6), 0.2), (TimeSpan(2.5, 3), 0.2),
     ]
-    assert all(source == target.singing for _, _, source in calls)
+    assert all(source == target.timing for _, _, source in calls)
     for peak in (0.7, 2.7):
         assert scene.evaluator().at(target.node_id, peak).scale.x == pytest.approx(1.1)
 
@@ -91,7 +91,7 @@ def test_display_factory_can_return_sequence_without_invented_interval():
             _ = timing.duration
         return Timeline().play(FadeIn(), duration=0.3).animation
 
-    scene = prepare_tracks(doc, tracks=(Track(id="main", preview=0, effects=(
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", preview=0, effects=(
         LyricRule("line", "enter", entrance),
     )),))
     assert len(calls) == 1
@@ -105,7 +105,7 @@ def test_delayed_copy_context_and_missing_intervals():
 
     doc = Document.create(width=640, height=360)
     doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}A"))
-    line = prepare_tracks(doc, tracks=(Track(id="main"),)).lines[0]
+    line = build_lyric_scene(doc, tracks=(Track(id="main"),)).lines[0]
     calls = []
 
     def choose(timing: LyricAnimationContext):
@@ -113,12 +113,12 @@ def test_delayed_copy_context_and_missing_intervals():
         return ScalePulse(peak=1.1)
 
     copied = line.copy(id="copy", delay=0.3)
-    bound = copied.bind(LyricRule("character", "singing", choose))
+    bound = copied.bind(LyricRule("character", "timing", choose))
     target = bound.query("character")[0]
     assert calls[0].interval == TimeSpan(1.3, 2.3)
     assert calls[0].duration == pytest.approx(1)
-    assert calls[0].target.singing == line.query("character")[0].singing
+    assert calls[0].target.timing == line.query("character")[0].timing
     assert Scene(doc).add(bound).evaluator().at(target.node_id, 1.8).scale.x == pytest.approx(1.1)
-    empty = replace(line, targets=tuple(replace(item, singing=()) for item in line.targets))
-    empty.bind(LyricRule("character", "singing", choose))
+    empty = replace(line, targets=tuple(replace(item, timing=()) for item in line.targets))
+    empty.bind(LyricRule("character", "timing", choose))
     assert len(calls) == 1

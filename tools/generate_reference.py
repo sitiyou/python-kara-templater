@@ -37,11 +37,11 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     "documents": (
         "Documents and lyric input",
         ("ass", "document_text", "document_lyrics", "sources"),
-        "Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric singing spans and Track authoring use seconds. See [Documents](../guides/documents.md).",
+        "Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric timing spans and Track authoring use seconds. See [Documents](../guides/documents.md).",
     ),
     "scenes": (
         "Scenes and compilation",
-        ("scene", "scene_output", "scene_evaluation"),
+        ("scene", "output.ass_export", "scene_evaluation"),
         "Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile returns a new Document under explicit resource limits. See [objects](../guides/objects.md) and [compilation](../guides/compilation.md).",
     ),
     "animation": (
@@ -51,12 +51,12 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
     ),
     "tracks": (
         "Track authoring",
-        ("orchestration", "lyric_layout", "lyric_line", "lyric_effects", "karaoke_effects"),
-        "Independent lyric streams, allocation and semantic bindings into one Scene. Singing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).",
+        ("lyrics.tracks", "lyrics.placement", "lyric_line", "lyric_effects", "karaoke_effects"),
+        "Independent lyric streams, allocation and semantic bindings into one Scene. Timing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).",
     ),
     "text": (
         "Text measurement and layout",
-        ("fonts", "characters", "layout", "model", "scene_text", "scene_lyrics"),
+        ("fonts", "characters", "text.measurement", "text.layout", "lyrics.layout"),
         "Font-dependent layout, source clusters, and editable body/ruby binding. Unicode code-point ranges must align with independently drawable clusters. See [text and cues](../guides/text-and-cues.md).",
     ),
     "geometry": (
@@ -80,8 +80,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
             "composition",
             "appearance",
             "paint_fields",
-            "raster_settings",
-            "lyric_highlights",
+            "lyrics.highlights",
         ),
         "RGB colors, typed appearance, spatial fields, and material animation. Pixel distances and opacity in 0..1 are authoring values; ASS encodings are output details. See [materials](../guides/materials.md).",
     ),
@@ -96,9 +95,9 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
         "Deterministic emissions, delayed copies, and pure world-space dependencies. Time values use seconds. See [particles](../guides/particles.md).",
     ),
     "native": (
-        "Regions and progress curves",
-        ("timeline",),
-        "Horizontal regions, normalized progress curves, and millisecond input display windows. HighlightPass and Scene animation clocks use seconds. Output goes through the common Scene compiler.",
+        "Raster previews",
+        ("_raster",),
+        "Raster preview capability errors and display windows in absolute milliseconds.",
     ),
 
 }

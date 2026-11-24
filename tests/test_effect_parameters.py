@@ -25,10 +25,10 @@ from kara_templater import (
     TextCue,
     TextObject,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 from kara_templater.karaoke_effects import _walk
-from kara_templater.lyric_highlights import _FeatheredSingingClip
+from kara_templater.lyrics.highlights import _FeatheredWipeClip
 
 
 @pytest.mark.parametrize(("ruby_size", "fixed"), [(36, False), (48, False), (48, True)])
@@ -39,14 +39,14 @@ def test_body_and_reading_share_resolved_export_widths(tmp_path, ruby_size, fixe
     )
     doc.records.append(Line(text=r"{\k100}A|x", end_time=1000))
     effect = KaraokeEffects.duotone(feather=12) if fixed else KaraokeEffects.duotone()
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc, tracks=(Track(id="main", layout=Layout(), effects=(effect,)),)
     )
     (line,) = scene.lines
     expected = {"A": 12, "x": 12 if fixed else ruby_size / 6}
 
     def clips(node):
-        if isinstance(node.clip, _FeatheredSingingClip):
+        if isinstance(node.clip, _FeatheredWipeClip):
             yield node.text, node.clip.width
         for child in getattr(node, "children", ()):
             yield from clips(child)
@@ -69,18 +69,18 @@ def test_interval_expressions_and_factory_read_the_same_source_note():
         )
         return ScalePulse(peak=1.15)
 
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc,
         tracks=(
             Track(
                 id="main",
                 effects=(
                     LyricRule(
-                        "character", "singing", pulse, duration=Note.duration / 2
+                        "character", "timing", pulse, duration=Note.duration / 2
                     ),
                     LyricRule(
                         "character",
-                        "after_singing",
+                        "after_timing",
                         FadeIn(),
                         duration=0.1,
                         offset=(Note.duration / 4).clamp(0.06, 0.20),
@@ -97,7 +97,7 @@ def test_interval_expressions_and_factory_read_the_same_source_note():
     assert evaluator.at(identity, 1.45).opacity == pytest.approx(0.5)
     assert len(clocks) == 3
     with pytest.raises(ValueError, match=r"LyricRule.duration requires Note.duration"):
-        prepare_tracks(
+        build_lyric_scene(
             doc,
             tracks=(
                 Track(
@@ -122,7 +122,7 @@ def test_theme_inheritance_reaches_cues_and_respects_effect_ink():
         seen.append((ctx.colors.before.fill, ctx.colors.after.fill))
         return TextCue()(ctx)
 
-    palette = KaraokeTheme(sung=RED, unsung=BLUE)
+    palette = KaraokeTheme(after_fill=RED, before_fill=BLUE)
     ink = KaraokeEffects.duotone()
     harmony = Color(40, 200, 188)
     tracks = tuple(
@@ -134,18 +134,18 @@ def test_theme_inheritance_reaches_cues_and_respects_effect_ink():
         )
         for name, theme, effect in (
             ("main", KaraokeTheme(), ink),
-            ("harmony", KaraokeTheme(sung=harmony), ink),
-            ("accent", KaraokeTheme(sung=harmony), replace(ink, sung=BLUE)),
+            ("harmony", KaraokeTheme(after_fill=harmony), ink),
+            ("accent", KaraokeTheme(after_fill=harmony), replace(ink, after_fill=BLUE)),
         )
     )
-    scene = prepare_tracks(doc, tracks=tracks, theme=palette)
+    scene = build_lyric_scene(doc, tracks=tracks, theme=palette)
     assert seen == [(BLUE, RED), (BLUE, harmony), (BLUE, BLUE)]
-    assert [next(node.state.fill for node in _walk(line) if isinstance(node, TextObject) and isinstance(node.clip, _FeatheredSingingClip)) for line in scene.lines] == [RED, harmony, BLUE]
-    assert ink.sung is None
+    assert [next(node.state.fill for node in _walk(line) if isinstance(node, TextObject) and isinstance(node.clip, _FeatheredWipeClip)) for line in scene.lines] == [RED, harmony, BLUE]
+    assert ink.after_fill is None
     assert ink.with_theme(palette).particle_color == "follow_after"
     assert (
         ink.with_theme(palette).shine
-        != ink.with_theme(KaraokeTheme(sung=harmony)).shine
+        != ink.with_theme(KaraokeTheme(after_fill=harmony)).shine
     )
 
 
@@ -155,7 +155,7 @@ def test_canvas_and_animation_fields_resolve_at_their_own_stage():
     doc = Document.create(width=640, height=360)
     doc.records.append(Line(text=r"{\k100}A", start_time=1000, end_time=2000))
     recipe = KaraokeEffects(
-        singing="scanline",
+        highlight="scanline",
         scanline_width=Canvas.height / 45,
         scanline_softness=Glyph.font_size / 8,
     )
@@ -171,7 +171,7 @@ def test_canvas_and_animation_fields_resolve_at_their_own_stage():
         )
         return ScalePulse()
 
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -180,7 +180,7 @@ def test_canvas_and_animation_fields_resolve_at_their_own_stage():
                     recipe,
                     LyricRule(
                         "character",
-                        "singing",
+                        "timing",
                         pulse,
                         duration=0.2,
                         offset=Animation.duration / 2,
@@ -195,7 +195,7 @@ def test_canvas_and_animation_fields_resolve_at_their_own_stage():
     with pytest.raises(
         ValueError, match=r"LyricRule.duration requires Animation.duration"
     ):
-        prepare_tracks(
+        build_lyric_scene(
             doc,
             tracks=(
                 Track(
@@ -203,7 +203,7 @@ def test_canvas_and_animation_fields_resolve_at_their_own_stage():
                     effects=(
                         LyricRule(
                             "character",
-                            "singing",
+                            "timing",
                             ScalePulse(),
                             duration=Animation.duration,
                         ),
@@ -212,7 +212,7 @@ def test_canvas_and_animation_fields_resolve_at_their_own_stage():
             ),
         )
     with pytest.raises(ValueError, match="hook_feather must be nonnegative"):
-        prepare_tracks(
+        build_lyric_scene(
             doc,
             tracks=(
                 Track(
@@ -250,7 +250,7 @@ def test_explicit_transparent_cue_and_unthemed_lyric_keep_their_paints():
             )
         },
     )
-    scene = prepare_tracks(doc, tracks=(track,), theme=KaraokeTheme(sung=RED))
+    scene = build_lyric_scene(doc, tracks=(track,), theme=KaraokeTheme(after_fill=RED))
     assert output == [(BLUE, 0)] * 3
     assert scene.lines[0].layout.body.characters[0].object.state.fill == Color(
         0, 255, 0

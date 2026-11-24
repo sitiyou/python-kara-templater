@@ -6,13 +6,13 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import Literal, Protocol
 
-from .appearance import _DEFAULT_SUNG, _DEFAULT_UNSUNG, PaintPair
+from .appearance import _DEFAULT_AFTER_FILL, _DEFAULT_BEFORE_FILL, PaintPair
 from .ass import Style
 from .composition import Color, Paint
 from .document_text import CueMarker
 from .geometry import Vec2, VectorPath, finite
-from .layout import text_extents
-from .lyric_highlights import LyricGradient
+from .lyrics.highlights import LyricGradient
+from .lyrics.layout import LyricLayout, PositionedRuby, _move, _shift
 from .scene import (
     Lifetime,
     ObjectGroup,
@@ -22,12 +22,12 @@ from .scene import (
     VisualNode,
 )
 from .scene_animation import AnimationClip, StateFunction, VisualState
-from .scene_lyrics import LyricLayout, PositionedRuby, _move, _shift
-from .scene_text import DocumentLayout, PositionedText, _union
 from .sources import EventOrigin, SourceRef
+from .text.layout import PositionedText, TextLayout, _union
+from .text.measurement import text_extents
 
 _DEFAULT_COLORS = PaintPair(
-    Paint(_DEFAULT_UNSUNG, Color(34, 34, 34)), Paint(_DEFAULT_SUNG, Color(34, 34, 34))
+    Paint(_DEFAULT_BEFORE_FILL, Color(34, 34, 34)), Paint(_DEFAULT_AFTER_FILL, Color(34, 34, 34))
 )
 
 
@@ -37,7 +37,7 @@ class CueContext:
 
     Factories create local objects for that interval. host is the measured text
     cluster at the marker (the final cluster for an end marker), when available. colors supplies the before/after paint for the first nonblank role.
-    role_font_size is its authored size for decoration scaling; role_em is its measured em in script pixels. base_gradient and gradient supply its unsung and sung fill ramps.
+    role_font_size is its authored size for decoration scaling; role_em is its measured em in script pixels. base_gradient and gradient supply its base and highlight fill ramps.
     zoom_pulse_curve_level selects the lyric zoom curve for cue steps, or None for steady size.
     """
 
@@ -98,7 +98,7 @@ class CuePreset:
     lyric row (including ruby), reserves its dimensions and applies gap in pixels.
     Automatic gap is one eighth of the authored host font size (12 script pixels without a host).
     With no line_edge, independent cues use absolute position.
-    An explicit trigger overrides the relevant singing interval default. colors fixes
+    An explicit trigger overrides the relevant timing interval default. colors fixes
     the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
     """
 
@@ -307,7 +307,7 @@ class CuedLayout:
     Its group combines the adjusted text and reserved-space behavior.
     """
 
-    text: DocumentLayout
+    text: TextLayout
     cues: tuple[CuePlacement, ...]
     inline: tuple[ObjectGroup, ...]
     independent: tuple[ObjectGroup, ...]
@@ -341,7 +341,7 @@ def _stamp(node: SceneObject, origin: EventOrigin) -> SceneObject:
 
 
 def bind_cues(
-    layout: DocumentLayout,
+    layout: TextLayout,
     presets: Mapping[str, CuePreset],
     *,
     markers: tuple[CueMarker, ...] | None = None,
@@ -349,7 +349,7 @@ def bind_cues(
 ) -> CuedLayout:
     """Bind input markers or equivalent Python values to the same object model.
 
-    Defaults trigger at the first singing interval. Optional BPM sets automatic cue timing.
+    Defaults trigger at the first timing interval. Optional BPM sets automatic cue timing.
     A preset can supply an absolute trigger. Inline reservations are included in
     range/background measurements and optionally released after the cue ends.
     """
@@ -388,7 +388,7 @@ def bind_cues(
             trigger = min(
                 (
                     span.start
-                    for span in layout.singing
+                    for span in layout.timing
                     if span.end_offset > span.start_offset
                 ),
                 default=None,

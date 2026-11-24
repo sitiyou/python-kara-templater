@@ -34,7 +34,7 @@ from kara_templater import (
     Track,
     Vec2,
     VisualState,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 type Design = Literal["broadcast", "amber", "candy"]
@@ -44,10 +44,10 @@ type Design = Literal["broadcast", "amber", "candy"]
 class Palette:
     """Paint values are script pixels at 1280 × 720; RGB hex is author-facing."""
 
-    unsung: str
-    unsung_edge: str
-    sung: str
-    sung_edge: str
+    before_fill: str
+    base_edge: str
+    after_fill: str
+    highlight_edge: str
     halo: str
     blur: float
     halo_opacity: float
@@ -137,8 +137,8 @@ def song(
         ),
     )
     for item in document.styles.values():
-        item.fields["PrimaryColour"] = ass_color(palette.unsung)
-        item.fields["OutlineColour"] = ass_color(palette.unsung_edge)
+        item.fields["PrimaryColour"] = ass_color(palette.before_fill)
+        item.fields["OutlineColour"] = ass_color(palette.base_edge)
     cue = CueMarker("lead", "bars").markup()
     rows = (
         (2, 4.5, cue + r"{\k50}Light|lait{\k50} up{\k150} the sky", "Main"),
@@ -168,7 +168,7 @@ def song(
 
 
 def candy_exit(timing: LyricAnimationContext) -> StateFunction:
-    """A short staggered tilt; singing itself stays geometrically stationary."""
+    """A short staggered tilt; timing itself stays geometrically stationary."""
     targets = timing.line.query("character")
     index = next(i for i, item in enumerate(targets) if item.id == timing.target.id)
     delay = 0.45 * index / max(1, len(targets) - 1)
@@ -199,8 +199,8 @@ def build(
             palette.halo_opacity,
         )
 
-    highlighter = LyricHighlights.from_singing(
-        StatePatch(fill=Color.hex(palette.sung), outline=Color.hex(palette.sung_edge)),
+    highlighter = LyricHighlights.from_timing(
+        StatePatch(fill=Color.hex(palette.after_fill), outline=Color.hex(palette.highlight_edge)),
         base_glow=halo,
         glow=halo,
     )
@@ -214,7 +214,7 @@ def build(
             LyricRule("character", "exit", candy_exit, duration=0.42),
             LyricRule("ruby", "exit", FadeOut(), duration=0.42),
         )
-    return prepare_tracks(
+    return build_lyric_scene(
         song(palette, font=font, japanese=japanese),
         tracks=(
             Track(
@@ -231,7 +231,7 @@ def build(
                         factory=BarsCue(
                             width=46,
                             height=26,
-                            color=Color.hex(palette.sung),
+                            color=Color.hex(palette.after_fill),
                             outline=WHITE,
                             border=1,
                         ),
@@ -252,8 +252,8 @@ def build(
                             LyricRule("line", "exit", FadeOut(), duration=0.22),
                         )
                     ),
-                    LyricHighlights.from_singing(
-                        StatePatch(fill=Color.hex(palette.sung), outline=WHITE)
+                    LyricHighlights.from_timing(
+                        StatePatch(fill=Color.hex(palette.after_fill), outline=WHITE)
                     ),
                 ),
             ),

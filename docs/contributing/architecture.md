@@ -18,18 +18,18 @@ flowchart LR
 ## Shared model
 
 ass.py preserves ordered records and serializes standard ASS. Document text and
-lyric modules project decoded text, styles, singing spans, ruby, and cue markers
+lyric modules project decoded text, styles, timing spans, ruby, and cue markers
 with source mappings. LyricSource wraps parsed or structured DocumentLyrics. Track authoring, lyric
 anchors and Scene object clocks use seconds; raw ASS records retain milliseconds.
 
-scene.py defines text, path, group, and native-event objects. scene_animation.py
+scene.py defines text, path, group, and ASS dialogue objects. scene_animation.py
 provides typed animation declarations and seekable evaluation.
 SceneEvaluator composes hierarchy and reference dependencies in world coordinates.
 Geometry, masks, paint fields, particles, and cues are independent typed extensions.
 
 ## Frontends
 
-orchestration.prepare_tracks selects independent Track streams, measures lyric
+`lyrics/tracks.py` implements `build_lyric_scene`, which selects independent Track streams, measures lyric
 objects, resolves timing rules from Track.effects, constructs its callable visuals once, collects
 authored visual intervals, calls Layout.allocate once per stream, and binds
 common animations to the prepared LyricLine targets. Custom callables can return
@@ -43,7 +43,7 @@ same-source visual views remain separate.
 
 The CLI default recipe uses this frontend, including its source-position
 allocator and before/after paint rules. Effect scripts return a Scene or declare
-Tracks. No new lyrics are pre-encoded into NativeEvents before compilation.
+Tracks. Lyrics remain editable scene objects until export.
 
 Object groups carry hierarchy, inherited opacity and clipping.
 
@@ -57,10 +57,10 @@ Lyric binding applies Track outline clearance to shaped cluster ink bounds befor
 ruby, cues and row allocation. Each cluster retains the cumulative extra distance
 so automatic sweeps follow the Studio primary-stroke interval or the native font advances.
 
-Karaoke sweep timing belongs to the lyric engine. Singing progress is measured
+The lyric engine measures wipe progress
 over shaped text geometry. Studio measures the glyph and primary hard stroke,
 then shortens the endpoint where adjacent layout cells overlap. Clearance,
-secondary strokes and glow never expand the distance traversed during singing. The built-in singing
+secondary strokes and glow never expand the distance traversed during the wipe. The built-in
 highlighter reserves decorative edge transitions and lowers eligible linear
 clips internally. Templates declare appearance rather than compensating for
 blur in clip coordinates or source clocks.
@@ -73,13 +73,12 @@ source glyph clock, while emitted ornaments keep independent lifetimes.
 
 ## Compiler and native measurement
 
-scene_output.py performs whole-scene preflight, strategy selection, deterministic
+`output/ass_export.py` performs whole-scene preflight, strategy selection, deterministic
 native ASS lowering, ownership handling, reporting, and final resource checks.
-NativeEvent preserves already-lowered ASS while sharing output/provenance rules.
+AssDialogue preserves already-lowered ASS while sharing output/provenance rules.
 Rendered output is a new Document; caller-owned scene/source objects remain intact.
 
-The authoring metrics module exposes font registration, extents and positioned
-glyph outlines. The C++ extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi and shapes them with HarfBuzz. Public extent queries pad each ink-bearing line’s typographic box by the style outline radius. Pen placement uses the unpadded advances; shape queries decompose FreeType outlines in script coordinates. The CPU preview rasterizes compiler drawings with aggdraw and Pillow.
+`text/measurement.py` exposes extent queries. The native text backend provides font registration and positioned glyph outlines. The C++ extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi and shapes them with HarfBuzz. Public extent queries pad each ink-bearing line’s typographic box by the style outline radius. Pen placement uses the unpadded advances; shape queries decompose FreeType outlines in script coordinates. The CPU preview rasterizes compiler drawings with aggdraw and Pillow.
 Python author callbacks are evaluated
 before serialization; the player receives ordinary ASS rather than Python.
 
@@ -89,7 +88,7 @@ The generated [API reference](../reference/README.md) documents the retained set
 
 ## Default GPU output
 
-Scene.export partitions each leaf at lifetime, clip and animation boundaries.
+`output/hook/` implements `Scene.export()`. It partitions each leaf at lifetime, clip and animation boundaries.
 Known motion spans store endpoint transforms and easing; rectangle keyframes
 interpolate independently. Custom motion programs receive per-instance data and the clip clock.
 The hook shares inherited screen-rectangle tracks across descendants and

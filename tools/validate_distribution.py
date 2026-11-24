@@ -99,8 +99,8 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
                 "Linux release wheel must advertise only the configured manylinux_2_28 floor"
             )
     expected = {
-        f"kara_templater/{path.name}"
-        for path in (package / "kara_templater").iterdir()
+        path.relative_to(package).as_posix()
+        for path in (package / "kara_templater").rglob("*")
         if path.suffix in (".py", ".pyi") or path.name == "py.typed"
     }
     if missing := expected - files:

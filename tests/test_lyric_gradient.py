@@ -1,4 +1,4 @@
-"""Measured gradient appearance belongs to the sung glyph, not glow aliases."""
+"""Measured gradient appearance belongs to the highlight glyph, not glow aliases."""
 
 import pytest
 
@@ -48,21 +48,21 @@ def test_studio_text_glow_converts_pen_radius_and_gaussian_deviation():
     assert Glow.from_studio(BLUE, radius=0, outline=3) == Glow(BLUE, opacity=0)
 
 
-def test_base_paint_is_owned_by_unsung_layers_and_their_glow():
+def test_base_paint_is_owned_by_base_layers_and_their_glow():
     _, original = subject()
-    painted = LyricHighlights.from_singing(
+    painted = LyricHighlights.from_timing(
         StatePatch(fill=RED), base_paint=StatePatch(opacity=0),
         base_glow=Glow(BLUE, opacity=0.2), glow=Glow(RED, opacity=0.4),
     )(original)
     objects = {node.id: node for node in nodes(painted)}
     for target in (*painted.query("character"), *painted.query("ruby")):
         assert objects[target.node_id].state.opacity == 0
-        sung = [objects[name] for name in target.aliases if "/highlight:" in name and not name.endswith("/glow")]
-        assert sung and all(node.state.opacity == 1 for node in sung)
+        highlight = [objects[name] for name in target.aliases if "/highlight:" in name and not name.endswith("/glow")]
+        assert highlight and all(node.state.opacity == 1 for node in highlight)
         assert objects[f"{target.node_id}/glow"].state.opacity == 0
     assert all(node.state.opacity == 1 for node in nodes(original))
     with pytest.raises(ValueError, match="geometry"):
-        LyricHighlights.from_singing(StatePatch(), base_paint=StatePatch(scale=Vec2(2, 2)))
+        LyricHighlights.from_timing(StatePatch(), base_paint=StatePatch(scale=Vec2(2, 2)))
 
 
 def test_measured_gradient_scales_to_body_and_ruby_without_tinting_glow():
@@ -74,7 +74,7 @@ def test_measured_gradient_scales_to_body_and_ruby_without_tinting_glow():
         calls.append(target.id)
         return gradient(line, target)
 
-    painted = LyricHighlights.from_singing(
+    painted = LyricHighlights.from_timing(
         StatePatch(outline=RED), material=material,
         glow=Glow(BLUE, blur=2, border=4, opacity=0.3),
     )(original)
@@ -96,10 +96,10 @@ def test_measured_gradient_scales_to_body_and_ruby_without_tinting_glow():
 
 def test_gradient_follows_centered_scale_and_translation_in_scene():
     doc, line = subject()
-    line = LyricHighlights.from_singing(
+    line = LyricHighlights.from_timing(
         StatePatch(), material=LyricGradient((RED, BLUE)),
     )(line).copy(id="copy", offset=Vec2(20, 30))
-    bound = line.bind(LyricRule("character", "singing", ScalePulse(peak=1.2)))
+    bound = line.bind(LyricRule("character", "timing", ScalePulse(peak=1.2)))
     target = bound.query("character")[0]
     before = Scene(doc).add(line).evaluator().at(target.node_id, 1.5)
     after = Scene(doc).add(bound).evaluator().at(target.node_id, 1.5)
@@ -140,7 +140,7 @@ def test_volume_gradient_shares_the_body_span_only_for_a_leading_inline_cue(plac
         KaraokeEffects,
         Track,
         VolumeCue,
-        prepare_tracks,
+        build_lyric_scene,
     )
 
     doc = Document.create(width=320, height=180, styles=(Style(fontname="DejaVu Sans", fontsize=40),))
@@ -149,8 +149,8 @@ def test_volume_gradient_shares_the_body_span_only_for_a_leading_inline_cue(plac
                             start_time=1000, end_time=3000))
     gradient = LyricGradient((RED, BLUE), axis="x")
     track = Track(id="voice", cues={"lead": CuePreset(factory=VolumeCue(count=3, height=24, border=0))},
-                  effects=(KaraokeEffects(entry="none", exit="none", singing="none", material=gradient),))
-    scene = prepare_tracks(doc, tracks=(track,))
+                  effects=(KaraokeEffects(entry="none", exit="none", highlight="none", material=gradient),))
+    scene = build_lyric_scene(doc, tracks=(track,))
     line, = scene.lines
     cue = next(c for c in (*line.children, *line.independent) if "/cue:" in c.id)
     columns = [n for n in nodes(cue) if isinstance(n.material, LinearGradient)]
@@ -174,7 +174,7 @@ def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
         KaraokeEffects,
         Track,
         VolumeCue,
-        prepare_tracks,
+        build_lyric_scene,
     )
 
     doc = Document.create(width=400, height=200, styles=tuple(
@@ -188,9 +188,9 @@ def test_alternating_styles_share_their_own_ramps_with_readings_and_lead():
     ))
     ramps = {"Lead": LyricGradient((RED, BLUE), axis="x"),
              "Reply": LyricGradient((BLUE, RED), axis="x")}
-    scene = prepare_tracks(doc, tracks=(Track(
+    scene = build_lyric_scene(doc, tracks=(Track(
         id="duet", cues={"bars": CuePreset(factory=VolumeCue(count=2, height=24, border=0))},
-        effects=(KaraokeEffects(entry="none", exit="none", singing="scanline",
+        effects=(KaraokeEffects(entry="none", exit="none", highlight="scanline",
                                ruby_scanline="both", scanline_mode="follow_after", material=ramps,
                                base_material={"Lead": ramps["Reply"]}),),
     ),))

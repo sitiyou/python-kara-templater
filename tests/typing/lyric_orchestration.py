@@ -9,7 +9,7 @@ from kara_templater import (
     Jump,
     Layout,
     LayoutContext,
-    LayoutLine,
+    LineLayoutRequest,
     LyricLine,
     LyricRule,
     LyricScene,
@@ -23,7 +23,7 @@ from kara_templater import (
 
 class CustomLayout(Layout):
     def allocate(
-        self, lines: tuple[LayoutLine, ...], context: LayoutContext
+        self, lines: tuple[LineLayoutRequest, ...], context: LayoutContext
     ) -> tuple[Placement, ...]:
         return super().allocate(lines, context)
 
@@ -35,14 +35,14 @@ def animate(
     assert_type(group.animate(animation, duration=0.2), ObjectGroup)
     assert_type(line.animate(FadeIn(), duration=0.2), LyricLine)
     assert_type(line.query("syllable"), tuple[LyricTarget, ...])
-    assert_type(line.bind(LyricRule("syllable", "singing", Jump())), LyricLine)
+    assert_type(line.bind(LyricRule("syllable", "timing", Jump())), LyricLine)
     return line.animate(animation, duration=0.2)
 
 
 def orchestrate(document: "Document") -> "LyricScene":
-    from kara_templater import LinePlan, Track, prepare_tracks
+    from kara_templater import LyricLinePlan, Track, build_lyric_scene
 
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         document,
         tracks=(
             Track(
@@ -55,7 +55,7 @@ def orchestrate(document: "Document") -> "LyricScene":
     )
     assert_type(scene, LyricScene)
     assert_type(scene.lines, tuple[LyricLine, ...])
-    assert_type(scene.plans, tuple[LinePlan, ...])
+    assert_type(scene.plans, tuple[LyricLinePlan, ...])
     return scene
 
 
@@ -76,8 +76,8 @@ def structured(document: Document, lyrics: "DocumentLyrics") -> LyricScene:
         LyricLayout,
         LyricSource,
         Track,
+        build_lyric_scene,
         layout_lyrics,
-        prepare_tracks,
     )
 
     source = LyricSource.from_lyrics("verse", lyrics, display=Lifetime(0, 5))
@@ -86,12 +86,12 @@ def structured(document: Document, lyrics: "DocumentLyrics") -> LyricScene:
     assert_type(
         layout_lyrics(document, lyrics, id="verse", display=source.display), LyricLayout
     )
-    return prepare_tracks(document, tracks=(Track(id="main"),), inputs=(source,))
+    return build_lyric_scene(document, tracks=(Track(id="main"),), inputs=(source,))
 
 
 def bind_selected(line: LyricLine, target: LyricTarget) -> LyricLine:
-    assert_type(line.bind(LyricRule(target, "singing", Jump())), LyricLine)
-    return line.bind(LyricRule(line.query("ruby"), "singing", Jump()))
+    assert_type(line.bind(LyricRule(target, "timing", Jump())), LyricLine)
+    return line.bind(LyricRule(line.query("ruby"), "timing", Jump()))
 
 
 def glow_targets(line: LyricLine) -> LyricLine:

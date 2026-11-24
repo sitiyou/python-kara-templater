@@ -20,9 +20,9 @@ from kara_templater import (
     Style,
     Track,
     Vec2,
+    build_lyric_scene,
     layout_document_lyrics,
     lyric_effects,
-    prepare_tracks,
 )
 
 
@@ -66,13 +66,13 @@ def test_onset_copies_have_independent_fades_and_exact_offsets():
     assert all(r.events == 1 for r in echo_reports)
 
 
-def test_repeats_and_delayed_copies_retain_original_singing_clocks():
+def test_repeats_and_delayed_copies_retain_original_timing_clocks():
     doc, line = subject(r"{\k25}A{\kt50\k25}#", end=2000)
     delayed = line.copy(id="delayed", delay=0.3)
     decorated = LyricEcho(count=1)(delayed)
     copies = [node for node in objects(decorated) if "/echo:" in node.id]
     assert [node.lifetime.start for node in copies] == [1.3, 1.8]
-    assert decorated.query("character")[0].singing == line.query("character")[0].singing
+    assert decorated.query("character")[0].timing == line.query("character")[0].timing
     assert Scene(doc).add(decorated).ass.compile(native_tweens=True).event_count > 0
     with pytest.raises(ValueError, match="budget exceeded before copying"):
         LyricEcho(count=3, max_copies=5)(delayed)
@@ -83,10 +83,10 @@ def test_repeats_and_delayed_copies_retain_original_singing_clocks():
 def test_composed_highlight_and_echo_reserve_track_tail_without_manual_timing():
     doc, _ = subject()
     style = lyric_effects(
-        LyricHighlights.from_singing(StatePatch(fill=RED)),
+        LyricHighlights.from_timing(StatePatch(fill=RED)),
         LyricEcho(count=3, spacing=0.1, duration=1, paint=StatePatch(fill=RED)),
     )
-    scene = prepare_tracks(doc, tracks=(Track(
+    scene = build_lyric_scene(doc, tracks=(Track(
         id="main", preview=0, tail=0, region=Box(20, 40, 280, 120),
         layout=Layout(), effects=(style,),
     ),))

@@ -43,10 +43,10 @@ def test_ruby_keeps_body_center_offset_during_multiple_reservations_and_releases
         CueMarker("c", "lead", 2),
     )
     bound = bind_lyric_cues(original, presets, markers=markers)
-    assert bound.lyrics.body.singing == original.body.singing
+    assert bound.lyrics.body.timing == original.body.timing
     times = (0, 0.9, 1, 1.005, 1.5, 2, 2.005, 3.9)
     for ruby, before in zip(bound.lyrics.ruby, original.ruby, strict=True):
-        assert ruby.layout.singing == before.layout.singing
+        assert ruby.layout.timing == before.layout.timing
         unit = original.lyrics.units[ruby.unit_index]
         baseline = original.body.range_bounds(unit.start, unit.end).center
         for time in reversed(times):

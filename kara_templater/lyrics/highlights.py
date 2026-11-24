@@ -9,15 +9,14 @@ from math import ceil
 from statistics import NormalDist
 from typing import Literal
 
-from .composition import _ASS_BLUR_TO_SIGMA, Color, Glow, SecondaryOutline
-from .document_lyrics import LyricUnit
-from .document_text import SingingSpan
-from .geometry import Vec2, finite
-from .lyric_line import LyricLine, LyricTarget, _line_x
-from .model import Box
-from .paint_fields import ColorRamp, ColorStop, LinearGradient, _mix
-from .parameters import LengthExpr, _width
-from .scene import (
+from ..composition import _ASS_BLUR_TO_SIGMA, Color, Glow, SecondaryOutline
+from ..document_lyrics import LyricUnit
+from ..document_text import TimedTextSpan
+from ..geometry import Box, Region, Vec2, finite, union_regions
+from ..lyric_line import LyricLine, LyricTarget, _line_x
+from ..paint_fields import ColorRamp, ColorStop, LinearGradient, _mix
+from ..parameters import LengthExpr, _width
+from ..scene import (
     ObjectGroup,
     PathObject,
     RectangleClip,
@@ -29,11 +28,10 @@ from .scene import (
     _ColorStripClip,
     _LyricPaintClip,
 )
-from .scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
-from .scene_lyrics import LyricLayout, _after_onset
-from .scene_text import PositionedText
-from .text_geometry import _VectorGuideText
-from .timeline import Region, union_regions
+from ..scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
+from ..text.layout import PositionedText
+from ..text_geometry import _VectorGuideText
+from .layout import LyricLayout, _after_onset
 
 type LyricGlow = Glow | Callable[[LyricLine, LyricTarget], Glow | None] | None
 
@@ -80,7 +78,7 @@ class LyricGradient:
     """Evenly spaced colors on measured lyrics. Vertical colors span each glyph.
     Horizontal colors span all body glyphs sharing an ASS style and their readings.
 
-    Pass as material to LyricHighlights.from_singing. Coordinates are derived
+    Pass as material to LyricHighlights.from_timing. Coordinates are derived
     from undecorated glyph bounds. This factory produces an
     ordinary LinearGradient and inherits its renderer restrictions.
     """
@@ -248,7 +246,7 @@ class Highlight:
 
 
 @dataclass(frozen=True)
-class _SingingHighlights:
+class _TimingHighlights:
     paint: StatePatch
     glow: LyricGlow
     material: LyricMaterial = None
@@ -267,7 +265,7 @@ class _SingingHighlights:
     def _passes(self, layout: LyricLayout, unit: LyricUnit, region: Region) -> tuple[HighlightPass, ...]:
         if self.wipe:
             passes = []
-            repeated = len(unit._body_singing()) > 1
+            repeated = len(unit._body_timing()) > 1
             parts = layout._body_wipe(unit, reading_units=self.ruby_reading_units, reverse=self.reverse)
             for i, (span, a, b) in enumerate(parts):
                 start, end = (1 - b, 1 - a) if self.reverse else (a, b)
@@ -277,7 +275,7 @@ class _SingingHighlights:
                                             round=i if repeated else 0, reverse=self.reverse))
             return tuple(passes)
         return tuple(HighlightPass(self.interval(span.start, span.end), region, round=i)
-                     for i, span in enumerate(unit._body_singing()))
+                     for i, span in enumerate(unit._body_timing()))
 
     def for_target(self, highlight: Highlight, target: LyricTarget, glyph: PositionedText) -> Highlight:
         if self.wipe and isinstance(glyph.object, _VectorGuideText) and all(
@@ -291,7 +289,7 @@ class _SingingHighlights:
             highlight = replace(highlight, paint=replace(highlight.paint, fill=self.ruby_fill))
         if target.role != "ruby" or (not self.wipe and len(highlight.passes) == 1 and not isinstance(highlight, _SegmentHighlight)):
             return highlight
-        clock = target._reading_span if self.wipe and target._reading_span else target.singing[0]
+        clock = target._reading_span if self.wipe and target._reading_span else target.timing[0]
         interval = self.interval(clock.start, clock.end)
         region = Region(min(p.region.left for p in highlight.passes),
                         max(p.region.right for p in highlight.passes))
@@ -302,7 +300,7 @@ class _SingingHighlights:
     def __call__(self, line: LyricLine) -> tuple[Highlight, ...]:
         highlights = tuple(
             Highlight(
-                f"singing:{index}",
+                f"timing:{index}",
                 index,
                 self._passes(line.layout, unit, _sweep_axis(box, line.layout._vertical)),
                 self.paint,
@@ -330,12 +328,12 @@ class _SingingHighlights:
             for i, (segment, color) in enumerate(zip(unit.segments, colors, strict=True)):
                 slot = len(colors) - 1 - i if self.reverse else i
                 region = Region(axis.at(slot / len(colors)), axis.at((slot + 1) / len(colors)))
-                clock = self.interval(segment.singing.start, segment.singing.end)
+                clock = self.interval(segment.timing.start, segment.timing.end)
                 parts.append(_SegmentHighlight(
                     f"{highlight.id}:{i}", highlight.unit, (HighlightPass(clock, region, reverse=self.reverse),),
                     replace(highlight.paint, fill=color) if color else highlight.paint,
                     glow=highlight.glow, material=highlight.material, secondary_outline=highlight.secondary_outline,
-                    reading=segment.singing, axis=axis,
+                    reading=segment.timing, axis=axis,
                 ))
             if len(set(colors)) == 1:
                 result.append(replace(highlight, passes=tuple(part.passes[0] for part in parts),
@@ -347,7 +345,7 @@ class _SingingHighlights:
 
 @dataclass(frozen=True, kw_only=True)
 class _SegmentHighlight(Highlight):
-    reading: SingingSpan
+    reading: TimedTextSpan
     axis: Region
 
 
@@ -358,7 +356,7 @@ def _sweep_axis(box: Box, vertical: bool) -> Region:
 _EDGE_SECONDS = 0.02
 
 
-def _owners(
+def _resolve_region_owners(
     highlights: tuple[Highlight, ...], time: float, mode: str
 ) -> tuple[tuple[Region, tuple[str, ...]], ...]:
     coverage = tuple(
@@ -406,22 +404,22 @@ def _owners(
 
 
 @dataclass(frozen=True, kw_only=True)
-class _FeatheredSingingClip(RectangleClip):
-    """Mix incoming ink into the sung layer behind its moving right edge."""
+class _FeatheredWipeClip(RectangleClip):
+    """Mix incoming ink into the highlight layer behind its moving right edge."""
     width: float
-    unsung_fill: Color
-    unsung_outline: Color
-    unsung_gradient: LinearGradient | None = None
+    before_fill: Color
+    before_outline: Color
+    before_gradient: LinearGradient | None = None
     front_color: Color | None = None
 
 
 @dataclass(frozen=True)
-class _Ownership:
+class _HighlightClipPlan:
     highlights: tuple[Highlight, ...]
     mode: str
-    owner: str | None
-    birth: float
-    shift: float
+    highlight_id: str | None
+    time_origin: float
+    target_delay: float
     # Map line-space body regions onto this glyph's local coordinates.
     body: Region
     drawing: Region
@@ -440,7 +438,7 @@ class _Ownership:
         return tuple(
             sorted(
                 {
-                    t + self.shift - self.birth
+                    t + self.target_delay - self.time_origin
                     for h in self.highlights
                     for span in h.passes
                     for t in (
@@ -465,14 +463,14 @@ class _Ownership:
                 p.reverse and p.region.right >= self.body.right for p in passes
             ):
                 return 1
-        return self.max_regions + (self.owner is None)
+        return self.max_regions + (self.highlight_id is None)
 
     def local_regions(self, time: float) -> tuple[Region, ...]:
         result = []
-        for region, owners in _owners(
-            self.highlights, self.birth + time - self.shift, self.mode
+        for region, owners in _resolve_region_owners(
+            self.highlights, self.time_origin + time - self.target_delay, self.mode
         ):
-            if self.owner is not None and self.owner not in owners:
+            if self.highlight_id is not None and self.highlight_id not in owners:
                 continue
             left, right = (
                 max(region.left, self.body.left),
@@ -503,12 +501,12 @@ class _Ownership:
             )
         return union_regions(result)
 
-    def singing_keyframes(self, padding: float, feather: float = 0) -> RectangleKeyframes:
-        """Piecewise-linear singing motion with separate decoration shoulders."""
+    def wipe_keyframes(self, padding: float, feather: float = 0) -> RectangleKeyframes:
+        """Piecewise-linear timing motion with separate decoration shoulders."""
         passes = self.highlights[0].passes
         span = passes[0]
-        start = span.time.start + self.shift - self.birth
-        end = passes[-1].time.end + self.shift - self.birth
+        start = span.time.start + self.target_delay - self.time_origin
+        end = passes[-1].time.end + self.target_delay - self.time_origin
         left = (self.drawing.left - self.glyph_left) / self.scale
         right = (self.drawing.right - self.glyph_left) / self.scale
 
@@ -517,29 +515,29 @@ class _Ownership:
         def bounds(edge: float) -> tuple[float, float, float, float]:
             return (
                 self.strip(edge, 65536)
-                if (self.owner is None) != span.reverse
+                if (self.highlight_id is None) != span.reverse
                 else self.strip(-65536, edge)
             )
 
         if start == end:
             empty = self.strip(0, 0)
             full = self.strip(-65536, 65536)
-            first, last = (full, empty) if self.owner is None else (empty, full)
+            first, last = (full, empty) if self.highlight_id is None else (empty, full)
             return RectangleKeyframes(((start, first), (end, last)))
         keys = [(start, bounds(origin + sign * feather / 2))]
         for index, part in enumerate(passes):
             if index and part.time.start > passes[index-1].time.end:
-                keys.append((part.time.start + self.shift - self.birth, keys[-1][1]))
+                keys.append((part.time.start + self.target_delay - self.time_origin, keys[-1][1]))
             _, destination = part._edges(part.region)
             edge = left + (right - left) * (destination - self.body.left) / self.body.width
-            t = part.time.end + self.shift - self.birth
+            t = part.time.end + self.target_delay - self.time_origin
             key = (t, bounds(edge + sign * feather / 2))
             # Consecutive zero-length checkpoints collapse into one visible jump.
             if len(keys) >= 2 and keys[-2][0] == t:
                 keys[-1] = key
             else:
                 keys.append(key)
-        approach = max(-self.birth, start - self.edge_duration)
+        approach = max(-self.time_origin, start - self.edge_duration)
         approach_keys = ((approach, bounds(origin - sign * padding)),) if approach < start else ()
         return RectangleKeyframes((*approach_keys, *keys,
                                    (end + self.edge_duration, bounds(finish + sign * padding))))
@@ -548,7 +546,7 @@ class _Ownership:
         self, index: int, time: float
     ) -> tuple[float, float, float, float] | None:
         regions = self.local_regions(time)
-        if self.owner is None:
+        if self.highlight_id is None:
             # The base paint owns the complement of all highlighted strips.
             edges = (
                 -65536,
@@ -567,15 +565,15 @@ class _Ownership:
 
 
 def _split_glow(
-    halo: SceneObject, opposite: Color, opposite_opacity: float, ownership: _Ownership, padding: float,
+    halo: SceneObject, opposite: Color, opposite_opacity: float, ownership: _HighlightClipPlan, padding: float,
 ) -> tuple[SceneObject, ...]:
     """Approximate a blurred color step by its Gaussian integral across the moving front."""
     # The step response of a Gaussian is its cumulative distribution. Scale
-    # the radius to the same local coordinates as the existing singing clip.
+    # the radius to the same local coordinates as the existing timing clip.
     sigma = halo.state.blur * _ASS_BLUR_TO_SIGMA / ownership.scale
     reach = 2 * sigma
-    keys = ownership.singing_keyframes(padding + reach)
-    suffix = (ownership.owner is None) != ownership.highlights[0].passes[0].reverse
+    keys = ownership.wipe_keyframes(padding + reach)
+    suffix = (ownership.highlight_id is None) != ownership.highlights[0].passes[0].reverse
     edge = int(ownership.local_y) + (0 if suffix else 2)
 
     def strip(start: float, end: float | None) -> RectangleClip:
@@ -616,8 +614,8 @@ class _PaintLayers:
 
 @dataclass(frozen=True)
 class _GlyphPaint:
-    waiting: _PaintLayers
-    sung: tuple[_PaintLayers, ...]
+    base: _PaintLayers
+    highlights: tuple[_PaintLayers, ...]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -650,7 +648,7 @@ class LyricHighlights:
 
     @property
     def _secondary_width(self) -> float:
-        known = (self.highlights,) if isinstance(self.highlights, _SingingHighlights) else self.highlights
+        known = (self.highlights,) if isinstance(self.highlights, _TimingHighlights) else self.highlights
         rims = [self.secondary_outline]
         if isinstance(known, tuple):
             rims.extend(h.secondary_outline for h in known)
@@ -662,7 +660,7 @@ class LyricHighlights:
         if not self.base_paint.blur:
             borders.append((self.base_paint.border or 0) + (self.secondary_outline.width if self.secondary_outline else 0))
         highlights = self.highlights
-        known = (highlights,) if isinstance(highlights, _SingingHighlights) else highlights
+        known = (highlights,) if isinstance(highlights, _TimingHighlights) else highlights
         if isinstance(known, tuple):
             for h in known:
                 if not h.paint.blur:
@@ -671,7 +669,7 @@ class LyricHighlights:
         return max(borders)
 
     @classmethod
-    def from_singing(
+    def from_timing(
         cls,
         paint: StatePatch,
         *,
@@ -681,7 +679,7 @@ class LyricHighlights:
         glow: LyricGlow = None,
         base_glow: LyricGlow = None,
         secondary_outline: SecondaryOutline | None = None,
-        sung_secondary_outline: SecondaryOutline | None = None,
+        after_secondary_outline: SecondaryOutline | None = None,
         base_paint: StatePatch | None = None,
         base_material: LyricMaterial = None,
         material: LyricMaterial = None,
@@ -692,37 +690,37 @@ class LyricHighlights:
         blend_glow: bool = True,
         front_color: Color | None = None,
     ) -> LyricHighlights:
-        """Sweep source singing across body/ruby without authoring clip geometry.
+        """Sweep source timing across body/ruby without authoring clip geometry.
 
-        secondary_outline surrounds both states. sung_secondary_outline overrides the sung rim.
+        secondary_outline surrounds both states. after_secondary_outline sets the rim after the transition.
         Both can be combined with glow.
         With reverse=True, each timed unit fills from its right edge.
         With wipe=False, each timed unit switches paint at completion.
-        Singing progress uses undecorated measured text bounds. For a single
+        Timing progress uses undecorated measured text bounds. For a single
         linear interval in clip mode, outline/glow margins are traversed in
-        separate shoulders before/after singing, reserved automatically. edge_duration
+        separate shoulders before/after timing, reserved automatically. edge_duration
         sets their duration in seconds (default 0.02). segment_colors maps
-        (unit index, reading index) to sung colors. Mapped segments sweep successive
+        (unit index, reading index) to highlight colors. Mapped segments sweep successive
         equal portions of their body, holding their position through rests.
-        ruby_fill overrides the sung fill of all readings independently.
+        ruby_fill overrides the highlight fill of all readings independently.
         blend_glow=False gives each side a clipped halo with its own color.
         Contiguous timed readings divide their host wipe equally at reading
         checkpoints. With ruby_reading_units=True, visible reading characters instead
-        receive equal distances and empty readings hold position. Each reading retains its individual singing interval.
+        receive equal distances and empty readings hold position. Each reading retains its individual timing interval.
         Known rectangle keyframes allow continuous native ASS lowering. Repeated
-        intervals retain the general ownership evaluator. Source singing clocks stay intact.
-        base_material paints the unsung drawing. material paints the sung drawing, leaving the separate glow
+        intervals retain the general ownership evaluator. Source timing clocks stay intact.
+        base_material paints the base drawing. material paints the highlight drawing, leaving the separate glow
         color intact. It accepts a LinearGradient or a (line, target) factory called
         once during preparation; use LyricGradient for measured vertical colors.
         Local gradients currently require a
-        positive single singing interval and axis-aligned scale/translation.
-        base_paint changes only the unsung drawing; sung layers retain the
+        positive single timing interval and axis-aligned scale/translation.
+        base_paint changes only the base drawing; highlight layers retain the
         original appearance before applying paint. Use base_paint with opacity=0
         to reveal text instead of recoloring an already visible baseline.
         """
         return cls(
-            highlights=_SingingHighlights(paint, glow, material, wipe, reverse, ruby_reading_units, segment_colors, ruby_fill,
-                                         sung_secondary_outline or secondary_outline),
+            highlights=_TimingHighlights(paint, glow, material, wipe, reverse, ruby_reading_units, segment_colors, ruby_fill,
+                                         after_secondary_outline or secondary_outline),
             secondary_outline=secondary_outline,
             edge_duration=edge_duration, blend_glow=blend_glow,
             glow=base_glow,
@@ -747,7 +745,7 @@ class LyricHighlights:
         """Return decorated visuals, reserving each target's shifted pass intervals.
 
         Pass times use original source seconds. A copied target's delay shifts
-        both rendering and required_display; source singing spans stay unchanged.
+        both rendering and required_display; source timing spans stay unchanged.
         """
         return self._bind(line, self._widths(line))[0]
 
@@ -768,7 +766,7 @@ class LyricHighlights:
             raise ValueError("duplicate highlight identities")
         if any(h.unit >= len(line.layout.lyrics.units) for h in highlights):
             raise ValueError("highlight unit is outside lyrics")
-        automatic = isinstance(self.highlights, _SingingHighlights)
+        automatic = isinstance(self.highlights, _TimingHighlights)
         drawings = tuple(line._glyph_regions(automatic=automatic))
 
         def shoulder(highlight: Highlight) -> float:
@@ -820,8 +818,8 @@ class LyricHighlights:
             if not chosen:
                 return
             if target.role == "ruby":
-                chosen = tuple(h for h in chosen if not isinstance(h, _SegmentHighlight) or h.reading in target.singing)
-            if isinstance(self.highlights, _SingingHighlights):
+                chosen = tuple(h for h in chosen if not isinstance(h, _SegmentHighlight) or h.reading in target.timing)
+            if isinstance(self.highlights, _TimingHighlights):
                 chosen = tuple(self.highlights.for_target(h, target, character) for h in chosen)
             chosen = tuple(
                 replace(
@@ -849,7 +847,7 @@ class LyricHighlights:
             assert scale is not None
             local_y = vertical and character.object.state.rotation == 0
             pen = character.object.state.position
-            base = _Ownership(
+            base = _HighlightClipPlan(
                 chosen,
                 self.mode,
                 None,
@@ -865,7 +863,7 @@ class LyricHighlights:
                 for t in base.breakpoints
             ):
                 raise ValueError(f"{node.id}: highlight timing lies outside display")
-            native_singing = (
+            native_wipe = (
                 automatic
                 and len(chosen) == 1
                 and chosen[0].passes[-1].round == 0
@@ -879,13 +877,13 @@ class LyricHighlights:
                 clip.animation.channels & {"fill", "outline", "border", "blur", "shadow"} for clip in node.animations
             ):
                 raise ValueError("compose existing paint animations with glow or secondary outline explicitly")
-            sung_glow = chosen[0].glow
+            highlight_glow = chosen[0].glow
             before_alpha = states[0].opacity * base_glow.opacity if isinstance(base_glow, Glow) else 0
-            after_alpha = states[1].opacity * sung_glow.opacity if isinstance(sung_glow, Glow) else 0
+            after_alpha = states[1].opacity * highlight_glow.opacity if isinstance(highlight_glow, Glow) else 0
             soften_glow = (
-                self.blend_glow and native_singing and isinstance(base_glow, Glow) and isinstance(sung_glow, Glow)
-                and base_glow.blur == sung_glow.blur > 0 and base_glow.border == sung_glow.border
-                and (before_alpha != after_alpha or (before_alpha > 0 and base_glow.color != sung_glow.color))
+                self.blend_glow and native_wipe and isinstance(base_glow, Glow) and isinstance(highlight_glow, Glow)
+                and base_glow.blur == highlight_glow.blur > 0 and base_glow.border == highlight_glow.border
+                and (before_alpha != after_alpha or (before_alpha > 0 and base_glow.color != highlight_glow.color))
             )
             padding = (
                 max(
@@ -910,7 +908,7 @@ class LyricHighlights:
                     else f"{node.id}/highlight:{highlight.id}"
                 )
                 ownership = replace(
-                    base, owner=None if highlight is None else highlight.id
+                    base, highlight_id=None if highlight is None else highlight.id
                 )
                 piece = node.copy(id=identity)
                 if highlight is not None:
@@ -929,7 +927,7 @@ class LyricHighlights:
                     )
                 feather = (
                     widths[character.object.font_size] / scale.x
-                    if native_singing and not vertical
+                    if native_wipe and not vertical
                     else 0
                 )
                 drawings = tuple(
@@ -946,8 +944,8 @@ class LyricHighlights:
                             1,
                             space="local",
                             deform=(
-                                ownership.singing_keyframes(padding + feather, feather)
-                                if native_singing
+                                ownership.wipe_keyframes(padding + feather, feather)
+                                if native_wipe
                                 else RectangleFunction(
                                     partial(ownership.rectangle, index),
                                     base.breakpoints,
@@ -955,11 +953,11 @@ class LyricHighlights:
                             ),
                         ),
                     )
-                    for index in range(1 if native_singing else ownership.clip_regions)
+                    for index in range(1 if native_wipe else ownership.clip_regions)
                 )
                 for index, piece in enumerate(drawings):
                     plain_clip = piece.clip
-                    if (vertical and target.role == "character" and native_singing
+                    if (vertical and target.role == "character" and native_wipe
                             and len(chosen[0].passes) == 1 and not chosen[0].passes[0].reverse
                             and isinstance(plain_clip, RectangleClip)):
                         time = chosen[0].passes[0].time
@@ -969,16 +967,16 @@ class LyricHighlights:
                         )
                         piece = replace(piece, clip=plain_clip)
                     if (
-                        native_singing
+                        native_wipe
                         and highlight is not None
                         and widths[character.object.font_size]
                         and not vertical
                         and isinstance(plain_clip, RectangleClip)
                     ):
-                        unsung = self.base_paint.interpolate(node.state, 1)
+                        base_state = self.base_paint.interpolate(node.state, 1)
                         piece = replace(
                             piece,
-                            clip=_FeatheredSingingClip(
+                            clip=_FeatheredWipeClip(
                                 plain_clip.left,
                                 plain_clip.top,
                                 plain_clip.right,
@@ -986,9 +984,9 @@ class LyricHighlights:
                                 space=plain_clip.space,
                                 deform=plain_clip.deform,
                                 width=widths[character.object.font_size] / scale.x,
-                                unsung_fill=unsung.fill,
-                                unsung_outline=unsung.outline,
-                                unsung_gradient=before_material if isinstance(before_material, LinearGradient) else None,
+                                before_fill=base_state.fill,
+                                before_outline=base_state.outline,
+                                before_gradient=before_material if isinstance(before_material, LinearGradient) else None,
                                 front_color=self.front_color,
                             ),
                         )
@@ -998,9 +996,9 @@ class LyricHighlights:
                     secondary = halo_layer = None
                     if rim and rim.width:
                         rim_clip = plain_clip
-                        if isinstance(piece.clip, _FeatheredSingingClip) and self.secondary_outline and self.secondary_outline.width:
-                            rim_clip = replace(piece.clip, unsung_fill=self.secondary_outline.color,
-                                               unsung_outline=self.secondary_outline.color, unsung_gradient=None,
+                        if isinstance(piece.clip, _FeatheredWipeClip) and self.secondary_outline and self.secondary_outline.width:
+                            rim_clip = replace(piece.clip, before_fill=self.secondary_outline.color,
+                                               before_outline=self.secondary_outline.color, before_gradient=None,
                                                front_color=None)
                         secondary = replace(
                             piece.copy(id=f"{piece.id}/secondary-outline"),
@@ -1016,12 +1014,12 @@ class LyricHighlights:
                             extrusion=None,
                             clip=replace(
                                 piece.clip,
-                                unsung_fill=base_glow.color,
-                                unsung_outline=base_glow.color,
-                                unsung_gradient=None,
+                                before_fill=base_glow.color,
+                                before_outline=base_glow.color,
+                                before_gradient=None,
                                 front_color=None,
                             )
-                            if isinstance(piece.clip, _FeatheredSingingClip)
+                            if isinstance(piece.clip, _FeatheredWipeClip)
                             and isinstance(base_glow, Glow)
                             else plain_clip,
                             material=None,
@@ -1037,7 +1035,7 @@ class LyricHighlights:
                             ),
                         )
                         if soften_glow:
-                            other = sung_glow if highlight is None else base_glow
+                            other = highlight_glow if highlight is None else base_glow
                             assert isinstance(other, Glow)
                             other_alpha = after_alpha if highlight is None else before_alpha
                             pieces.extend(_split_glow(halo, other.color, other_alpha, ownership, padding))
@@ -1141,7 +1139,7 @@ class HighlightArrival:
             unit_index = ruby.unit_index
             unit = line.layout.lyrics.units[unit_index]
             box = line.layout.body.range_bounds(unit.start, unit.end)
-            siblings = (character,) if isinstance(self.highlights, _SingingHighlights) else ruby.layout.characters
+            siblings = (character,) if isinstance(self.highlights, _TimingHighlights) else ruby.layout.characters
             parent = ruby.layout
             drawing = ruby.layout.bounds
         if not drawing.width or not box.width:
@@ -1156,7 +1154,7 @@ class HighlightArrival:
             if index + 1 < len(siblings)
             else drawing.right
         )
-        if isinstance(self.highlights, _SingingHighlights):
+        if isinstance(self.highlights, _TimingHighlights):
             drawing = parent._sweep_bounds(
                 start_offset, end_offset, character
             )
@@ -1209,7 +1207,7 @@ class HighlightArrival:
                 self.names and highlight.id not in self.names
             ):
                 continue
-            if isinstance(self.highlights, _SingingHighlights):
+            if isinstance(self.highlights, _TimingHighlights):
                 highlight = self.highlights.for_target(highlight, target, character)
             for round_id in sorted({span.round for span in highlight.passes}):
                 passes = tuple(

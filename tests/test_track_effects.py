@@ -14,7 +14,7 @@ from kara_templater import (
     ScalePulse,
     StatePatch,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
@@ -30,21 +30,21 @@ def test_mixed_effects_resolve_once_and_bind_after_decoration():
 
     def paint(line):
         calls.append("paint")
-        return LyricHighlights.from_singing(StatePatch(fill=CYAN))(line)
+        return LyricHighlights.from_timing(StatePatch(fill=CYAN))(line)
 
     def echo(line):
         calls.append("echo")
         assert line.query("character")[0].aliases
         return LyricEcho(count=1, duration=1.9)(line)
 
-    scene = prepare_tracks(document, tracks=(Track(id="main", effects=(
+    scene = build_lyric_scene(document, tracks=(Track(id="main", effects=(
         paint,
-        LyricRule("character", "singing", pulse),
+        LyricRule("character", "timing", pulse),
         echo,
-        LyricRule("character", "after_singing", DriftOut(), offset=0.14, duration=0.56),
+        LyricRule("character", "after_timing", DriftOut(), offset=0.14, duration=0.56),
     )),))
     assert calls == ["timing", "paint", "echo"]
-    assert scene.plans[0].input.required.end == pytest.approx(2.9)
+    assert scene.plans[0].layout_request.required_display.end == pytest.approx(2.9)
     target = scene.lines[0].query("character")[0]
     evaluator = scene.evaluator()
     peak = evaluator.at(target.node_id, 1.5)
@@ -68,15 +68,15 @@ def test_custom_schedule_reserves_exit_and_binds_final_materials(decorate_first)
 
     def custom(line):
         return line.schedule(LyricRule(
-            "character", "after_singing", motion, offset=0.14, duration=0.56,
+            "character", "after_timing", motion, offset=0.14, duration=0.56,
         ))
 
-    paint = LyricHighlights.from_singing(StatePatch(fill=CYAN))
+    paint = LyricHighlights.from_timing(StatePatch(fill=CYAN))
     effects = (paint, custom) if decorate_first else (custom, paint)
-    scene = prepare_tracks(document, tracks=(Track(id="main", effects=effects, tail=0),))
+    scene = build_lyric_scene(document, tracks=(Track(id="main", effects=effects, tail=0),))
     target = scene.lines[0].query("character")[0]
     assert calls == [target.id]
-    assert scene.plans[0].input.required.end == pytest.approx(2.7)
+    assert scene.plans[0].layout_request.required_display.end == pytest.approx(2.7)
     assert scene.lines[0].lifetime.end == pytest.approx(2.7)
     assert target.aliases
     evaluator = scene.evaluator()
@@ -94,7 +94,7 @@ def test_scheduled_copy_shifts_visual_clocks_once():
     document.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}A"))
     line = LyricLine.from_layout(layout_lyrics(document, document.lyrics_at(-1), id="row", display=Lifetime(1, 2)))
     line = line.schedule(LyricRule(
-        "character", "after_singing", DriftOut(), duration=0.5,
+        "character", "after_timing", DriftOut(), duration=0.5,
     ))
     copied = line.copy(id="copy", delay=0.3)
     assert copied._scheduled[0].at == pytest.approx(2.3)
@@ -120,7 +120,7 @@ def test_custom_display_anchors_use_final_reserved_window():
             LyricRule("line", "exit", FadeOut(), duration=0.2),
         )
 
-    scene = prepare_tracks(document, tracks=(Track(
+    scene = build_lyric_scene(document, tracks=(Track(
         id="main", layout=Inspect(), preview=0, tail=0,
         effects=(custom, LyricEcho(count=1, duration=2)),
     ),))
@@ -160,7 +160,7 @@ def test_earlier_local_clip_keeps_clock_and_renders():
         AnimationSequence((AnimationClip(-0.1, 0.5, FadeIn()),), duration=1)
 
 
-def test_custom_schedule_keeps_repeated_singing_and_zero_notes():
+def test_custom_schedule_keeps_repeated_timing_and_zero_notes():
     document = Document.create(width=640, height=360)
     document.records.append(Line(
         start_time=1000, end_time=2000, text=r"{\k25}A{\kt50\k25}#{\k0}B",
@@ -168,15 +168,15 @@ def test_custom_schedule_keeps_repeated_singing_and_zero_notes():
 
     def custom(line):
         return line.schedule(
-            LyricRule("character", "singing", ScalePulse(peak=1.1)),
-            LyricRule("character", "after_singing", DriftOut(), duration=0.5),
+            LyricRule("character", "timing", ScalePulse(peak=1.1)),
+            LyricRule("character", "after_timing", DriftOut(), duration=0.5),
         )
 
-    scene = prepare_tracks(document, tracks=(Track(id="main", effects=(custom,)),))
+    scene = build_lyric_scene(document, tracks=(Track(id="main", effects=(custom,)),))
     target = scene.lines[0].query("character")[0]
     evaluator = scene.evaluator()
     assert evaluator.at(target.node_id, 1.125).scale.x == pytest.approx(1.1)
     assert evaluator.at(target.node_id, 1.625).scale.x == pytest.approx(1.1)
     assert evaluator.at(target.node_id, 1.5).opacity == 1
     assert evaluator.at(target.node_id, 2).opacity == pytest.approx(0.5)
-    assert scene.plans[0].input.required.end == pytest.approx(2.25)
+    assert scene.plans[0].layout_request.required_display.end == pytest.approx(2.25)

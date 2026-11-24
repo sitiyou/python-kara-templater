@@ -6,10 +6,10 @@ format that supports the effect. [Get started](../getting-started.md) · [Output
 
 ## Start with a whole song
 
-**Built-in karaoke effects.** Mix an entrance, a singing treatment, and an exit
+**Built-in karaoke effects.** Mix an entrance, a timing treatment, and an exit
 with `KaraokeEffects`. The preview shows four combinations using Sarasa UI J.
 
-![Four combinations of lyric entrances, singing highlights, and exits](assets/karaoke-builtins.gif)
+![Four combinations of lyric entrances, timing highlights, and exits](assets/karaoke-builtins.gif)
 
 ```sh
 python -m examples.karaoke_catalog build/studio.hook --entry glow_in --exit dissolve_out
@@ -46,7 +46,7 @@ glyph turns amber at release. The preview uses Sarasa UI SC over a night street.
 python -m examples.lyric_no_sweep build/lyric-no-sweep.hook
 ```
 
-[Source](../../examples/lyric_no_sweep.py) · [Align motion with the notes](../tutorials/karaoke-design.md#mark-singing-without-a-color-wipe)
+[Source](../../examples/lyric_no_sweep.py) · [Align motion with the notes](../tutorials/karaoke-design.md#mark-timing-without-a-color-wipe)
 
 For more custom motion, see the [lyric studies](../tutorials/lyric-studies.md) on
 timed copies, particle reveals, and curved trails.

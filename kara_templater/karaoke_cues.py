@@ -8,7 +8,7 @@ from ._karaoke_motion import zoom_pulse
 from .composition import Color, Glow, Paint
 from .cues import CueContent, CueContext, _SharedGradientCue
 from .geometry import Contour, CubicSegment, LineSegment, Vec2, VectorPath, finite
-from .lyric_highlights import LyricGradient
+from .lyrics.highlights import LyricGradient
 from .path_geometry import flatten, stroke
 from .scene import Lifetime, ObjectGroup, PathObject, RectangleClip, RectangleKeyframes
 from .scene_animation import (
@@ -183,8 +183,8 @@ class VolumeCue:
     ratio: float = 3
     spacing: float = 0
     countdown: float | None = None
-    sung: Color | None = None
-    unsung: Color | None = None
+    after: Color | None = None
+    before: Color | None = None
     outline: Color | None = None
 
     def __post_init__(self) -> None:
@@ -250,8 +250,8 @@ class VolumeCue:
             height = max(1.0, height)
             path = _rounded(width, height)
             for start, end, color, paint in (
-                (life.start, change, self.unsung, context.colors.before),
-                (change, life.end, self.sung, context.colors.after),
+                (life.start, change, self.before, context.colors.before),
+                (change, life.end, self.after, context.colors.after),
             ):
                 if end <= start:
                     continue

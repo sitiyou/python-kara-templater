@@ -27,7 +27,7 @@ from kara_templater import (
     Vec2,
     VectorPath,
     VisualState,
-    prepare_tracks,
+    build_lyric_scene,
     smooth_rate,
 )
 
@@ -74,15 +74,15 @@ PHRASES = (
 
 def _marker(line: LyricLine, evaluator: SceneEvaluator) -> PathObject:
     # The cue and the pulse use the same measured syllable clocks.
-    notes = [target for target in line.query("syllable") if target.singing]
-    first = notes[0].singing[0].start
-    last = notes[-1].singing[-1].end
+    notes = [target for target in line.query("syllable") if target.timing]
+    first = notes[0].timing[0].start
+    last = notes[-1].timing[-1].end
     top = line.state.position.y + line.layout.body.bounds.top - 31
     stops = [
         (
-            note.singing[0].start - first,
+            note.timing[0].start - first,
             Vec2(
-                evaluator.at(note.node_id, note.singing[0].start)
+                evaluator.at(note.node_id, note.timing[0].start)
                 .transform.apply(note.center)
                 .x,
                 top,
@@ -126,7 +126,7 @@ def build() -> Scene:
         ),
     )
     canvas.records.extend(phrase.line() for phrase in PHRASES)
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         canvas,
         tracks=(
             Track(
@@ -136,13 +136,13 @@ def build() -> Scene:
                 preview=0.35,
                 tail=0.22,
                 effects=(
-                    LyricHighlights.from_singing(
+                    LyricHighlights.from_timing(
                         StatePatch(fill=COMPLETED, outline=EDGE),
                         wipe=False,
                         base_paint=StatePatch(fill=WAITING, outline=EDGE),
                     ),
                     LyricRule(
-                        "syllable", "singing", ScalePulse(peak=1.13, peak_at=0.24)
+                        "syllable", "timing", ScalePulse(peak=1.13, peak_at=0.24)
                     ),
                 ),
             ),

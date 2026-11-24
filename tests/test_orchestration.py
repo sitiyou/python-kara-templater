@@ -23,7 +23,7 @@ from kara_templater import (
     TextCue,
     Track,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
@@ -73,13 +73,13 @@ def main(**changes):
 def test_default_preview_starts_five_seconds_before_an_isolated_line():
     doc = Document.create(styles=(Style(name="Solo", fontname="DejaVu Sans"),))
     doc.records.append(Line(start_time=12000, end_time=13000, style="Solo", text=r"{\k100}A"))
-    scene = prepare_tracks(doc, tracks=(Track(id="solo"),))
+    scene = build_lyric_scene(doc, tracks=(Track(id="solo"),))
     plan, = scene.plans
     assert plan.placement.display.start == 7
     assert plan.source.display.start == 12
 
 
-def test_two_tracks_share_only_scene_and_keep_singing_source():
+def test_two_tracks_share_only_scene_and_keep_timing_source():
     doc = document()
     original = doc.dumps()
     harmony = Track(
@@ -87,13 +87,13 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
         source=lambda source: source.style == "Harmony",
         layout=Layout(position=Vec2(80, 20)),
     )
-    scene = prepare_tracks(doc, tracks=(main(), harmony))
+    scene = build_lyric_scene(doc, tracks=(main(), harmony))
     assert isinstance(scene, Scene)
     assert [p.placement.row for p in scene.plans] == [0, 1, 0, 0]
     assert [p.placement.display.start for p in scene.plans] == pytest.approx(
         [0, 0, 2.2, 0]
     )
-    assert scene.plans[2].source.lyrics.units[0].segments[0].singing.start == 2.5
+    assert scene.plans[2].source.lyrics.units[0].segments[0].timing.start == 2.5
     assert scene.plans[3].line.state.position.y < scene.plans[0].line.state.position.y
     result = scene.ass.compile()
     assert result.event_count > 1
@@ -102,7 +102,7 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
     assert doc.dumps() == original
     assert len([line for line in result.document.lines if line.comment]) == 4
     assert (
-        prepare_tracks(doc, tracks=(main(layout=Layout(rows=3)),))
+        build_lyric_scene(doc, tracks=(main(layout=Layout(rows=3)),))
         .plans[2]
         .placement.row
         == 2
@@ -110,12 +110,12 @@ def test_two_tracks_share_only_scene_and_keep_singing_source():
 
 
 def test_default_track_alternates_bottom_rows_and_scales_margins():
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         document(), tracks=(Track(id="main", source=lambda s: s.style == "Main"),)
     )
     upper, lower, again = scene.plans
     assert [p.placement.row for p in scene.plans] == [0, 1, 0]
-    a, b = upper.input.bounds, lower.input.bounds
+    a, b = upper.layout_request.bounds, lower.layout_request.bounds
     left = upper.placement.position.x + a.left
     right = 640 - (lower.placement.position.x + b.right)
     assert left == pytest.approx(right)
@@ -124,10 +124,10 @@ def test_default_track_alternates_bottom_rows_and_scales_margins():
     upper_body = upper.line.layout.body.bounds
     lower_body = lower.line.layout.body.bounds
     assert lower.placement.position.y + (lower_body.top + lower_body.height) + pad == pytest.approx(340)
-    assert lower.placement.position.y + lower.input.bounds.top - (
+    assert lower.placement.position.y + lower.layout_request.bounds.top - (
         upper.placement.position.y + (upper_body.top + upper_body.height)
     ) == pytest.approx(15 + pad + lower.line.layout.ruby[0].layout.characters[0].object.state.border)
-    assert again.placement.position.x + again.input.bounds.center == pytest.approx(320)
+    assert again.placement.position.x + again.layout_request.bounds.center == pytest.approx(320)
 
 
 @pytest.mark.parametrize("placement", ["inline", "independent"])
@@ -139,7 +139,7 @@ def test_default_track_starts_a_new_page_at_a_count_in(placement):
     second.text = CueMarker("entrance", "bars", placement=placement).markup() + second.text
     track = Track(id="main", source=lambda s: s.style == "Main",
                   cues={"bars": CuePreset(factory=BarsCue(), lead=1, duration=1)})
-    plans = prepare_tracks(doc, tracks=(track,)).plans
+    plans = build_lyric_scene(doc, tracks=(track,)).plans
     assert [p.placement.row for p in plans] == [0, 0, 1]
     assert plans[0].placement.display.end <= plans[1].placement.display.start
 
@@ -150,19 +150,19 @@ def test_top_grid_only_reserves_headroom_for_present_readings():
     second.text = r"{\k100}ABCD"
     track = main(layout=KaraokeRows(rows=1, anchor="top"), effects=(),
                  source=lambda s: s.style == "Main" and s.display.start <= 2)
-    annotated, plain = prepare_tracks(doc, tracks=(track,)).plans
+    annotated, plain = build_lyric_scene(doc, tracks=(track,)).plans
     assert annotated.line.layout.ruby and not plain.line.layout.ruby
     assert annotated.placement.position.y > plain.placement.position.y
     first.text = second.text
-    without_readings = prepare_tracks(doc, tracks=(track,)).plans[0]
-    larger_gap = prepare_tracks(doc, tracks=(replace(track, ruby_gap=16),)).plans[0]
+    without_readings = build_lyric_scene(doc, tracks=(track,)).plans[0]
+    larger_gap = build_lyric_scene(doc, tracks=(replace(track, ruby_gap=16),)).plans[0]
     assert larger_gap.placement.position.y == without_readings.placement.position.y
 
 
 def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerates():
     doc = document()
     track = main(source=lambda source: source.style == "Harmony", effects=(*(()),))
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc,
         tracks=(track, replace(track, id="copy", layout=Layout(position=Vec2(80, 20)))),
     )
@@ -173,7 +173,7 @@ def test_source_can_have_multiple_views_but_is_replaced_only_once_and_regenerate
     assert scene.lines[0].origin.sources == scene.lines[1].origin.sources
     assert len(scene.replace_records) == 1
     output = scene.ass.compile()
-    again = prepare_tracks(
+    again = build_lyric_scene(
         output.document,
         tracks=(track, replace(track, id="copy", layout=Layout(position=Vec2(80, 20)))),
     )
@@ -185,11 +185,11 @@ def test_track_tempo_reserves_the_same_interval_that_the_cue_factory_draws():
     record = next(line for line in doc.lines if line.style == "Main")
     record.text = CueMarker("intro", "bars").markup() + record.text
     preset = CuePreset(factory=BarsCue(), steps=(0, 1))
-    scene = prepare_tracks(doc, tracks=(main(cues={"bars": preset}, preview=0),), bpm=300)
+    scene = build_lyric_scene(doc, tracks=(main(cues={"bars": preset}, preview=0),), bpm=300)
     plan = scene.plans[0]
     cue, = (child for child in plan.line.children if "/cue:" in child.id)
     assert plan.placement.display.start == cue.lifetime.start == pytest.approx(.2)
-    assert cue.lifetime.end == plan.input.singing.start == 1
+    assert cue.lifetime.end == plan.layout_request.timing.start == 1
 
 
 def test_inline_cue_is_reserved_independent_cue_keeps_own_lifetime_and_position():
@@ -209,10 +209,10 @@ def test_inline_cue_is_reserved_independent_cue_keeps_own_lifetime_and_position(
             position=Vec2(500, 30),
         ),
     }
-    scene = prepare_tracks(doc, tracks=(main(cues=presets, preview=0),))
+    scene = build_lyric_scene(doc, tracks=(main(cues=presets, preview=0),))
     first = scene.plans[0]
-    assert first.input.reserved is not None
-    assert first.input.reserved.start == pytest.approx(0.2)
+    assert first.layout_request.reserved is not None
+    assert first.layout_request.reserved.start == pytest.approx(0.2)
     assert first.placement.display.start == pytest.approx(0.2)
     assert len(first.line.query("cue")) == 2
     assert len(first.line.independent) == 1
@@ -224,13 +224,13 @@ def test_inline_cue_is_reserved_independent_cue_keeps_own_lifetime_and_position(
     assert scene.ass.compile().event_count > 1
 
 
-def test_semantic_copy_retargets_nodes_and_preserves_source_singing():
-    scene = prepare_tracks(document(), tracks=(main(effects=(*(()),)),))
+def test_semantic_copy_retargets_nodes_and_preserves_source_timing():
+    scene = build_lyric_scene(document(), tracks=(main(effects=(*(()),)),))
     original = scene.lines[0]
     clone = original.copy(id="copy", delay=5, offset=Vec2(10, 0))
-    assert clone.targets[0].singing == original.targets[0].singing
+    assert clone.targets[0].timing == original.targets[0].timing
     assert clone.targets[0].node_id == "copy"
-    bound = clone.bind(LyricRule("syllable", "singing", Jump()))
+    bound = clone.bind(LyricRule("syllable", "timing", Jump()))
     evaluator = Scene(document()).add(bound).evaluator()
     target = clone.query("character")[0]
     baseline = Scene(document()).add(clone).evaluator().at(target.node_id, 6.25)
@@ -252,7 +252,7 @@ def test_custom_allocator_is_called_once_with_complete_input_and_validated():
                 for p in super().allocate(lines, context)
             )
 
-    scene = prepare_tracks(document(), tracks=(main(layout=Custom(rows=3)),))
+    scene = build_lyric_scene(document(), tracks=(main(layout=Custom(rows=3)),))
     assert len(calls) == 1
     assert len(calls[0][0]) == 3
     assert all(plan.placement.row is None for plan in scene.plans)
@@ -262,7 +262,7 @@ def test_custom_allocator_is_called_once_with_complete_input_and_validated():
             return ()
 
     with pytest.raises(ValueError, match="missing placements"):
-        prepare_tracks(document(), tracks=(main(layout=Broken()),))
+        build_lyric_scene(document(), tracks=(main(layout=Broken()),))
 
 
 def test_allocator_mutable_configuration_is_isolated_between_preparations():
@@ -281,8 +281,8 @@ def test_allocator_mutable_configuration_is_isolated_between_preparations():
     configuration = main(layout=allocator)
     source = document()
     original = source.dumps()
-    first = prepare_tracks(source, tracks=(configuration,))
-    second = prepare_tracks(source, tracks=(configuration,))
+    first = build_lyric_scene(source, tracks=(configuration,))
+    second = build_lyric_scene(source, tracks=(configuration,))
     assert allocator.history == []
     assert all(plan.placement.position == Vec2(3, 40) for plan in first.plans)
     assert [plan.placement for plan in first.plans] == [
@@ -295,8 +295,8 @@ def test_allocator_mutable_configuration_is_isolated_between_preparations():
 
 def test_removing_all_tracks_restores_sources_without_losing_unrelated_events():
     source = document()
-    output = prepare_tracks(source, tracks=(main(),)).ass.compile().document
-    restored = prepare_tracks(output, tracks=()).ass.compile().document
+    output = build_lyric_scene(source, tracks=(main(),)).ass.compile().document
+    restored = build_lyric_scene(output, tracks=()).ass.compile().document
     assert [line.serialize() for line in restored.lines if not line.comment] == [
         line.serialize() for line in source.lines if not line.comment
     ]
@@ -311,20 +311,20 @@ def test_unselected_animated_ass_is_retained_without_projection():
         text=r"{\move(0,0,50,50)\k100}native",
     )
     doc.records.append(unrelated)
-    result = prepare_tracks(doc, tracks=(main(),)).ass.compile()
+    result = build_lyric_scene(doc, tracks=(main(),)).ass.compile()
     assert any(
         event.text == unrelated.text and not event.comment
         for event in result.document.lines
     )
 
 
-def test_singing_rule_extent_participates_in_layout_before_binding():
-    rules = (LyricRule("line", "singing", Jump(), duration=2),)
+def test_timing_rule_extent_participates_in_layout_before_binding():
+    rules = (LyricRule("line", "timing", Jump(), duration=2),)
     with pytest.raises(
-        ValueError, match="required singing/animation intervals overlap"
+        ValueError, match="required timing/animation intervals overlap"
     ):
-        prepare_tracks(document(), tracks=(main(effects=(*(rules),)),))
-    scene = prepare_tracks(
+        build_lyric_scene(document(), tracks=(main(effects=(*(rules),)),))
+    scene = build_lyric_scene(
         document(), tracks=(main(effects=(*(rules),), layout=Layout(rows=3)),)
     )
     assert scene.lines[0].animations[0].duration == 2
@@ -333,8 +333,8 @@ def test_singing_rule_extent_participates_in_layout_before_binding():
 
 def test_explicit_cross_track_measurements_are_available_to_override():
     doc = document()
-    main_scene = prepare_tracks(doc, tracks=(main(),))
-    references = tuple(plan.input for plan in main_scene.plans)
+    main_scene = build_lyric_scene(doc, tracks=(main(),))
+    references = tuple(plan.layout_request for plan in main_scene.plans)
     inspected = []
 
     class Coordinated(Layout):
@@ -348,7 +348,7 @@ def test_explicit_cross_track_measurements_are_available_to_override():
         layout=Coordinated(),
         references=references,
     )
-    prepare_tracks(doc, tracks=(harmony,))
+    build_lyric_scene(doc, tracks=(harmony,))
     assert tuple(inspected) == references
 
 
@@ -364,7 +364,7 @@ def test_inline_cue_factory_runs_once_and_copy_keeps_independent_anchors():
     doc = document()
     record = next(line for line in doc.lines if line.style == "Main")
     record.text = CueMarker("lead", "bars").markup() + record.text
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc, tracks=(main(cues={"bars": CuePreset(factory=factory)}),)
     )
     assert len(calls) == 1
@@ -379,21 +379,21 @@ def test_inline_cue_factory_runs_once_and_copy_keeps_independent_anchors():
     assert copied.query("cue")[0].node_id == copied.independent[0].id
 
 
-def test_zero_duration_singing_is_not_replaced_with_the_display_interval():
+def test_zero_duration_timing_is_not_replaced_with_the_display_interval():
     doc = document()
     record = next(line for line in doc.lines if line.style == "Main")
     record.text = r"{\k0}Zero"
-    scene = prepare_tracks(doc, tracks=(main(effects=(*(()),)),))
+    scene = build_lyric_scene(doc, tracks=(main(effects=(*(()),)),))
     first = scene.plans[0]
-    assert first.input.singing.start == first.input.singing.end == 1
-    assert first.line.query("syllable")[0].singing[0].start == 1
-    assert first.line.query("syllable")[0].singing[0].end == 1
+    assert first.layout_request.timing.start == first.layout_request.timing.end == 1
+    assert first.line.query("syllable")[0].timing[0].start == 1
+    assert first.line.query("syllable")[0].timing[0].end == 1
     assert first.placement.display.start < first.placement.display.end
 
 
-def test_cross_track_singing_anchor_is_explicit_and_participates_in_occupancy():
+def test_cross_track_timing_anchor_is_explicit_and_participates_in_occupancy():
     doc = document()
-    harmony = prepare_tracks(
+    harmony = build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -404,42 +404,42 @@ def test_cross_track_singing_anchor_is_explicit_and_participates_in_occupancy():
     )
     anchor = harmony.lines[0].query("line")[0]
     rule = LyricRule("line", anchor, Jump(), hold=False)
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc, tracks=(main(layout=Layout(rows=3), effects=(*((rule,)),)),)
     )
     for plan in scene.plans:
         assert plan.placement.display.start <= 1
         assert plan.placement.display.end >= 3
         assert plan.line.at(2).position == plan.line.state.position + Vec2(0, -12)
-    assert scene.plans[2].input.singing.start == 2.5
-    assert scene.plans[2].line.query("line")[0].singing[0].start == 2.5
+    assert scene.plans[2].layout_request.timing.start == 2.5
+    assert scene.plans[2].line.query("line")[0].timing[0].start == 2.5
     # The anchor is source data, so the referenced visual need not be in this Scene.
     assert all(plan.track_id == "main" for plan in scene.plans)
 
 
 def test_custom_allocator_bypasses_builtin_capacity_and_preserves_positions():
-    from kara_templater import LayoutContext, LayoutLine, Placement
+    from kara_templater import LayoutContext, LineLayoutRequest, Placement
 
     class FreeLayout(Layout):
         def allocate(
-            self, lines: tuple[LayoutLine, ...], context: LayoutContext
+            self, lines: tuple[LineLayoutRequest, ...], context: LayoutContext
         ) -> tuple[Placement, ...]:
             return tuple(
-                Placement(item.id, Vec2(25 + index * 120, 80), item.display)
+                Placement(item.id, Vec2(25 + index * 120, 80), item.requested_display)
                 for index, item in enumerate(lines)
             )
 
     doc = document()
     with pytest.raises(ValueError, match="occupied"):
-        prepare_tracks(doc, tracks=(main(layout=Layout(rows=1)),))
-    scene = prepare_tracks(doc, tracks=(main(layout=FreeLayout(rows=1)),))
+        build_lyric_scene(doc, tracks=(main(layout=Layout(rows=1)),))
+    scene = build_lyric_scene(doc, tracks=(main(layout=FreeLayout(rows=1)),))
     assert [plan.placement.position for plan in scene.plans] == [
         Vec2(25, 80),
         Vec2(145, 80),
         Vec2(265, 80),
     ]
     assert all(plan.placement.row is None for plan in scene.plans)
-    assert all(plan.placement.display == plan.input.display for plan in scene.plans)
+    assert all(plan.placement.display == plan.layout_request.requested_display for plan in scene.plans)
 
 
 def test_prepared_lyrics_remain_editable_and_share_native_tween_compilation():
@@ -458,13 +458,13 @@ def test_prepared_lyrics_remain_editable_and_share_native_tween_compilation():
         effects=(*((
             LyricRule(
                 "character",
-                "singing",
+                "timing",
                 Tween(StatePatch(scale=Vec2(1.5, 1.5), border=3)),
             ),
         )), factory,),
         
     )
-    scene = prepare_tracks(source, tracks=(config,))
+    scene = build_lyric_scene(source, tracks=(config,))
     line = scene.lines[0]
     group = line.children[0]
     assert isinstance(group, ObjectGroup)
@@ -498,8 +498,8 @@ def test_prepared_lyrics_remain_editable_and_share_native_tween_compilation():
     assert calls == [line.id]
     assert child.text == "A" and child.state.fill != PINK
     assert (
-        line.query("character")[0].singing
-        == scene.lines[0].query("character")[0].singing
+        line.query("character")[0].timing
+        == scene.lines[0].query("character")[0].timing
     )
     assert source.dumps() == original
 
@@ -513,8 +513,8 @@ def test_layout_translation_moves_body_and_ruby_without_mutating_source():
     source.records.append(Line(text=r"{\k100}AB|ab", start_time=1000, end_time=2000))
     original = source.dumps()
     config = Track(id="lyrics", preview=0, tail=0, layout=Layout(position=Vec2(30, 40)))
-    baseline = prepare_tracks(source, tracks=(config,))
-    shifted = prepare_tracks(
+    baseline = build_lyric_scene(source, tracks=(config,))
+    shifted = build_lyric_scene(
         source, tracks=(replace(config, layout=Layout(position=Vec2(50, 70))),)
     )
     before = baseline.evaluator()
@@ -557,18 +557,18 @@ def test_display_keyframe_factory_keeps_original_window_when_other_rule_extends_
         return (TimeSpan(line.lifetime.start, line.lifetime.end),)
 
     # An animation spanning the source display window uses that explicit clock.
-    # "enter" instead reserves a pre-singing entrance, which is a different rule.
+    # "enter" instead reserves a pre-timing entrance, which is a different rule.
     rule = LyricRule("line", original_display, keyframes)
     config = Track(id="lyrics", preview=0, tail=0, effects=(rule,))
-    baseline = prepare_tracks(source, tracks=(config,))
-    extended = prepare_tracks(
+    baseline = build_lyric_scene(source, tracks=(config,))
+    extended = build_lyric_scene(
         source,
         tracks=(
             replace(
                 config,
                 effects=(
                     rule,
-                    LyricRule("character", "singing", Jump(), duration=1.2),
+                    LyricRule("character", "timing", Jump(), duration=1.2),
                 ),
             ),
         ),
@@ -599,9 +599,9 @@ def test_track_style_overrides_are_measured_before_allocation_and_leave_source_i
             return super().allocate(lines, context)
 
     config = Track(id="lyrics", layout=InspectLayout(), preview=0, tail=0)
-    small = prepare_tracks(source, tracks=(config,))
+    small = build_lyric_scene(source, tracks=(config,))
     larger_style = replace(source.styles["Default"], fontsize=40)
-    large = prepare_tracks(source, tracks=(replace(config, styles=(larger_style,)),))
+    large = build_lyric_scene(source, tracks=(replace(config, styles=(larger_style,)),))
     assert sizes[1].width > sizes[0].width
     assert sizes[1].height > sizes[0].height
     assert [c.object.font_size for c in small.lines[0].layout.body.characters] == [
@@ -624,8 +624,8 @@ def test_track_style_overrides_are_measured_before_allocation_and_leave_source_i
 def test_center_anchor_balances_visible_reading_and_body_extents(rows: int):
     track = main(layout=KaraokeRows(rows=rows, anchor="center"), effects=(),
                  source=lambda s: s.style == "Main" and s.display.start <= 2)
-    scene = prepare_tracks(document(), tracks=(track,))
-    more_space = prepare_tracks(document(), tracks=(replace(track, ruby_gap=46),))
+    scene = build_lyric_scene(document(), tracks=(track,))
+    more_space = build_lyric_scene(document(), tracks=(replace(track, ruby_gap=46),))
     offsets = [b.placement.position.y - a.placement.position.y
                for a, b in zip(scene.plans, more_space.plans, strict=True)]
     assert offsets == pytest.approx([20, 20] if rows == 1 else [0, 40])
@@ -635,10 +635,10 @@ def test_inline_lead_only_affects_its_hosts_equal_margin_placement():
     doc = document()
     track = main(layout=KaraokeRows(rows=2), effects=(),
                  cues={"bars": CuePreset(factory=BarsCue(width=42), gap=0)})
-    first, second, *_ = prepare_tracks(doc, tracks=(track,)).plans
+    first, second, *_ = build_lyric_scene(doc, tracks=(track,)).plans
     record = next(r for r in doc.records if isinstance(r, Line))
     record.text = CueMarker("lead", "bars").markup() + record.text
-    host, peer, *_ = prepare_tracks(doc, tracks=(track,)).plans
+    host, peer, *_ = build_lyric_scene(doc, tracks=(track,)).plans
     assert peer.placement.position == second.placement.position
     assert host.placement.position.x != first.placement.position.x
 
@@ -650,7 +650,7 @@ def test_independent_guide_clears_only_readings_under_its_footprint(ruby_near_gu
     marker = CueMarker("intro", "bars", placement="independent").markup()
     first.text = marker + (r"{\k50}A|a{\k50}WWWWW" if ruby_near_guide else r"{\k50}WWWWW{\k50}A|a")
     track = main(effects=(), cues={"bars": CuePreset(factory=BarsCue(width=8, height=16), gap=10, line_edge="above")})
-    plan = prepare_tracks(doc, tracks=(track,)).plans[0]
+    plan = build_lyric_scene(doc, tracks=(track,)).plans[0]
     group, = plan.line.independent
     clearance_edge = plan.line.layout.bounds.top if ruby_near_guide else plan.line.layout.body.bounds.top
     assert group.state.position.y + 16 + 10 == pytest.approx(plan.line.state.position.y + clearance_edge)
@@ -659,10 +659,10 @@ def test_independent_guide_clears_only_readings_under_its_footprint(ruby_near_gu
 def test_preview_interval_preserves_row_handoffs_and_source_ownership():
     doc = document()
     track = main()
-    whole = prepare_tracks(doc, tracks=(track,))
+    whole = build_lyric_scene(doc, tracks=(track,))
     start = whole.plans[0].placement.display.end
     end = start + 0.25
-    preview = prepare_tracks(doc, tracks=(track,), preview_interval=(start, end))
+    preview = build_lyric_scene(doc, tracks=(track,), preview_interval=(start, end))
     expected = [plan for plan in whole.plans
                 if plan.placement.display.start < end and start < plan.placement.display.end]
     assert 0 < len(preview.plans) == len(expected) < len(whole.plans)

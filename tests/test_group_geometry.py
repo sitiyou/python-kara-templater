@@ -4,6 +4,7 @@ import pytest
 
 from kara_templater import (
     AnimationClip,
+    AssBudget,
     Document,
     GeometryError,
     Lifetime,
@@ -12,7 +13,6 @@ from kara_templater import (
     PathObject,
     RectangleClip,
     Scene,
-    SceneBudget,
     SceneCompileError,
     StatePatch,
     Tween,
@@ -81,7 +81,7 @@ def test_preflight_rejects_before_geometry_callback():
     assert not calls
     with pytest.raises(SceneCompileError):
         Scene(Document.create()).add(merged).ass.compile(
-            budget=SceneBudget(max_path_points=10)
+            budget=AssBudget(max_path_points=10)
         )
     assert not calls
 

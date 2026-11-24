@@ -101,37 +101,37 @@ def lyric(text=r"{\k25}A{\kt50\k25}#"):
     return doc, LyricLine.from_layout(layout)
 
 
-def test_after_singing_waits_for_last_repeat_and_respects_copy_delay():
+def test_after_timing_waits_for_last_repeat_and_respects_copy_delay():
     doc, line = lyric()
     line = line.copy(id="delayed", delay=0.2)
     animation = Transform(opacity=lambda p: 1 - p)
     bound = line.bind(LyricRule(
-        "character", "after_singing", animation, offset=0.1, duration=0.5,
+        "character", "after_timing", animation, offset=0.1, duration=0.5,
     ))
     evaluator = Scene(doc).add(bound).evaluator()
     target = bound.query("character")[0].node_id
     # Last source end 1.75 + copy delay .2 + hold .1 = 2.05.
     for time, alpha in ((2.3, 0.5), (1.4, 1), (2.55, 0), (2.05, 1)):
         assert evaluator.at(target, time).opacity == pytest.approx(alpha)
-    assert line.query("character")[0].singing[-1].end == 1.75
+    assert line.query("character")[0].timing[-1].end == 1.75
 
 
-def test_after_singing_segment_selection_can_trigger_each_repeat():
+def test_after_timing_segment_selection_can_trigger_each_repeat():
     _, line = lyric()
     bound = line.bind(LyricRule(
-        "segment", "after_singing", ScalePulse(), duration=0.1,
+        "segment", "after_timing", ScalePulse(), duration=0.1,
     ))
     assert [clip.start for clip in bound.children[0].animations] == [1.25, 1.75]
 
 
-def test_after_singing_handles_zero_length_and_missing_intervals():
+def test_after_timing_handles_zero_length_and_missing_intervals():
     _, line = lyric(r"{\k0}A")
-    rule = LyricRule("character", "after_singing", FadeOut(), duration=0.2)
+    rule = LyricRule("character", "after_timing", FadeOut(), duration=0.2)
     assert line._resolve((rule,))[0].at == 1
-    absent = replace(line, targets=tuple(replace(t, singing=()) for t in line.targets))
+    absent = replace(line, targets=tuple(replace(t, timing=()) for t in line.targets))
     assert absent._resolve((rule,)) == ()
     with pytest.raises(ValueError, match="explicit duration"):
-        LyricRule("character", "after_singing", FadeOut())
-    factory = LyricRule("character", "after_singing", lambda timing: FadeOut())
+        LyricRule("character", "after_timing", FadeOut())
+    factory = LyricRule("character", "after_timing", lambda timing: FadeOut())
     with pytest.raises(ValueError, match="explicit duration"):
         line.bind(factory)

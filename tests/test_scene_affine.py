@@ -5,6 +5,7 @@ import pytest
 from kara_templater import (
     Affine2D,
     AnimationClip,
+    AssBudget,
     Document,
     Lifetime,
     Line,
@@ -12,7 +13,6 @@ from kara_templater import (
     PathObject,
     RectangleClip,
     Scene,
-    SceneBudget,
     SceneCompileError,
     StateFunction,
     StatePatch,
@@ -168,7 +168,7 @@ def test_outline_preflight_runs_before_property_callbacks():
     )
     with pytest.raises(SceneCompileError, match="outline point budget"):
         Scene(Document.create()).add(group).ass.compile(
-            budget=SceneBudget(max_path_points=4)
+            budget=AssBudget(max_path_points=4)
         )
     assert calls == []
 

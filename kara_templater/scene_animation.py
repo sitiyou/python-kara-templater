@@ -71,7 +71,7 @@ def smoother_rate(progress: float) -> float:
 
 @dataclass(frozen=True)
 class TimeSpan:
-    """A finite seconds interval, including zero-length singing spans.
+    """A finite seconds interval, including zero-length timing spans.
 
     The binding context determines whether its endpoints are absolute or local.
     """
@@ -425,7 +425,7 @@ class Jump:
     """Move up and return to the captured position over normalized progress.
 
     Height is in script pixels; a negative height moves downward. Durations and
-    lyric singing anchors belong to clip binding, not to this animation.
+    lyric timing anchors belong to clip binding, not to this animation.
     """
 
     height: float = 12

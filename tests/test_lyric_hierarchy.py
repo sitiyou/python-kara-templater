@@ -131,8 +131,8 @@ def test_painted_ruby_glyphs_share_reading_pivot_and_sweep_clock():
         character = characters[timing.target.node_id]
         return ScalePulse(pivot=center - character.object.state.position, peak=1.4)
 
-    painted = LyricHighlights.from_singing(StatePatch(fill=RED), ruby_fill=BLUE)(line)
-    animated = painted.bind(LyricRule("ruby", "singing", pulse))
+    painted = LyricHighlights.from_timing(StatePatch(fill=RED), ruby_fill=BLUE)(line)
+    animated = painted.bind(LyricRule("ruby", "timing", pulse))
     scene = Scene(document).add(animated)
     evaluator = scene.evaluator()
     baseline = Scene(document).add(line).evaluator()
@@ -145,8 +145,8 @@ def test_painted_ruby_glyphs_share_reading_pivot_and_sweep_clock():
             assert state.position.y == pytest.approx(expected.y)
             assert state.scale == Vec2(factor, factor)
             assert target.aliases
-            for sung in target.aliases:
-                painted_state = evaluator.at(sung, time)
+            for highlight in target.aliases:
+                painted_state = evaluator.at(highlight, time)
                 assert painted_state.fill == BLUE
                 assert painted_state.position == state.position
                 assert painted_state.scale == state.scale

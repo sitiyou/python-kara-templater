@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from math import cos, hypot, isfinite, radians, sin
 
@@ -255,3 +255,84 @@ class VectorPath:
             if contour.closed:
                 parts.append("l " + point(contour.start))
         return " ".join(parts)
+
+
+@dataclass(frozen=True)
+class Box:
+    """An axis-aligned layout rectangle in script pixels.
+
+    right, center, and middle are derived from left, top, width, and height.
+    """
+
+    left: float
+    top: float
+    width: float
+    height: float
+
+    @property
+    def right(self) -> float:
+        """The rectangle left coordinate plus its width, in script pixels."""
+        return self.left + self.width
+
+    @property
+    def center(self) -> float:
+        """The horizontal midpoint of the layout rectangle."""
+        return self.left + self.width / 2
+
+    @property
+    def middle(self) -> float:
+        """The vertical midpoint of the layout rectangle."""
+        return self.top + self.height / 2
+
+
+
+def _finite(value, name):
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or not isfinite(value)
+    ):
+        raise ValueError(f"{name} must be finite")
+
+
+
+@dataclass(frozen=True)
+class Region:
+    """A horizontal interval in script pixels; an empty interval is valid."""
+
+    left: float
+    right: float
+
+    def __post_init__(self) -> None:
+        _finite(self.left, "left")
+        _finite(self.right, "right")
+        if self.right < self.left:
+            raise ValueError("region is reversed")
+
+    @property
+    def width(self) -> float:
+        """The horizontal region extent in script pixels."""
+        return self.right - self.left
+
+    @property
+    def center(self) -> float:
+        """The midpoint of the horizontal region."""
+        return (self.left + self.right) / 2
+
+    def at(self, progress: float) -> float:
+        """Interpolate a position across the region using normalized progress."""
+        return self.left + self.width * progress
+
+
+
+def union_regions(regions: Iterable[Region]) -> tuple[Region, ...]:
+    """Merge coverage without filling gaps or painting overlaps twice."""
+    result = []
+    for region in sorted(regions, key=lambda r: (r.left, r.right)):
+        if not region.width:
+            continue
+        if result and region.left <= result[-1].right:
+            result[-1] = Region(result[-1].left, max(result[-1].right, region.right))
+        else:
+            result.append(region)
+    return tuple(result)

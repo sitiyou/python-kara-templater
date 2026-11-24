@@ -8,9 +8,9 @@ from functools import cached_property
 from typing import Literal, Self
 
 from .characters import LayoutCapabilityError
-from .document_text import SingingSpan
-from .geometry import Vec2, finite
-from .model import Box
+from .document_text import TimedTextSpan
+from .geometry import Box, Vec2, finite
+from .lyrics.layout import LyricLayout, _reading_intervals
 from .parameters import LengthExpr, TimeExpr
 from .scene import Lifetime, ObjectGroup, RectangleClip, RectangleKeyframes, SceneObject
 from .scene_animation import (
@@ -21,12 +21,11 @@ from .scene_animation import (
     _resolve_pivot,
     local_seconds,
 )
-from .scene_lyrics import LyricLayout, _reading_intervals
-from .scene_text import DocumentLayout, PositionedText
+from .text.layout import PositionedText, TextLayout
 
 type LyricRole = Literal["line", "syllable", "segment", "character", "ruby", "cue"]
 _LYRIC_ROLES = frozenset(("line", "syllable", "segment", "character", "ruby", "cue"))
-type LyricAnchor = Literal["enter", "exit", "singing", "after_singing"]
+type LyricAnchor = Literal["enter", "exit", "timing", "after_timing"]
 
 
 def _line_x(character: PositionedText, left: float, right: float) -> tuple[float, float]:
@@ -54,8 +53,8 @@ def _character_center(character: PositionedText) -> Vec2:
 class LyricTarget:
     """Stable semantic identity referring to an existing visual node.
 
-    Several repeated singing segments may refer to the same body node. Selecting
-    them never creates copies or changes visual parentage. singing retains the
+    Several repeated timing segments may refer to the same body node. Selecting
+    them never creates copies or changes visual parentage. timing retains the
     original absolute seconds and decoded text offsets.
     center is the undecorated measured center in the node's local coordinates.
     Line/syllable centers use body text, so ruby/glow do not shift the pivot.
@@ -66,7 +65,7 @@ class LyricTarget:
     id: str
     node_id: str
     role: LyricRole
-    singing: tuple[SingingSpan, ...] = ()
+    timing: tuple[TimedTextSpan, ...] = ()
     tags: frozenset[str] = frozenset()
 
     delay: float = 0
@@ -77,7 +76,7 @@ class LyricTarget:
     source_style: str | None = None
     font_size: float | None = None
     _line_x: tuple[float, float] | None = field(default=None, repr=False)
-    _reading_span: SingingSpan | None = field(default=None, repr=False)
+    _reading_span: TimedTextSpan | None = field(default=None, repr=False)
     _cell_left: float = field(default=0, repr=False)
 
     @property
@@ -85,8 +84,8 @@ class LyricTarget:
         """Scale about the horizontal cell edge, including any offset from the font pen."""
         return self.center if self.baseline is None else Vec2(self._cell_left, self.baseline)
 
-    def _visual_singing(self) -> tuple[SingingSpan, ...]:
-        return (self._reading_span,) if self._reading_span else self.singing
+    def _visual_timing(self) -> tuple[TimedTextSpan, ...]:
+        return (self._reading_span,) if self._reading_span else self.timing
 
 
 @dataclass(frozen=True)
@@ -95,7 +94,7 @@ class LyricAnimationContext:
 
     interval contains absolute seconds, including a visual copy's delay, before
     rule offset/stagger. It is None for display-relative enter/exit, whose final
-    times depend on allocation. target retains all original singing spans.
+    times depend on allocation. target retains all original timing spans.
     requested_duration is the rule's optional explicit override. Factories run
     once per resolved interval (once per target for display anchors), never per
     rendered frame. Return an ordinary StateAnimation or AnimationSequence.
@@ -122,7 +121,7 @@ class LyricAnimationContext:
 
         Raises ValueError for a display anchor without an explicit duration.
         Such a factory can return an authored sequence without reading duration.
-        This value excludes gaps between repeated singing intervals.
+        This value excludes gaps between repeated timing intervals.
         """
         if self.requested_duration is not None:
             return self.requested_duration
@@ -136,23 +135,23 @@ class LyricRule:
     """Bind a common animation to selected lyric nodes at a semantic anchor.
 
     enter/exit use the node's display start/end; exit ends at the anchor.
-    singing binds each selected singing interval. An omitted duration uses a
-    sequence's authored length, or otherwise the singing interval's length.
-    after_singing starts at the selected target's last singing end and requires
+    timing binds each selected timing interval. An omitted duration uses a
+    sequence's authored length, or otherwise the timing interval's length.
+    after_timing starts at the selected target's final timing interval's end and requires
     a duration or sequence length. Select segment to trigger after each repeat,
-    character to trigger only after that character's final singing interval.
+    character to trigger only after that character's final timing interval.
     A factory receives a LyricAnimationContext once per resolved interval,
     before layout, and returns the same animation protocol as direct authoring.
-    Repeated singing intervals can therefore choose different amplitudes/curves.
+    Repeated timing intervals can therefore choose different amplitudes/curves.
     duration and offset accept relative time expressions. Note.duration uses the
-    selected note (the final note for after_singing); Animation.duration can
+    selected note (the final note for after_timing); Animation.duration can
     supply an offset once the animation length is bound.
     offset is relative seconds; display-anchor factories must return a sequence
     when duration is omitted.
     stagger adds nonnegative seconds between targets in selection order. For
     exit, the last target ends at the display end (plus offset); earlier targets
     finish earlier. Other anchors shift later targets forward from their own
-    anchor, so singing with stagger deliberately offsets original singing clocks.
+    anchor, so timing with stagger deliberately offsets original timing clocks.
     A callable anchor receives the measured line and target and returns absolute
     second intervals, before layout occupancy is allocated. This permits custom
     arrival clocks without adding another animation evaluator. Returned intervals
@@ -196,38 +195,38 @@ class LyricRule:
         if isinstance(self.anchor, str) and self.anchor not in (
             "enter",
             "exit",
-            "singing",
-            "after_singing",
+            "timing",
+            "after_timing",
         ):
             raise ValueError("unknown lyric anchor")
-        if isinstance(self.anchor, LyricTarget) and not self.anchor.singing:
-            raise ValueError("referenced lyric anchor has no singing intervals")
+        if isinstance(self.anchor, LyricTarget) and not self.anchor.timing:
+            raise ValueError("referenced lyric anchor has no timing intervals")
         if self.duration is None:
             if (
                 isinstance(self.anchor, str)
-                and self.anchor != "singing"
+                and self.anchor != "timing"
                 and isinstance(self.animation, StateAnimation)
                 and not isinstance(self.animation, AnimationSequence)
             ):
-                raise ValueError("display/after_singing anchors require an explicit duration")
+                raise ValueError("display/after_timing anchors require an explicit duration")
         elif not isinstance(self.duration, TimeExpr):
             finite(self.duration)
             if self.duration <= 0:
                 raise ValueError("lyric animation duration must be positive")
 
-    def singing_intervals(self, target: LyricTarget) -> tuple[TimeSpan, ...]:
+    def timing_intervals(self, target: LyricTarget) -> tuple[TimeSpan, ...]:
         """Resolve source clocks, optionally from an explicit other-track target.
 
-        A referenced target is an immutable snapshot of its source singing and
+        A referenced target is an immutable snapshot of its source timing and
         visual delay, independent of input ordering or runtime evaluation order.
         Display anchors are resolved separately from the actual target lifetime.
         """
         source = self.anchor if isinstance(self.anchor, LyricTarget) else target
         intervals = tuple(
             TimeSpan(span.start + source.delay, span.end + source.delay)
-            for span in source.singing
+            for span in source.timing
         )
-        if self.anchor == "after_singing" and intervals:
+        if self.anchor == "after_timing" and intervals:
             end = max(span.end for span in intervals)
             return (TimeSpan(end, end),)
         return intervals
@@ -290,10 +289,10 @@ class LyricLine(ObjectGroup):
 
     Body and ruby belong to syllable groups, so whole-line and syllable animation
     compose through the ordinary Scene hierarchy. track_index counts lines in
-    singing order within the selected track, starting at zero. query is a logical selection;
+    timing order within the selected track, starting at zero. query is a logical selection;
     it never reparents objects. The original measured layout remains available.
     required_display declares absolute-seconds visual intervals for allocation;
-    it does not move the original singing clocks or create animation events.
+    it does not move the original timing clocks or create animation events.
     """
 
     layout: LyricLayout
@@ -348,12 +347,12 @@ class LyricLine(ObjectGroup):
                 )
         line_interval = (
             ()
-            if not body.singing
+            if not body.timing
             else (
                 replace(
-                    body.singing[0],
-                    start=min(span.start for span in body.singing),
-                    end=max(span.end for span in body.singing),
+                    body.timing[0],
+                    start=min(span.start for span in body.timing),
+                    end=max(span.end for span in body.timing),
                 ),
             )
         )
@@ -381,7 +380,7 @@ class LyricLine(ObjectGroup):
             group = layout.unit_group(index)
             children.append(group)
             assigned.update(node.id for node in group.children)
-            spans = tuple(segment.singing for segment in unit.segments)
+            spans = tuple(segment.timing for segment in unit.segments)
             interval = (
                 ()
                 if not spans
@@ -400,7 +399,7 @@ class LyricLine(ObjectGroup):
                         f"{group.id}/segment:{si}",
                         group.id,
                         "segment",
-                        (segment.singing,),
+                        (segment.timing,),
                         tags,
                     )
                 )
@@ -433,7 +432,7 @@ class LyricLine(ObjectGroup):
                                 character.object.id,
                                 character.object.id,
                                 "ruby",
-                                (unit.segments[ruby.segment_index].singing,),
+                                (unit.segments[ruby.segment_index].timing,),
                                 tags,
                                 _reading_span=span,
                                 center=_character_center(character),
@@ -496,7 +495,7 @@ class LyricLine(ObjectGroup):
                 else result
             )
 
-        def measured(layout: DocumentLayout) -> DocumentLayout:
+        def measured(layout: TextLayout) -> TextLayout:
             return replace(
                 layout,
                 lifetime=display,
@@ -537,7 +536,7 @@ class LyricLine(ObjectGroup):
     def copy(self, *, id: str, offset: Vec2 | None = None, delay: float = 0) -> Self:
         """Copy visuals and retarget semantic identities, retaining original source.
 
-        delay shifts visual anchors and lifetimes, never edits the source singing
+        delay shifts visual anchors and lifetimes, never edits the source timing
         spans. offset moves the lyric group; independently positioned cues retain
         their own positions. Already-bound animations retain their local clocks.
         """
@@ -715,16 +714,16 @@ class LyricLine(ObjectGroup):
                 intervals: tuple[TimeSpan | None, ...] = (
                     (None,)
                     if display_anchor
-                    else rule.singing_intervals(target)
+                    else rule.timing_intervals(target)
                     if isinstance(rule.anchor, (str, LyricTarget))
                     else rule.anchor(self, target)
                 )
                 for span in intervals:
                     note = None
-                    if span is not None and (rule.anchor == "singing" or isinstance(rule.anchor, LyricTarget)):
+                    if span is not None and (rule.anchor == "timing" or isinstance(rule.anchor, LyricTarget)):
                         note = span.duration
-                    elif rule.anchor == "after_singing" and target.singing:
-                        last = max(target.singing, key=lambda s: s.end)
+                    elif rule.anchor == "after_timing" and target.timing:
+                        last = max(target.timing, key=lambda s: s.end)
                         note = last.end - last.start
                     duration = rule.duration
                     if isinstance(duration, TimeExpr):
@@ -740,9 +739,9 @@ class LyricLine(ObjectGroup):
                     if duration is None and isinstance(animation, AnimationSequence):
                         duration = animation.duration
                     if duration is None:
-                        if span is None or rule.anchor == "after_singing":
+                        if span is None or rule.anchor == "after_timing":
                             raise ValueError(
-                                "display/after_singing anchors require an explicit "
+                                "display/after_timing anchors require an explicit "
                                 "duration or animation sequence"
                             )
                         duration = span.duration
@@ -774,7 +773,7 @@ class LyricLine(ObjectGroup):
         """Resolve factories and semantic clocks into ordinary immutable clips.
 
         Sequences retain their authored seconds length unless duration overrides
-        it. Unspecified pure animations use the singing interval length. Missing
+        it. Unspecified pure animations use the timing interval length. Missing
         targets and zero-duration intervals do not invent animation time.
         """
         return self._bind(self._resolve(rules))

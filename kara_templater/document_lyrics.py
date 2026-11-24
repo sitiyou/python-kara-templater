@@ -3,7 +3,7 @@
 from dataclasses import dataclass, replace
 from typing import Literal
 
-from .document_text import DocumentText, SingingSpan, TextRun, resolve_singing
+from .document_text import DocumentText, TextRun, TimedTextSpan, resolve_timing
 
 
 @dataclass(frozen=True)
@@ -30,12 +30,12 @@ class RubyText:
 
 @dataclass(frozen=True)
 class LyricSegment:
-    """One absolute-seconds singing interval and its optional RubyText, retaining source text bounds.
+    """One absolute-seconds timing interval and its optional RubyText, retaining source text bounds.
 
-    Repeated singing adds segments without duplicating the body.
+    Repeated timing adds segments without duplicating the body.
     """
 
-    singing: SingingSpan
+    timing: TimedTextSpan
     source_start: int
     source_end: int
     ruby: RubyText | None = None
@@ -43,11 +43,11 @@ class LyricSegment:
 
 @dataclass(frozen=True)
 class LyricUnit:
-    """A decoded body range and its ordered singing segments.
+    """A decoded body range and its ordered timing segments.
 
     Ranges count Unicode code points and must later respect shaped cluster
     boundaries. Timed ruby segments describe successive parts of one reading.
-    Set repeat=True when each segment sings the entire body again.
+    Set repeat=True when each segment times the entire body again.
     """
 
     start: int
@@ -55,9 +55,9 @@ class LyricUnit:
     segments: tuple[LyricSegment, ...] = ()
     repeat: bool = False
 
-    def _body_singing(self) -> tuple[SingingSpan, ...]:
+    def _body_timing(self) -> tuple[TimedTextSpan, ...]:
         """Successive timed ruby shares one body sweep, including intervening rests."""
-        spans = tuple(segment.singing for segment in self.segments)
+        spans = tuple(segment.timing for segment in self.segments)
         if (
             len(spans) > 1
             and not self.repeat
@@ -67,9 +67,9 @@ class LyricUnit:
             return (replace(spans[0], end=spans[-1].end),)
         return spans
 
-    def _body_parts(self, *, reading_units: bool = False) -> tuple[tuple[SingingSpan, float, float], ...]:
+    def _body_parts(self, *, reading_units: bool = False) -> tuple[tuple[TimedTextSpan, float, float], ...]:
         """Split a merged body sweep by checkpoints or by visible reading characters."""
-        spans = self._body_singing()
+        spans = self._body_timing()
         if len(spans) == 1 and len(self.segments) > 1:
             weights = [1] * len(self.segments)
             if reading_units:
@@ -85,7 +85,7 @@ class LyricUnit:
             distance = 0
             parts = []
             for seg, weight in zip(self.segments, weights, strict=True):
-                parts.append((seg.singing, distance / total, (distance + weight) / total))
+                parts.append((seg.timing, distance / total, (distance + weight) / total))
                 distance += weight
             duration = spans[0].end - spans[0].start
             if any(abs(s.end - s.start - duration * (b - a)) > 1e-9 for s, a, b in parts):
@@ -109,7 +109,7 @@ class DocumentLyrics:
         """Assign authored time windows to body units in reverse spatial order."""
         # Studio's whole-line reverse uses main-text intervals and hides readings.
         # Collapse contiguous ruby checkpoints to their host note before reversing.
-        clocks = tuple((unit, unit._body_singing()) for unit in self.units)
+        clocks = tuple((unit, unit._body_timing()) for unit in self.units)
         windows = iter(span for unit, spans in clocks
                        if unit.end > unit.start for span in spans)
         timed_units = []
@@ -119,9 +119,9 @@ class DocumentLyrics:
                 segments = (replace(segments[0], source_end=segments[-1].source_end),)
             timed = []
             for segment in segments:
-                window = next(windows) if unit.end > unit.start else segment.singing
-                singing = replace(segment.singing, start=window.start, end=window.end)
-                timed.append(replace(segment, singing=singing, ruby=None))
+                window = next(windows) if unit.end > unit.start else segment.timing
+                timing = replace(segment.timing, start=window.start, end=window.end)
+                timed.append(replace(segment, timing=timing, ruby=None))
             timed_units.append(replace(unit, segments=tuple(timed)))
         return replace(self, units=tuple(reversed(timed_units)))
 
@@ -142,7 +142,7 @@ def _slice(
 
 
 def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyrics:
-    """Project text|ruby and # continuations; all singing times remain absolute.
+    """Project text|ruby and # continuations; all timing times remain absolute.
 
     Syntax is recognized within each explicit karaoke interval. Untimed text is
     preserved, but ruby/continuation syntax requires a karaoke time tag. Body
@@ -154,7 +154,7 @@ def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyri
         raise ValueError(
             f"record {source.record_index}: multiline lyric layout is not yet supported"
         )
-    spans = resolve_singing(source, start)
+    spans = resolve_timing(source, start)
     units: list[LyricUnit] = []
     body: list[TextRun] = []
     mapping: list[LyricMapping] = []
@@ -173,7 +173,7 @@ def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyri
     prefix = text[:first_timed]
     if any(c in prefix for c in "|｜#＃"):
         raise ValueError(
-            f"record {source.record_index}: ruby or continuation requires a singing tag"
+            f"record {source.record_index}: ruby or continuation requires a timing tag"
         )
     if prefix:
         units.append(LyricUnit(*append_body(0, first_timed)))
@@ -182,7 +182,7 @@ def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyri
         if span.start_offset > previous:
             gap = text[previous : span.start_offset]
             if any(c in gap for c in "|｜#＃"):
-                raise ValueError("ruby or continuation requires a singing tag")
+                raise ValueError("ruby or continuation requires a timing tag")
             units.append(LyricUnit(*append_body(previous, span.start_offset)))
         a, b = span.start_offset, span.end_offset
         previous = b
@@ -237,7 +237,7 @@ def parse_document_lyrics(source: DocumentText, *, start: float) -> DocumentLyri
 
     if previous < len(text):
         if any(c in text[previous:] for c in "|｜#＃"):
-            raise ValueError("ruby or continuation requires a singing tag")
+            raise ValueError("ruby or continuation requires a timing tag")
         units.append(LyricUnit(*append_body(previous, len(text))))
 
     # Anchor positions must resolve to body text, never silently jump out of ruby.

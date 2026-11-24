@@ -1,7 +1,7 @@
 # Add custom motion to lyric highlights
 
 This complete script binds a shared jump animation when each measured character
-is reached by the singing front. It uses only the installed library and writes
+is reached by the timing front. It uses only the installed library and writes
 `lyric-arc.hook`. Lyrics and ordinary objects use the same animation protocol.
 
 ```python
@@ -25,7 +25,7 @@ from kara_templater import (
     TimeSpan,
     Track,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 document = Document.create(
@@ -49,7 +49,7 @@ def highlights(line: LyricLine) -> tuple[Highlight, ...]:
             index,
             tuple(
                 HighlightPass(
-                    TimeSpan(segment.singing.start, segment.singing.end),
+                    TimeSpan(segment.timing.start, segment.timing.end),
                     Region(box.left, box.right),
                     round=round_id,
                 )
@@ -64,7 +64,7 @@ def highlights(line: LyricLine) -> tuple[Highlight, ...]:
     )
 
 
-scene = prepare_tracks(
+scene = build_lyric_scene(
     document,
     tracks=(
         Track(
@@ -76,7 +76,7 @@ scene = prepare_tracks(
                     "character", HighlightArrival(highlights=highlights), Jump(24)
                 ),
                 LyricRule("line", "exit", FadeOut(), duration=0.4),
-                LyricHighlights.from_singing(StatePatch(fill=CYAN)),
+                LyricHighlights.from_timing(StatePatch(fill=CYAN)),
             ),
         ),
     ),
@@ -84,7 +84,7 @@ scene = prepare_tracks(
 scene.export("lyric-arc.hook", fps=60)
 ```
 
-The factory describes each syllable's measured region and original singing
+The factory describes each syllable's measured region and original timing
 passes. HighlightArrival computes character crossing times from those passes;
 LyricRule binds Jump without a manual character loop or absolute animation times.
 It defaults to a character's full traversal duration. Set `duration` on the rule

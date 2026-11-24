@@ -14,6 +14,7 @@ from kara_templater import (
 )
 from kara_templater._raster import rasterize
 from kara_templater.geometry import Contour, CubicSegment, LineSegment
+from kara_templater.output.ass_export import SceneCompileError
 from kara_templater.path_animation import (
     MorphPath,
     PathFunction,
@@ -28,7 +29,6 @@ from kara_templater.path_geometry import (
     resample_path,
     stroke,
 )
-from kara_templater.scene_output import SceneCompileError
 from kara_templater.text_geometry import outline_text, text_to_path
 
 

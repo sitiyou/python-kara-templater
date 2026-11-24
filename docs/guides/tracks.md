@@ -1,13 +1,13 @@
 # Configure lyric Tracks
 
 Track declares an independent lyric stream: source selection, layout, display
-padding, cue content and effects. `prepare_tracks`
+padding, cue content and effects. `build_lyric_scene`
 returns a LyricScene containing ordinary objects. Add decorations with
 `scene.add(...)` before you [choose a subtitle or shader output](choosing-output.md).
 All authoring times below are seconds.
 
 With layout omitted, Track alternates two bottom rows, upper left then lower
-right. Studio’s default `equal_margins` draws short rows toward the center as a page. A lone line is centered. Use `KaraokeRows(smart_horizontal="none")` to keep rows at their margins, or `"center_position"` to shift each row independently. For structured lyrics, pass the chapter ID to `LyricSource.from_lyrics(..., chapter=...)`. Both built-in layouts restart at the first row on a chapter change by default, including when the chapter has no cue. The existing `reset_on_lead=False` option keeps the rotation running. Track requests 5 s of preview. Its automatic tail targets 1.0 s from the last sung unit to disappearance, including the resolved exit animation. It prefers at least 0.2 s before exit. On a crowded row, the incoming line gives up extra preview first, then the outgoing hold can shrink to zero. If the animations alone exceed the available gap, both run faster in proportion to their resolved spans, including character stagger. A zero gap cuts directly between lines. Singing and explicit cue windows keep their clocks. A 0.42 s exit normally leaves 0.58 s of hold, while a 0.9 s exit needs 1.1 s in total. Explicit numeric `tail` values override this policy. To place lyrics at a fixed
+right. Studio’s default `equal_margins` draws short rows toward the center as a page. A lone line is centered. Use `KaraokeRows(smart_horizontal="none")` to keep rows at their margins, or `"center_position"` to shift each row independently. For structured lyrics, pass the chapter ID to `LyricSource.from_lyrics(..., chapter=...)`. Both built-in layouts restart at the first row on a chapter change by default, including when the chapter has no cue. The existing `reset_on_lead=False` option keeps the rotation running. Track requests 5 s of preview. Its automatic tail targets 1.0 s from the end of the last timed unit to disappearance, including the resolved exit animation. It prefers at least 0.2 s before exit. On a crowded row, the incoming line gives up extra preview first, then the outgoing hold can shrink to zero. If the animations alone exceed the available gap, both run faster in proportion to their resolved spans, including character stagger. A zero gap cuts directly between lines. Timing and explicit cue windows keep their clocks. A 0.42 s exit normally leaves 0.58 s of hold, while a 0.9 s exit needs 1.1 s in total. Explicit numeric `tail` values override this policy. To place lyrics at a fixed
 origin or use another row count, pass an explicit `Layout`. See the
 [karaoke layout tutorial](../tutorials/karaoke-design.md) for margins and spacing.
 
@@ -15,12 +15,12 @@ Use `KaraokeRows(rows=3)` for a measured left/center/right rotation or
 `KaraokeRows(rows=2, anchor="top")` for upper harmony. The one-to-eight-row
 presets scale margins and inter-row space to script height. They measure each visible row or column with its actual readings and reserved cues. A plain line needs only its body height and outline. For explicit lanes,
 `Layout(rows=2, alignment=("center", "right"), offsets=(Vec2(), Vec2(-20, 8)))`
-adjusts each row inside the track region. Source singing clocks remain the same.
+adjusts each row inside the track region. Source timing clocks remain the same.
 
-The Studio row preset starts a new section after a singing gap longer than four
+The Studio row preset starts a new section after a timing gap longer than four
 seconds. Both lines of the first page appear together. Each row stays visible
 until 0.30 s before its next occupant when space allows, and the last page
-holds until its last line finishes its tail. The original singing clocks and
+holds until its last line finishes its tail. The original timing clocks and
 authored cue intervals take priority in a tight handoff. To synchronize every
 page, use `KaraokeRows(sync_each_page=True)`. To schedule each line's preview
 and tail independently, set `sync_entry=False, fill_section=False`. All time
@@ -36,12 +36,12 @@ align to the right. A lone line uses smart centering.
 ```python
 from typing import Literal
 
-from kara_templater import KaraokeRows, LayoutLine, Track
+from kara_templater import KaraokeRows, LineLayoutRequest, Track
 
 
 class VerseRows(KaraokeRows):
     def break_before(
-        self, previous: LayoutLine, line: LayoutLine
+        self, previous: LineLayoutRequest, line: LineLayoutRequest
     ) -> Literal["none", "page", "section"]:
         if "verse-start" in line.tags:
             return "section"
@@ -86,19 +86,19 @@ from kara_templater import (
     StatePatch,
     ScalePulse,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
-scene = prepare_tracks(
+scene = build_lyric_scene(
     Document.load("input.ass"),
     tracks=(
         Track(
             id="main",
             effects=(
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
-                LyricRule("syllable", "singing", ScalePulse()),
+                LyricRule("syllable", "timing", ScalePulse()),
                 LyricRule("line", "exit", FadeOut(), duration=0.2),
-                LyricHighlights.from_singing(StatePatch(fill=CYAN)),
+                LyricHighlights.from_timing(StatePatch(fill=CYAN)),
             ),
         ),
     ),
@@ -111,9 +111,9 @@ have its own evaluator. Line fades compose with syllable pulses through the
 visual hierarchy. For direct control, a LyricLine supports `animate(...)` just
 like a text object or group. Animation factories receive a `LyricAnimationContext` for each resolved interval
 before layout, so their durations participate in occupancy. The context exposes
-`line`, `target`, `interval` and `duration`; see [duration-aware animation](animation.md#change-parameters-for-each-singing-interval).
+`line`, `target`, `interval` and `duration`; see [duration-aware animation](animation.md#change-parameters-for-each-timing-interval).
 
-After preparation, `line.bind(LyricRule(line.query("ruby"), "singing", Jump()))`
+After preparation, `line.bind(LyricRule(line.query("ruby"), "timing", Jump()))`
 binds a queried collection without a manual target loop. A single LyricTarget is
 also accepted. Explicit targets must belong to that line; targets from another
 line or a differently identified copy raise before animation factories run. Targets selected
@@ -130,10 +130,10 @@ from kara_templater import DriftOut, LyricLine, LyricRule, Transform, Vec2
 
 def drift(line: LyricLine) -> LyricLine:
     return line.schedule(
-        LyricRule("character", "singing", Transform(
+        LyricRule("character", "timing", Transform(
             scale=lambda p: 1 + 0.06 * 16 * p * p * (1 - p) ** 2,
         )),
-        LyricRule("character", "after_singing", DriftOut(offset=Vec2(12, -36)),
+        LyricRule("character", "after_timing", DriftOut(offset=Vec2(12, -36)),
                   offset=0.14, duration=0.56),
     )
 ```
@@ -157,13 +157,13 @@ Unmatched events survive. Preparing the same owner again replaces that owner's
 generated events; changing selection restores its unselected sources. Inspect
 `scene.plans` for source associations, placements and bound lines. `scene.lines`
 provides the lyric objects. `LyricSource.from_lyrics(...)` supplies structured
-DocumentLyrics through `prepare_tracks(..., inputs=...)` without creating fake
+DocumentLyrics through `build_lyric_scene(..., inputs=...)` without creating fake
 ASS records. Supply those Python inputs again when regenerating.
 
 ### Attach a drawing after layout
 
-For a drawing that follows a sung word, iterate over `scene.plans` after
-`prepare_tracks`. Each nonempty span in `plan.line.layout.body.singing` gives
+For a drawing that follows a timed word, iterate over `scene.plans` after
+`build_lyric_scene`. Each nonempty span in `plan.line.layout.body.timing` gives
 absolute song times and decoded text offsets. Pass those offsets to
 `body.range_bounds` to get a rectangle in line-local coordinates, including
 reserved inline cue space. For a separately added Scene object, add the placed
@@ -187,7 +187,7 @@ use a world-space reference to inherit its motion.
 Both `KaraokeRows` and `Layout` restart rotation at the first row on a lead cue by default. Horizontal alignment comes from the chosen layout. Set `reset_on_lead=False` on the allocator to continue rotating across cues. Silence-based resets are controlled separately.
 
 The default for `Layout` is strict rotation; `policy="available"` chooses a free row.
-Automatic tracks share the gap between successive occupants of each row. Singing, inline countdowns and explicitly reserved effect intervals remain fixed. Overlapping fixed windows raise an error identifying both lines.
+Automatic tracks share the gap between successive occupants of each row. Timing, inline countdowns and explicitly reserved effect intervals remain fixed. Overlapping fixed windows raise an error identifying both lines.
 
 Override `allocate` when a song needs a different occupancy policy, such as taking a solo line out of rotation. The allocator receives the measured bounds and required visibility intervals for every line. After assigning rows and resolving handoffs, call `self.row_offsets(lines, placements)` to position the rows with their measured clearances. Cross-track information is available through `Track.references` and `LayoutContext.other_lines`.
 
@@ -196,7 +196,7 @@ constructs scenes with different row counts and custom occupancy rules.
 Its `SongLayout.allocate` keeps the cursor and occupancy in ordinary local
 variables. Its override implements its own lead and solo policies. The separate harmony Track stays at the top.
 In Python, pass your allocator to `build(layout=...)`; the lyric rules remain
-unchanged. Pass `dense=True` to demonstrate overlapping singing: one row reports
+unchanged. Pass `dense=True` to demonstrate overlapping timing: one row reports
 insufficient capacity, while two or three rows can accommodate it.
 
 ## Semantic targets and appearance
@@ -214,7 +214,7 @@ that box together with reserved inline cue bounds. Dynamic geometry callbacks
 are not sampled to guess a footprint; declare a box covering the intended motion.
 
 Appearance composition uses explicit Python factories and immutable replacements.
-Apply base role or range appearance first, then declare singing colors with
+Apply base role or range appearance first, then declare timing colors with
 LyricHighlights.
 
 LyricLine exposes line, syllable, segment, character, ruby and cue targets.
@@ -225,7 +225,7 @@ coordinates; ordinary whole-line animations need no manually constructed Group.
 
 Syllable targets include their body and ruby children. Use `character` to animate
 only body glyphs, or `ruby` for readings. For example,
-`LyricRule("character", "singing", FadeOut())` fades the body during its singing
+`LyricRule("character", "timing", FadeOut())` fades the body during its timing
 interval while readings keep their local opacity. Both still inherit whole-line
 motion and opacity. These rules share the ordinary object hierarchy; selecting
 body glyphs does not detach readings or change the source's syllable grouping.
@@ -237,8 +237,8 @@ To pulse a reading around its center while coloring its glyphs independently,
 a rule factory can locate the target in `line.layout.ruby`, take that reading's
 `layout.bounds` center, and subtract the glyph's original
 `object.state.position`. Pass that local point as `ScalePulse(pivot=..., peak=...)`.
-Bind the factory with `LyricRule("ruby", "singing", factory)`. Each glyph retains
-the reading's singing clock.
+Bind the factory with `LyricRule("ruby", "timing", factory)`. Each glyph retains
+the reading's timing clock.
 
 LyricHighlights provides per-syllable transitions and named passes with union, priority or layered ownership; HighlightArrival binds
 animations to measured character crossings. Factories may choose colors or glow
@@ -278,11 +278,11 @@ Adjacent annotated syllables share one reading group. Short readings center over
 group at their natural spacing. A wide reading starts at the group's left edge.
 Use `|!` to begin a separate group or `|<` to begin a group that can overflow
 equally to the left and right. A `#` syllable extends the previous body unit
-and retains its own singing interval. Fullwidth forms work too. Bare syllables
+and retains its own timing interval. Fullwidth forms work too. Bare syllables
 can absorb a preceding overhang. When space is still needed, the engine moves
 the following group together with its body. [Aegisub furigana tutorial](https://aegisub.org/docs/latest/furigana_karaoke)
 The Studio sweep traverses the ink and the primary hard outline during the
-singing interval. Extra outline clearance, glow and shadow add no travel time. A plain `Layout` uses native font advances. Set
+timing interval. Extra outline clearance, glow and shadow add no travel time. A plain `Layout` uses native font advances. Set
 `Track(studio_spacing=True, ...)` or `False` to choose independently of the rows.
 
 For Studio’s space-width and overhang controls, pass
@@ -315,13 +315,13 @@ and each reading sweeps over its own ink during its authored interval.
 `ruby_gap` sets the horizontal distance between the body and reading cells in
 script pixels. A supplied allocator receives the measured vertical blocks.
 
-As in Studio, the vertical singing modes use the ordinary downward wipe.
-`singing="no_wipe"` switches the color at the end of the interval.
+As in Studio, the vertical timing modes use the ordinary downward wipe.
+`highlight="no_wipe"` switches the color at the end of the interval.
 Standard ASS export draws the vertical wipe with complementary clips.
 
 For Studio-style vertical transitions, choose `fade`, `rise`, or
 `slide_in` / `slide_out`. They move or fade the entire column, including ruby.
-Character transitions, singing particles, and stroke flashes have no visual
+Character transitions, timing particles, and stroke flashes have no visual
 effect in Studio's vertical painter. Custom `LyricRule` animations still apply.
 
 Studio's automatic signal lamps and volume columns are horizontal-only. For a
@@ -339,7 +339,7 @@ the lines and independent cues that intersect the window. Keep the full song's
 sources available for additional template objects such as chapter countdowns.
 
 ```python
-scene = prepare_tracks(document, inputs=song.sources, tracks=tracks,
+scene = build_lyric_scene(document, inputs=song.sources, tracks=tracks,
                        bpm=song.bpm, preview_interval=song.preview_interval)
 ```
 

@@ -34,12 +34,12 @@ def dot(context: ParticleContext) -> PathObject:
 
 
 def decorate(line: LyricLine) -> LyricLine:
-    revealed = LyricHighlights.from_singing(StatePatch(), base_paint=StatePatch(opacity=0))(line)
+    revealed = LyricHighlights.from_timing(StatePatch(), base_paint=StatePatch(opacity=0))(line)
     copied = LyricEcho(animation=CurveIn(), delay=-0.1)(revealed)
     result = LyricParticles(factory=dot, placement="line")(copied)
     assert_type(result, LyricLine)
     scheduled = result.schedule(
-        LyricRule("character", "after_singing", DriftOut(), duration=0.5),
+        LyricRule("character", "after_timing", DriftOut(), duration=0.5),
     )
     assert_type(scheduled, LyricLine)
     return scheduled

@@ -129,21 +129,21 @@ FollowObject.translated(
 
 ## LyricParticles
 
-Emit particles at the singing front or throughout the measured lyric line.
+Emit particles at the timing front or throughout the measured lyric line.
 
-placement="front" uses each singing segment. placement="line" scatters
+placement="front" uses each timing segment. placement="line" scatters
 particles across the body bounds from the original preview start through the
-last positive singing end, including unsung text and pauses. Its rate is per
+last positive timing end, including base text and pauses. Its rate is per
 whole line, not per character or segment. Empty/zero-only lines emit nothing.
 Copy delays shift both schedules; later visual tails never extend emission.
 Line placement uses stable named random channels and captures a fixed point.
 
 color overrides the emission tint. Catalog or Track ink supplies the default;
 without one the emitter reads the source run. A factory color overrides it.
-rate is particles per second per singing segment in front mode; duration comes from the
+rate is particles per second per timing segment in front mode; duration comes from the
 particle factory. Repeated segments restart the front. Zero-length segments
 emit nothing. Particle births are rounded to the ASS 10 ms grid; source
-singing clocks are unchanged. Position is captured in line-local layout coordinates at birth;
+timing clocks are unchanged. Position is captured in line-local layout coordinates at birth;
 line transforms apply to particles, independent character motion does not
 retarget already emitted particles. Use a custom factory for different paths,
 shapes, animation and lifetimes through the existing ParticleContext protocol.

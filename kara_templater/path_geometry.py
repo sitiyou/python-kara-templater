@@ -8,6 +8,7 @@ from functools import cached_property, lru_cache
 from math import hypot
 
 from .geometry import (
+    Box,
     Contour,
     CubicSegment,
     LineSegment,
@@ -16,7 +17,6 @@ from .geometry import (
     VectorPath,
     finite,
 )
-from .model import Box
 
 
 class GeometryError(ValueError):

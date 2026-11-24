@@ -23,14 +23,14 @@ from kara_templater import (
     StatePatch,
     Track,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
 def color(line: LyricLine) -> LyricLine:
-    """Choose a sung color for each authored syllable."""
+    """Choose a highlight color for each authored syllable."""
     palette = (RED, GREEN, BLUE)
-    return LyricHighlights.from_singing(
+    return LyricHighlights.from_timing(
         StatePatch(fill=RED),
         segment_colors={
             (index, segment): palette[index % len(palette)]
@@ -54,7 +54,7 @@ TRACKS = (
         preview=0,
         tail=0,
         effects=(
-            LyricRule("syllable", "singing", ScalePulse(peak=1.08)),
+            LyricRule("syllable", "timing", ScalePulse(peak=1.08)),
             color,
         ),
     ),
@@ -63,7 +63,7 @@ TRACKS = (
 
 def build(document: Document) -> Scene:
     """Bind source lyrics to the same objects and compiler as ordinary Scenes."""
-    return prepare_tracks(document, tracks=TRACKS, owner="track-colors")
+    return build_lyric_scene(document, tracks=TRACKS, owner="track-colors")
 
 
 def main() -> None:

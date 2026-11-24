@@ -1,6 +1,6 @@
 # Documents and lyric input
 
-Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric singing spans and Track authoring use seconds. See [Documents](../guides/documents.md).
+Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric timing spans and Track authoring use seconds. See [Documents](../guides/documents.md).
 
 [All public symbols](README.md#symbol-index)
 
@@ -17,13 +17,14 @@ Records, decoded text, input selection, and source mappings. Raw Line clocks use
 - [LyricUnit](#lyricunit)
 - [Record](#record)
 - [RubyText](#rubytext)
-- [SingingTag](#singingtag)
 - [SourceRef](#sourceref)
 - [Style](#style)
 - [TextAppearance](#textappearance)
 - [TextIssue](#textissue)
 - [TextRun](#textrun)
 - [TextToken](#texttoken)
+- [TimedTextSpan](#timedtextspan)
+- [TimingTag](#timingtag)
 - [parse_document_lyrics](#parse_document_lyrics)
 - [read_document_text](#read_document_text)
 
@@ -210,7 +211,7 @@ DocumentText(
     record_index: int | None,
     tokens: tuple[TextToken, ...],
     runs: tuple[TextRun, ...],
-    timing: tuple[SingingTag, ...],
+    timing: tuple[TimingTag, ...],
     cues: tuple[CueMarker, ...],
     unsupported: tuple[TextIssue, ...],
 )
@@ -223,7 +224,7 @@ DocumentText(
 | `record_index` | `int \| None` | `required` |
 | `tokens` | `tuple[TextToken, ...]` | `required` |
 | `runs` | `tuple[TextRun, ...]` | `required` |
-| `timing` | `tuple[SingingTag, ...]` | `required` |
+| `timing` | `tuple[TimingTag, ...]` | `required` |
 | `cues` | `tuple[CueMarker, ...]` | `required` |
 | `unsupported` | `tuple[TextIssue, ...]` | `required` |
 
@@ -351,15 +352,15 @@ LyricMapping(
 
 ## LyricSegment
 
-One absolute-seconds singing interval and its optional RubyText, retaining source text bounds.
+One absolute-seconds timing interval and its optional RubyText, retaining source text bounds.
 
-Repeated singing adds segments without duplicating the body.
+Repeated timing adds segments without duplicating the body.
 
 [Source](../../kara_templater/document_lyrics.py#L31)
 
 ```python
 LyricSegment(
-    singing: SingingSpan,
+    timing: TimedTextSpan,
     source_start: int,
     source_end: int,
     ruby: RubyText | None = None,
@@ -370,18 +371,18 @@ LyricSegment(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `singing` | `SingingSpan` | `required` |
+| `timing` | `TimedTextSpan` | `required` |
 | `source_start` | `int` | `required` |
 | `source_end` | `int` | `required` |
 | `ruby` | `RubyText \| None` | `None` |
 
 ## LyricUnit
 
-A decoded body range and its ordered singing segments.
+A decoded body range and its ordered timing segments.
 
 Ranges count Unicode code points and must later respect shaped cluster
 boundaries. Timed ruby segments describe successive parts of one reading.
-Set repeat=True when each segment sings the entire body again.
+Set repeat=True when each segment times the entire body again.
 
 [Source](../../kara_templater/document_lyrics.py#L44)
 
@@ -444,43 +445,18 @@ RubyText(
 | `mapping` | `tuple[LyricMapping, ...]` | `required` |
 | `mode` | `Literal['join', 'break', 'spill']` | `'join'` |
 
-## SingingTag
-
-A decoded karaoke timing tag at a text offset.
-
-Its seconds value is a duration for k/K/kf/ko and an absolute cursor offset for
-kt.
-
-[Source](../../kara_templater/document_text.py#L61)
-
-```python
-SingingTag(
-    offset: int,
-    kind: Literal['k', 'K', 'kf', 'ko', 'kt'],
-    seconds: float,
-)
-```
-
-### Fields
-
-| Name | Type | Default |
-| --- | --- | --- |
-| `offset` | `int` | `required` |
-| `kind` | `Literal['k', 'K', 'kf', 'ko', 'kt']` | `required` |
-| `seconds` | `float` | `required` |
-
 ## SourceRef
 
-Address within an item, stable while its source structure is unchanged.
+Address within a lyric source, stable while its structure is unchanged.
 
-Item order, layout and effects do not affect addresses. Editing/reordering
+Source order, layout and effects do not affect addresses. Editing/reordering
 units or segments creates a new source structure; indices are not edit IDs.
 
 [Source](../../kara_templater/sources.py#L48)
 
 ```python
 SourceRef(
-    item_id: str,
+    source_id: str,
     unit_index: int | None = None,
     segment_index: int | None = None,
 )
@@ -490,7 +466,7 @@ SourceRef(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `item_id` | `str` | `required` |
+| `source_id` | `str` | `required` |
 | `unit_index` | `int \| None` | `None` |
 | `segment_index` | `int \| None` | `None` |
 
@@ -659,9 +635,60 @@ TextToken(
 | `offset` | `int` | `required` |
 | `override` | `bool` | `False` |
 
+## TimedTextSpan
+
+Source text offsets and absolute timing intervals, including zero duration.
+
+[Source](../../kara_templater/document_text.py#L363)
+
+```python
+TimedTextSpan(
+    start_offset: int,
+    end_offset: int,
+    start: float,
+    end: float,
+    kind: Literal['k', 'K', 'kf', 'ko'],
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `start_offset` | `int` | `required` |
+| `end_offset` | `int` | `required` |
+| `start` | `float` | `required` |
+| `end` | `float` | `required` |
+| `kind` | `Literal['k', 'K', 'kf', 'ko']` | `required` |
+
+## TimingTag
+
+A decoded karaoke timing tag at a text offset.
+
+Its seconds value is a duration for k/K/kf/ko and an absolute cursor offset for
+kt.
+
+[Source](../../kara_templater/document_text.py#L61)
+
+```python
+TimingTag(
+    offset: int,
+    kind: Literal['k', 'K', 'kf', 'ko', 'kt'],
+    seconds: float,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `offset` | `int` | `required` |
+| `kind` | `Literal['k', 'K', 'kf', 'ko', 'kt']` | `required` |
+| `seconds` | `float` | `required` |
+
 ## parse_document_lyrics
 
-Project text|ruby and # continuations; all singing times remain absolute.
+Project text|ruby and # continuations; all timing times remain absolute.
 
 Syntax is recognized within each explicit karaoke interval. Untimed text is
 preserved, but ruby/continuation syntax requires a karaoke time tag. Body

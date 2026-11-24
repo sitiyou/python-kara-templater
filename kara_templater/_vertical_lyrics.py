@@ -4,10 +4,9 @@ from dataclasses import replace
 from itertools import groupby
 
 from . import _metrics
-from .geometry import Vec2
-from .model import Box
-from .scene_lyrics import LyricLayout, PositionedRuby
-from .scene_text import PositionedText, _union
+from .geometry import Box, Vec2
+from .lyrics.layout import LyricLayout, PositionedRuby
+from .text.layout import PositionedText, _union
 from .text_geometry import _VectorGuideText
 
 _ROTATED = frozenset("ーｰ—―‐‑‒–〜～→←（）()「」『』【】〔〕［］｛｝〈〉《》[]{}<>")

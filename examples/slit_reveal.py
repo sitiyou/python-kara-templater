@@ -22,14 +22,14 @@ from kara_templater import (
     Track,
     Vec2,
     VisualState,
+    build_lyric_scene,
     outline_text,
     path_bounds,
-    prepare_tracks,
 )
 
 FPS = 30
-UNSUNG = Color.hex("#EDEBE6")
-SUNG = Color.hex("#FFD5A0")
+BEFORE_FILL = Color.hex("#EDEBE6")
+AFTER_FILL = Color.hex("#FFD5A0")
 DISPLACEMENT = (1.0, 0.573, 0.347, 0.213, 0.127, 0.067, 0.033, 0.013, 0.0)
 
 
@@ -82,7 +82,7 @@ def build() -> Scene:
     document.records.append(
         Line(start_time=1000, end_time=3100, text=r"{\k50}春{\k35}が{\k55}来{\k70}た")
     )
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         document,
         tracks=(
             Track(
@@ -90,9 +90,9 @@ def build() -> Scene:
                 layout=Layout(position=Vec2(675, 690)),
                 preview=0,
                 effects=(
-                    LyricHighlights.from_singing(
-                        StatePatch(fill=SUNG),
-                        base_paint=StatePatch(fill=UNSUNG),
+                    LyricHighlights.from_timing(
+                        StatePatch(fill=AFTER_FILL),
+                        base_paint=StatePatch(fill=BEFORE_FILL),
                     ),
                 ),
             ),

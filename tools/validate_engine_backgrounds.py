@@ -16,7 +16,7 @@ from time import perf_counter
 from PIL import Image, ImageDraw
 
 from examples.scene_cues import build
-from kara_templater import SceneBudget, load_font
+from kara_templater import AssBudget, load_font
 
 ROOT = Path(__file__).resolve().parents[1]
 SIZE = (1280, 720)
@@ -210,7 +210,7 @@ def validate(output: Path, case_id: str | None = None) -> None:
         "clock": "integer millisecond time base; 10 ms steps with +1 ms offset to avoid ffmpeg floating boundary truncation",
         "seek_order": "(frame index * 137) modulo 600; every timestamp once, in a separate renderer instance from continuous playback",
         "pixel_format": "RGB24 input/output, full range; exported ASS metadata unchanged",
-        "scene_budget": asdict(SceneBudget()),
+        "scene_budget": asdict(AssBudget()),
         "font_assets": assets,
         "background_sha256": background_hashes,
         "cases": cases,

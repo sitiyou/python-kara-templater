@@ -6,6 +6,7 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
+    AssBudget,
     Document,
     EventOrigin,
     FadeIn,
@@ -17,7 +18,6 @@ from kara_templater import (
     RectangleKeyframes,
     ScalePulse,
     Scene,
-    SceneBudget,
     SceneCompileError,
     SourceRef,
     Vec2,
@@ -70,7 +70,7 @@ def test_native_motion_bounds_error_keeps_original_clocks_and_matches_static_pix
     if crop:
         node = replace(node, lifetime=Lifetime(1.25, 2.5), clock_start=0)
     doc = Document.create(width=300, height=100)
-    budget = SceneBudget(clip_error_px=0.75)
+    budget = AssBudget(clip_error_px=0.75)
     result = Scene(doc).add(node).ass.compile(native_tweens=True, budget=budget)
     assert result.objects[0].strategy == "native-clip"
     assert 4 < result.event_count < 30
@@ -137,10 +137,10 @@ def test_native_subdivision_enforces_event_and_spatial_limits_with_origin():
     node = subject()
     scene = Scene(Document.create(width=300, height=100)).add(node)
     with pytest.raises(SceneCompileError, match="event budget") as caught:
-        scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=2))
+        scene.ass.compile(native_tweens=True, budget=AssBudget(max_events=2))
     assert caught.value.origin is node.origin
     with pytest.raises(SceneCompileError, match="ASS time resolution") as caught:
-        scene.ass.compile(native_tweens=True, budget=SceneBudget(clip_error_px=0.01))
+        scene.ass.compile(native_tweens=True, budget=AssBudget(clip_error_px=0.01))
     assert caught.value.object_id == node.id
     assert caught.value.origin is node.origin
 
@@ -170,7 +170,7 @@ def test_asymmetric_pulse_uses_actual_peak_clock_and_unknown_easing_samples():
 @pytest.mark.parametrize("error", (0, -1, float("nan"), float("inf")))
 def test_clip_error_budget_is_finite_and_positive(error):
     with pytest.raises(ValueError):
-        SceneBudget(clip_error_px=error)
+        AssBudget(clip_error_px=error)
 
 
 @pytest.mark.parametrize("nested", (False, True))
@@ -246,7 +246,7 @@ def test_parent_fade_and_child_pulse_use_distinct_original_clocks(crop):
         parent = replace(parent, lifetime=Lifetime(1.75, 3), clock_start=0)
     doc = Document.create(width=300, height=100)
     result = (
-        Scene(doc).add(parent).ass.compile(native_tweens=True, budget=SceneBudget())
+        Scene(doc).add(parent).ass.compile(native_tweens=True, budget=AssBudget())
     )
     assert result.objects[0].strategy == "native-clip"
     assert result.event_count < 30

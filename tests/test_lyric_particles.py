@@ -86,7 +86,7 @@ def test_duplicate_emitter_identity_is_rejected():
         effect(effect(line))
 
 
-def test_line_placement_covers_unsung_text_from_preview_without_following_front():
+def test_line_placement_covers_base_text_from_preview_without_following_front():
     _, original = subject(r"{\k50}A{\k100}BCDE")
     line = original.copy(id="delayed", delay=0.2)
     captured = []
@@ -98,7 +98,7 @@ def test_line_placement_covers_unsung_text_from_preview_without_following_front(
     result = LyricParticles(factory=factory, placement="line", rate=8, seed=42)(line)
     assert captured[0].birth == pytest.approx(0.2)
     assert captured[-1].birth < 2.7
-    assert len(captured) == 20  # preview + singing, one schedule for the entire row
+    assert len(captured) == 20  # preview + timing, one schedule for the entire row
     box = line.layout.body.bounds
     early = [c for c in captured if c.birth < 1.2]
     assert any(c.position.x > box.center for c in early)

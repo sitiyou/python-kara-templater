@@ -20,6 +20,7 @@ Pure state/property animation and typed composition. Scene, semantic lyric rules
 - [Jump](#jump)
 - [LengthExpr](#lengthexpr)
 - [Note](#note)
+- [ProgressCurve](#progresscurve)
 - [ScalePulse](#scalepulse)
 - [ShaderMotion](#shadermotion)
 - [Slide](#slide)
@@ -139,7 +140,7 @@ AnimationSequence.sample(
 
 Piecewise rise, hold and fall on normalized progress, independent of clocks.
 
-[Source](../../kara_templater/easing.py#L71)
+[Source](../../kara_templater/easing.py#L72)
 
 ```python
 BackRate(
@@ -375,7 +376,7 @@ Glyph()
 Move up and return to the captured position over normalized progress.
 
 Height is in script pixels; a negative height moves downward. Durations and
-lyric singing anchors belong to clip binding, not to this animation.
+lyric timing anchors belong to clip binding, not to this animation.
 
 [Source](../../kara_templater/scene_animation.py#L423)
 
@@ -431,12 +432,83 @@ LengthExpr.clamp(
 
 ## Note
 
-Note.duration reads the source singing interval, including each repeat.
+Note.duration reads the source timing interval, including each repeat.
 
 [Source](../../kara_templater/parameters.py#L105)
 
 ```python
 Note()
+```
+
+## ProgressCurve
+
+Monotone piecewise linear (normalized time, progress) knots.
+
+Repeated progress values represent pauses. Repeated times are forbidden;
+instantaneous timing is represented by a zero-duration HighlightPass.
+
+[Source](../../kara_templater/easing.py#L97)
+
+```python
+ProgressCurve(
+    knots: tuple[tuple[float, float], ...] = ((0, 0), (1, 1)),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `knots` | `tuple[tuple[float, float], ...]` | `((0, 0), (1, 1))` |
+
+### ProgressCurve.arrival
+
+Earliest normalized time reaching progress, including plateau starts.
+
+```python
+ProgressCurve.arrival(
+    progress: float,
+) -> float
+```
+
+### ProgressCurve.at
+
+Evaluate normalized sweep progress from this piecewise-linear curve.
+
+```python
+ProgressCurve.at(
+    time_fraction: float,
+) -> float
+```
+
+### ProgressCurve.cubic_bezier
+
+Approximate a normalized cubic Bézier with shared CPU and hook knots.
+
+The endpoints are (0, 0) and (1, 1). The x controls specify normalized
+time, and the y controls specify normalized progress. All controls
+must be finite and within 0..1. The piecewise-linear result differs from
+the Bézier by at most 0.0001 in progress at the same normalized time.
+
+```python
+ProgressCurve.cubic_bezier(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+) -> Self
+```
+
+### ProgressCurve.two_stage
+
+Construct a piecewise-linear progress curve through one explicit time/progress breakpoint.
+
+```python
+ProgressCurve.two_stage(
+    *,
+    time_fraction: float,
+    progress_fraction: float,
+) -> Self
 ```
 
 ## ScalePulse
@@ -723,7 +795,7 @@ StatePatch.interpolate(
 
 ## TimeExpr
 
-Seconds measured from a singing interval or its bound animation.
+Seconds measured from a timing interval or its bound animation.
 
 [Source](../../kara_templater/parameters.py#L82)
 
@@ -744,7 +816,7 @@ TimeExpr.clamp(
 
 ## TimeSpan
 
-A finite seconds interval, including zero-length singing spans.
+A finite seconds interval, including zero-length timing spans.
 
 The binding context determines whether its endpoints are absolute or local.
 
@@ -1009,7 +1081,7 @@ Type: `Affine2D`.
 
 An accelerating scalar easing curve for normalized progress.
 
-[Source](../../kara_templater/easing.py#L13)
+[Source](../../kara_templater/easing.py#L14)
 
 ```python
 ease_in(
@@ -1021,7 +1093,7 @@ ease_in(
 
 A scalar easing curve that accelerates then decelerates across normalized progress.
 
-[Source](../../kara_templater/easing.py#L23)
+[Source](../../kara_templater/easing.py#L24)
 
 ```python
 ease_in_out(
@@ -1033,7 +1105,7 @@ ease_in_out(
 
 A decelerating scalar easing curve for normalized progress.
 
-[Source](../../kara_templater/easing.py#L18)
+[Source](../../kara_templater/easing.py#L19)
 
 ```python
 ease_out(
@@ -1084,7 +1156,7 @@ smoother_rate(
 
 Use as a rate directly, or configure a peak, hold, rise and fall.
 
-[Source](../../kara_templater/easing.py#L50)
+[Source](../../kara_templater/easing.py#L51)
 
 ```python
 there_and_back(

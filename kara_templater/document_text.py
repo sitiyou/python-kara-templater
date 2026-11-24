@@ -59,7 +59,7 @@ class TextRun:
 
 
 @dataclass(frozen=True)
-class SingingTag:
+class TimingTag:
     """A decoded karaoke timing tag at a text offset.
 
     Its seconds value is a duration for k/K/kf/ko and an absolute cursor offset for
@@ -126,7 +126,7 @@ class DocumentText:
     record_index: int | None
     tokens: tuple[TextToken, ...]
     runs: tuple[TextRun, ...]
-    timing: tuple[SingingTag, ...]
+    timing: tuple[TimingTag, ...]
     cues: tuple[CueMarker, ...]
     unsupported: tuple[TextIssue, ...]
 
@@ -250,7 +250,7 @@ def _read_document_text(
     appearance = baseline
     tokens: list[TextToken] = []
     runs: list[TextRun] = []
-    timing: list[SingingTag] = []
+    timing: list[TimingTag] = []
     cues: list[CueMarker] = []
     issues: list[TextIssue] = []
     offset = 0
@@ -307,7 +307,7 @@ def _read_document_text(
             continue
         for tag in _overrides(block):
             color = re.fullmatch(r"\\([1-4]?)c(&H[0-9a-fA-F]{1,6}&?)?", tag)
-            singing = re.fullmatch(r"\\(kf|ko|kt|k|K)(\d+)", tag)
+            timing_match = re.fullmatch(r"\\(kf|ko|kt|k|K)(\d+)", tag)
             if color:
                 channel = {
                     "": "primary",
@@ -342,10 +342,10 @@ def _read_document_text(
                     )
                 baseline = _appearance(styles[name])
                 appearance = baseline
-            elif singing:
-                kind = singing[1]
+            elif timing_match:
+                kind = timing_match[1]
                 assert kind in ("k", "K", "kf", "ko", "kt")
-                timing.append(SingingTag(offset, kind, int(singing[2]) / 100))
+                timing.append(TimingTag(offset, kind, int(timing_match[2]) / 100))
             else:
                 issues.append(
                     TextIssue(record_index, start, tag, "unsupported override")
@@ -361,8 +361,8 @@ def _read_document_text(
 
 
 @dataclass(frozen=True)
-class SingingSpan:
-    """Source text offsets and original absolute singing times, including zero duration."""
+class TimedTextSpan:
+    """Source text offsets and absolute timing intervals, including zero duration."""
 
     start_offset: int
     end_offset: int
@@ -378,21 +378,21 @@ class SingingSpan:
             or self.start_offset < 0
             or self.end_offset < self.start_offset
         ):
-            raise ValueError("invalid singing time or source range")
+            raise ValueError("invalid timing interval or source range")
 
 
-def resolve_singing(source: DocumentText, start: float) -> tuple[SingingSpan, ...]:
+def resolve_timing(source: DocumentText, start: float) -> tuple[TimedTextSpan, ...]:
     finite(start)
     if start < 0:
-        raise ValueError("singing start must be nonnegative")
+        raise ValueError("timing start must be nonnegative")
     cursor = start
-    result: list[SingingSpan] = []
+    result: list[TimedTextSpan] = []
     for index, tag in enumerate(source.timing):
         if tag.kind == "kt":
             if start + tag.seconds < cursor - 1e-9:
                 raise ValueError(
                     f"record {source.record_index}, decoded text offset {tag.offset}: "
-                    "kt reverses the singing cursor"
+                    "kt reverses the timing cursor"
                 )
             cursor = start + tag.seconds
             continue
@@ -402,7 +402,7 @@ def resolve_singing(source: DocumentText, start: float) -> tuple[SingingSpan, ..
             else len(source.text)
         )
         result.append(
-            SingingSpan(tag.offset, end_offset, cursor, cursor + tag.seconds, tag.kind)
+            TimedTextSpan(tag.offset, end_offset, cursor, cursor + tag.seconds, tag.kind)
         )
         cursor += tag.seconds
     return tuple(result)

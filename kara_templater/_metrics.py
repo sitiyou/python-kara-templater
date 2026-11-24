@@ -7,7 +7,7 @@ from ._native_types import Outline
 from ._text_native import add_font as add_font
 from ._text_native import text_extents as text_extents
 from ._text_native import text_shape as text_shape
-from .model import Box
+from .geometry import Box
 
 
 def stroke_bounds(outlines: Iterable[Outline], *, outer_radius: float) -> Box | None:

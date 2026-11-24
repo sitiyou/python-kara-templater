@@ -20,7 +20,7 @@ from kara_templater import (
 )
 from kara_templater._raster import rasterize
 from kara_templater.ass import Style
-from kara_templater.layout import text_extents
+from kara_templater.text.measurement import text_extents
 
 
 @pytest.mark.parametrize("text,italic,spacing", (("A", False, 0), ("gj", True, 0), ("AV", False, 1.5)))

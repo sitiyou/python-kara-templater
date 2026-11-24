@@ -4,7 +4,7 @@ from dataclasses import FrozenInstanceError
 
 import pytest
 
-from kara_templater import Document, Lifetime, Scene, SceneEstimate, TextObject
+from kara_templater import AssEstimate, Document, Lifetime, Scene, TextObject
 
 
 def test_cancel_before_output_without_mutating_sources():
@@ -13,7 +13,7 @@ def test_cancel_before_output_without_mutating_sources():
     scene = Scene(document).add(node)
     original = document.dumps()
 
-    def cancel(estimate: SceneEstimate) -> None:
+    def cancel(estimate: AssEstimate) -> None:
         assert estimate.estimated_events == 1
         with pytest.raises(FrozenInstanceError):
             estimate.estimated_events = 0  # ty: ignore[invalid-assignment]

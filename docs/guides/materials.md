@@ -4,15 +4,15 @@ Color stores RGB channels. Use Color.hex("#RRGGBB") or named colors such as WHIT
 CYAN, and PINK. Public authoring colors use RGB; ASS BGR and inverse alpha are
 encoded at the output boundary. Opacity is 0 through 1.
 
-## Gradient singing colors
+## Gradient highlight colors
 
-Use a measured gradient as the singing highlight material, without searching for
+Use a measured gradient as the highlight material, without searching for
 generated nodes or calculating glyph heights:
 
 ```python
 from kara_templater import Color, LyricGradient, LyricHighlights, StatePatch
 
-highlight = LyricHighlights.from_singing(
+highlight = LyricHighlights.from_timing(
     StatePatch(),
     material=LyricGradient((
         Color.hex("#FFE7A0"), Color.hex("#F660A2"), Color.hex("#826AFF"),
@@ -25,14 +25,14 @@ Colors run vertically through each measured glyph and follow its scale/translati
 Body and ruby resolve their own heights. Use `axis="x"` to spread the colors
 across the visible ink of the body line. Readings sample the same horizontal
 positions, so adjacent syllables continue the ramp during the wipe. Separate glow retains its configured
-color; only the sung drawing receives this material. Export gradients with the GPU hook.
+color; only the highlight drawing receives this material. Export gradients with the GPU hook.
 
 For a duet, use the active ASS style as the singer name. For example,
 `{\rLead}` and `{\rReply}` switch roles within a line. Each horizontal ramp
 spans all the ink belonging to its role, including later appearances after
 another singer intervenes. Ruby follows the style of its associated body text.
 The leading inline volume cue takes the first nonblank singer’s palette.
-Use `base_material` for the waiting lyric and `material` for the sung lyric.
+Use `base_material` for the base text and `material` for the highlighted text.
 Each accepts its own gradient or style mapping.
 
 ```python
@@ -44,7 +44,7 @@ duet = KaraokeEffects(base_material=LyricGradient((Color.hex("#FFF1D8"), Color.h
 })
 ```
 
-Styles absent from the mapping use the recipe's solid sung paint.
+Styles absent from the mapping use the recipe's solid highlight paint.
 A custom material factory can also read `target.source_style`.
 
 A material factory takes `(line, target)` and returns a LinearGradient or None.
@@ -85,7 +85,7 @@ Priority selects one contribution in an overlap. Layer mode composites each
 contribution in order: two half-opacity layers produce about 0.75 alpha, rather
 than an implicitly opaque base. Add a separate base drawing if that is desired.
 
-For a normal karaoke sweep, use `LyricHighlights.from_singing(...)` instead
+For a normal karaoke sweep, use `LyricHighlights.from_timing(...)` instead
 of building clip rectangles or timing decorative margins in the template:
 
 ```python
@@ -93,7 +93,7 @@ from kara_templater import YELLOW, WHITE, Glow, LyricHighlights, StatePatch
 
 # In a Track factory receiving a LyricLine:
 def paint_line(line):
-    return LyricHighlights.from_singing(
+    return LyricHighlights.from_timing(
         StatePatch(fill=YELLOW, outline=WHITE, border=5),
         base_glow=Glow(WHITE, blur=8, border=10),
         glow=Glow(YELLOW, blur=12, border=14),
@@ -107,11 +107,11 @@ and the total outward reach of the hard outline in script pixels. Here a
 Studio's low concentration setting. Medium and high concentrations composite
 two and three blurred images respectively.
 
-Source singing maps onto undecorated measured text bounds, independently of
+Source timing maps onto undecorated measured text bounds, independently of
 outline and glow width. For a single source interval in clip mode, the engine
-reserves 20 ms before and after singing to traverse the decorative margins.
-At the original singing start the front reaches the body's left edge; at the
-original end it reaches the right edge. These shoulders do not consume singing
+reserves 20 ms before and after timing to traverse the decorative margins.
+At the original timing start the front reaches the body's left edge; at the
+original end it reaches the right edge. These shoulders do not consume the timed interval
 time or move its clocks. Body, outline, glow and ruby share this rule. Enable
 `native_tweens=True` when compiling to lower eligible linear passes into
 continuous ASS clip animations, independent of the scene sampling FPS.
@@ -126,6 +126,6 @@ During an automatic wipe, halos with matching blur and border blend their
 color and opacity across the front. A fully transparent side contributes no
 color, so a fading halo keeps its visible hue. The engine approximates
 the Gaussian color transition with up to eight narrow moving strips between
-the two outer colors. Each strip follows the same singing clock as the text.
+the two outer colors. Each strip follows the same timing clock as the text.
 These blended strips require hook export. For ASS, choose separate halos with `blend_glow=False`. Differences in
 halo geometry use separate clipped layers.

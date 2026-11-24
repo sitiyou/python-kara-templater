@@ -35,7 +35,7 @@ def test_projection_preserves_original_color_ranges_and_repeated_timing():
     assert lyrics.body.text == "ABC"
     assert [(u.start, u.end) for u in lyrics.units] == [(0, 2), (2, 3)]
     segments = lyrics.units[0].segments
-    assert [(s.singing.start, s.singing.end) for s in segments] == [
+    assert [(s.timing.start, s.timing.end) for s in segments] == [
         (1, 1.2),
         (1.2, 1.2),
         (2, 2.3),
@@ -111,7 +111,7 @@ def test_ruby_style_defaults_inline_precedence_and_reset():
     colors = [ruby.layout.characters[0].object.state.fill for ruby in layout.ruby]
     assert colors == [Color(255, 0, 0), Color(255, 255, 255), Color(255, 0, 0)]
     assert all(r.layout.characters[0].object.font_size == 24 for r in layout.ruby)
-    assert [t for s in layout.body.singing for t in (s.start, s.end)] == pytest.approx(
+    assert [t for s in layout.body.timing for t in (s.start, s.end)] == pytest.approx(
         [1, 1.2, 1.2, 1.4, 1.4, 1.6]
     )
     assert all(
@@ -178,7 +178,7 @@ def test_wide_ruby_breaks_reserve_space_without_changing_times(gap):
     assert (
         layout.body.characters[1].bounds.left > layout.body.characters[0].bounds.right
     )
-    assert layout.body.singing[1].start == 1.2
+    assert layout.body.timing[1].start == 1.2
 
 
 def test_ligature_across_syllables_is_preserved_until_split_requested():
@@ -205,14 +205,14 @@ def test_zero_and_centisecond_syllables_keep_exact_original_intervals():
     before = doc.dumps()
     layout = layout_document_lyrics(doc, index, display=Lifetime(0, 5))
     assert [
-        time for span in layout.body.singing for time in (span.start, span.end)
+        time for span in layout.body.timing for time in (span.start, span.end)
     ] == pytest.approx([1, 1, 1, 1.01, 1.01, 1.01, 1.1, 1.11])
     assert layout.body.source.text == "ABC"
     assert len(layout.lyrics.units[1].segments) == 2
     assert doc.dumps() == before
 
 
-def test_reversed_singing_cursor_identifies_document_record_and_decoded_offset():
+def test_reversed_timing_cursor_identifies_document_record_and_decoded_offset():
     doc, index = document(r"{\k20}A{\kt10\k10}B")
     with pytest.raises(
         ValueError, match=rf"record {index}, decoded text offset 1: kt reverses"
@@ -272,7 +272,7 @@ def test_adjacent_wide_ruby_groups_and_continuation_clocks(marker, kind):
         else:
             assert r2.left == pytest.approx(second.left)
     assert [r.segment_index for r in scene.ruby] == [0, 0, 1]
-    assert [s.singing.end - s.singing.start for s in scene.lyrics.units[-1].segments] == pytest.approx([0.1, 0.1])
+    assert [s.timing.end - s.timing.start for s in scene.lyrics.units[-1].segments] == pytest.approx([0.1, 0.1])
 
 
 def test_short_readings_across_two_syllables_center_as_one_run():
@@ -334,12 +334,12 @@ def test_short_reading_centers_at_its_natural_spacing(reading):
 
 
 def test_studio_spacing_uses_selected_em_and_preserves_overhanging_ink():
-    from kara_templater import StudioSpacing, Track, prepare_tracks
+    from kara_templater import StudioSpacing, Track, build_lyric_scene
 
     doc, _ = document(r"{\k100}j f|j f")
     doc.styles["Default"].italic = True
     def measured(settings):
-        scene = prepare_tracks(doc, tracks=(Track(id="main", min_outline_gap=None, studio_spacing=settings),))
+        scene = build_lyric_scene(doc, tracks=(Track(id="main", min_outline_gap=None, studio_spacing=settings),))
         return scene.lines[0].layout
 
     default = measured(True)
@@ -353,31 +353,31 @@ def test_studio_spacing_uses_selected_em_and_preserves_overhanging_ink():
         assert j.ink_bounds and before.characters[0].ink_bounds
         assert j.ink_bounds.width == before.characters[0].ink_bounds.width
         assert f.start == before.characters[2].start
-        assert after.singing == before.singing
+        assert after.timing == before.timing
 
 
-def test_timed_vector_guide_preserves_ruby_and_singing_in_ass_exports(tmp_path):
+def test_timed_vector_guide_preserves_ruby_and_timing_in_ass_exports(tmp_path):
     from kara_templater import (
         KaraokeEffects,
         Track,
         Vec2,
         VectorGuide,
         VectorPath,
-        prepare_tracks,
+        build_lyric_scene,
     )
     from kara_templater._raster import rasterize
 
     doc, index = document(r"{\k50}◆|!x{\k50}A")
     guide = VectorGuide(VectorPath.rectangle(0.6, 0.4).map(lambda p: p + Vec2(0.1, -0.7)), 0.8)
-    recipe = KaraokeEffects(entry="none", singing="none", exit="none", sung=Color(255, 0, 0))
-    scene = prepare_tracks(doc, tracks=(Track(id="lyrics", guide_symbols={"◆": guide}, effects=(recipe,)),))
+    recipe = KaraokeEffects(entry="none", highlight="none", exit="none", after_fill=Color(255, 0, 0))
+    scene = build_lyric_scene(doc, tracks=(Track(id="lyrics", guide_symbols={"◆": guide}, effects=(recipe,)),))
     layout = scene.lines[0].layout
     glyph = layout.body.characters[0]
     assert glyph.bounds.width == round(0.8 * glyph.object.font_size)
     assert glyph.ink_bounds is not None
     assert glyph.ink_bounds.width == pytest.approx(0.6 * glyph.object.font_size)
     assert layout.ruby[0].body_start == 0
-    assert layout.body.singing == tuple(s.singing for u in doc.lyrics_at(index).units for s in u.segments)
+    assert layout.body.timing == tuple(s.timing for u in doc.lyrics_at(index).units for s in u.segments)
     output = scene.ass.compile().document
     rows = [row for row in output.lines if not row.comment]
     assert all("◆" not in row.text for row in rows)
@@ -390,20 +390,20 @@ def test_timed_vector_guide_preserves_ruby_and_singing_in_ass_exports(tmp_path):
     assert counts[0] < counts[1] < counts[2]
 
 
-def test_anchored_guides_stay_unsung_on_the_shared_onset():
+def test_anchored_guides_stay_base_on_the_shared_onset():
     from kara_templater import (
         KaraokeEffects,
         Track,
         VectorGuide,
         VectorPath,
-        prepare_tracks,
+        build_lyric_scene,
     )
     from kara_templater._raster import rasterize
 
     doc, _ = document(r"{\k0}◆{\k0}◆{\k100}A")
-    scene = prepare_tracks(doc, tracks=(Track(
+    scene = build_lyric_scene(doc, tracks=(Track(
         id="lyrics", guide_symbols={"◆": VectorGuide(VectorPath.rectangle(0.7, 0.3))},
-        effects=(KaraokeEffects(entry="none", exit="none", singing="none", sung=Color(255, 0, 0)),),
+        effects=(KaraokeEffects(entry="none", exit="none", highlight="none", after_fill=Color(255, 0, 0)),),
     ),))
     script = scene.ass.compile(native_tweens=True).document.dumps()
     def has_red(ms):
@@ -425,18 +425,18 @@ def test_vertical_reading_continuation_shares_its_host_and_retains_timing():
     assert [g.object.state.rotation for g in body] == [0, 90, 0, 0]
     readings = [r.layout.characters[0] for r in vertical.ruby]
     assert [(g.bounds.center, g.bounds.top) for g in readings] == [(34, 0), (34, 24)]
-    assert [r.layout.singing for r in vertical.ruby] == [r.layout.singing for r in source.ruby]
-    assert vertical.body.singing == source.body.singing
+    assert [r.layout.timing for r in vertical.ruby] == [r.layout.timing for r in source.ruby]
+    assert vertical.body.timing == source.body.timing
 
 
 def test_vertical_track_catalog_wipes_down_across_two_cells_and_rotated_text():
-    from kara_templater import KaraokeEffects, Track, prepare_tracks
+    from kara_templater import KaraokeEffects, Track, build_lyric_scene
     from kara_templater._raster import rasterize
 
     doc, _ = document(r"{\k100}A(B{\k50}C")
-    recipe = KaraokeEffects(entry="none", exit="none", singing="utopia_scanline",
-                           unsung=Color(255, 255, 255), sung=Color(255, 0, 0))
-    scene = prepare_tracks(doc, tracks=(Track(id="main", vertical=True, effects=(recipe,)),))
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="utopia_scanline",
+                           before_fill=Color(255, 255, 255), after_fill=Color(255, 0, 0))
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", vertical=True, effects=(recipe,)),))
     assert scene.plans[0].line.layout.body.characters[1].object.state.rotation == 90
     ass = scene.ass.compile(native_tweens=True).document.dumps()
     def last_red_row(ms):
@@ -448,15 +448,15 @@ def test_vertical_track_catalog_wipes_down_across_two_cells_and_rotated_text():
 
 
 def test_vertical_catalog_uses_line_transitions_and_omits_horizontal_ornaments():
-    from kara_templater import KaraokeEffects, Track, prepare_tracks
+    from kara_templater import KaraokeEffects, Track, build_lyric_scene
 
     doc, _ = document(r"{\k50}A|a{\k50}B")
     def plan(recipe):
-        return prepare_tracks(doc, tracks=(Track(id="main", vertical=True, effects=(recipe,)),)).plans[0]
-    plain = KaraokeEffects(entry="none", exit="none", singing="none")
+        return build_lyric_scene(doc, tracks=(Track(id="main", vertical=True, effects=(recipe,)),)).plans[0]
+    plain = KaraokeEffects(entry="none", exit="none", highlight="none")
     baseline = plan(plain)
     ornamental = plan(replace(plain, entry="assemble_in", exit="petal",
-                              singing="zoom_pulse_scanline", decoration="snow", stroke_flash=True))
+                              highlight="zoom_pulse_scanline", decoration="snow", stroke_flash=True))
     assert ornamental.line == baseline.line
     assert ornamental.placement == baseline.placement
     assert plan(replace(plain, entry="slide_in", exit="rise")).line.animations
@@ -469,16 +469,16 @@ def test_native_vertical_wipe_rounds_the_front_at_the_half_pixel_crossing():
         Vec2,
         VectorGuide,
         VectorPath,
-        prepare_tracks,
+        build_lyric_scene,
     )
     from kara_templater._raster import rasterize
 
     doc, _ = document(r"{\k100}X")
     path = VectorPath.polygon(Vec2(0, -1), Vec2(.5, -1), Vec2(.5, 0), Vec2(0, 0))
     track = Track(id="main", vertical=True, guide_symbols={"X": VectorGuide(path)},
-                  effects=(KaraokeEffects(entry="none", exit="none", singing="none",
-                                          sung=Color(255, 0, 0), unsung=Color(255, 255, 255)),))
-    scene = prepare_tracks(doc, tracks=(track,))
+                  effects=(KaraokeEffects(entry="none", exit="none", highlight="none",
+                                          after_fill=Color(255, 0, 0), before_fill=Color(255, 255, 255)),))
+    scene = build_lyric_scene(doc, tracks=(track,))
     plan = scene.plans[0]
     glyph = plan.line.layout.body.characters[0]
     cell = glyph.bounds

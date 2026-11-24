@@ -7,6 +7,7 @@ import pytest
 from kara_templater import (
     BLUE,
     RED,
+    AssBudget,
     Document,
     Highlight,
     HighlightPass,
@@ -17,17 +18,16 @@ from kara_templater import (
     LyricLine,
     LyricRule,
     Scene,
-    SceneBudget,
     StatePatch,
     Style,
     Vec2,
     layout_document_lyrics,
 )
-from kara_templater.lyric_highlights import _owners
+from kara_templater.geometry import Region, union_regions
+from kara_templater.lyrics.highlights import _resolve_region_owners
 from kara_templater.scene_animation import TimeSpan
-from kara_templater.timeline import Region, union_regions
 
-BUDGET = SceneBudget(max_events=40_000, max_active=10_000)
+BUDGET = AssBudget(max_events=40_000, max_active=10_000)
 
 
 def source():
@@ -60,21 +60,21 @@ def highlights(line):
 def test_priority_layer_and_union_have_distinct_overlap_contracts():
     _, line = source()
     red, blue = highlights(line)
-    priority = _owners((red, blue), 1.5, "priority")
-    layered = _owners((red, blue), 1.5, "layer")
-    assert _owners((blue, red), 1.5, "priority") == priority
-    assert _owners((blue, red), 1.5, "layer") == layered
+    priority = _resolve_region_owners((red, blue), 1.5, "priority")
+    layered = _resolve_region_owners((red, blue), 1.5, "layer")
+    assert _resolve_region_owners((blue, red), 1.5, "priority") == priority
+    assert _resolve_region_owners((blue, red), 1.5, "layer") == layered
     assert priority[0][1] == ("blue",)
     assert layered[0][1] == ("red", "blue")
-    assert _owners((red, blue), 1.9, "priority")[0][1] == ("red",)
+    assert _resolve_region_owners((red, blue), 1.9, "priority")[0][1] == ("red",)
     with pytest.raises(ValueError, match="identical appearance"):
-        _owners((red, blue), 1.5, "union")
+        _resolve_region_owners((red, blue), 1.5, "union")
     same = replace(blue, paint=red.paint)
-    assert _owners((red, same), 1.5, "union")[0][1] == ("red",)
+    assert _resolve_region_owners((red, same), 1.5, "union")[0][1] == ("red",)
     with pytest.raises(ValueError, match="equal-priority"):
-        _owners((red, replace(blue, priority=0)), 1.5, "priority")
+        _resolve_region_owners((red, replace(blue, priority=0)), 1.5, "priority")
     with pytest.raises(ValueError, match="distinct priorities"):
-        _owners((red, replace(blue, priority=0)), 1.5, "layer")
+        _resolve_region_owners((red, replace(blue, priority=0)), 1.5, "layer")
 
 
 def test_highlighted_line_uses_common_scene_and_target_aliases_follow_animation(
@@ -86,7 +86,7 @@ def test_highlighted_line_uses_common_scene_and_target_aliases_follow_animation(
     target = decorated.query("character")[0]
     assert len(target.aliases) >= 2
     assert len(set(target.aliases)) == len(target.aliases)
-    animated = decorated.bind(LyricRule("character", "singing", Jump()))
+    animated = decorated.bind(LyricRule("character", "timing", Jump()))
     scene = Scene(doc).add(animated)
     evaluator = scene.evaluator()
     for identity in target.aliases:
@@ -139,7 +139,7 @@ def test_clip_glow_is_separate_layers_with_shared_character_motion():
     target = decorated.query("character")[0]
     assert any(identity.endswith("/glow") for identity in target.aliases)
     assert any("/highlight:red" in identity for identity in target.aliases)
-    animated = decorated.bind(LyricRule("character", "singing", Jump()))
+    animated = decorated.bind(LyricRule("character", "timing", Jump()))
     scene = Scene(doc, replace_records={len(doc.records) - 1}).add(animated)
     evaluator = scene.evaluator()
     for identity in target.aliases:
@@ -174,7 +174,7 @@ def test_explicit_target_selected_before_painting_uses_current_aliases():
     decorated = LyricHighlights(highlights=highlights)(line)
     current = decorated.query("character")[0]
     assert current.aliases
-    animated = decorated.bind(LyricRule(selected, "singing", Jump()))
+    animated = decorated.bind(LyricRule(selected, "timing", Jump()))
     evaluator = Scene(doc).add(animated).evaluator()
     baseline = Scene(doc).add(decorated).evaluator()
     for identity in (current.node_id, *current.aliases):
@@ -240,7 +240,7 @@ def test_independent_highlights_keep_pauses_priority_exit_and_disjoint_regions()
         0.65: ("red", "red", None, "red", "red"),
     }
     for time, owners in expected.items():
-        resolved = _owners((first, second), time, "priority")
+        resolved = _resolve_region_owners((first, second), time, "priority")
         actual = tuple(
             next(
                 (
@@ -269,6 +269,6 @@ def test_union_merges_overlap_without_filling_unpainted_gaps():
         (1.25, (Region(0, 25), Region(50, 75))),
         (2, (Region(0, 150),)),
     ):
-        regions = _owners((first, second), time, "union")
+        regions = _resolve_region_owners((first, second), time, "union")
         assert union_regions(tuple(region for region, _ in regions)) == expected
         assert all(len(owners) == 1 for _, owners in regions)

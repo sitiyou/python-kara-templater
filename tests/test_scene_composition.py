@@ -5,19 +5,19 @@ from dataclasses import replace
 from kara_templater import (
     BLUE,
     RED,
+    AssBudget,
     Document,
     Lifetime,
     ObjectGroup,
     PathObject,
     Scene,
-    SceneBudget,
     Vec2,
     VectorPath,
     VisualState,
 )
 from kara_templater._raster import rasterize
 
-BUDGET = SceneBudget(max_events=20_000, max_active=5_000)
+BUDGET = AssBudget(max_events=20_000, max_active=5_000)
 
 
 _POSITION = Vec2(5, 5)

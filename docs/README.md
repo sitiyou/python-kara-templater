@@ -13,7 +13,7 @@
 - [Pick an effect by its preview](examples/README.md) or [choose a built-in animation](guides/karaoke-effects.md)
 - [Import timed lyrics](guides/documents.md) and [configure Tracks](guides/tracks.md)
 - [Place ruby readings and count-ins](guides/text-and-cues.md)
-- [Write a custom animation](tutorials/custom-animation.md), [animate singing highlights](tutorials/lyric-highlights.md), or [adapt a motion study](tutorials/lyric-studies.md)
+- [Write a custom animation](tutorials/custom-animation.md), [animate timing highlights](tutorials/lyric-highlights.md), or [adapt a motion study](tutorials/lyric-studies.md)
 - [Follow the template authoring skill](../skills/kara-templater/SKILL.md) when building a template with a coding agent
 
 ## Render or troubleshoot an export

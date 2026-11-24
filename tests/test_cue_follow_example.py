@@ -1,4 +1,4 @@
-"""A cue can track a lyric anchor without changing layout or singing time."""
+"""A cue can track a lyric anchor without changing layout or timing time."""
 
 from math import cos, pi, sin
 

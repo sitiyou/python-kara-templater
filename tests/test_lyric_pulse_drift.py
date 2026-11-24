@@ -15,7 +15,7 @@ def test_short_and_held_notes_use_source_duration_then_independent_exit(custom):
     assert len(targets) == 4
     windows = ((1, 1.25), (1.25, 1.5), (1.5, 2.5), (2.5, 4.5))
     for target, (start, end) in zip(targets, windows, strict=True):
-        assert [(span.start, span.end) for span in target.singing] == [(start, end)]
+        assert [(span.start, span.end) for span in target.timing] == [(start, end)]
         before = evaluator.at(target.node_id, start)
         center = before.transform.apply(target.center)
         peak = evaluator.at(target.node_id, start + (end - start) * 0.42)

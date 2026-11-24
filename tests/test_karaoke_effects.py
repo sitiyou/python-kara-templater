@@ -7,27 +7,27 @@ import pytest
 
 from examples.karaoke_catalog import build
 from kara_templater import (
+    AssBudget,
     Color,
     Document,
     KaraokeDecoration,
     KaraokeEffects,
     KaraokeEntry,
     KaraokeExit,
-    KaraokeSinging,
+    KaraokeHighlight,
     Line,
     PathObject,
     RectangleClip,
-    SceneBudget,
     SceneCompileError,
     SecondaryOutline,
     Style,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
-from kara_templater._gpu_scene import SceneFrames
 from kara_templater._karaoke_motion import transition
 from kara_templater.karaoke_effects import _walk
 from kara_templater.lyric_line import LyricAnimationContext
+from kara_templater.output.hook.draws import HookDrawResolver
 from kara_templater.scene_animation import VisualState
 
 CATALOG = [
@@ -35,7 +35,7 @@ CATALOG = [
     for field, alias in (
         ("entry", KaraokeEntry),
         ("exit", KaraokeExit),
-        ("singing", KaraokeSinging),
+        ("highlight", KaraokeHighlight),
         ("decoration", KaraokeDecoration),
     )
     for name in get_args(alias.__value__)
@@ -45,14 +45,14 @@ CATALOG = [
 @pytest.mark.parametrize("field,name", CATALOG)
 def test_every_menu_choice_compiles_and_retains_source_timing(field, name):
     recipe = replace(
-        KaraokeEffects(entry="none", exit="none", singing="none"), **{field: name}
+        KaraokeEffects(entry="none", exit="none", highlight="none"), **{field: name}
     )
     scene = build(recipe=recipe)
     original = scene.lines[0].layout.lyrics
     assert [
         v
         for t in scene.lines[0].query("character")
-        for s in t.singing
+        for s in t.timing
         for v in (s.start, s.end)
     ] == pytest.approx([1.4, 1.75, 1.75, 2.1, 2.1, 2.8, 2.8, 4.2])
     native = name in {"none", "fade", "no_wipe"}
@@ -62,7 +62,7 @@ def test_every_menu_choice_compiles_and_retains_source_timing(field, name):
         with pytest.raises(SceneCompileError, match="ASS does not support"):
             scene.ass.compile()
     assert scene.lines[0].layout.lyrics == original
-    frames = SceneFrames(scene)
+    frames = HookDrawResolver(scene)
     assert frames.at(1.6)
     frames.at(0.5)
     frames.at(4.9)
@@ -73,7 +73,7 @@ def subject(text=r"{\k50}AB|ab{\k100}C", start=1000, end=2500, min_outline_gap=2
         width=640, height=360, styles=(Style(fontname="DejaVu Sans", fontsize=40),)
     )
     doc.records.append(Line(start_time=start, end_time=end, text=text))
-    return prepare_tracks(
+    return build_lyric_scene(
         doc, tracks=(Track(id="main", min_outline_gap=min_outline_gap, effects=(KaraokeEffects(**options),)),)
     )
 
@@ -100,11 +100,11 @@ def test_zero_preview_and_ruby_have_no_overlapping_animations():
 def test_char_fade_with_short_preroll_keeps_its_attack_across_the_first_note():
     start = 100
     scene = subject(text=r"{\k10}H{\k10}I", start=start, end=start + 200,
-                    entry="char_fade", exit="none", singing="none", entry_duration=0.6)
+                    entry="char_fade", exit="none", highlight="none", entry_duration=0.6)
     line, = scene.lines
     first, second = line.query("character")
     evaluator = scene.evaluator()
-    assert first.singing[0].start == pytest.approx(start / 1000)
+    assert first.timing[0].start == pytest.approx(start / 1000)
     assert evaluator.at(first.node_id, 0.125).opacity == pytest.approx(0.5)
     assert evaluator.at(second.node_id, 0.25).opacity == 0
     assert evaluator.at(second.node_id, 0.475).opacity == pytest.approx(0.5)
@@ -112,17 +112,17 @@ def test_char_fade_with_short_preroll_keeps_its_attack_across_the_first_note():
 
 @pytest.mark.parametrize("kind", ["char_fade", "char_drip", "spin_flip"])
 def test_character_entry_requires_positive_preroll(kind):
-    scene = subject(text=r"{\k100}A", start=0, end=1000, entry=kind, exit="none", singing="none")
+    scene = subject(text=r"{\k100}A", start=0, end=1000, entry=kind, exit="none", highlight="none")
     glyph, = scene.lines[0].query("character")
     assert scene.evaluator().at(glyph.node_id, 0).opacity == 1
 
 
 @pytest.mark.parametrize("kind", ["char_drip", "spin_flip"])
-def test_short_preroll_resumes_the_sung_pulse_and_band_at_their_current_phase(kind):
+def test_short_preroll_resumes_the_highlight_pulse_and_band_at_their_current_phase(kind):
 
     def build(entry):
         return subject(text=r"{\k70}H{\k80}W", start=100, end=1600, entry=entry, exit="none",
-                       singing="zoom_pulse_scanline", scanline_color=Color(0, 255, 255),
+                       highlight="zoom_pulse_scanline", scanline_color=Color(0, 255, 255),
                        scanline_width=16, scanline_softness=0)
 
     scene, plain = build(kind), build("none")
@@ -136,9 +136,9 @@ def test_char_fade_changes_with_playback_time_inside_one_sampling_interval():
     from kara_templater._raster import rasterize
 
     scene = subject(text=r"{\k50}H", end=1500, entry="char_fade", exit="char_fade",
-                    singing="none", entry_duration=0.6, exit_duration=0.6)
+                    highlight="none", entry_duration=0.6, exit_duration=0.6)
     line, = scene.lines
-    script = scene.ass.compile(native_tweens=True, budget=SceneBudget()).document.dumps()
+    script = scene.ass.compile(native_tweens=True, budget=AssBudget()).document.dumps()
 
     def coverage(ms):
         return sum(rasterize(script, ms, (640, 360)).rgba[3::4])
@@ -151,7 +151,7 @@ def test_char_fade_changes_with_playback_time_inside_one_sampling_interval():
 @pytest.mark.parametrize("kind", ["char_fade", "char_drip", "spin_flip"])
 def test_single_character_exit_finishes_at_display_end(kind):
     scene = subject(text=r"{\k50}H", start=1000, end=1500,
-                    entry="none", exit=kind, singing="none", exit_duration=0.6)
+                    entry="none", exit=kind, highlight="none", exit_duration=0.6)
     line, = scene.lines
     glyph, = line.query("character")
     state = scene.evaluator().at(glyph.node_id, line.lifetime.end - 0.20)
@@ -161,7 +161,7 @@ def test_single_character_exit_finishes_at_display_end(kind):
 @pytest.mark.parametrize("kind", ["char_fade", "char_drip", "spin_flip"])
 def test_ruby_uses_its_hosts_transition_slot(kind):
     scene = subject(text=r"{\k20}A{\k20}B|bc{\k20}C{\k20}D", start=1500, end=2300,
-                    entry=kind, exit=kind, entry_duration=0.6, exit_duration=0.6, singing="none")
+                    entry=kind, exit=kind, entry_duration=0.6, exit_duration=0.6, highlight="none")
     line, = scene.lines
     host = line.query("character")[1]
     ruby = line.query("ruby")
@@ -176,7 +176,7 @@ def test_ruby_uses_its_hosts_transition_slot(kind):
 def test_character_scope_rotates_each_reading_about_its_own_center():
     scene = subject(text=r"{\k40}A|abc{\k40}B", start=1500, end=2300,
                     entry="tilt_pop", exit="spin_flip", exit_unit="character",
-                    stagger=.3, singing="none")
+                    stagger=.3, highlight="none")
     line, = scene.lines
     evaluator = scene.evaluator()
     for targets in (line.query("character"), line.query("ruby")):
@@ -193,7 +193,7 @@ def test_character_scope_rotates_each_reading_about_its_own_center():
 @pytest.mark.parametrize("kind", ["tracking_in", "wave_in"])
 def test_readings_enter_with_the_hosts_translation_and_reveal(kind):
     scene = subject(text=r"{\k20}i{\k20}W|bc{\k20}！{\k20}D", start=1500, end=2300,
-                    entry=kind, exit="none", entry_duration=0.6, singing="none")
+                    entry=kind, exit="none", entry_duration=0.6, highlight="none")
     line, = scene.lines
     host = line.query("character")[1]
     evaluator = scene.evaluator()
@@ -212,7 +212,7 @@ def test_readings_enter_with_the_hosts_translation_and_reveal(kind):
 def test_two_color_particle_bursts_share_the_budget_and_preserve_painter_order():
     first, second = Color(0, 255, 0), Color(0, 0, 255)
     def particles(palette):
-        line, = subject(text=r"{\k50}A", end=1500, entry="none", exit="none", singing="none",
+        line, = subject(text=r"{\k50}A", end=1500, entry="none", exit="none", highlight="none",
                         decoration="petal", particle_color=palette, max_particles=4).lines
         return [n for n in _walk(line) if ":particle:" in n.id]
 
@@ -229,19 +229,19 @@ def test_two_color_particle_bursts_share_the_budget_and_preserve_painter_order()
         assert a.at(time).transform == b.at(time).transform
 
 
-def test_follow_mix_particles_take_each_characters_waiting_and_sung_inks():
+def test_follow_mix_particles_take_each_characters_waiting_and_highlight_inks():
     from kara_templater import LyricGradient
 
     doc = Document.create(styles=(Style(), Style(name="Harmony")))
     doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k50}A{\rHarmony\k50}B"))
     warm = LyricGradient((Color(240, 0, 30), Color(180, 30, 60), Color(90, 60, 90)))
     cool = LyricGradient((Color(0, 180, 255), Color(90, 240, 75)), axis="x")
-    recipe = KaraokeEffects(entry="none", exit="none", singing="none", decoration="petal",
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="none", decoration="petal",
                             base_material={"Default": warm}, material={"Harmony": cool},
                             particle_color="follow_mix").with_theme()
-    line, = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
+    line, = build_lyric_scene(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
     for target, (before, after) in zip(line.query("character"), (
-        (Color(170, 30, 60), recipe.sung), (recipe.unsung, Color(45, 210, 165)),
+        (Color(170, 30, 60), recipe.after_fill), (recipe.before_fill, Color(45, 210, 165)),
     ), strict=True):
         inks = [n.state.fill for n in _walk(line)
                 if n.id.startswith(target.node_id + "/") and ":particle:" in n.id]
@@ -258,10 +258,10 @@ def test_line_sparkles_change_ink_as_they_cross_a_role_center(mode):
     doc.records.append(Line(start_time=2000, end_time=4000, text=r"{\k100}A{\rHarmony\k100}B"))
     red, blue = Color(240, 20, 20), Color(10, 30, 250)
     roles = {"Default": LyricGradient((red, red)), "Harmony": LyricGradient((blue, blue))}
-    recipe = KaraokeEffects(entry="sparkle", exit="none", singing="none", entry_duration=1.2,
+    recipe = KaraokeEffects(entry="sparkle", exit="none", highlight="none", entry_duration=1.2,
                             seed=4, particle_color=mode, material=roles if mode == "follow_after" else None,
                             base_material=roles if mode == "follow_before" else None)
-    line, = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
+    line, = build_lyric_scene(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
     boundary = line.layout.body.characters[1].bounds.center
     crossings = 0
     for star in line.children:
@@ -282,10 +282,10 @@ def test_particle_pens_follow_size_and_leave_rings_without_outlines():
     def drawings(kind):
         doc = Document.create(width=640, height=360, styles=(Style(fontsize=48, outline=4),))
         doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}H"))
-        recipe = KaraokeEffects(entry="none", exit="none", singing="none", decoration=kind,
-                                sung_outline=blue, glow=Glow(orange, border=10),
+        recipe = KaraokeEffects(entry="none", exit="none", highlight="none", decoration=kind,
+                                after_outline=blue, glow=Glow(orange, border=10),
                                 particle_color="follow_after", particle_layers="stroke")
-        scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
+        scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(recipe,)),))
         line, = scene.lines
         return scene, line, [p for p in _walk(line) if ":particle:" in p.id]
 
@@ -298,15 +298,15 @@ def test_particle_pens_follow_size_and_leave_rings_without_outlines():
 
     scene, _, rings = drawings("ripple")
     assert len(rings) == 3 and all(p.state.border == 0 for p in rings)
-    draw = next(d for d in SceneFrames(scene).at(1.32) if d.object_id == rings[0].id)
-    assert any(max(image[-1]) > 160 for image in draw.images)
+    draw = next(d for d in HookDrawResolver(scene).at(1.32) if d.object_id == rings[0].id)
+    assert any(max(image[-1]) > 160 for image in draw.mask_planes)
 
 
 def test_snow_inherits_vertical_face_gradient_in_rotating_sprite_coordinates():
     from kara_templater import LinearGradient, LyricGradient
 
     red, blue = Color(255, 0, 0), Color(0, 0, 255)
-    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none",
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", highlight="none",
                     decoration="snow_solid", particle_color="follow_after", particle_layers="stroke",
                     material=LyricGradient((red, blue)))
     faces = [p for p in _walk(scene.lines[0]) if ":particle:" in p.id and isinstance(p.material, LinearGradient)]
@@ -324,9 +324,9 @@ def test_petal_primary_outline_gradient_uses_local_sprite_em():
 
     red, blue, face_color = Color(255, 0, 0), Color(0, 0, 255), Color(20, 120, 40)
     outline = ColorRamp((ColorStop(-12, red), ColorStop(12, blue)))
-    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none",
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", highlight="none",
                     decoration="petal", particle_color="follow_after", particle_layers="stroke",
-                    sung=face_color, material=LinearGradient(axis="y", outline=outline))
+                    after_fill=face_color, material=LinearGradient(axis="y", outline=outline))
     petals = [p for p in _walk(scene.lines[0]) if ":particle:" in p.id]
     assert len(petals) == 4
     petal = petals[0]
@@ -347,7 +347,7 @@ def test_horizontal_particle_outline_tracks_motion_independently_of_face(gradien
     outline = ColorRamp((ColorStop(0, Color(0, 255, 0)), ColorStop(32, black)))
     solid = Color(150, 30, 80)
     scene = subject(text=r"{\k25}H{\k25}H{\k25}H{\k25}H", entry="none", exit="none",
-                    singing="none", decoration="petal", particle_size=1.5, sung=solid,
+                    highlight="none", decoration="petal", particle_size=1.5, after_fill=solid,
                     material=LinearGradient(axis="x", fill=fill if gradient_face else None, outline=outline),
                     particle_color="follow_after", particle_layers="stroke")
     line, = scene.lines
@@ -369,8 +369,8 @@ def test_note_spread_uses_the_scaled_cell_width():
     def onset_positions(scale_x):
         doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=56, scale_x=scale_x),))
         doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}W"))
-        effects = KaraokeEffects(entry="none", exit="none", singing="none", decoration="note")
-        line, = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=False, effects=(effects,)),)).lines
+        effects = KaraokeEffects(entry="none", exit="none", highlight="none", decoration="note")
+        line, = build_lyric_scene(doc, tracks=(Track(id="main", studio_spacing=False, effects=(effects,)),)).lines
         return [p.at(p.lifetime.start).position.x for p in _walk(line) if ":particle:" in p.id]
 
     narrow, normal, wide = (onset_positions(scale) for scale in (50, 100, 150))
@@ -388,7 +388,7 @@ def test_particle_glow_scales_and_fades_with_its_source(layers, concentration, p
     from kara_templater import Glow
 
     green = Color(0, 255, 50)
-    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none", decoration="petal",
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", highlight="none", decoration="petal",
                     glow=Glow(green, blur=16, opacity=0.75), particle_layers=layers,
                     particle_glow_concentration=concentration, particle_color="follow_after")
     line, = scene.lines
@@ -414,9 +414,9 @@ def test_particle_glow_scales_and_fades_with_its_source(layers, concentration, p
 def test_particle_shadow_offset_remains_in_line_coordinates_while_petal_turns():
     doc = Document.create(styles=(Style(fontsize=48, shadow=8),))
     doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}H"))
-    recipe = KaraokeEffects(entry="none", exit="none", singing="none", decoration="petal",
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="none", decoration="petal",
                             particle_layers="all", particle_color="follow_after", particle_size=1.5)
-    line, = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
+    line, = build_lyric_scene(doc, tracks=(Track(id="main", effects=(recipe,)),)).lines
     nodes = {n.id: n for n in _walk(line)}
     shadow = next(n for n in nodes.values() if n.id.endswith("/shadow"))
     face = nodes[shadow.id.removesuffix("/shadow")]
@@ -430,7 +430,7 @@ def test_each_ripple_samples_the_gradient_at_its_own_expansion():
     from kara_templater import LyricGradient
 
     red, green, blue = Color(255, 0, 0), Color(0, 255, 0), Color(0, 0, 255)
-    scene = subject(text=r"{\k100}H", entry="none", exit="none", singing="none",
+    scene = subject(text=r"{\k100}H", entry="none", exit="none", highlight="none",
                     decoration="ripple", particle_color="follow_after", particle_layers="stroke",
                     material=LyricGradient((red, green, blue)))
     rings = [p for p in _walk(scene.lines[0]) if ":particle:" in p.id]
@@ -444,7 +444,7 @@ def test_horizontal_ripple_ink_uses_the_host_position_in_the_whole_line():
     from kara_templater import LyricGradient
 
     black, white = Color(0, 0, 0), Color(255, 255, 255)
-    line, = subject(text=r"{\k25}H{\k25}H{\k25}H{\k25}H", entry="none", exit="none", singing="none",
+    line, = subject(text=r"{\k25}H{\k25}H{\k25}H{\k25}H", entry="none", exit="none", highlight="none",
                     decoration="ripple", particle_color="follow_after", particle_layers="stroke",
                     material=LyricGradient((black, white), axis="x")).lines
     for target, level in zip(line.query("character"), (32, 96, 159, 223), strict=True):
@@ -454,7 +454,7 @@ def test_horizontal_ripple_ink_uses_the_host_position_in_the_whole_line():
 
 def test_timed_space_emits_transition_petals_only():
     scene = subject(text=r"{\k20}A{\k20}　{\k20}B", end=1600, entry="petal", exit="petal",
-                    decoration="petal", singing="none")
+                    decoration="petal", highlight="none")
     line, = scene.lines
     space = line.query("character")[1]
     petals = [n.lifetime for n in _walk(line)
@@ -467,7 +467,7 @@ def test_timed_space_emits_transition_petals_only():
 @pytest.mark.parametrize(("entry", "exit"), [("petal", "snow"), ("assemble_in", "dissolve_out")])
 def test_particle_transitions_reveal_the_reading_with_its_host(entry, exit):
     scene = subject(text=r"{\k20}i{\k20}W|bc{\k20}！", start=1500, end=2100,
-                    entry=entry, exit=exit, entry_duration=0.6, exit_duration=0.6, singing="none")
+                    entry=entry, exit=exit, entry_duration=0.6, exit_duration=0.6, highlight="none")
     line, = scene.lines
     host = line.query("character")[1]
     evaluator = scene.evaluator()
@@ -483,7 +483,7 @@ def test_particle_transitions_reveal_the_reading_with_its_host(entry, exit):
 ])
 def test_reading_resizes_as_one_annotation(entry, exit, during_entry):
     scene = subject(text=r"{\k20}i{\k20}W|bc{\k20}！", start=1500, end=2100,
-                    entry=entry, exit=exit, entry_duration=0.6, exit_duration=0.6, singing="none")
+                    entry=entry, exit=exit, entry_duration=0.6, exit_duration=0.6, highlight="none")
     line, = scene.lines
     left, right = line.query("ruby")
     host = line.query("character")[1]
@@ -504,7 +504,7 @@ def test_reading_resizes_as_one_annotation(entry, exit, during_entry):
 
 def test_utopia_shared_reading_leaves_after_following_main_glyph_and_skips_spaces():
     scene = subject(text=r"{\k50}AB|ab{\k20} {\k50}C{\k50}D", start=1500, end=3200,
-                    entry="none", exit="utopia", singing="none")
+                    entry="none", exit="utopia", highlight="none")
     line, = scene.lines
     evaluator = scene.evaluator()
     for target in (*line.query("character")[:2], *line.query("ruby")):
@@ -512,13 +512,13 @@ def test_utopia_shared_reading_leaves_after_following_main_glyph_and_skips_space
         assert evaluator.at(target.node_id, 3.0).opacity == pytest.approx(0.6)
 
 
-def test_character_fade_composites_the_waiting_and_sung_colors():
+def test_character_fade_composites_the_waiting_and_highlight_colors():
     from kara_templater._raster import rasterize
 
     scene = subject(text=r"{\k50}H", start=1000, end=1500, entry="none",
-                    exit="char_fade", exit_duration=0.6, singing="none",
-                    unsung=Color(0, 0, 255), sung=Color(255, 0, 0),
-                    unsung_outline=Color(0, 0, 0), sung_outline=Color(0, 0, 0))
+                    exit="char_fade", exit_duration=0.6, highlight="none",
+                    before_fill=Color(0, 0, 255), after_fill=Color(255, 0, 0),
+                    before_outline=Color(0, 0, 0), after_outline=Color(0, 0, 0))
     script = scene.ass.compile(native_tweens=True).document.dumps()
     end = round(1000 * scene.lines[0].lifetime.end)
 
@@ -533,7 +533,7 @@ def test_character_fade_composites_the_waiting_and_sung_colors():
 
 def test_stroke_flash_uses_the_body_onset_and_stationary_outline():
     scene = subject(text=r"{\k0}A{\k25}空|そ{\k25}#|ら", start=1500, end=2000,
-                    entry="none", exit="none", singing="utopia", stroke_flash=True)
+                    entry="none", exit="none", highlight="utopia", stroke_flash=True)
     line, = scene.lines
     flashes = [n for n in _walk(line) if ":flash:" in n.id]
     assert len(flashes) == 2
@@ -544,7 +544,7 @@ def test_stroke_flash_uses_the_body_onset_and_stationary_outline():
 
 
 def test_entry_is_visible_before_motion_has_settled():
-    scene = build(entry="tracking_in", singing="none", exit="none")
+    scene = build(entry="tracking_in", highlight="none", exit="none")
     line = scene.lines[0]
     target = line.query("character")[0]
     motion = transition(
@@ -557,7 +557,7 @@ def test_entry_is_visible_before_motion_has_settled():
 
 
 def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
-    scene = subject(entry="none", exit="none", singing="scanline", ruby_scanline="both")
+    scene = subject(entry="none", exit="none", highlight="scanline", ruby_scanline="both")
     line = scene.lines[0]
     nodes = {n.id: n for n in _walk(line)}
     fronts = [
@@ -575,7 +575,7 @@ def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
     first, second = line.layout.body.characters[:2]
     # The front skips only the extra clearance between these letters.
     assert first.ink_bounds and second.ink_bounds
-    raw = subject(entry="none", exit="none", singing="scanline", ruby_scanline="both", min_outline_gap=None)
+    raw = subject(entry="none", exit="none", highlight="scanline", ruby_scanline="both", min_outline_gap=None)
     a, b = raw.lines[0].layout.body.characters[:2]
     extra = second.bounds.left - first.bounds.left - (b.bounds.left - a.bounds.left)
     assert extra > 0
@@ -585,14 +585,14 @@ def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
     assert clip.deform.sample(0.5 - fronts[0].time_origin) is None
 
 
-@pytest.mark.parametrize("singing", ["zoom_pulse", "zoom_pulse_scanline"])
-def test_zoom_uses_full_note_then_releases_without_stacking_repeats(singing):
+@pytest.mark.parametrize("highlight", ["zoom_pulse", "zoom_pulse_scanline"])
+def test_zoom_uses_full_note_then_releases_without_stacking_repeats(highlight):
     scene = subject(
         text=r"{\k100}A{\kt100\k100}#",
         end=3000,
         entry="none",
         exit="none",
-        singing=singing, scanline_width=24, scanline_softness=0,
+        highlight=highlight, scanline_width=24, scanline_softness=0,
     )
     target = scene.lines[0].query("character")[0]
     evaluator = scene.evaluator()
@@ -602,7 +602,7 @@ def test_zoom_uses_full_note_then_releases_without_stacking_repeats(singing):
     )
     assert evaluator.at(target.node_id, 2.9).scale.x <= base * 1.10 + 1e-7
     assert evaluator.at(target.node_id, 3.30).scale.x == pytest.approx(base)
-    if singing == "zoom_pulse_scanline":
+    if highlight == "zoom_pulse_scanline":
         nodes = {n.id: n for n in _walk(scene.lines[0])}
         fronts = [nodes[k] for k in target.aliases if ":front:" in k]
         for t in (1.99, 2.01, 2.09):
@@ -648,7 +648,7 @@ def test_invalid_parameters_and_zero_duration_disable_motion():
             exit="glow_out",
             entry_duration=0,
             exit_duration=0,
-            singing="none",
+            highlight="none",
         )
     )
     assert not any(n.animations for n in _walk(scene.lines[0]))
@@ -660,8 +660,8 @@ def test_no_wipe_is_instant_including_zero_length_notes():
         end=2000,
         entry="none",
         exit="none",
-        singing="no_wipe",
-        unsung=Color(100, 100, 100),
+        highlight="no_wipe",
+        before_fill=Color(100, 100, 100),
     )
     assert scene.ass.compile(native_tweens=True).event_count > 0
     target = scene.lines[0].query("character")[0]
@@ -681,7 +681,7 @@ def test_no_wipe_is_instant_including_zero_length_notes():
 def test_utopia_pulse_fixes_the_measured_cell_edge_for_body_and_reading():
     from kara_templater import Vec2
 
-    scene = subject(text=r"{\k50}j|j", end=1500, entry="none", exit="none", singing="utopia")
+    scene = subject(text=r"{\k50}j|j", end=1500, entry="none", exit="none", highlight="utopia")
     line, = scene.lines
     evaluator = scene.evaluator()
     for target, glyph, _, _ in line._glyph_regions(automatic=False):
@@ -697,7 +697,7 @@ def test_utopia_pulse_fixes_the_measured_cell_edge_for_body_and_reading():
 
 
 def test_utopia_exit_follows_next_character_instead_of_waiting_for_line_end():
-    scene = build(entry="none", exit="utopia", singing="none")
+    scene = build(entry="none", exit="utopia", highlight="none")
     first, last = (
         scene.lines[0].query("character")[0],
         scene.lines[0].query("character")[-1],
@@ -717,12 +717,12 @@ def test_gradient_and_glow_stay_composable_with_builtin_motion():
         recipe=KaraokeEffects(
             entry="glow_in",
             exit="stretch_out",
-            singing="scanline",
+            highlight="scanline",
             material=LyricGradient((Color(100, 220, 255), Color(255, 160, 205))),
             glow=Glow(Color(120, 180, 255), 2, 2, 0.3),
         )
     )
-    frames = SceneFrames(scene)
+    frames = HookDrawResolver(scene)
     assert any(draw.gradient is not None for draw in frames.at(2.5))
     assert frames.at(0.5)
 
@@ -731,7 +731,7 @@ def test_gradient_and_glow_stay_composable_with_builtin_motion():
     "entry", ["tracking_in", "wave_in", "assemble_in", "spin_flip", "petal"]
 )
 def test_staggered_entries_hide_waiting_glyphs_and_restore_their_opacity(entry):
-    scene = build(entry=entry, exit="none", singing="none")
+    scene = build(entry=entry, exit="none", highlight="none")
     line = scene.lines[0]
     last = line.query("character")[-1]
     evaluator = scene.evaluator()
@@ -751,7 +751,7 @@ def test_ripple_rings_expand_from_one_shared_glyph_center():
         end=2000,
         entry="none",
         exit="none",
-        singing="none",
+        highlight="none",
         decoration="ripple",
     )
     rings = [n for n in _walk(scene.lines[0]) if ":particle:" in n.id]
@@ -763,7 +763,7 @@ def test_ripple_rings_expand_from_one_shared_glyph_center():
 def test_default_track_gap_allows_adjacent_hard_outlines_to_touch():
     doc = Document.create(styles=(Style(fontname="DejaVu Sans", outline=8),))
     doc.records.append(Line(text=r"{\k100}AB", start_time=1000, end_time=2000))
-    line, = prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=False),)).lines
+    line, = build_lyric_scene(doc, tracks=(Track(id="main", studio_spacing=False),)).lines
     first, second = line.layout.body.characters
     assert first.ink_bounds and second.ink_bounds
     assert second.ink_bounds.left - first.ink_bounds.right == pytest.approx(16)
@@ -775,7 +775,7 @@ def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
 
     doc = Document.create(styles=(Style(fontname="DejaVu Sans", outline=1),))
     doc.records.append(Line(text=r"{\k100}jA|ja", start_time=1000, end_time=2000))
-    rim = LyricHighlights.from_singing(
+    rim = LyricHighlights.from_timing(
         StatePatch(border=6), base_glow=Glow(Color(255, 255, 255), border=20, blur=8)
     )
     tracks = (
@@ -783,7 +783,7 @@ def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
         Track(right_to_left=rtl, id="face", reserved_border=6, min_outline_gap=3),
         Track(right_to_left=rtl, id="raw", min_outline_gap=None),
     )
-    ink, face, raw = prepare_tracks(doc, tracks=tracks).lines
+    ink, face, raw = build_lyric_scene(doc, tracks=tracks).lines
     for painted, aligned, original in (
         (ink.layout.body, face.layout.body, raw.layout.body),
         (ink.layout.ruby[0].layout, face.layout.ruby[0].layout, raw.layout.ruby[0].layout),
@@ -793,14 +793,14 @@ def test_fixed_clearance_uses_outer_hard_paint_for_body_and_readings(rtl):
         assert b.ink_bounds.left - a.ink_bounds.right == pytest.approx(6 + 3 + 6)
         assert painted.bounds == aligned.bounds
         assert painted.bounds.width > original.bounds.width
-        assert painted.singing == original.singing
+        assert painted.timing == original.timing
         assert [c.bounds for c in painted.characters] == [c.bounds for c in aligned.characters]
 
 
 @pytest.mark.parametrize("level,mid_attack,mid_release", [(1, 1.05, 1.05), (3, 1.0875, 1.0875)])
 def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_release):
     scene = subject(text=r"{\k100}A", entry="none", exit="none",
-                    singing="zoom_pulse", zoom_pulse_curve_level=level)
+                    highlight="zoom_pulse", zoom_pulse_curve_level=level)
     target = scene.lines[0].query("character")[0]
     evaluator = scene.evaluator()
     baseline = evaluator.at(target.node_id, 1).scale.x
@@ -808,12 +808,12 @@ def test_zoom_curve_matches_studio_on_both_sides_of_peak(level, mid_attack, mid_
         assert evaluator.at(target.node_id, time).scale.x == pytest.approx(baseline * factor)
 
 
-@pytest.mark.parametrize("sung_width", [None, 0, 6])
-def test_secondary_outline_adds_to_body_and_ruby_primary_width(sung_width):
+@pytest.mark.parametrize("highlight_width", [None, 0, 6])
+def test_secondary_outline_adds_to_body_and_ruby_primary_width(highlight_width):
     rim = SecondaryOutline(Color(20, 40, 60), width=3)
-    sung_rim = replace(rim, width=sung_width) if sung_width is not None else None
-    scene = subject(entry="none", exit="none", singing="none",
-                    secondary_outline=rim, sung_secondary_outline=sung_rim)
+    highlight_rim = replace(rim, width=highlight_width) if highlight_width is not None else None
+    scene = subject(entry="none", exit="none", highlight="none",
+                    secondary_outline=rim, after_secondary_outline=highlight_rim)
     line = scene.lines[0]
     nodes = {node.id: node for node in _walk(line)}
     assert line.query("ruby")
@@ -822,12 +822,12 @@ def test_secondary_outline_adds_to_body_and_ruby_primary_width(sung_width):
         outer = nodes[target.node_id + "/secondary-outline"]
         assert outer.state.border == face.state.border + 3
         assert outer.layer < face.layer
-        sung = [nodes[name] for name in target.aliases if "/highlight:" in name and name.endswith("/secondary-outline")]
-        if sung_width == 0:
-            assert not sung
+        highlight = [nodes[name] for name in target.aliases if "/highlight:" in name and name.endswith("/secondary-outline")]
+        if highlight_width == 0:
+            assert not highlight
         else:
-            assert len(sung) == 1
-            assert sung[0].state.border == face.state.border + (3 if sung_width is None else sung_width)
+            assert len(highlight) == 1
+            assert highlight[0].state.border == face.state.border + (3 if highlight_width is None else highlight_width)
 
 
 def test_secondary_outline_changes_color_with_glow_in_ass_and_hook(tmp_path):
@@ -836,16 +836,16 @@ def test_secondary_outline_changes_color_with_glow_in_ass_and_hook(tmp_path):
 
     before, after = Color(182, 50, 86), Color(33, 150, 213)
     halo = Glow(Color(38, 210, 30), border=10, blur=2)
-    scene = subject(text=r"{\k100}Q", entry="none", exit="none", singing="none",
+    scene = subject(text=r"{\k100}Q", entry="none", exit="none", highlight="none",
                     secondary_outline=SecondaryOutline(before, width=4),
-                    sung_secondary_outline=SecondaryOutline(after, width=6),
+                    after_secondary_outline=SecondaryOutline(after, width=6),
                     glow=halo, base_glow=halo)
     ass = scene.ass.compile(native_tweens=True).document.dumps()
-    for time, waiting, sung in ((800, True, False), (1500, True, True), (2200, False, True)):
+    for time, waiting, highlight in ((800, True, False), (1500, True, True), (2200, False, True)):
         frame = rasterize(ass, time, (640, 360)).rgba
         pixels = set(zip(*[iter(frame)] * 4, strict=True))
         assert ((182, 50, 86, 255) in pixels) == waiting
-        assert ((33, 150, 213, 255) in pixels) == sung
+        assert ((33, 150, 213, 255) in pixels) == highlight
         assert any(g > 150 and r < 80 and b < 80 and a > 80 for r, g, b, a in pixels)
     path = tmp_path / "double-outline.hook"
     scene.export(path, fps=24, start=1, duration=1)
@@ -860,10 +860,10 @@ def test_scanline_colors_the_visible_second_outline(motion, front, native_rim):
 
     rim = Color(182, 50, 86)
 
-    def render(singing):
+    def render(highlight):
         glow = Glow(rim, border=7)
         options = {"secondary_outline": SecondaryOutline(rim, width=5)} if native_rim else {"base_glow": glow, "glow": glow}
-        scene = subject(text=r"{\k100}Q", singing=singing, entry="none", exit="none",
+        scene = subject(text=r"{\k100}Q", highlight=highlight, entry="none", exit="none",
                         **options, scanline_width=16, scanline_softness=0,
                         scanline_color=Color(0, 255, 255))
         return rasterize(scene.ass.compile(native_tweens=True).document.dumps(), 1500, (640, 360)).rgba
@@ -881,22 +881,22 @@ def test_role_scanline_reuses_a_singers_gradient_on_fill_and_border():
     from kara_templater import LinearGradient, LyricGradient
 
     sky = LyricGradient((Color(15, 100, 212), Color(230, 249, 255)))
-    scene = subject(text=r"{\k60}H", singing="scanline", entry="none", exit="none",
+    scene = subject(text=r"{\k60}H", highlight="scanline", entry="none", exit="none",
                     scanline_material=sky, scanline_width=8, scanline_softness=2)
     fronts = [n for n in _walk(scene.lines[0]) if ":front:" in n.id]
     brushes = [n.material for n in fronts if isinstance(n.material, LinearGradient)]
     assert len(brushes) == len(fronts) and all(g.outline for g in brushes)
     assert any(g.fill == g.outline for g in brushes)  # solid core
     assert any(g.fill != g.outline for g in brushes)  # softened edges
-    assert any(d.gradient is not None for d in SceneFrames(scene).at(1.3))
+    assert any(d.gradient is not None for d in HookDrawResolver(scene).at(1.3))
 
 
 def test_scanline_uses_the_bound_paint_when_highlight_id_changes(tmp_path, monkeypatch):
-    from kara_templater.lyric_highlights import _SingingHighlights
+    from kara_templater.lyrics.highlights import _TimingHighlights
 
     def render(name):
         scene = subject(
-            text=r"{\k60}H", singing="scanline", entry="none", exit="none",
+            text=r"{\k60}H", highlight="scanline", entry="none", exit="none",
             scanline_width=8, scanline_softness=2,
         )
         output = tmp_path / name
@@ -904,12 +904,12 @@ def test_scanline_uses_the_bound_paint_when_highlight_id_changes(tmp_path, monke
         return output.read_bytes()
 
     before = render("original.hook")
-    build = _SingingHighlights.__call__
+    build = _TimingHighlights.__call__
 
     def rename(self, line):
         return tuple(replace(item, id="custom:" + item.id) for item in build(self, line))
 
-    monkeypatch.setattr(_SingingHighlights, "__call__", rename)
+    monkeypatch.setattr(_TimingHighlights, "__call__", rename)
     assert render("renamed.hook") == before
 
 
@@ -920,7 +920,7 @@ def test_stretch_has_sharp_core_and_five_fading_themed_halos():
         text=r"{\k100}A",
         entry="stretch_in",
         entry_duration=0.6,
-        singing="none",
+        highlight="none",
         exit="none",
     )
     line = scene.lines[0]
@@ -948,8 +948,8 @@ def test_stretch_has_sharp_core_and_five_fading_themed_halos():
 def test_long_ripple_exit_uses_the_scaled_step_for_each_character():
     doc = Document.create()
     doc.records.append(Line(start_time=1500, end_time=3500, text=r"{\k50}空{\k50}を{\k50}歌{\k50}う"))
-    recipe = KaraokeEffects(entry="none", exit="ripple", singing="none", exit_duration=1.2)
-    line, = prepare_tracks(doc, tracks=(Track(id="main", tail=3, effects=(recipe,)),)).lines
+    recipe = KaraokeEffects(entry="none", exit="ripple", highlight="none", exit_duration=1.2)
+    line, = build_lyric_scene(doc, tracks=(Track(id="main", tail=3, effects=(recipe,)),)).lines
     births = [min(n.lifetime.start for n in _walk(line)
                   if n.id.startswith(t.node_id + "/") and ":particle:" in n.id)
               for t in line.query("character")]
@@ -957,7 +957,7 @@ def test_long_ripple_exit_uses_the_scaled_step_for_each_character():
 
 
 def test_line_sparkle_burst_and_petal_exit_respect_the_text_window():
-    options = {"entry_duration": 0.6, "exit_duration": 0.6, "singing": "none"}
+    options = {"entry_duration": 0.6, "exit_duration": 0.6, "highlight": "none"}
     reference = subject(entry="fade", exit="fade", **options).lines[0]
     line = subject(entry="sparkle", exit="petal", **options).lines[0]
     assert line.lifetime == reference.lifetime
@@ -978,9 +978,9 @@ def test_slide_follows_allocated_lane_and_stars_start_at_their_sweep_position():
             Line(start_time=start, end_time=start + 800, text=r"{\k80}AB")
         )
     effect = KaraokeEffects(
-        entry="slide_in", exit="none", singing="none", decoration="twinkle"
+        entry="slide_in", exit="none", highlight="none", decoration="twinkle"
     )
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(effect,)),))
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(effect,)),))
     for index, line in enumerate(scene.lines):
         assert line.track_index == index
         start_x = scene.evaluator().at(line.id, line.lifetime.start).position.x
@@ -999,9 +999,9 @@ def test_slide_follows_allocated_lane_and_stars_start_at_their_sweep_position():
             if node.id.startswith(target.node_id + "/") and ":particle:" in node.id
         ]
         assert len(stars) == 7
-        assert min(node.lifetime.start for node in stars) >= target.singing[0].start
+        assert min(node.lifetime.start for node in stars) >= target.timing[0].start
         assert (
-            max(node.lifetime.start for node in stars) > target.singing[0].start + 0.13
+            max(node.lifetime.start for node in stars) > target.timing[0].start + 0.13
         )
 
 
@@ -1019,7 +1019,7 @@ def test_scanline_lifts_gradient_stops_on_the_selected_side(mode):
         text=r"{\k100}H",
         entry="none",
         exit="none",
-        singing="scanline",
+        highlight="scanline",
         material=paint,
         scanline_mode=mode,
         scanline_width=4,
@@ -1032,8 +1032,8 @@ def test_scanline_lifts_gradient_stops_on_the_selected_side(mode):
         for node in _walk(scene.lines[0])
         if ":front:" in node.id and isinstance(node.material, LinearGradient)
     ]
-    # The first strip is on the sung side. The outer two strips have the
-    # same 5/32 weight, but the unsung background is white.
+    # The first strip is on the highlight side. The outer two strips have the
+    # same 5/32 weight, but the base background is white.
     assert ramps[0] is not None
     expected = {
         "brighten": [Color(112, 0, 0), Color(0, 57, 0)],
@@ -1055,16 +1055,16 @@ def test_dense_scanline_palettes_remain_exportable_to_gpu():
         )))
 
     scene = subject(
-        text=r"{\k100}M", entry="none", exit="none", singing="scanline",
+        text=r"{\k100}M", entry="none", exit="none", highlight="scanline",
         base_material=gradient(0), material=gradient(2), scanline_mode="follow_after",
     )
-    assert any(draw.gradient is not None for draw in SceneFrames(scene).at(1.5))
+    assert any(draw.gradient is not None for draw in HookDrawResolver(scene).at(1.5))
 
 
 @pytest.mark.parametrize("mode", ["utopia", "zoom_pulse"])
 def test_shared_reading_pulses_follow_each_kana_and_host_character(mode):
     scene = subject(text=r"{\k50}空空|まま", start=1000, end=1500,
-                    entry="none", exit="none", singing=mode)
+                    entry="none", exit="none", highlight=mode)
     evaluator = scene.evaluator()
     for role in ("character", "ruby"):
         first, second = scene.lines[0].query(role)
@@ -1078,14 +1078,14 @@ def test_multicharacter_reading_divides_its_wipe_by_shaped_cluster():
     from kara_templater import RectangleKeyframes
 
     scene = subject(text=r"{\k50}空|iがま", start=1000, end=1500,
-                    entry="none", exit="none", singing="none")
+                    entry="none", exit="none", highlight="none")
     line, = scene.lines
     nodes = {n.id: n for n in _walk(line)}
     glyphs = line.layout.ruby[0].layout.characters
     assert [g.object.text for g in glyphs] == ["i", "が", "ま"]
     for target, start, end in zip(line.query("ruby"), (1, 1.166, 1.333),
                                   (1.166, 1.333, 1.5), strict=True):
-        authored, = target.singing
+        authored, = target.timing
         assert (authored.start, authored.end) == (1, 1.5)
         node = nodes[target.node_id]
         assert isinstance(node.clip, RectangleClip) and isinstance(node.clip.deform, RectangleKeyframes)
@@ -1096,7 +1096,7 @@ def test_multicharacter_reading_divides_its_wipe_by_shaped_cluster():
 def test_timed_readings_own_the_front_and_optional_body_sweeps_once():
     def fronts(mode):
         scene = subject(text=r"{\k25}空|そ{\k25}#|ら", start=1000, end=1500,
-                        entry="none", exit="none", singing="scanline", ruby_scanline=mode)
+                        entry="none", exit="none", highlight="scanline", ruby_scanline=mode)
         line = scene.lines[0]
         nodes = {n.id: n for n in _walk(line)}
 
@@ -1126,7 +1126,7 @@ def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass():
 
     def frame(text, ms):
         scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
-                        singing="none", ruby_scanline="both", sung_outline=Color(30, 40, 50),
+                        highlight="none", ruby_scanline="both", after_outline=Color(30, 40, 50),
                         scanline_color=Color(0, 255, 255), scanline_width=16, scanline_softness=4)
         return rasterize(scene.ass.compile().document.dumps(), ms, (640, 360)).rgba
 
@@ -1141,9 +1141,9 @@ def test_reading_clock_spends_half_the_note_on_each_host_glyph(reverse):
     from kara_templater._raster import rasterize
 
     scene = subject(text=r"{\k100}iW|ab", start=1000, end=2000, entry="none", exit="none",
-                    singing="none", ruby_reading_units=True, reverse_wipe=reverse,
-                    sung=Color(255, 0, 0), unsung=Color(0, 0, 255),
-                    sung_outline=Color(255, 0, 0), unsung_outline=Color(0, 0, 255))
+                    highlight="none", ruby_reading_units=True, reverse_wipe=reverse,
+                    after_fill=Color(255, 0, 0), before_fill=Color(0, 0, 255),
+                    after_outline=Color(255, 0, 0), before_outline=Color(0, 0, 255))
     ass = scene.ass.compile(native_tweens=True).document.dumps()
     frame = rasterize(ass, 1500, (640, 360)).rgba
     bottom = max(i // (640 * 4) for i in range(3, len(frame), 4) if frame[i])
@@ -1191,7 +1191,7 @@ def test_ruby_character_clock_holds_body_at_three_quarters_through_empty_part():
 
     def body(text, times):
         scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
-                        singing="none", ruby_reading_units=True, sung_outline=Color(30, 40, 50))
+                        highlight="none", ruby_reading_units=True, after_outline=Color(30, 40, 50))
         ass = scene.ass.compile(native_tweens=True).document.dumps()
         frames = [rasterize(ass, ms, (640, 360)).rgba for ms in times]
         # Ruby and body occupy separate rows. Compare the body including both outlines.
@@ -1215,9 +1215,9 @@ def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, 
 
     doc = Document.create(width=640, height=360, styles=(Style(fontname="DejaVu Sans", fontsize=50),))
     doc.records.append(Line(start_time=1000, end_time=1500, text=text))
-    recipe = KaraokeEffects(entry="none", exit="none", singing="none", reverse_wipe=reverse, sung=Color(255, 0, 0),
-                            unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
-    scene = prepare_tracks(doc, tracks=(Track(id="main", preview=0, tail=1, effects=(recipe,)),))
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="none", reverse_wipe=reverse, after_fill=Color(255, 0, 0),
+                            before_fill=Color(255, 255, 255), after_outline=Color(0, 0, 0))
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", preview=0, tail=1, effects=(recipe,)),))
     script = scene.ass.compile().document.dumps()
 
     def red_pixels(script, ms):
@@ -1235,8 +1235,8 @@ def test_ruby_color_switch_at_the_annotation_boundary(tmp_path, mode, ticks, exp
     from kara_templater._raster import rasterize
 
     scene = subject(text=rf"{{\k{ticks}}}空|そ{{\k{50-ticks}}}#|ら",
-                    start=1000, end=1500, entry="none", exit="none", singing=mode,
-                    sung=Color(255, 0, 0), unsung=Color(255, 255, 255), sung_outline=Color(0, 0, 0))
+                    start=1000, end=1500, entry="none", exit="none", highlight=mode,
+                    after_fill=Color(255, 0, 0), before_fill=Color(255, 255, 255), after_outline=Color(0, 0, 0))
     def ruby_has_red(script, ms):
         rgba = rasterize(script, ms, (640, 360)).rgba
         top = next(i // 640 for i, a in enumerate(rgba[3::4]) if a > 128)
@@ -1257,7 +1257,7 @@ def test_scanline_crosses_syllable_boundary_on_both_glyphs():
         min_outline_gap=None,
         entry="none",
         exit="none",
-        singing="scanline",
+        highlight="scanline",
         scanline_width=24,
         scanline_softness=0,
     )
@@ -1285,8 +1285,8 @@ def test_second_row_particles_follow_synchronized_entry_and_extended_exit():
     doc = Document.create(styles=(Style(fontname="DejaVu Sans"),))
     for t in (5200, 7400, 9700, 12000):
         doc.records.append(Line(text=r"{\k100}A", start_time=t, end_time=t+1000))
-    effect = KaraokeEffects(entry="sparkle", exit="glow_out", singing="scanline")
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(effect,)),))
+    effect = KaraokeEffects(entry="sparkle", exit="glow_out", highlight="scanline")
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(effect,)),))
     line = scene.lines[1]
     assert line.lifetime.start == pytest.approx(0.2)
     stars = [n for n in line.children if ":particle:" in n.id]
@@ -1297,7 +1297,7 @@ def test_second_row_particles_follow_synchronized_entry_and_extended_exit():
 
 def test_glow_echoes_stretch_with_the_core_and_scale_their_spacing():
     scene = subject(text=r"{\k100}A", entry="glow_in", entry_duration=0.6,
-                    singing="none", exit="none")
+                    highlight="none", exit="none")
     line = scene.lines[0]
     glyph, = line.query("character")
     echoes = [n for n in _walk(line) if ":echo:glow_in:" in n.id]
@@ -1311,7 +1311,7 @@ def test_glow_echoes_stretch_with_the_core_and_scale_their_spacing():
 
 
 def test_scanline_front_reaches_outgoing_stroke_before_entering_next_letter():
-    scene = subject(text=r"{\k50}M{\k50}i", end=2000, singing="scanline",
+    scene = subject(text=r"{\k50}M{\k50}i", end=2000, highlight="scanline",
                     entry="none", exit="none", scanline_width=32, scanline_softness=0)
     line, = scene.lines
     body = line.layout.body
@@ -1340,8 +1340,8 @@ def test_track_reverses_windows_before_cues_readings_and_rule_binding(tmp_path):
     for start, actor in [(1000, "reverse"), (5000, "forward")]:
         doc.records.append(Line(text=prefix + words, start_time=start,
                                 end_time=start + 2250, actor=actor))
-    recipe = KaraokeEffects(entry="none", exit="none", singing="none")
-    scene = prepare_tracks(doc, tracks=(Track(
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="none")
+    scene = build_lyric_scene(doc, tracks=(Track(
         id="main", reverse_timing=lambda source: source.actor == "reverse",
         effects=(recipe,), cues={"lead": CuePreset(factory=SignalCue())},
     ),))
@@ -1351,23 +1351,23 @@ def test_track_reverses_windows_before_cues_readings_and_rule_binding(tmp_path):
     assert not reverse.layout.ruby
     assert [g.object.text for r in forward.layout.ruby for g in r.layout.characters] == ["a", "b"]
     def windows(line):
-        return [(s.start, s.end) for target in line.query("character") for s in target.singing]
+        return [(s.start, s.end) for target in line.query("character") for s in target.timing]
     assert windows(reverse) == [(2.5, 3.25), (1.5, 2.25)]
     assert windows(forward) == [(5.5, 5.75), (5.75, 6.25), (6.5, 7.25)]
     assert reverse.independent[0].lifetime.end == 1.5
     assert forward.independent[0].lifetime.end == 5.5
-    assert scene.plans[0].source.lyrics.units[-1].segments[0].singing.start == 2.5
+    assert scene.plans[0].source.lyrics.units[-1].segments[0].timing.start == 2.5
     assert scene.ass.compile(native_tweens=True).event_count > 0
 
 
 @pytest.mark.parametrize("reverse", [False, True])
-def test_rtl_cells_keep_glyphs_upright_and_wipe_from_the_first_sung_side(tmp_path, reverse):
+def test_rtl_cells_keep_glyphs_upright_and_wipe_from_the_first_highlight_side(tmp_path, reverse):
     from kara_templater._raster import rasterize
 
     doc = Document.create(width=320, height=180, styles=(Style(fontname="DejaVu Sans", fontsize=56),))
     doc.records.append(Line(text=r"{\k50}H{\k100}O", start_time=1000, end_time=2500))
-    recipe = KaraokeEffects(entry="none", exit="none", singing="none", sung=Color(255, 0, 0))
-    scene = prepare_tracks(doc, tracks=(Track(id="main", right_to_left=True, reverse_timing=reverse,
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="none", after_fill=Color(255, 0, 0))
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", right_to_left=True, reverse_timing=reverse,
                                                effects=(recipe,)),))
     line, = scene.lines
     first, second = line.layout.body.characters
@@ -1389,10 +1389,10 @@ def test_drip_keeps_measured_cell_edge_stationary(phase, time):
     from kara_templater import Vec2
 
     def scene(effect):
-        recipe = KaraokeEffects(**{phase: effect}, singing="none")
+        recipe = KaraokeEffects(**{phase: effect}, highlight="none")
         doc = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=64, italic=True),))
         doc.records.append(Line(text=r"{\k100}j", start_time=1000, end_time=2000))
-        return prepare_tracks(doc, tracks=(Track(id="main", studio_spacing=True, preview=1, tail=0.8,
+        return build_lyric_scene(doc, tracks=(Track(id="main", studio_spacing=True, preview=1, tail=0.8,
                                                  effects=(recipe,)),))
 
     animated, steady = scene("char_drip"), scene("none")
@@ -1413,9 +1413,9 @@ def test_utopia_keeps_canvas_band_width_during_the_note():
         Style(fontname="DejaVu Sans", fontsize=160, shadow=0),
     ))
     doc.records.append(Line(start_time=1000, end_time=2000, text=r"{\k100}—"))
-    recipe = KaraokeEffects(entry="none", exit="none", singing="utopia_scanline",
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="utopia_scanline",
                             scanline_width=32, scanline_softness=0, scanline_color=Color(0, 255, 255))
-    scene = prepare_tracks(doc, tracks=(Track(id="main", effects=(recipe,)),))
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(recipe,)),))
     ass = scene.ass.compile(native_tweens=True).document.dumps()
     for ms in (1250, 1450, 1700):
         rgba = rasterize(ass, ms, (640, 360)).rgba

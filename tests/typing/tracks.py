@@ -8,7 +8,7 @@ from kara_templater import (
     FadeIn,
     Layout,
     LayoutContext,
-    LayoutLine,
+    LineLayoutRequest,
     LyricAnimationContext,
     LyricHighlights,
     LyricLine,
@@ -23,16 +23,16 @@ from kara_templater import (
     Track,
     Transform,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
 class CustomLayout(Layout):
     def allocate(
-        self, lines: tuple[LayoutLine, ...], context: LayoutContext
+        self, lines: tuple[LineLayoutRequest, ...], context: LayoutContext
     ) -> tuple[Placement, ...]:
         return tuple(
-            Placement(line.id, Vec2(20, 40 + 60 * index), line.display)
+            Placement(line.id, Vec2(20, 40 + 60 * index), line.requested_display)
             for index, line in enumerate(lines)
         )
 
@@ -57,11 +57,11 @@ class Lead(Track):
             source=selected,
             layout=Layout() if layout is None else layout,
             effects=(
-                LyricHighlights.from_singing(StatePatch(fill=RED)),
+                LyricHighlights.from_timing(StatePatch(fill=RED)),
                 LyricRule("line", "enter", FadeIn(), duration=0.2),
-                LyricRule("syllable", "singing", animate),
+                LyricRule("syllable", "timing", animate),
                 LyricRule(
-                    "character", "after_singing",
+                    "character", "after_timing",
                     Transform(offset=lambda p: Vec2(0, -20 * p), opacity=lambda p: 1 - p),
                     duration=0.3, offset=0.1,
                 ),
@@ -70,7 +70,7 @@ class Lead(Track):
 
 
 def prepare(document: Document) -> LyricScene:
-    scene = prepare_tracks(document, tracks=(Lead("main", layout=CustomLayout()),))
+    scene = build_lyric_scene(document, tracks=(Lead("main", layout=CustomLayout()),))
     assert_type(scene, LyricScene)
     assert_type(scene.lines, tuple[LyricLine, ...])
     return scene

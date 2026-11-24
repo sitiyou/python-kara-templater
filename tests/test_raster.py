@@ -10,6 +10,7 @@ from kara_templater import (
     _metrics,
 )
 from kara_templater._raster import (
+    DisplayWindow,
     RasterBudget,
     RasterCanvas,
     RasterFrame,
@@ -18,7 +19,6 @@ from kara_templater._raster import (
     rasterize,
 )
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
-from kara_templater.timeline import DisplayWindow
 
 
 def script(lines=(), width=32, height=24):

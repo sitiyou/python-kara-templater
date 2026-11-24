@@ -10,8 +10,51 @@ from math import floor
 from . import _ass_preview
 from ._native_types import RasterImage
 from .ass import Line
-from .raster_settings import OutputCapabilityError
-from .timeline import DisplayWindow, _finite
+from .geometry import _finite
+from .sources import EventOrigin
+
+
+class OutputCapabilityError(ValueError):
+    """An output failure with optional source and absolute-time context."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        origin: EventOrigin | None = None,
+        time_ms: float | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.origin = origin
+        self.time_ms = time_ms
+        if origin is not None:
+            self.add_note(
+                f"effect={origin.effect}; sources={origin.sources!r}; "
+                f"tracks={origin.track_ids!r}"
+            )
+
+
+def _milliseconds(value, name) -> int:
+    if type(value) is not int or value < 0:
+        raise ValueError(f"{name} must be nonnegative integer milliseconds")
+    return value
+
+
+@dataclass(frozen=True)
+class DisplayWindow:
+    """An absolute millisecond visibility interval independent of lyric timing.
+
+    Animation padding changes this window rather than lyric segment clocks.
+    """
+
+    start_ms: int
+    end_ms: int
+
+    def __post_init__(self) -> None:
+        _milliseconds(self.start_ms, "display start")
+        _milliseconds(self.end_ms, "display end")
+        if self.end_ms <= self.start_ms:
+            raise ValueError("display window must have positive duration")
 
 
 @dataclass(frozen=True, kw_only=True)

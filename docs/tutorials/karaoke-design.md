@@ -1,7 +1,7 @@
 # Design a karaoke layout
 
 For a finished main vocal, start with the [layered soft-front recipe](../guides/karaoke-effects.md#recommended-main-vocal).
-Its two visual layers share a layout and the original singing clock. Inspect a short and a held syllable against
+Its two visual layers share a layout and the original timing clock. Inspect a short and a held syllable against
 both light and dark frames.
 
 At 1920 × 1080 the default two-row `KaraokeRows` layout leaves 50 px at the sides and 60 px at the bottom of the Track region. With a full-frame region, the bottom inset is 40 px at 720p. Short lines move inward together according to their widths,
@@ -12,7 +12,7 @@ For horizontal main vocals at 1080p, start with 100 script pixels for the body
 and 45 for ruby in the source styles. Scale both with canvas height. Preview
 the longest line and the densest readings at delivery size, then adjust either
 size to suit the typeface and the visual style.
-For main, harmony and ruby typeface choices, see [Choose a typeface for sung lyrics](../guides/fonts-and-preview.md#choose-a-typeface-for-sung-lyrics).
+For main, harmony and ruby typeface choices, see [Choose a typeface for lyrics](../guides/fonts-and-preview.md#choose-a-typeface-for-lyrics).
 Set a separate region and an explicit layout for an upper harmony Track. Align
 a countdown with the phrase it introduces and check both when visible together.
 
@@ -26,11 +26,11 @@ margins. [Studio style and layout definitions](https://github.com/karaoke-studio
 For new karaoke templates, start with the [built-in catalog](../guides/karaoke-effects.md).
 Use these optional combinations for phrases that call for more motion.
 
-| Design | Entry / singing / exit | Decoration | Use |
+| Design | Entry / timing / exit | Decoration | Use |
 | --- | --- | --- | --- |
 | Clear | `tracking_in` / `scanline` / `char_fade` | Outline flash | A readable whole-song treatment with visible but restrained motion |
-| Sakura | `wave_in` / `zoom_pulse` / `petal` | `petal`, 5 births/s, size 0.18 | Gentle passages; a pink singing fill and slow petal flutter |
-| Luminous | `glow_in` / `utopia_scanline` / `stretch_out` | `twinkle` | Short emphatic phrases; let the blurred light streak settle before singing |
+| Sakura | `wave_in` / `zoom_pulse` / `petal` | `petal`, 5 births/s, size 0.18 | Gentle passages; a pink timing fill and slow petal flutter |
+| Luminous | `glow_in` / `utopia_scanline` / `stretch_out` | `twinkle` | Short emphatic phrases; let the blurred light streak settle before timing |
 | Crystal | `assemble_in` / `scanline` / `dissolve_out` | `snow`, 4 births/s | Selected transitions where gathering and dispersing particles reinforce the phrase |
 
 These combinations are configurations of `KaraokeEffects`, not separate engines.
@@ -40,8 +40,8 @@ For example, use this as one Track effect:
 from kara_templater import Color, KaraokeEffects
 
 sakura = KaraokeEffects(
-    entry="wave_in", singing="zoom_pulse", exit="petal", decoration="petal",
-    sung=Color(255, 160, 205), particle_size=0.18, particle_rate=5, seed=17,
+    entry="wave_in", highlight="zoom_pulse", exit="petal", decoration="petal",
+    after_fill=Color(255, 160, 205), particle_size=0.18, particle_rate=5, seed=17,
 )
 ```
 
@@ -54,11 +54,11 @@ particles than one Japanese character with the same duration.
 
 Try these combinations in the [karaoke catalog example](../../examples/karaoke_catalog.py).
 
-## Mark singing without a color wipe
+## Mark timing without a color wipe
 
-Use `LyricHighlights.from_singing(..., wipe=False)` to switch the entire timed
-unit to its sung color at release. For a cue at the attack, bind a short
-`ScalePulse` to each syllable's singing interval. The example uses both cues so
+Use `LyricHighlights.from_timing(..., wipe=False)` to switch the entire timed
+unit to its highlight color at release. For a cue at the attack, bind a short
+`ScalePulse` to each syllable's timing interval. The example uses both cues so
 the lyric still shows where to sing during a sustained note.
 
 For an ornament that follows the current syllable, read its measured center
@@ -83,7 +83,7 @@ bounds, including marks and outlines. Start from a displacement that hides the
 complete glyph. A measured starting point for the remaining displacement at
 equal time steps is `1.00, 0.58, 0.35, 0.21, 0.12, 0.07, 0.03, 0.01, 0.00`.
 Use the short stagger on a compact phrase so the last character settles before
-its singing highlight. For longer lines, group characters by word or syllable
+its timing highlight. For longer lines, group characters by word or syllable
 and measure each opening around the combined ink bounds of the body and ruby.
 A tested two-row example with 13 and 11 syllable groups uses that shared opening
 and finishes the motion about 0.40 s before each pickup. Check the
@@ -92,10 +92,10 @@ outgoing row while the next row is entering, especially if the singers overlap.
 The default style of the fixed-cut example places the glyphs directly over the
 footage. An invisible clip reveals the moving ink through each fixed opening.
 On the dark preview background,
-off-white letters turn pale amber as each syllable is sung. For footage with
+off-white letters turn pale amber as the wipe advances. For footage with
 changing brightness, a thin outline around the glyphs can preserve contrast.
 Inspect at delivery size and keep the whole body and its readings visible
-during singing. [Fixed-cut example](../examples/README.md#fixed-cut-lyric-reveal)
+during timing. [Fixed-cut example](../examples/README.md#fixed-cut-lyric-reveal)
 
 ## Bring fixed lyrics in and out of focus
 
@@ -108,7 +108,7 @@ Keep the baseline fixed. A tested entrance reduces a Gaussian radius from
 about 4.2 px to zero over 360 ms on a 1080p canvas. Fade in as the shape first
 becomes readable and hold the sharp lyric for about 320 ms before the pickup.
 After the last note and a short readable hold, increase the radius and fade
-over the exit. Keep the body and ruby sharp for the whole singing interval.
+over the exit. Keep the body and ruby sharp for the whole timing interval.
 
 For a digital texture, average the glyph coverage over fixed screen cells.
 The comparison uses 7 px cells for a 92 px body. Ease the blend between the
@@ -120,10 +120,10 @@ A single ASS text object can tween `StatePatch(blur=0)` from an initial
 `VisualState(blur=5)` to enter in focus. A blur-channel tween does not export as
 native Hook motion. For Hook, use `ShaderPaint` with prefiltered coverage masks
 at several radii and interpolate adjacent masks. Return to the ordinary timed
-lyric for singing. Match the animation to the note timing and inspect small
+lyric for timing. Match the animation to the note timing and inspect small
 readings at delivery resolution.
 
-## Type the lyric in and erase it after singing
+## Type the lyric in and erase it after timing
 
 Dreamin'Her uses a cursor that travels with the end of the visible text.
 Adapt that timing to the lyric itself. Reveal shaped units from left to right
@@ -134,8 +134,8 @@ read. [Dreamin'Her around 0:31](https://www.bilibili.com/video/BV1hM4m1C7GN/?t=3
 After the last note, hold the complete phrase briefly and shorten the visible
 suffix from right to left. Use the same measured caret positions in reverse.
 The tested short phrase uses roughly 75 ms per unit, with the complete line
-ready about 0.35 s before singing. Keep the glyphs on their final baseline
-throughout and preserve the original singing clocks when adjusting their
+ready about 0.35 s before timing. Keep the glyphs on their final baseline
+throughout and preserve the original timing clocks when adjusting their
 visibility. Draw the caret beside the text over the footage.
 
 ## Bring syllables in from different edges
@@ -146,15 +146,15 @@ curve, so they finish together. A thin pale typeface against the dark teal
 scene makes the separate paths easy to see. [Source title around 0:23.7](https://www.bilibili.com/video/BV17z4y1R7iD/?t=23.666)
 
 Use `ProgressCurve.cubic_bezier(.17, .17, 0, 1).at` with a position tween to
-get the source's quick travel and long deceleration. For a sung line, shorten
+get the source's quick travel and long deceleration. For a highlight line, shorten
 the move to fit the preview window. Measure each syllable's viewport from its
 body and ruby ink, including the outline, then move the syllable and its
 reading as a group. This keeps the reading above the same glyph during the
 entry. Check that the entire line is visible before the pickup and during an
-overlap with the next row. A pale body color and a brighter blue singing color
+overlap with the next row. A pale body color and a brighter blue timing color
 can keep the change readable on a dark background.
 
-## Give each singing state its own outline
+## Give each timing state its own outline
 
 The NicoKara edition of L’Amour et le Crâne pairs white waiting text with
 a cyan outline, then changes the same region to deep blue with a white
@@ -163,8 +163,8 @@ The two-state outline helps keep the lyric legible where the background
 cuts between dark artwork and near-white frames. [NicoKara around 0:40](https://www.bilibili.com/video/BV1pLjpzbEm1/?p=2&t=40)
 
 Set the fill, outline, and shadow in the two paint states of
-`LyricHighlights.from_singing`. The source gives a starting palette of
-`#FFFFFF` with `#349DEA` for waiting and `#000EFF` with `#FFFFFF` for sung.
+`LyricHighlights.from_timing`. The source gives a starting palette of
+`#FFFFFF` with `#349DEA` for waiting and `#000EFF` with `#FFFFFF` for highlight.
 On the study's 1080p canvas, a 2.4 px body outline and a shadow offset
 around `Vec2(1.5, 2)` give a similar treatment. Scale the width with the
 type size and inspect the reading separately. A smaller outline keeps

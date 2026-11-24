@@ -9,8 +9,8 @@ from kara_templater import (
     Line,
     Style,
     Track,
+    build_lyric_scene,
     paint_pair_from_style,
-    prepare_tracks,
 )
 from kara_templater.ass import EVENT_FORMAT, STYLE_FORMAT
 
@@ -40,9 +40,9 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
     )
     original = source.dumps()
     tracks = (Track(id="main"),)
-    result = prepare_tracks(source, tracks=tracks, owner="a:b%").ass.compile()
+    result = build_lyric_scene(source, tracks=tracks, owner="a:b%").ass.compile()
     assert source.dumps() == original
-    restored_scene = prepare_tracks(
+    restored_scene = build_lyric_scene(
         Document.parse(result.document.dumps()), tracks=tracks, owner="a:b%"
     )
     assert len(restored_scene.plans) == 1
@@ -60,7 +60,7 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
     )
     assert any(line.effect == "notes" and line.comment for line in again.document.lines)
     restored = (
-        prepare_tracks(again.document, tracks=(), owner="a:b%").ass.compile().document
+        build_lyric_scene(again.document, tracks=(), owner="a:b%").ass.compile().document
     )
     assert any(
         line.text == source.lines[0].text
@@ -73,11 +73,11 @@ def test_auto_render_preserves_sources_and_can_reimport_saved_output():
 def test_identical_sources_get_distinct_stable_ids():
     source = document(lyric(), lyric())
     tracks = (Track(id="main", layout=Layout(rows=2)),)
-    scene = prepare_tracks(source, tracks=tracks)
+    scene = build_lyric_scene(source, tracks=tracks)
     ids = tuple(plan.source.id for plan in scene.plans)
     assert len(set(ids)) == 2
     result = scene.ass.compile()
-    again = prepare_tracks(Document.parse(result.document.dumps()), tracks=tracks)
+    again = build_lyric_scene(Document.parse(result.document.dumps()), tracks=tracks)
     assert tuple(plan.source.id for plan in again.plans) == ids
     assert len(again.replace_records) == 2
     assert again.ass.compile().document.dumps() == result.document.dumps()
@@ -110,7 +110,7 @@ def test_common_preparation_error_identifies_actual_record_and_preserves_input()
     with pytest.raises(
         ValueError, match=rf"record {index}, text offset 0: unsupported override"
     ):
-        prepare_tracks(source, tracks=(Track(id="main", layout=Layout(rows=2)),))
+        build_lyric_scene(source, tracks=(Track(id="main", layout=Layout(rows=2)),))
     assert source.dumps() == original
 
 
@@ -119,4 +119,4 @@ def test_invalid_owned_source_marker_reports_its_record(suffix):
     source = document(lyric(comment=True, effect="karaoke:source:v1:default:" + suffix))
     index = len(source.records) - 1
     with pytest.raises(ValueError, match=rf"record {index}: damaged lyric source marker"):
-        prepare_tracks(source, tracks=(Track(id="main", source=lambda _: True),), owner="default")
+        build_lyric_scene(source, tracks=(Track(id="main", source=lambda _: True),), owner="default")

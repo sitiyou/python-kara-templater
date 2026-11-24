@@ -8,7 +8,7 @@ from examples.scene_bilingual import build
 from kara_templater import PINK, ObjectGroup, Vec2
 
 
-def test_repeated_singing_keeps_body_and_ruby_together():
+def test_repeated_timing_keeps_body_and_ruby_together():
     scene = build()
     top = next(
         node

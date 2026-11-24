@@ -16,6 +16,6 @@ from kara_templater import (
 
 edge = assert_type((Glyph.font_size / 6 + 1).clamp(2, 16), LengthExpr)
 band = assert_type(Canvas.height / 90, LengthExpr)
-KaraokeEffects(singing="scanline", hook_feather=edge, scanline_width=band)
+KaraokeEffects(highlight="scanline", hook_feather=edge, scanline_width=band)
 attack = assert_type(0.5 * Note.duration, TimeExpr)
-LyricRule("character", "singing", FadeIn(), duration=attack, offset=Animation.duration / 3)
+LyricRule("character", "timing", FadeIn(), duration=attack, offset=Animation.duration / 3)

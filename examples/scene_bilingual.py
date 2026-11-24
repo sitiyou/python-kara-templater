@@ -1,4 +1,4 @@
-"""Two source lines, ruby, repeated singing and a shared world-space decoration.
+"""Two source lines, ruby, repeated timing and a shared world-space decoration.
 
 """
 
@@ -46,19 +46,19 @@ def highlight(state: VisualState, progress: float) -> VisualState:
     return StatePatch(fill=PINK).interpolate(state, sin(pi * progress) ** 2)
 
 
-def singing_line(
+def timing_line(
     layout: LyricLayout, *, id: str, position: Vec2, scale_pulse: bool = True
 ) -> ObjectGroup:
-    """A source unit keeps its body/ruby together across every singing segment."""
+    """A source unit keeps its body/ruby together across every timing segment."""
     units: list[ObjectGroup] = []
     for index, unit in enumerate(layout.lyrics.units):
         intervals = tuple(
             (
-                segment.singing.start - layout.body.lifetime.start,
-                segment.singing.end - segment.singing.start,
+                segment.timing.start - layout.body.lifetime.start,
+                segment.timing.end - segment.timing.start,
             )
             for segment in unit.segments
-            if segment.singing.end > segment.singing.start
+            if segment.timing.end > segment.timing.start
         )
         group = layout.unit_group(index)
         scale_clips = tuple(
@@ -150,7 +150,7 @@ def build() -> Scene:
         indices, layouts, ("top", "bottom"), (260, 460), strict=True
     ):
         scene.replace_source(index)
-        line = singing_line(
+        line = timing_line(
             layout,
             id=name,
             position=Vec2(640 - layout.body.bounds.center, y),

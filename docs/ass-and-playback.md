@@ -14,7 +14,7 @@ glyph gradients, feathered wipes and procedural particle motion. See
 [Choose an output](guides/choosing-output.md).
 
 Preserving an ASS record does not mean every override can become an editable
-Scene object. NativeEvent preserves already-lowered behavior; text/lyric
+Scene object. AssDialogue preserves already-lowered behavior; text/lyric
 frontends reject unsupported editable semantics with source context.
 
 ## Rendering environment matters

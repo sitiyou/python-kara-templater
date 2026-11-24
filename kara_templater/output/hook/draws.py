@@ -11,14 +11,14 @@ from collections import OrderedDict
 from dataclasses import dataclass, replace
 from math import log, sqrt
 
-from ._contour_stroke import ContourStroke, contour_grid
-from ._native_types import RasterImage
-from ._path_raster import STROKE_FACE, cutout_border, path_coverage
-from ._scene_tree import SceneLeaf, scene_leaves
-from .composition import Color
-from .geometry import Affine2D, Vec2, VectorPath, finite
-from .paint_fields import LinearGradient, ShaderPaint
-from .scene import (
+from ..._contour_stroke import ContourStroke, contour_grid
+from ..._native_types import RasterImage
+from ..._path_raster import STROKE_FACE, cutout_border, path_coverage
+from ..._scene_tree import SceneLeaf, scene_leaves
+from ...composition import Color
+from ...geometry import Affine2D, Vec2, VectorPath, finite
+from ...paint_fields import LinearGradient, ShaderPaint
+from ...scene import (
     ObjectGroup,
     PathObject,
     RectangleClip,
@@ -28,8 +28,8 @@ from .scene import (
     TextObject,
     _LyricPaintClip,
 )
-from .scene_animation import VisualState, local_seconds
-from .text_geometry import outline_text
+from ...scene_animation import VisualState, local_seconds
+from ...text_geometry import outline_text
 
 
 @dataclass(frozen=True)
@@ -57,7 +57,7 @@ def _clip_at(rectangle: RectangleClip, time: float) -> GpuClip | None:
 @dataclass(frozen=True)
 class DrawCommand:
     object_id: str
-    images: tuple[RasterImage, ...]
+    mask_planes: tuple[RasterImage, ...]
     transform: Affine2D
     opacity: float
     gradient: LinearGradient | None
@@ -118,7 +118,7 @@ type _CachedCoverage = tuple[tuple[RasterImage, ...], tuple[float, ...] | None]
 
 
 def _coverage(
-    leaf: SceneLeaf, state: VisualState, pixel_budget: int, fixed: bool
+    leaf: SceneLeaf, state: VisualState, pixel_budget: int, screen_space_stroke: bool
 ) -> _CachedCoverage:
     node = leaf.node
     if isinstance(node.shader_paint, ContourStroke):
@@ -131,19 +131,19 @@ def _coverage(
     )
     if path is None:
         return (), None
-    if fixed and any(not contour.closed for contour in path.contours):
+    if screen_space_stroke and any(not contour.closed for contour in path.contours):
         # ASS and the raster mask close drawing contours before stroking.
         path = VectorPath(tuple(replace(contour, closed=True) for contour in path.contours))
     offset = node.extrusion.offset if isinstance(leaf, _ExtrusionSide) and node.extrusion else None
     images = path_coverage(
         path, state, node.filled, pixel_budget, node.id, sweep=offset,
         shaded=bool(node.extrusion and node.extrusion.back_color is not None),
-        keep_face=fixed,
+        keep_face=screen_space_stroke,
     )
-    return images, contour_grid(path, 1)[1] if fixed else None
+    return images, contour_grid(path, 1)[1] if screen_space_stroke else None
 
 
-class SceneFrames:
+class HookDrawResolver:
     """Seekable draws using SceneEvaluator and bounded, reusable native coverage."""
 
     def __init__(self, scene: Scene, *, cache_bytes: int = 64 * 1024 * 1024) -> None:
@@ -209,7 +209,7 @@ class SceneFrames:
             node = leaf.node
             if node.extrusion is None or node.extrusion.offset == Vec2():
                 continue
-            # Only a singing-color partition is face-specific. User clip masks
+            # Only a timing-color partition is face-specific. User clip masks
             # still cut the entire extruded object.
             side = replace(node, material=None, shader_paint=None,
                            clip=None if isinstance(node.clip, _LyricPaintClip) else node.clip)
@@ -267,17 +267,17 @@ class SceneFrames:
         varying_basis: bool = False,
     ) -> DrawCommand:
         node = leaf.node
-        fixed = (
+        screen_space_stroke = (
             state.border > 0
             and not node.scale_border
             and not isinstance(leaf, _ExtrusionSide)
             and not isinstance(node.shader_paint, ContourStroke)
             and (varying_basis or not _isometry(state.transform))
         )
-        key = (*_shape_key(leaf, state), fixed)
+        key = (*_shape_key(leaf, state), screen_space_stroke)
         cached = self._cache.get(key)
         if cached is None:
-            cached = _coverage(leaf, state, self._limit, fixed)
+            cached = _coverage(leaf, state, self._limit, screen_space_stroke)
             images, grid = cached
             size = sum(len(image[6]) for image in images) + (8 * len(grid) if grid else 0)
             if size > self._limit:

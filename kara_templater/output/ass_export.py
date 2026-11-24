@@ -11,21 +11,20 @@ from math import hypot
 from typing import Literal
 from urllib.parse import quote
 
-from ._scene_clipping import (
+from .._scene_clipping import (
     ClipResolver,
     ResolvedMasks,
     SceneClipError,
 )
-from ._scene_tree import SceneLeaf, scene_leaves
-from ._source_records import generated_prefix, strip_generated_records
-from .ass import EVENT_FORMAT, STYLE_FORMAT, Document, Line, Style
-from .composition import Color
-from .easing import ease_out
-from .geometry import LineSegment, Vec2, VectorPath, finite
-from .layout import text_extents
-from .path_geometry import intersect_convex, path_bounds
-from .path_motion import MoveAlong
-from .scene import (
+from .._scene_tree import SceneLeaf, scene_leaves
+from .._source_records import generated_prefix, strip_generated_records
+from ..ass import EVENT_FORMAT, STYLE_FORMAT, Document, Line, Style
+from ..composition import Color
+from ..easing import ease_out
+from ..geometry import LineSegment, Vec2, VectorPath, finite
+from ..path_geometry import intersect_convex, path_bounds
+from ..path_motion import MoveAlong
+from ..scene import (
     PathObject,
     RectangleClip,
     RectangleKeyframes,
@@ -36,7 +35,7 @@ from .scene import (
     _CellWipeClip,
     _ColorStripClip,
 )
-from .scene_animation import (
+from ..scene_animation import (
     AnimationClip,
     AnimationSequence,
     DriftOut,
@@ -52,13 +51,14 @@ from .scene_animation import (
     smooth_rate,
     smoother_rate,
 )
-from .scene_evaluation import SceneEvaluator, SceneReferenceError, compose_states
-from .sources import EventOrigin
-from .text_geometry import outline_text
+from ..scene_evaluation import SceneEvaluator, SceneReferenceError, compose_states
+from ..sources import EventOrigin
+from ..text.measurement import text_extents
+from ..text_geometry import outline_text
 
 
 @dataclass(frozen=True, kw_only=True)
-class SceneBudget:
+class AssBudget:
     """Positive whole-scene ASS resource limits.
 
     ASS compilation enforces limits on events, bytes, active drawings, geometry
@@ -90,14 +90,14 @@ class SceneBudget:
 
 
 @dataclass(frozen=True)
-class SceneEstimate:
+class AssEstimate:
     """Estimated ASS event count before emission."""
 
     estimated_events: int
 
 
 @dataclass(frozen=True)
-class ObjectReport:
+class AssObjectReport:
     """ASS lowering strategy, source origin, event count and observed geometry costs."""
 
     id: str
@@ -109,14 +109,14 @@ class ObjectReport:
 
 
 @dataclass(frozen=True)
-class SceneResult:
+class AssResult:
     """A newly compiled ASS Document with object reports, final cost metrics, diagnostics, and actual generated-event origins.
 
     Caller-owned input objects remain unchanged.
     """
 
     document: Document
-    objects: tuple[ObjectReport, ...]
+    objects: tuple[AssObjectReport, ...]
     event_count: int
     peak_active: int
     byte_count: int
@@ -716,7 +716,7 @@ def _rectangle_bounds(
 
 
 def _rectangle_sections(
-    leaf: _Leaf, budget: SceneBudget
+    leaf: _Leaf, budget: AssBudget
 ) -> tuple[tuple[float, float], ...]:
     knots = _rectangle_knots(leaf)
     pending = list(
@@ -1108,7 +1108,7 @@ def _painted_events(
     *,
     move: bool = False,
     path: VectorPath | None = None,
-    budget: SceneBudget,
+    budget: AssBudget,
     outlines: dict[str, VectorPath | None],
     clips: ClipResolver,
     resolved_mask: ResolvedMasks | None = None,
@@ -1242,17 +1242,17 @@ def _insert_events(
     records[end:end] = generated
 
 
-def compile_scene(
+def compile_ass(
     scene: Scene,
     *,
-    budget: SceneBudget | None = None,
+    budget: AssBudget | None = None,
     native_tweens: bool = True,
-    on_estimate: Callable[[SceneEstimate], None] | None = None,
-) -> SceneResult:
+    on_estimate: Callable[[AssEstimate], None] | None = None,
+) -> AssResult:
     """Return a new Document. Source records and caller-owned nodes never mutate."""
-    from .lyric_highlights import _FeatheredSingingClip
+    from ..lyrics.highlights import _FeatheredWipeClip
 
-    budget = SceneBudget() if budget is None else budget
+    budget = AssBudget() if budget is None else budget
     if on_estimate is not None and not callable(on_estimate):
         raise TypeError("on_estimate must be callable")
     if not scene.owner:
@@ -1284,7 +1284,7 @@ def compile_scene(
                 "ASS does not support moving color strips for soft scanlines or blended glow",
                 object_id=node.id, origin=node.origin,
             )
-        if isinstance(node.clip, _FeatheredSingingClip):
+        if isinstance(node.clip, _FeatheredWipeClip):
             raise SceneCompileError(
                 "ASS does not support feathered wipes (use a hard edge or export a hook)",
                 object_id=node.id, origin=node.origin,
@@ -1441,10 +1441,10 @@ def compile_scene(
         )
     generated: list[Line] = []
     if on_estimate is not None:
-        on_estimate(SceneEstimate(estimate))
+        on_estimate(AssEstimate(estimate))
     by_object: dict[str, list[Line]] = {}
     event_origins: dict[int, EventOrigin | None] = {}
-    reports: list[ObjectReport] = []
+    reports: list[AssObjectReport] = []
     size = len(output.dumps().encode("utf-8")) + 3
 
     def append(
@@ -1539,7 +1539,7 @@ def compile_scene(
         if affine:
             strategy += "-affine-path"
         reports.append(
-            ObjectReport(
+            AssObjectReport(
                 node.id,
                 strategy,
                 len(generated) - before,
@@ -1562,7 +1562,7 @@ def compile_scene(
             node.origin,
         )
         append(deepcopy(node.event), node.id, node.origin, preserve_effect=True)
-        reports.append(ObjectReport(node.id, "native-event", 1, node.origin))
+        reports.append(AssObjectReport(node.id, "native-event", 1, node.origin))
     generated = [
         event for identity in object_order for event in by_object.get(identity, ())
     ]
@@ -1586,7 +1586,7 @@ def compile_scene(
         raise SceneCompileError(
             f"peak active event budget exceeded ({peak} > {budget.max_active})"
         )
-    return SceneResult(
+    return AssResult(
         output,
         tuple(reports),
         sum(not event.comment for event in generated),

@@ -4,8 +4,15 @@ from dataclasses import dataclass
 
 from . import _metrics
 from .characters import FontFace
-from .geometry import Contour, CubicSegment, LineSegment, Segment2D, Vec2, VectorPath
-from .model import Box
+from .geometry import (
+    Box,
+    Contour,
+    CubicSegment,
+    LineSegment,
+    Segment2D,
+    Vec2,
+    VectorPath,
+)
 from .path_geometry import GeometryError
 from .scene import PathObject, TextObject
 

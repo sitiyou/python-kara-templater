@@ -12,16 +12,16 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Protocol
 
-from ._gpu_scene import DrawCommand, SceneFrames
-from ._hook_motion import ShaderInstance, Span, spans
-from ._hook_wipe import SingingWipe, singing_wipe
-from ._karaoke_motion import _SPIN_FLIP, _TILT_POP, ZoomScale
-from ._native_types import RasterImage
-from .geometry import Affine2D, Vec2
-from .lyric_highlights import _FeatheredSingingClip
-from .paint_fields import LinearGradient
-from .scene import RectangleKeyframes
-from .timeline import ProgressCurve
+from ..._karaoke_motion import _SPIN_FLIP, _TILT_POP, ZoomScale
+from ..._native_types import RasterImage
+from ...easing import ProgressCurve
+from ...geometry import Affine2D, Vec2
+from ...lyrics.highlights import _FeatheredWipeClip
+from ...paint_fields import LinearGradient
+from ...scene import RectangleKeyframes
+from .draws import DrawCommand, HookDrawResolver
+from .motion import DrawSpan, ShaderInstance, iter_draw_spans
+from .wipes import Wipe, match_wipe
 
 _WIDTH = 2048
 _TILE = 64
@@ -75,7 +75,7 @@ class _Atlas:
         return point
 
 
-class _Table:
+class _HookRecordTable:
     """Intern repeated frame, tile, material and draw records in one float texture."""
 
     def __init__(self) -> None:
@@ -105,7 +105,7 @@ class _Table:
         return offset
 
 
-def _ramp_record(table: _Table, mat: LinearGradient | None, kind: int) -> int:
+def _ramp_record(table: _HookRecordTable, mat: LinearGradient | None, kind: int) -> int:
     ramp = (
         None
         if mat is None
@@ -133,15 +133,15 @@ def _ramp_record(table: _Table, mat: LinearGradient | None, kind: int) -> int:
 
 
 def _draw_record(
-    table: _Table,
+    table: _HookRecordTable,
     atlas: _Atlas,
     draw: DrawCommand,
     image: RasterImage,
-    motion: int,
-    clip_motion: int,
-    edge: _FeatheredSingingClip | None,
-    wipe: SingingWipe | None,
-    inherited: int,
+    motion_offset: int,
+    clip_motion_offset: int,
+    edge: _FeatheredWipeClip | None,
+    wipe: Wipe | None,
+    inherited_offset: int,
 ) -> int:
     x, y, w, h, kind, color, pixels = image
     u, v = atlas.add(w, h, pixels) if pixels else (-1, -1)
@@ -153,8 +153,8 @@ def _draw_record(
     feather = -1
     if (edge is not None or wipe is not None) and kind in (0, 1):
         if edge is not None:
-            before = edge.unsung_fill if kind == 0 else edge.unsung_outline
-            base = edge.unsung_gradient
+            before = edge.before_fill if kind == 0 else edge.before_outline
+            base = edge.before_gradient
         else:
             assert wipe is not None
             before = wipe.before.fill if kind == 0 else wipe.before.outline
@@ -212,7 +212,7 @@ def _draw_record(
     elif draw.clip is not None:
         clip = table.add(*draw.clip.bounds, int(draw.clip.local))
     return table.add(
-        geom, paint, transform, clip, draw.opacity, motion, clip_motion, inherited
+        geom, paint, transform, clip, draw.opacity, motion_offset, clip_motion_offset, inherited_offset
     )
 
 
@@ -228,7 +228,7 @@ def _texture(
 
 
 def _motion_record(
-    table: _Table, span: Span, fps: int, origin: int, opacity_mode: int
+    table: _HookRecordTable, span: DrawSpan, fps: int, origin: int, opacity_mode: int
 ) -> int:
     instance = span.shader
     if instance is not None:
@@ -285,12 +285,12 @@ def _motion_record(
         curve = table.add(len(curve.knots), *(v for knot in curve.knots for v in knot))
         # Negative indices distinguish shared knot tables from the built-in rates.
         curve = -4 - curve
-    m = motion.end.transform
-    end = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty, motion.end.opacity)
+    m = motion.end_state.transform
+    end = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty, motion.end_state.opacity)
     return table.add(
         motion.start * fps - origin,
         motion.duration * fps,
-        motion.peak,
+        motion.peak_progress,
         curve,
         end,
         int(motion.fast_reveal),
@@ -365,9 +365,9 @@ def _program_tiles(
 
 
 def _timeline(
-    frames: SceneFrames,
+    frames: HookDrawResolver,
     atlas: _Atlas,
-    table: _Table,
+    table: _HookRecordTable,
     fps: int,
     origin: int,
     count: int,
@@ -375,11 +375,11 @@ def _timeline(
     rows: int,
 ) -> int:
     def events(
-        order: int, stream: Iterator[Span]
-    ) -> Iterator[tuple[int, int, Span | None]]:
+        order: int, stream: Iterator[DrawSpan]
+    ) -> Iterator[tuple[int, int, DrawSpan | None]]:
         for span in stream:
-            yield span.first - origin, order, span
-            yield span.stop - origin, order, None
+            yield span.first_frame - origin, order, span
+            yield span.stop_frame - origin, order, None
 
     def clip_track(
         keys: RectangleKeyframes, start: float, edge: int | None = None
@@ -398,18 +398,18 @@ def _timeline(
 
     start, end = origin / fps, (origin + count) / fps
     streams = []
-    wipes: dict[int, SingingWipe] = {}
+    wipes: dict[int, Wipe] = {}
     i = 0
     while i < len(frames.leaves):
         leaf = frames.leaves[i]
         if leaf.end > start - 1e-9 and leaf.start < end + 1e-9:
             if i + 1 < len(frames.leaves):
-                wipe = singing_wipe(leaf, frames.leaves[i + 1])
+                wipe = match_wipe(leaf, frames.leaves[i + 1])
                 if wipe is not None:
                     i += 1
                     wipes[i] = wipe
                     leaf = frames.leaves[i]
-            streams.append(events(i, spans(frames, leaf, fps, origin, origin + count)))
+            streams.append(events(i, iter_draw_spans(frames, leaf, fps, origin, origin + count)))
         i += 1
     stream = merge(*streams, key=lambda event: event[:2])
     active_tiles: dict[int, dict[int, list[int]]] = {}
@@ -432,7 +432,7 @@ def _timeline(
             transforms = (
                 (draw.transform,)
                 if span.motion is None
-                else (draw.transform, span.motion.end.transform)
+                else (draw.transform, span.motion.end_state.transform)
             )
             wipe = wipes.get(order)
             node = frames.leaves[order].node
@@ -459,13 +459,13 @@ def _timeline(
                 inherited = inherited_records[node.id] = table.add(len(masks), *masks)
             batch: dict[int, list[int]] = defaultdict(list)
             clip = node.clip
-            edge = clip if isinstance(clip, _FeatheredSingingClip) else None
-            variants = [(draw.images, 0)]
+            edge = clip if isinstance(clip, _FeatheredWipeClip) else None
+            variants = [(draw.mask_planes, 0)]
             if span.alternate_masks is not None:
                 # Select the native border bitmap at playback opacity without
                 # sampling an entire fade or exporting a per-frame command list.
                 mode = 1 if round((1 - draw.opacity * draw.face_opacity) * 255) == 0 else -1
-                variants = [(draw.images, mode), (span.alternate_masks, -mode)]
+                variants = [(draw.mask_planes, mode), (span.alternate_masks, -mode)]
             for images, mode in variants:
                 motion = _motion_record(table, span, fps, origin, mode)
                 for image in images:
@@ -510,7 +510,7 @@ def _timeline(
 
 
 def export_hook(
-    frames: SceneFrames,
+    frames: HookDrawResolver,
     path: Path,
     fps: int,
     start: float,
@@ -529,7 +529,7 @@ def export_hook(
     if not isfinite(length) or not 0 < length * fps <= 250000:
         raise ValueError("hook interval must cover 1..250000 frames")
     count = ceil(length * fps)
-    atlas, table = _Atlas(), _Table()
+    atlas, table = _Atlas(), _HookRecordTable()
     w, h = frames.resolution
     cols, rows = ceil(w / _TILE), ceil(h / _TILE)
     # The header is uniform across fragments. Per-song constants in this

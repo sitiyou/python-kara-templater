@@ -7,11 +7,11 @@ from kara_templater import (
     CueMarker,
     Document,
     DocumentText,
-    SingingTag,
     TextAppearance,
     TextIssue,
     TextRun,
     TextToken,
+    TimingTag,
 )
 
 
@@ -20,7 +20,7 @@ def inspect_text(document: Document, record_index: int) -> None:
     assert_type(bound, DocumentText)
     assert_type(bound.tokens, tuple[TextToken, ...])
     assert_type(bound.runs, tuple[TextRun, ...])
-    assert_type(bound.timing, tuple[SingingTag, ...])
+    assert_type(bound.timing, tuple[TimingTag, ...])
     assert_type(bound.cues, tuple[CueMarker, ...])
     assert_type(bound.unsupported, tuple[TextIssue, ...])
     for run in bound.runs:

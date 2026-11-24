@@ -32,7 +32,7 @@ def test_palt_keeps_gpos_placement_separate_from_portable_glyph_advance(tmp_path
     ordinary = layout_document_lyrics(doc, index).body
     adjusted = layout_document_lyrics(doc, index, palt=True).body
     assert adjusted.bounds.width < ordinary.bounds.width
-    assert adjusted.singing == ordinary.singing
+    assert adjusted.timing == ordinary.timing
     for old, new in zip(ordinary.characters, adjusted.characters, strict=True):
         assert new.object.state.position.x < new.bounds.left
         assert new.ink_bounds and old.ink_bounds
@@ -42,10 +42,10 @@ def test_palt_keeps_gpos_placement_separate_from_portable_glyph_advance(tmp_path
     assert adjusted.characters[1].bounds.left == pytest.approx(adjusted.characters[0].bounds.right, abs=.25)
     assert layout_document_lyrics(doc, index).body.bounds == ordinary.bounds
 
-    from kara_templater import KaraokeEffects, Track, prepare_tracks
+    from kara_templater import KaraokeEffects, Track, build_lyric_scene
 
-    recipe = KaraokeEffects(entry="none", exit="none", singing="none")
-    scene = prepare_tracks(doc, tracks=(Track(id="main", palt=True, min_outline_gap=None, effects=(recipe,)),))
+    recipe = KaraokeEffects(entry="none", exit="none", highlight="none")
+    scene = build_lyric_scene(doc, tracks=(Track(id="main", palt=True, min_outline_gap=None, effects=(recipe,)),))
     assert scene.lines[0].layout.body.bounds.width == pytest.approx(adjusted.bounds.width)
     output = scene.ass.compile().document
     rows = [line.text for line in output.lines if not line.comment]

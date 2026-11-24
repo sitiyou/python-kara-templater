@@ -1,5 +1,6 @@
 """Typed karaoke authoring and animation for standard ASS and libplacebo."""
 
+from ._raster import DisplayWindow, OutputCapabilityError
 from .appearance import KaraokeTheme, PaintPair, paint_pair_from_style
 from .ass import Document, Line, Record, Style
 from .characters import (
@@ -55,16 +56,34 @@ from .document_lyrics import (
 from .document_text import (
     CueMarker,
     DocumentText,
-    SingingTag,
     TextAppearance,
     TextIssue,
     TextRun,
     TextToken,
+    TimedTextSpan,
+    TimingTag,
     read_document_text,
 )
-from .easing import BackRate, ease_in, ease_in_out, ease_out, there_and_back
+from .easing import (
+    BackRate,
+    ProgressCurve,
+    ease_in,
+    ease_in_out,
+    ease_out,
+    there_and_back,
+)
 from .fonts import LoadedFont, load_font
-from .geometry import Affine2D, Contour, CubicSegment, LineSegment, Vec2, VectorPath
+from .geometry import (
+    Affine2D,
+    Box,
+    Contour,
+    CubicSegment,
+    LineSegment,
+    Region,
+    Vec2,
+    VectorPath,
+    union_regions,
+)
 from .group_geometry import merge_geometry
 from .karaoke_cues import SignalCue, VolumeCue
 from .karaoke_effects import (
@@ -72,19 +91,9 @@ from .karaoke_effects import (
     KaraokeEffects,
     KaraokeEntry,
     KaraokeExit,
-    KaraokeSinging,
+    KaraokeHighlight,
 )
-from .layout import text_extents
 from .lyric_effects import LyricEcho, ScatterOut, lyric_effects
-from .lyric_highlights import (
-    Highlight,
-    HighlightArrival,
-    HighlightPass,
-    LyricGlow,
-    LyricGradient,
-    LyricHighlights,
-)
-from .lyric_layout import KaraokeRows, Layout, LayoutContext, LayoutLine, Placement
 from .lyric_line import (
     LyricAnchor,
     LyricAnimationContext,
@@ -94,20 +103,48 @@ from .lyric_line import (
     LyricTarget,
 )
 from .lyric_particles import LyricParticles, Petal, Ribbon, Sparkle
-from .model import Box
+from .lyrics.highlights import (
+    Highlight,
+    HighlightArrival,
+    HighlightPass,
+    LyricGlow,
+    LyricGradient,
+    LyricHighlights,
+)
+from .lyrics.layout import (
+    LyricLayout,
+    PositionedRuby,
+    StudioSpacing,
+    VectorGuide,
+    layout_document_lyrics,
+    layout_lyrics,
+)
+from .lyrics.placement import (
+    KaraokeRows,
+    Layout,
+    LayoutContext,
+    LineLayoutRequest,
+    Placement,
+)
+from .lyrics.tracks import (
+    LyricEffect,
+    LyricLinePlan,
+    LyricScene,
+    LyricSource,
+    Track,
+    build_lyric_scene,
+)
 from .object_references import (
     FollowObject,
     ReferenceFunction,
     StateLookup,
     StateReference,
 )
-from .orchestration import (
-    LinePlan,
-    LyricEffect,
-    LyricScene,
-    LyricSource,
-    Track,
-    prepare_tracks,
+from .output.ass_export import (
+    AssBudget,
+    AssEstimate,
+    AssObjectReport,
+    AssResult,
 )
 from .paint_fields import (
     ColorRamp,
@@ -146,10 +183,9 @@ from .path_geometry import (
 )
 from .path_layout import PathItem, layout_path
 from .path_motion import MoveAlong
-from .raster_settings import OutputCapabilityError
 from .scene import (
+    AssDialogue,
     Lifetime,
-    NativeEvent,
     ObjectGroup,
     PathObject,
     PreparedHook,
@@ -189,44 +225,24 @@ from .scene_animation import (
     smoother_rate,
 )
 from .scene_evaluation import SceneEvaluator, SceneReferenceError
-from .scene_lyrics import (
-    LyricLayout,
-    PositionedRuby,
-    StudioSpacing,
-    VectorGuide,
-    layout_document_lyrics,
-    layout_lyrics,
-)
-from .scene_output import (
-    ObjectReport,
-    SceneBudget,
-    SceneEstimate,
-    SceneResult,
-)
-from .scene_text import (
-    DocumentLayout,
+from .sources import EventOrigin, SourceRef
+from .text.layout import (
     PositionedText,
-    SingingSpan,
+    TextLayout,
     layout_document_text,
 )
-from .sources import EventOrigin, SourceRef
+from .text.measurement import text_extents
 from .text_geometry import TextOutline, outline_text, text_to_path
-from .timeline import (
-    DisplayWindow,
-    ProgressCurve,
-    Region,
-    union_regions,
-)
 
 __all__ = [
     "Animation", "Canvas", "Glyph", "LengthExpr", "Note", "TimeExpr",
-    "KaraokeTheme", "KaraokeEffects", "KaraokeEntry", "KaraokeExit", "KaraokeSinging", "KaraokeDecoration",
+    "KaraokeTheme", "KaraokeEffects", "KaraokeEntry", "KaraokeExit", "KaraokeHighlight", "KaraokeDecoration",
     "BackRate",
     "ease_in",
     "ease_out",
     "ease_in_out",
     "there_and_back",
-    "LinePlan",
+    "LyricLinePlan",
     "LyricScene",
     "LyricEffect",
     "LyricSource",
@@ -251,7 +267,7 @@ __all__ = [
     "LyricRule",
     "LyricLine",
     "Placement",
-    "LayoutLine",
+    "LineLayoutRequest",
     "KaraokeRows",
     "LayoutContext",
     "Affine2D",
@@ -281,7 +297,7 @@ __all__ = [
     "CuedLyrics",
     "DisplayWindow",
     "Document",
-    "DocumentLayout",
+    "TextLayout",
     "DocumentLyrics",
     "DocumentText",
     "DrawableCharacter",
@@ -315,10 +331,10 @@ __all__ = [
     "MAGENTA",
     "MorphPath",
     "MoveAlong",
-    "NativeEvent",
+    "AssDialogue",
     "ORANGE",
     "ObjectGroup",
-    "ObjectReport",
+    "AssObjectReport",
     "OutputCapabilityError",
     "PINK",
     "PURPLE",
@@ -346,16 +362,16 @@ __all__ = [
     "RubyText",
     "PreparedHook",
     "Scene",
-    "SceneBudget",
-    "SceneEstimate",
+    "AssBudget",
+    "AssEstimate",
     "SceneCompileError",
     "SceneEvaluator",
     "SceneObject",
     "SceneReferenceError",
-    "SceneResult",
+    "AssResult",
     "Timeline",
-    "SingingSpan",
-    "SingingTag",
+    "TimedTextSpan",
+    "TimingTag",
     "SourceRef",
     "Slide",
     "StateAnimation",
@@ -409,7 +425,7 @@ __all__ = [
     "parse_document_lyrics",
     "path_boolean",
     "path_bounds",
-    "prepare_tracks",
+    "build_lyric_scene",
     "read_document_text",
     "resample_path",
     "select_characters",

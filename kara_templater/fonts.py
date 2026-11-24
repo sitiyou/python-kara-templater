@@ -39,7 +39,7 @@ def load_font(path: str | Path) -> LoadedFont:
     if digest not in _loaded:
         family = _metrics.add_font(digest, data)
         _loaded[digest] = LoadedFont(family, digest)
-        from .scene_text import _measure_run
+        from .text.layout import _measure_run
 
         _measure_run.cache_clear()
     return _loaded[digest]

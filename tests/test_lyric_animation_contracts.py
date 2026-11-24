@@ -8,10 +8,10 @@ from test_lyric_line import subject
 from kara_templater import (
     BLUE,
     RED,
+    AssBudget,
     Color,
     LyricRule,
     Scene,
-    SceneBudget,
     SceneCompileError,
     SceneReferenceError,
     StateFunction,
@@ -24,8 +24,8 @@ from kara_templater import (
 
 def test_lyric_material_conflicts_are_explicit_in_both_declaration_orders():
     _, line = subject()
-    first = LyricRule("character", "singing", Tween(StatePatch(fill=RED)))
-    second = LyricRule("character", "singing", Tween(StatePatch(fill=BLUE)))
+    first = LyricRule("character", "timing", Tween(StatePatch(fill=RED)))
+    second = LyricRule("character", "timing", Tween(StatePatch(fill=BLUE)))
     for rules in ((first, second), (second, first)):
         with pytest.raises(ValueError, match="overlapping"):
             line.bind(*rules)
@@ -41,10 +41,10 @@ def test_material_sequence_returns_to_base_and_keeps_its_source_clock():
         .play(Tween(StatePatch(border=2)), duration=0.2)
         .animation
     )
-    animated = line.bind(LyricRule("character", "singing", sequence, hold=False))
+    animated = line.bind(LyricRule("character", "timing", sequence, hold=False))
     evaluator = Scene(document).add(animated).evaluator()
     target = line.query("character")[0]
-    # The sequence starts at source singing, independent of the display's birth.
+    # The sequence starts at source timing, independent of the display's birth.
     for time, border in ((1.6, 6), (1.05, 6), (1.3, 10), (1.8, 2)):
         assert evaluator.at(target.node_id, time).border == pytest.approx(border)
     assert sequence.duration == pytest.approx(0.7)
@@ -59,19 +59,19 @@ def test_material_callbacks_wait_for_budget_preflight():
         return replace(base, fill=RED)
 
     animated = line.bind(
-        LyricRule("character", "singing", StateFunction(color, frozenset(("fill",))))
+        LyricRule("character", "timing", StateFunction(color, frozenset(("fill",))))
     )
     scene = Scene(document).add(animated)
     assert not calls
     with pytest.raises(SceneCompileError, match="frame sampling"):
-        scene.ass.compile(budget=SceneBudget(max_events=1))
+        scene.ass.compile(budget=AssBudget(max_events=1))
     assert not calls
 
 
 def test_bad_material_callback_reports_its_contract_at_evaluation():
     document, line = subject()
     bad = StateFunction(lambda base, p: 3, frozenset(("fill",)))  # ty: ignore[invalid-argument-type]
-    animated = line.bind(LyricRule("character", "singing", bad))
+    animated = line.bind(LyricRule("character", "timing", bad))
     with pytest.raises(SceneReferenceError, match="return VisualState"):
         Scene(document).add(animated).evaluator().at(
             line.query("character")[0].node_id, 1.25
@@ -87,7 +87,7 @@ def test_bad_material_callback_reports_its_contract_at_evaluation():
 
 
 @pytest.mark.parametrize("preview", (0, 0.6))
-def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
+def test_material_keyframes_keep_timing_clock_when_exit_extends_display(
     preview: float,
 ):
     from kara_templater import (
@@ -99,7 +99,7 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
         Style,
         TimeSpan,
         Track,
-        prepare_tracks,
+        build_lyric_scene,
     )
 
     document = Document.create(styles=(Style(fontname="DejaVu Sans", fontsize=24),))
@@ -118,7 +118,7 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
         )
         .animation
     )
-    material = LyricRule("character", "singing", sequence)
+    material = LyricRule("character", "timing", sequence)
     config = Track(
         id="main",
         layout=Layout(rows=2),
@@ -126,8 +126,8 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
         tail=0,
         effects=(material,),
     )
-    plain = prepare_tracks(document, tracks=(config,))
-    extended = prepare_tracks(
+    plain = build_lyric_scene(document, tracks=(config,))
+    extended = build_lyric_scene(
         document,
         tracks=(
             replace(
@@ -141,11 +141,11 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
     )
     assert plain.plans[0].placement.display.end == 2
     assert extended.plans[0].placement.display.end == pytest.approx(2.2)
-    assert extended.plans[0].input.required.end == pytest.approx(2.2)
-    assert extended.plans[0].input.singing == TimeSpan(1, 2)
+    assert extended.plans[0].layout_request.required_display.end == pytest.approx(2.2)
+    assert extended.plans[0].layout_request.timing == TimeSpan(1, 2)
     assert [plan.placement.row for plan in extended.plans] == [0, 1]
     target = extended.lines[0].query("character")[0]
-    assert [(span.start, span.end) for span in target.singing] == [(1, 2)]
+    assert [(span.start, span.end) for span in target.timing] == [(1, 2)]
     evaluator = extended.evaluator()
     baseline = plain.evaluator()
     for time, color, border in ((2.1, BLUE, 6), (1.5, RED, 4), (2, BLUE, 6)):
@@ -157,9 +157,9 @@ def test_material_keyframes_keep_singing_clock_when_exit_extends_display(
             assert actual.border == baseline.at(target.node_id, time).border
     assert evaluator.at(target.node_id, 2.1).opacity == pytest.approx(0.5)
     # With no extra exit, one row can hand off at 2s. Required exit occupies it.
-    prepare_tracks(document, tracks=(replace(config, layout=Layout(rows=1)),))
+    build_lyric_scene(document, tracks=(replace(config, layout=Layout(rows=1)),))
     with pytest.raises(ValueError, match="occupied"):
-        prepare_tracks(
+        build_lyric_scene(
             document,
             tracks=(
                 replace(

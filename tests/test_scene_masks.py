@@ -4,6 +4,7 @@ import pytest
 
 from kara_templater import (
     AnimationClip,
+    AssBudget,
     Document,
     Lifetime,
     ObjectGroup,
@@ -11,7 +12,6 @@ from kara_templater import (
     PathObject,
     RectangleClip,
     Scene,
-    SceneBudget,
     SceneCompileError,
     StatePatch,
     Tween,
@@ -95,7 +95,7 @@ def test_mask_callback_clock_survives_copy_and_budgets_precede_execution():
     )
     with pytest.raises(SceneCompileError, match="clip point budget"):
         Scene(Document.create()).add(source).ass.compile(
-            budget=SceneBudget(max_path_points=4)
+            budget=AssBudget(max_path_points=4)
         )
     assert calls == []
 

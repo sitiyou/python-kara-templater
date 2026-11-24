@@ -6,6 +6,7 @@ import pytest
 
 from kara_templater import (
     PINK,
+    AssBudget,
     Document,
     FadeOut,
     Highlight,
@@ -16,17 +17,16 @@ from kara_templater import (
     LyricLine,
     LyricRule,
     Region,
-    SceneBudget,
     StatePatch,
     Style,
     TimeSpan,
     Track,
     Tween,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
-BUDGET = SceneBudget(max_events=100_000, max_active=10_000)
+BUDGET = AssBudget(max_events=100_000, max_active=10_000)
 
 
 def source():
@@ -47,7 +47,7 @@ def paint(line: LyricLine) -> LyricLine:
                 index,
                 tuple(
                     HighlightPass(
-                        TimeSpan(segment.singing.start, segment.singing.end),
+                        TimeSpan(segment.timing.start, segment.timing.end),
                         Region(box.left, box.right),
                         round=round_id,
                     )
@@ -80,7 +80,7 @@ def test_preparation_defers_animation_callbacks_and_preserves_source():
         effects=(*((
             LyricRule(
                 "syllable",
-                "singing",
+                "timing",
                 Tween(
                     StatePatch(scale=Vec2(1.2, 1.2)),
                     rate=lambda t: calls.append(t) or t,
@@ -90,7 +90,7 @@ def test_preparation_defers_animation_callbacks_and_preserves_source():
     )
     doc = source()
     before = doc.dumps()
-    scene = prepare_tracks(doc, tracks=(config,))
+    scene = build_lyric_scene(doc, tracks=(config,))
     assert not calls
     assert doc.dumps() == before
     assert scene.lines[0].query("character")[0].aliases
@@ -98,7 +98,7 @@ def test_preparation_defers_animation_callbacks_and_preserves_source():
 
 def test_unselected_sources_are_preserved():
     document = source()
-    unselected = prepare_tracks(
+    unselected = build_lyric_scene(
         document, tracks=(track(source=lambda source: False),)
     ).ass.compile(budget=BUDGET)
     assert unselected.event_count == 0
@@ -113,8 +113,8 @@ def test_sweep_hold_and_exit_extend_display_without_retiming_source():
     document.lines[0].start_time = 1000
     document.lines[0].end_time = 1200
     original = document.dumps()
-    plain = prepare_tracks(document, tracks=(track(),))
-    extended = prepare_tracks(
+    plain = build_lyric_scene(document, tracks=(track(),))
+    extended = build_lyric_scene(
         document,
         tracks=(
             track(
@@ -124,11 +124,11 @@ def test_sweep_hold_and_exit_extend_display_without_retiming_source():
         ),
     )
     assert (
-        extended.lines[0].query("character")[0].singing
-        == plain.lines[0].query("character")[0].singing
+        extended.lines[0].query("character")[0].timing
+        == plain.lines[0].query("character")[0].timing
     )
     assert extended.plans[0].placement.display.end == pytest.approx(1.4)
-    assert extended.plans[0].input.required.end == pytest.approx(1.4)
+    assert extended.plans[0].layout_request.required_display.end == pytest.approx(1.4)
     assert document.dumps() == original
 
 

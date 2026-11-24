@@ -68,7 +68,7 @@ class ZoomScale:
 
 
 def zoom_pulse(note: float, duration: float, level: int, pivot: Vec2) -> Transform:
-    """Grow during the sung step and release over 0.30 seconds if still visible."""
+    """Grow during the highlight step and release over 0.30 seconds if still visible."""
     return Transform(scale=ZoomScale(note, duration, max(1, level)), pivot=pivot)
 
 

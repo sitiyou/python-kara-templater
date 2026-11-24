@@ -7,14 +7,14 @@ an object or group. See the sakura example for a complete editable petal factory
 
 The built-in lyric particle factories use an explicit factory color first,
 then the emitter ink. `LyricParticles` takes that ink from its `color`, the
-catalog or track sung role, or the source run. A standalone emitter with
+catalog or track highlight role, or the source run. A standalone emitter with
 no lyric context uses the catalog accent. Custom factories can read
 `ParticleContext.color` at birth.
 
-## Singing-onset echoes
+## Timing-onset echoes
 
 `LyricEcho` is a built-in lyric factory. It emits full-glyph copies at each
-positive singing interval, including repeated intervals, and reserves their
+positive timing interval, including repeated intervals, and reserves their
 display time automatically. Combine built-in and custom factories in order:
 
 ```python
@@ -30,7 +30,7 @@ from kara_templater import (
 track = Track(
     id="main",
     effects=(
-        LyricHighlights.from_singing(StatePatch(fill=RED)),
+        LyricHighlights.from_timing(StatePatch(fill=RED)),
         LyricEcho(
             count=3,
             offset=Vec2(0, -8),
@@ -52,7 +52,7 @@ mask/material and existing animation, and shows the complete glyph. It does not
 sample the glyph's motion history; use `echoes` below for historical copies.
 Ordinary lyric rules still select the original glyph; `target="ruby"` selects
 readings instead. `max_copies` limits expansion before copying. Coverage-mode
-composition is not supported; source singing and decoded text remain unchanged.
+composition is not supported; source timing and decoded text remain unchanged.
 
 `lyric_effects` also accepts ordinary custom functions from LyricLine to LyricLine.
 They run once during preparation and must preserve the line identity. Generated
@@ -64,16 +64,16 @@ and held notes and can be compiled directly to ASS.
 
 ## Reproducible variation
 
-`LyricParticles()` provides a measured singing-front emitter with `Sparkle()` as
+`LyricParticles()` provides an emitter that follows the measured wipe edge with `Sparkle()` as
 its default particle factory. Put it beside the highlighter in `Track.effects`,
 just as with `LyricEcho`. Use `factory=Petal()` for curved,
 falling, fluttering petals, or pass your own `ParticleFactory` to control shape,
 animation and lifetime. The [runnable lyric particle example](../../examples/lyric_particles.py)
 shows both built-ins on the same short/held-note fixture.
 
-`rate` is particles per second per singing segment. Repeats restart the measured
+`rate` is particles per second per timing segment. Repeats restart the measured
 front; zero-length and whitespace units emit nothing. Births are rounded to the
-ASS 10 ms grid, without changing source singing clocks. Positions use undecorated
+ASS 10 ms grid, without changing source timing clocks. Positions use undecorated
 body layout, so glow does not slow down the front. Particles capture the layout
 position at birth and inherit line transforms; independent glyph animations do
 not retarget the emitted particles. `max_particles` is checked across the line
@@ -81,8 +81,8 @@ before invoking any factory. Factories can reserve longer tails through their
 returned lifetimes; the layout automatically includes those intervals.
 
 Use `LyricParticles(factory=Petal(), placement="line")` for petals around the
-whole lyric, including unsung text. One schedule runs from the line's original
-preview start through its last positive singing end, including pauses; `rate`
+whole lyric, including base text. One schedule runs from the line's original
+preview start through its last nonempty interval's end, including pauses; `rate`
 is per line. Positions are seeded uniformly inside measured body bounds. Copies
 shift the schedule, and other effects' reserved tails do not extend emission.
 A custom factory receives the same `ParticleContext`; `position_at` stays fixed
@@ -156,6 +156,6 @@ coverage maps remain keyed by ID and need explicit remapping.
 
 Particle count, lifetime overlap, geometry detail, color bands, and echoes all
 contribute to compilation and playback cost. Plan emission density with
-SceneBudget.max_active and event/byte limits; a visually small petal can still
+AssBudget.max_active and event/byte limits; a visually small petal can still
 have expensive geometry or glow. Read [compilation](compilation.md) before
 increasing a dense effect's limits.

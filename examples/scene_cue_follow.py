@@ -48,7 +48,7 @@ def build() -> Scene:
     )
     record = len(document.records) - 1
     layout = layout_document_text(document, record, id="lyric", display=Lifetime(0, 5))
-    second = layout.singing[1]
+    second = layout.timing[1]
     bound = bind_cues(
         layout,
         {

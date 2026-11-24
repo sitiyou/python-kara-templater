@@ -24,7 +24,7 @@ from kara_templater import (
     StatePatch,
     Style,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
@@ -43,7 +43,7 @@ def build(kind: Literal["sparkle", "petal"] = "sparkle") -> LyricScene:
         )
     )
     particle = Sparkle(size=4) if kind == "sparkle" else Petal(size=5)
-    return prepare_tracks(
+    return build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -57,14 +57,14 @@ def build(kind: Literal["sparkle", "petal"] = "sparkle") -> LyricScene:
                         else (
                             LyricRule(
                                 "character",
-                                "after_singing",
+                                "after_timing",
                                 DriftOut(),
                                 duration=0.5,
                                 offset=0.12,
                             ),
                         )
                     ),
-                    LyricHighlights.from_singing(
+                    LyricHighlights.from_timing(
                         StatePatch(fill=CYAN if kind == "sparkle" else PINK)
                     ),
                     LyricParticles(factory=particle, rate=16, seed=42),

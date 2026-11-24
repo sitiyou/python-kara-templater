@@ -7,18 +7,23 @@ from .appearance import paint_pair_from_style
 from .ass import Document, Line, Style
 from .composition import Color, Paint
 from .document_text import _packed_color
-from .geometry import Vec2
-from .lyric_highlights import (
+from .geometry import Region, Vec2
+from .lyric_line import LyricLine, LyricRule
+from .lyrics.highlights import (
     Highlight,
     HighlightArrival,
     HighlightPass,
     LyricHighlights,
 )
-from .lyric_layout import Layout, LayoutContext, LayoutLine, Placement
-from .lyric_line import LyricLine, LyricRule
-from .orchestration import LyricScene, LyricSource, Track, _prepare_tracks, _SourceById
+from .lyrics.placement import Layout, LayoutContext, LineLayoutRequest, Placement
+from .lyrics.tracks import (
+    LyricScene,
+    LyricSource,
+    Track,
+    _build_lyric_scene,
+    _SourceById,
+)
 from .scene_animation import FadeIn, FadeOut, ScalePulse, StatePatch, TimeSpan
-from .timeline import Region
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -29,7 +34,7 @@ class _SourcePlacement(Layout):
     vertical: int
 
     def allocate(
-        self, lines: tuple[LayoutLine, ...], context: LayoutContext
+        self, lines: tuple[LineLayoutRequest, ...], context: LayoutContext
     ) -> tuple[Placement, ...]:
         region = context.region
         column, row = (self.align - 1) % 3, (self.align - 1) // 3
@@ -54,7 +59,7 @@ class _SourcePlacement(Layout):
                 Placement(
                     line.id,
                     Vec2(region.left + x - box.left, region.top + y - box.top),
-                    line.display,
+                    line.requested_display,
                 )
             )
         return tuple(result)
@@ -67,7 +72,7 @@ def _passes(line: LyricLine) -> tuple[Highlight, ...]:
             index,
             tuple(
                 HighlightPass(
-                    TimeSpan(s.singing.start, s.singing.end),
+                    TimeSpan(s.timing.start, s.timing.end),
                     Region(box.left, box.right),
                     round=i,
                 )
@@ -88,7 +93,7 @@ class _Paint:
     after: Paint
 
     def __call__(self, line: LyricLine) -> LyricLine:
-        return LyricHighlights.from_singing(
+        return LyricHighlights.from_timing(
             StatePatch(fill=self.after.fill, face_opacity=self.after.opacity),
             edge_duration=0,
             base_paint=StatePatch(fill=self.before.fill, face_opacity=self.before.opacity),
@@ -132,9 +137,9 @@ def preset_scene(
             LyricRule("character", HighlightArrival(highlights=_passes), ScalePulse())
         )
     elif pulse == "chars":
-        rules.append(LyricRule("character", "singing", ScalePulse()))
+        rules.append(LyricRule("character", "timing", ScalePulse()))
     elif pulse == "syllable":
-        rules.append(LyricRule("syllable", "singing", ScalePulse()))
+        rules.append(LyricRule("syllable", "timing", ScalePulse()))
 
     def build_tracks(doc: Document, sources: tuple[LyricSource, ...]) -> tuple[Track, ...]:
         tracks = []
@@ -148,8 +153,8 @@ def preset_scene(
             assert isinstance(record, Line)
             style = source_styles[source.style]
             pair = paint_pair_from_style(style)
-            unsung = pair.before if before is None else replace(pair.before, fill=before)
-            sung = pair.after if after is None else replace(pair.after, fill=after)
+            base_paint = pair.before if before is None else replace(pair.before, fill=before)
+            highlight_paint = pair.after if after is None else replace(pair.after, fill=after)
             tracks.append(
                 Track(
                     id=source.id,
@@ -164,11 +169,11 @@ def preset_scene(
                     tail=tail,
                     effects=(
                         *(tuple(rules)),
-                        _Paint(unsung, sung),
+                        _Paint(base_paint, highlight_paint),
                     ),
                     styles=measurement_styles,
                 )
             )
         return tuple(tracks)
 
-    return _prepare_tracks(document, build_tracks=build_tracks, owner=owner)
+    return _build_lyric_scene(document, build_tracks=build_tracks, owner=owner)

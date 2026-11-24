@@ -19,7 +19,7 @@ from kara_templater import (
     smoother_rate,
 )
 from kara_templater._raster import rasterize
-from kara_templater.scene_output import _scale_polynomials
+from kara_templater.output.ass_export import _scale_polynomials
 
 
 def glyph(rate=smoother_rate, *, peak=1.06, duration=1, peak_at=0.42):

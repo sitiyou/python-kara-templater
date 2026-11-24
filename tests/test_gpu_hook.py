@@ -37,9 +37,9 @@ from kara_templater._raster import rasterize
 
 
 def test_large_hook_record_and_curve_addresses_survive_float32_storage():
-    from kara_templater._gpu_hook import _Table
+    from kara_templater.output.hook.export import _HookRecordTable
 
-    table = _Table()
+    table = _HookRecordTable()
     table.values = array("f", [0]) * (2**24 + 1)
     curve = table.add(0.0, 0.5, 1.0)
     references = table.add(curve, 4 + curve, -4 - curve)
@@ -253,7 +253,7 @@ def test_invalid_export_preserves_existing_file(tmp_path, options):
 def test_parametric_motion_matches_the_scene_evaluator(
     tmp_path, vulkan, rate, monkeypatch
 ):
-    from kara_templater._gpu_scene import SceneFrames
+    from kara_templater.output.hook.draws import HookDrawResolver
 
     def build(sampled):
         shape = PathObject(
@@ -321,24 +321,24 @@ def test_parametric_motion_matches_the_scene_evaluator(
             cwd=tmp_path,
         )
 
-    from kara_templater import _gpu_hook
-    from kara_templater._hook_motion import Span
+    from kara_templater.output.hook import export as hook
+    from kara_templater.output.hook.motion import DrawSpan
 
     def oracle(frames, leaf, fps, first, stop):
         for index in range(first, stop):
             if leaf.start <= index / fps < leaf.end:
                 draw = frames.draw_at(leaf, index / fps)
                 if draw is not None:
-                    yield Span(index, index + 1, draw)
+                    yield DrawSpan(index, index + 1, draw)
 
     with monkeypatch.context() as reference:
-        reference.setattr(_gpu_hook, "spans", oracle)
+        reference.setattr(hook, "iter_draw_spans", oracle)
         build(True).export(tmp_path / "sampled.hook", fps=20)
 
     def forbid_full_draw(*args):
         pytest.fail("ordinary motion unexpectedly sampled a full draw")
 
-    monkeypatch.setattr(SceneFrames, "draw_at", forbid_full_draw)
+    monkeypatch.setattr(HookDrawResolver, "draw_at", forbid_full_draw)
     build(False).export(tmp_path / "parametric.hook", fps=20)
     expected, actual = render("sampled"), render("parametric")
     assert max(actual) > 200
@@ -348,7 +348,7 @@ def test_parametric_motion_matches_the_scene_evaluator(
 @pytest.mark.parametrize(("core", "gradient", "reverse"), [(None, False, False), (Color(255, 255, 0), False, False), (None, True, False), (None, True, True)])
 def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core, gradient, reverse):
     from kara_templater import ColorRamp, ColorStop, LinearGradient
-    from kara_templater.lyric_highlights import _FeatheredSingingClip
+    from kara_templater.lyrics.highlights import _FeatheredWipeClip
 
     before = Color(20, 30, 210)
     after = Color(220, 40, 20)
@@ -364,20 +364,20 @@ def test_feather_mixes_ink_inside_glyph_coverage(tmp_path, vulkan, core, gradien
     )
     front = replace(
         shape,
-        id="sung",
+        id="highlight",
         material=None,
         state=replace(shape.state, fill=after),
         clip=(
-            _FeatheredSingingClip(
+            _FeatheredWipeClip(
                 8 if reverse else -100,
                 -100,
                 100 if reverse else 24,
                 100,
                 space="local",
                 width=16,
-                unsung_fill=before,
-                unsung_outline=before,
-                unsung_gradient=base,
+                before_fill=before,
+                before_outline=before,
+                before_gradient=base,
                 front_color=core,
             )
         ),
@@ -512,21 +512,21 @@ def test_binary_preview_resources_match_standalone_hook(tmp_path):
 def test_prepared_hook_reuses_masks_across_seeks_and_snapshots_scene(
     tmp_path, monkeypatch
 ):
-    from kara_templater import _gpu_scene
+    from kara_templater.output.hook import draws
 
     scene = Scene(Document.create(width=64, height=32))
     box = PathObject(id="a", path=VectorPath.rectangle(12, 12), lifetime=Lifetime(0, 2))
     scene.add(box)
     reference = tmp_path / "reference.hook"
     scene.export(reference, start=0, duration=0.5, fps=30)
-    original = _gpu_scene._coverage
+    original = draws._coverage
     calls = []
 
     def record(*args):
         calls.append(1)
         return original(*args)
 
-    monkeypatch.setattr(_gpu_scene, "_coverage", record)
+    monkeypatch.setattr(draws, "_coverage", record)
     prepared = scene.prepare_hook()
     scene.add(replace(box, id="b", state=VisualState(position=Vec2(32, 0))))
     prepared.export(tmp_path / "later.hook", start=1, duration=0.5, fps=60)
@@ -680,16 +680,16 @@ def test_shader_wipe_matches_split_draws_in_playback(
         SecondaryOutline,
         Style,
         Track,
-        prepare_tracks,
+        build_lyric_scene,
     )
-    from kara_templater import _gpu_hook as hook
+    from kara_templater.output.hook import export as hook
 
     doc = Document.create(width=160, height=96, styles=(Style(fontname="DejaVu Sans", fontsize=24, outline=2),))
     doc.records.append(Line(text=r"{\k80}Q", start_time=400, end_time=1200))
-    scene = prepare_tracks(doc, tracks=(Track(id="vocal", vertical=vertical, effects=(KaraokeEffects(
-        singing="none", entry="none", exit="none", reverse_wipe=reverse, hook_feather=feather,
-        base_material=LyricGradient((BLUE, RED)), sung_outline=RED,
-        secondary_outline=SecondaryOutline(RED, 3), sung_secondary_outline=SecondaryOutline(BLUE, outer_width),
+    scene = build_lyric_scene(doc, tracks=(Track(id="vocal", vertical=vertical, effects=(KaraokeEffects(
+        highlight="none", entry="none", exit="none", reverse_wipe=reverse, hook_feather=feather,
+        base_material=LyricGradient((BLUE, RED)), after_outline=RED,
+        secondary_outline=SecondaryOutline(RED, 3), after_secondary_outline=SecondaryOutline(BLUE, outer_width),
     ),)),))
     if inherited:
         scene = Scene(doc).add(ObjectGroup(
@@ -716,7 +716,7 @@ def test_shader_wipe_matches_split_draws_in_playback(
     fused = play("wipe.hook")
     fused_count = len(masks)
     masks.clear()
-    monkeypatch.setattr(hook, "singing_wipe", lambda *_: None)
+    monkeypatch.setattr(hook, "match_wipe", lambda *_: None)
     split = play("split.hook")
     if outer_width == 3:
         assert fused_count > 0 and len(masks) == 2 * fused_count

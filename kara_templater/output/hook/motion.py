@@ -6,20 +6,14 @@ from itertools import pairwise
 from math import ceil
 from typing import TypeGuard
 
-from ._contour_stroke import ContourStroke
-from ._gpu_scene import (
-    DrawCommand,
-    GpuClip,
-    SceneFrames,
-    _ExtrusionSide,
-)
-from ._karaoke_motion import RowSlide, ZoomScale
-from ._native_types import RasterImage
-from ._path_raster import cutout_border
-from ._scene_tree import SceneLeaf
-from .easing import ease_in, ease_in_out, ease_out
-from .scene import RectangleClip, RectangleKeyframes, SceneCompileError, VisualNode
-from .scene_animation import (
+from ..._contour_stroke import ContourStroke
+from ..._karaoke_motion import RowSlide, ZoomScale
+from ..._native_types import RasterImage
+from ..._path_raster import cutout_border
+from ..._scene_tree import SceneLeaf
+from ...easing import ProgressCurve, ease_in, ease_in_out, ease_out
+from ...scene import RectangleClip, RectangleKeyframes, SceneCompileError, VisualNode
+from ...scene_animation import (
     AnimationClip,
     DriftOut,
     FadeIn,
@@ -38,8 +32,13 @@ from .scene_animation import (
     smooth_rate,
     smoother_rate,
 )
-from .scene_evaluation import compose_states
-from .timeline import ProgressCurve
+from ...scene_evaluation import compose_states
+from .draws import (
+    DrawCommand,
+    GpuClip,
+    HookDrawResolver,
+    _ExtrusionSide,
+)
 
 _IDENTITY = VisualState()
 
@@ -48,9 +47,9 @@ _IDENTITY = VisualState()
 class Motion:
     start: float
     duration: float
-    peak: float
+    peak_progress: float
     curve: int | ProgressCurve | ZoomScale
-    end: VisualState
+    end_state: VisualState
     fast_reveal: bool
 
 
@@ -66,9 +65,9 @@ class ShaderInstance:
 
 
 @dataclass(frozen=True)
-class Span:
-    first: int
-    stop: int
+class DrawSpan:
+    first_frame: int
+    stop_frame: int
     draw: DrawCommand
     motion: Motion | None = None
     clip_keys: RectangleKeyframes | None = None
@@ -172,9 +171,9 @@ def _varies(clip: AnimationClip) -> bool:
     return True
 
 
-def spans(
-    frames: SceneFrames, leaf: SceneLeaf, fps: int, first: int, stop: int
-) -> Iterator[Span]:
+def iter_draw_spans(
+    frames: HookDrawResolver, leaf: SceneLeaf, fps: int, first: int, stop: int
+) -> Iterator[DrawSpan]:
     def grid(seconds: float) -> int:
         return ceil(round(seconds * fps, 9))
 
@@ -190,7 +189,7 @@ def spans(
     rect = leaf.node.clip
     assert rect is None or isinstance(rect, RectangleClip)
     keys = rect.deform if rect else None
-    opaque = leaf.evaluator.referenced(leaf.node.id) or (
+    unsupported_dependencies = leaf.evaluator.referenced(leaf.node.id) or (
         keys is not None and not isinstance(keys, RectangleKeyframes)
     )
     parent = None
@@ -254,10 +253,10 @@ def spans(
                     inner,
                     owner is leaf.node,
                 )
-        if opaque or (active and curve is None and shader is None):
+        if unsupported_dependencies or (active and curve is None and shader is None):
             if leaf.evaluator.referenced(leaf.node.id):
                 reason = "reference-dependent transform"
-            elif opaque:
+            elif unsupported_dependencies:
                 reason = f"clip deformation {type(keys).__name__}"
             elif len(active) > 1:
                 reason = "overlapping " + ", ".join(
@@ -305,7 +304,7 @@ def spans(
                 continue
         varying_basis = (
             motion is not None and replace(state.transform, tx=0, ty=0)
-            != replace(motion.end.transform, tx=0, ty=0)
+            != replace(motion.end_state.transform, tx=0, ty=0)
             or shader is not None and bool(shader.program.channels & {"scale", "skew", "rotation"})
         )
         draw = frames.draw_state(leaf, state, clip, varying_basis=varying_basis)
@@ -313,14 +312,14 @@ def spans(
         filled = leaf.node.filled
         cutout = cutout_border(state, filled)
         if (not isinstance(leaf, _ExtrusionSide) and motion
-                and cutout != cutout_border(motion.end, filled)):
-            other = replace(state, opacity=motion.end.opacity)
-            alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).images
+                and cutout != cutout_border(motion.end_state, filled)):
+            other = replace(state, opacity=motion.end_state.opacity)
+            alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).mask_planes
         if (not isinstance(leaf, _ExtrusionSide) and shader is not None and filled
                 and state.border > 0 and round((1 - state.face_opacity) * 255) == 0):
             other = replace(state, opacity=1 if cutout else 0.5)
-            alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).images
-        yield Span(
+            alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).mask_planes
+        yield DrawSpan(
             lo,
             hi,
             draw,

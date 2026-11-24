@@ -4,11 +4,11 @@ Text metrics and glyph geometry depend on the actual selected font, fallback,
 and shaping environment. Keep font selection consistent between compilation and
 playback when comparing layout or pixels.
 
-## Check the singing colours
+## Check the lyric colours
 
-Sample possible accents from the artwork. Compare the unsung fill and sung fill against the background directly behind the text, then compare those two fills with each other. When the backdrop already uses the dominant hue, try a smaller accent from the illustration or title. Inspect a half-sung line in colour and grayscale, including its ruby. On moving footage repeat this over bright and dark shots. Check harmony colours with both voices visible. [Text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) · [Use of colour](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html)
+Sample possible accents from the artwork. Compare the base fill and highlight fill against the background directly behind the text, then compare those two fills with each other. When the backdrop already uses the dominant hue, try a smaller accent from the illustration or title. Inspect a partially highlighted line in colour and grayscale, including its ruby. On moving footage repeat this over bright and dark shots. Check harmony colours with both voices visible. [Text contrast](https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html) · [Use of colour](https://www.w3.org/WAI/WCAG22/Understanding/use-of-color.html)
 
-## Choose a typeface for sung lyrics
+## Choose a typeface for lyrics
 
 Audition the face on the song itself. For Japanese lyrics, take one dense
 kanji, a run of kana, and the longest line. If the song mixes scripts, include
@@ -17,7 +17,7 @@ the intended playback size, with the actual outline and background.
 
 | Lyric role | A starting point | What to look for in playback |
 | --- | --- | --- |
-| Main vocal | Try a medium or bold Japanese Gothic face for even strokes, or a Mincho face for a more delicate, print-like voice. | Pause halfway through a long sung character. Both colors should remain legible; inspect the fine horizontal strokes and the gaps inside dense characters. |
+| Main vocal | Try a medium or bold Japanese Gothic face for even strokes, or a Mincho face for a more delicate, print-like voice. | Pause midway through the wipe on a held character. Both colors should remain legible; inspect the fine horizontal strokes and the gaps inside dense characters. |
 | Harmony | Start with a smaller size in the main family. For a different voice, try a contrasting face on the same phrase. | Play both voices together. Check lowercase letters at the smaller size and see whether the longest harmony line still fits its lane. |
 | Ruby | Start with a plain face with clear kana at the final reading size. | Check small kana and voicing marks on a busy frame with the outline enabled. |
 
@@ -145,6 +145,6 @@ directory. It checks a fixed example in the configured preview environment; it
 does not establish equivalent rendering in every player.
 
 For ordinary playback, load the saved ASS in your target player and inspect
-entrance, singing transitions, repeated highlights, and exit. For pixel-level
+entrance, timing transitions, repeated highlights, and exit. For pixel-level
 comparisons, keep resolution, fonts, timestamp, background, color matrix, and
 RGB/chroma composition settings fixed. See [ASS and playback](../ass-and-playback.md).

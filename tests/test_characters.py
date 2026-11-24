@@ -351,7 +351,7 @@ def arrival_times(text: str, style: Style):
     anchor = HighlightArrival(
         highlights=(
             Highlight(
-                "sung",
+                "highlight",
                 0,
                 (HighlightPass(TimeSpan(1, 2), Region(box.left, box.right)),),
                 StatePatch(fill=RED),

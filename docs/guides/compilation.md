@@ -3,7 +3,7 @@
 These reports describe standard ASS event generation. For standalone shaders
 and playback options, see [Choose an output](choosing-output.md).
 
-Scene.ass.compile returns a SceneResult containing the output Document, per-object
+Scene.ass.compile returns a AssResult containing the output Document, per-object
 reports, event_count, peak_active, byte_count, estimated_events,
 max_time_quantization, diagnostics, and generated event_origins. Preparation and
 compilation preserve caller-owned source objects.
@@ -29,7 +29,7 @@ serialization.
 | max_boolean_work | 1,000,000 |
 | clip_error_px | 0.75 pixels |
 
-Pass an explicit SceneBudget to compile when the intended effect requires more.
+Pass an explicit AssBudget to compile when the intended effect requires more.
 A budget failure does not silently reduce detail or sampling. Conservative
 preflight can reject a declaration before invoking its callbacks. Final checks
 also include retained subtitle content, serialized bytes, and active-event peaks.

@@ -12,7 +12,7 @@ from kara_templater import (
     LyricRule,
     Style,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
@@ -23,14 +23,14 @@ def prepare(text=r"{\k40}A{\kt60\k80}B", *, end=2400):
         id="lyrics",
         preview=0.2,
         tail=0,
-        effects=(LyricRule("syllable", "singing", SyllablePulse(peak=1.2)),),
+        effects=(LyricRule("syllable", "timing", SyllablePulse(peak=1.2)),),
     )
     return doc, track
 
 
-def test_next_syllable_supplies_clock_without_changing_target_or_singing():
+def test_next_syllable_supplies_clock_without_changing_target_or_timing():
     doc, track = prepare()
-    scene = prepare_tracks(doc, tracks=(track,))
+    scene = build_lyric_scene(doc, tracks=(track,))
     first, second = scene.lines[0].children
     assert scene.plans[0].placement.display.end == pytest.approx(2.6)
     expected = {1: 1, 1.2: 1.1, 1.4: 1.2, 1.5: 1.2, 1.6: 1.2, 2: 1.1, 2.4: 1, 3: 1}
@@ -39,15 +39,15 @@ def test_next_syllable_supplies_clock_without_changing_target_or_singing():
     assert second.at(2.5).scale.x == pytest.approx(1.1)
     source = scene.plans[0].source.lyrics.units
     for unit, expected_span in zip(source, ((1, 1.4), (1.6, 2.4)), strict=True):
-        span = unit.segments[0].singing
+        span = unit.segments[0].timing
         assert (span.start, span.end) == pytest.approx(expected_span)
 
 
 def test_untimed_next_unit_uses_release_instead_of_skipping_ahead():
     doc, track = prepare(r"{\k40}A{\kt80} {\k40}B")
-    scene = prepare_tracks(doc, tracks=(track,))
+    scene = build_lyric_scene(doc, tracks=(track,))
     targets = scene.lines[0].query("syllable")
-    assert not targets[1].singing
+    assert not targets[1].timing
     clip = scene.lines[0].children[0].animations[0]
     assert clip.duration == pytest.approx(0.6)
 
@@ -61,8 +61,8 @@ def test_zero_duration_uses_authored_release_and_factory_runs_once_per_target():
         calls.append(timing.target.id)
         return pulse(timing)
 
-    track = replace(track, effects=(LyricRule("syllable", "singing", factory),))
-    scene = prepare_tracks(doc, tracks=(track,))
+    track = replace(track, effects=(LyricRule("syllable", "timing", factory),))
+    scene = build_lyric_scene(doc, tracks=(track,))
     assert scene.plans[0].placement.display.end == pytest.approx(1.2)
     assert len(calls) == 1
     node = scene.lines[0].children[0]

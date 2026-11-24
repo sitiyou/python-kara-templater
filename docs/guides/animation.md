@@ -32,14 +32,14 @@ uses the same rules for 250 ms and 2 s notes:
 from kara_templater import DriftOut, LyricRule, ScalePulse
 
 animations = (
-    LyricRule("character", "singing", ScalePulse(peak=1.06, peak_at=0.42)),
-    LyricRule("character", "after_singing", DriftOut(), offset=0.14, duration=0.56),
+    LyricRule("character", "timing", ScalePulse(peak=1.06, peak_at=0.42)),
+    LyricRule("character", "after_timing", DriftOut(), offset=0.14, duration=0.56),
 )
 ```
 
-Pass these rules to `Track.effects`. The pulse occupies each original singing
+Pass these rules to `Track.effects`. The pulse occupies each original timing
 interval; its peak is 42% through that interval. Each character then waits 140 ms
-after its final singing interval and departs over 560 ms. The engine supplies the
+after its final timing interval and departs over 560 ms. The engine supplies the
 measured pivot, applies the same transform to highlight aliases, and reserves the
 exit interval during layout. The pulse's default easing slows at the start, peak
 and end. The fixed peak factor in this example is an artistic choice, not a claim
@@ -65,7 +65,7 @@ Call `build(custom=True)` to evaluate this exit with duration-aware emphasis. Th
 This example also attaches a vertical fill gradient through `LyricGradient`.
 The default example exports the gradient and built-in motion together as a hook.
 
-## Change parameters for each singing interval
+## Change parameters for each timing interval
 
 A fixed animation works without a factory. When parameters depend on note length,
 use one context argument:
@@ -79,12 +79,12 @@ def pulse(timing: LyricAnimationContext) -> ScalePulse:
         peak_at=0.42,
     )
 
-rule = LyricRule("character", "singing", pulse)
+rule = LyricRule("character", "timing", pulse)
 ```
 
-The factory runs once for each resolved interval. A glyph sung for 250 ms and
+The factory runs once for each resolved interval. A glyph timed for 250 ms and
 then again for 1 s gets two independently chosen peaks; pauses are not included
-in either duration. `timing.target` retains the full original singing history,
+in either duration. `timing.target` retains the full original timing history,
 and `timing.line` provides measured geometry when needed. The returned animation
 still uses the common normalized-progress interface and automatic lyric pivot.
 
@@ -174,20 +174,20 @@ drift = Transform(
     opacity=lambda p: 1 - smooth_rate(p),
 )
 departure = LyricRule(
-    "character", "after_singing", drift, offset=0.16, duration=0.56,
+    "character", "after_timing", drift, offset=0.16, duration=0.56,
 )
 ```
 
 For the built-in version, use
-`LyricRule("character", "after_singing", DriftOut(), offset=0.16, duration=0.56)`
+`LyricRule("character", "after_timing", DriftOut(), offset=0.16, duration=0.56)`
 (import `DriftOut` from `kara_templater`). Its default smooth easing also applies
 to travel; use `rate=linear_rate` for constant-speed travel/shrink/fade.
 
-Add `departure` to `Track.effects`. `after_singing` starts at the selected
-target's last singing end; `offset` adds the pause in seconds. Selecting `segment`
+Add `departure` to `Track.effects`. `after_timing` starts at the selected
+target's final interval end; `offset` adds the pause in seconds. Selecting `segment`
 instead triggers after each repeated segment. The anchor requires an explicit
-duration or a sequence's authored length; a zero-length singing span still has an
-end, while a target without singing produces no animation.
+duration or a sequence's authored length; a zero-length timing span still has an
+end, while a target without timing produces no animation.
 
 `Transform` values can be constants or functions of normalized progress. Offset
 adds parent-space pixels, rotation adds degrees, scale multiplies by a scalar or
@@ -212,23 +212,23 @@ them between arbitrary frame centers.
 
 Track.effects accepts LyricRule values alongside callable visual effects. Each rule selects line, syllable,
 segment, character, ruby or cue targets and binds a common StateAnimation.
-Enter/exit anchors refer to display boundaries; singing anchors retain original
+Enter/exit anchors refer to display boundaries; timing anchors retain original
 source times. A callable anchor returns absolute TimeSpan values. Duration may
-come from the singing interval, an authored AnimationSequence, or an explicit
+come from the timing interval, an authored AnimationSequence, or an explicit
 positive duration on the rule.
 
 `stagger` spaces selected targets in selection order. With `exit`, the last
 target ends at the display end plus `offset`, and earlier targets finish earlier;
 the allocator reserves the entire staggered interval. Other anchors add the
-stagger to each target's own anchor. Thus `singing` with a nonzero stagger
-deliberately delays later targets; omit it to follow source singing exactly.
+stagger to each target's own anchor. Thus `timing` with a nonzero stagger
+deliberately delays later targets; omit it to follow source timing exactly.
 `ScatterOut` supplies deterministic per-target drift/rotation using the common
 relative transform. `CurveIn` supplies a quadratic entrance to the base pose.
 See the [eight motion studies](../tutorials/lyric-studies.md) for composition with
 copies, ruby, particles and custom trajectories.
 
 Extending a line's display for an exit animation does not stretch keyframes
-bound to singing. Their authored offsets stay anchored to the source, and held
+bound to timing. Their authored offsets stay anchored to the source, and held
 values remain available during the tail. Required exit time occupies the layout
 row; optional preview can shrink, but the allocator cannot silently cut the exit.
 
@@ -301,7 +301,7 @@ transforms. Arbitrary travel callbacks require hook export.
 ## Size and time relative to the lyric
 
 A glyph has its own authored font size after reading style selection. A note
-has a duration for each singing interval, including separate repeats of a
+has a duration for each timing interval, including separate repeats of a
 single character. Expressions use script pixels or seconds according to
 their field. Reuse an expression as a Python value across tracks.
 
@@ -309,8 +309,8 @@ their field. Reuse an expression as a Python value across tracks.
 from kara_templater import FadeOut, Glyph, KaraokeEffects, LyricRule, Note, ScalePulse
 
 ink = KaraokeEffects.duotone(feather=Glyph.font_size / 8)
-attack = LyricRule("character", "singing", ScalePulse(), duration=Note.duration / 2)
-release = LyricRule("character", "after_singing", FadeOut(),
+attack = LyricRule("character", "timing", ScalePulse(), duration=Note.duration / 2)
+release = LyricRule("character", "after_timing", FadeOut(),
                     offset=(Note.duration / 4).clamp(0.06, 0.20), duration=0.18)
 ```
 

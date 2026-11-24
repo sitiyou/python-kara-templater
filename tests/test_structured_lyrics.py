@@ -24,7 +24,7 @@ from kara_templater import (
     TextAppearance,
     TextRun,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 from kara_templater.document_lyrics import (
     DocumentLyrics,
@@ -33,8 +33,8 @@ from kara_templater.document_lyrics import (
     LyricUnit,
     RubyText,
 )
-from kara_templater.document_text import DocumentText, SingingSpan
-from kara_templater.scene_lyrics import layout_lyrics
+from kara_templater.document_text import DocumentText, TimedTextSpan
+from kara_templater.lyrics.layout import layout_lyrics
 
 
 def structured():
@@ -45,7 +45,7 @@ def structured():
     reading = replace(body, runs=(TextRun("ei", 0, 2, appearance),))
     ruby = RubyText(reading, (LyricMapping(0, 2, 0, 2),))
     segments = tuple(
-        LyricSegment(SingingSpan(0, 3, start, end, "k"), 0, 3, ruby)
+        LyricSegment(TimedTextSpan(0, 3, start, end, "k"), 0, 3, ruby)
         for start, end in ((1.0003, 1.4456), (2.0007, 2.2234))
     )
     lyrics = DocumentLyrics(
@@ -60,10 +60,10 @@ def structured():
 def test_one_reading_holds_body_progress_across_a_rest(gap):
     (unit,) = structured().lyrics.units
     first, second = unit.segments
-    second = replace(second, singing=replace(second.singing, start=first.singing.end + gap))
+    second = replace(second, timing=replace(second.timing, start=first.timing.end + gap))
     unit = replace(unit, segments=(first, second))
-    assert unit._body_parts() == ((first.singing, 0, 0.5), (second.singing, 0.5, 1))
-    assert replace(unit, repeat=True)._body_parts() == ((first.singing, 0, 1), (second.singing, 0, 1))
+    assert unit._body_parts() == ((first.timing, 0, 0.5), (second.timing, 0.5, 1))
+    assert replace(unit, repeat=True)._body_parts() == ((first.timing, 0, 1), (second.timing, 0, 1))
 
 
 def document():
@@ -82,10 +82,10 @@ def test_chapter_restarts_rotation_without_a_cue(layout):
     inputs = tuple(
         LyricSource.from_lyrics(str(i), plan.source.lyrics, display=plan.source.display,
                                 chapter="verse" if i < 3 else "chorus")
-        for i, plan in enumerate(prepare_tracks(doc, tracks=(Track(id="base"),)).plans)
+        for i, plan in enumerate(build_lyric_scene(doc, tracks=(Track(id="base"),)).plans)
     )
     def rows(allocator):
-        scene = prepare_tracks(document(), inputs=inputs, tracks=(Track(id="main", layout=allocator),))
+        scene = build_lyric_scene(document(), inputs=inputs, tracks=(Track(id="main", layout=allocator),))
         return [plan.placement.row for plan in scene.plans]
     assert rows(layout) == [0, 1, 0, 0, 1]
     assert rows(replace(layout or KaraokeRows(), reset_on_lead=False)) == [0, 1, 0, 1, 0]
@@ -95,7 +95,7 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
     source = structured()
     doc = document()
     original = doc.dumps()
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc,
         inputs=(source,),
         tracks=(
@@ -109,8 +109,8 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
     assert line.layout.body.record_index is None
     assert line.layout.body.source.text == "A|#"
     assert len(line.query("segment")) == 2
-    assert line.query("segment")[0].singing[0].start == 1.0003
-    assert line.query("segment")[1].singing[0].end == 2.2234
+    assert line.query("segment")[0].timing[0].start == 1.0003
+    assert line.query("segment")[1].timing[0].end == 2.2234
     assert len(line.layout.ruby) == 2
     assert all(
         character.object.state.fill == RED for character in line.layout.body.characters
@@ -123,8 +123,8 @@ def test_structured_literal_text_repeats_ruby_and_precision_survive_without_reco
     )
     for report in result.objects:
         assert report.origin is not None
-        assert all(ref.item_id == source.id for ref in report.origin.sources)
-    regenerated = prepare_tracks(
+        assert all(ref.source_id == source.id for ref in report.origin.sources)
+    regenerated = build_lyric_scene(
         result.document,
         inputs=(source,),
         tracks=(
@@ -144,7 +144,7 @@ def test_same_structured_source_has_independent_views_and_only_ass_sources_are_r
         Line(start_time=3000, end_time=4000, text=r"{\k100}ASS", actor="parsed")
     )
     index = len(doc.records) - 1
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         doc,
         inputs=(source,),
         tracks=(
@@ -158,9 +158,9 @@ def test_same_structured_source_has_independent_views_and_only_ass_sources_are_r
     assert scene.plans[-1].source.record_index is None
     assert scene.ass.compile().event_count > 0
     with pytest.raises(ValueError, match="duplicate lyric source"):
-        prepare_tracks(doc, inputs=(source, source), tracks=(Track(id="main"),))
+        build_lyric_scene(doc, inputs=(source, source), tracks=(Track(id="main"),))
     with pytest.raises(ValueError, match="without ASS record ownership"):
-        prepare_tracks(doc, inputs=(replace(source, record_index=index),), tracks=())
+        build_lyric_scene(doc, inputs=(replace(source, record_index=index),), tracks=())
 
 
 def test_structured_cue_uses_same_measurement_and_occupancy():
@@ -169,7 +169,7 @@ def test_structured_cue_uses_same_measurement_and_occupancy():
     body = replace(projection.body, cues=(CueMarker("lead", "bars"),))
     projection = replace(projection, body=body)
     source = LyricSource.from_lyrics(source.id, projection, display=source.display)
-    scene = prepare_tracks(
+    scene = build_lyric_scene(
         document(),
         inputs=(source,),
         tracks=(
@@ -180,7 +180,7 @@ def test_structured_cue_uses_same_measurement_and_occupancy():
             ),
         ),
     )
-    assert scene.plans[0].input.lead
+    assert scene.plans[0].layout_request.lead
     assert len(scene.lines[0].query("cue")) == 1
     assert scene.plans[0].placement.display.start <= scene.lines[0].lifetime.start
 
@@ -216,11 +216,11 @@ def test_feathered_wipe_requires_hook(tmp_path) -> None:
     unit = replace(source.lyrics.units[0], segments=(first,))
     projection = replace(source.lyrics, units=(unit,))
     source = LyricSource.from_lyrics("ink", projection, display=source.display)
-    recipe = LyricHighlights.from_singing(
+    recipe = LyricHighlights.from_timing(
         StatePatch(fill=RED), base_paint=StatePatch(fill=BLUE),
         hook_feather=12, edge_duration=0,
     )
-    scene = prepare_tracks(document(), inputs=(source,), tracks=(Track(id="ink", effects=(recipe,)),))
+    scene = build_lyric_scene(document(), inputs=(source,), tracks=(Track(id="ink", effects=(recipe,)),))
     original = scene.objects.copy()
     with pytest.raises(SceneCompileError, match="feathered wipes"):
         scene.ass.compile()
@@ -228,12 +228,12 @@ def test_feathered_wipe_requires_hook(tmp_path) -> None:
     assert all(a is b for a, b in zip(scene.objects, original, strict=True))
 
 
-@pytest.mark.parametrize(("singing", "exit_effect", "exit_duration"), (
+@pytest.mark.parametrize(("timing", "exit_effect", "exit_duration"), (
     ("zoom_pulse", "fade", 0.3),
     ("utopia", "utopia", 0.45),
 ))
 def test_strict_preview_keeps_absolute_indices_and_neighbor_placement(
-    singing, exit_effect, exit_duration,
+    timing, exit_effect, exit_duration,
 ):
     doc = document()
     for i in range(32):
@@ -241,13 +241,13 @@ def test_strict_preview_keeps_absolute_indices_and_neighbor_placement(
         doc.records.append(Line(start_time=start, end_time=start + 700, text=r"{\k70}A|a" if i % 3 else r"{\k70}W"))
     inputs = tuple(
         LyricSource.from_lyrics(str(i), plan.source.lyrics, display=plan.source.display, chapter=str(i // 7))
-        for i, plan in enumerate(prepare_tracks(doc, tracks=(Track(id="base"),)).plans)
+        for i, plan in enumerate(build_lyric_scene(doc, tracks=(Track(id="base"),)).plans)
     )
     track = Track(id="indexed", layout=Layout(rows=3), effects=(
-        KaraokeEffects(singing=singing, exit=exit_effect, exit_duration=exit_duration),
+        KaraokeEffects(highlight=timing, exit=exit_effect, exit_duration=exit_duration),
     ))
     def build(window):
-        return prepare_tracks(document(), inputs=inputs, tracks=(track,), preview_interval=window)
+        return build_lyric_scene(document(), inputs=inputs, tracks=(track,), preview_interval=window)
     whole = build(None)
     for start in (40.5, 9.5, 22.0, 60.0):
         subset = build((start, start + 2))

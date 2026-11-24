@@ -19,7 +19,7 @@ from kara_templater import (
     Style,
     Track,
     Vec2,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
@@ -37,7 +37,7 @@ def build() -> LyricScene:
             text=r"{\k25}We {\k25}can {\k50}make {\k100}each {\k200}note shine",
         )
     )
-    return prepare_tracks(
+    return build_lyric_scene(
         document,
         tracks=(
             Track(
@@ -45,7 +45,7 @@ def build() -> LyricScene:
                 region=Box(80, 480, 1120, 180),
                 layout=Layout(alignment="center"),
                 effects=(
-                    LyricHighlights.from_singing(StatePatch(fill=CYAN)),
+                    LyricHighlights.from_timing(StatePatch(fill=CYAN)),
                     LyricEcho(
                         count=3,
                         offset=Vec2(0, -10),

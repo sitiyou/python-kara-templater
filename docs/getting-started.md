@@ -50,8 +50,8 @@ white across four syllables. The fourth syllable finishes at three seconds.
 ## Export your own lyrics
 
 Replace `examples/karaoke.ass` with a timed ASS file. The preset uses the file's
-secondary color for waiting text and its primary color for sung text. To choose
-a different sung color, pass `--after` with a hex color. Use `--ass` to produce
+secondary color before the wipe reaches each point and its primary color
+afterward. Set `--after` with a hex color to choose the color left by the wipe. Use `--ass` to produce
 a standard subtitle file for an ASS player.
 
 ```sh
@@ -70,7 +70,7 @@ a ruby reading to a syllable.
 
 ```python
 from kara_templater import (
-    Color, Document, KaraokeEffects, Layout, Line, Style, Track, Vec2, prepare_tracks,
+    Color, Document, KaraokeEffects, Layout, Line, Style, Track, Vec2, build_lyric_scene,
 )
 
 song = Document.create(
@@ -81,9 +81,9 @@ song = Document.create(
 song.records.append(
     Line(start_time=0, end_time=3000, text=r"{\k90}星|ほし{\k45}に{\k165}届け|とどけ")
 )
-gold = KaraokeEffects.duotone(unsung=Color.hex("#281C26"), sung=Color.hex("#FFE09A"))
+gold = KaraokeEffects.duotone(before_fill=Color.hex("#281C26"), after_fill=Color.hex("#FFE09A"))
 vocal = Track(id="vocal", layout=Layout(position=Vec2(80, 180)), effects=(gold,))
-scene = prepare_tracks(song, tracks=(vocal,))
+scene = build_lyric_scene(song, tracks=(vocal,))
 scene.export("chorus.hook", fps=30)
 ```
 

@@ -4,6 +4,7 @@ import pytest
 
 from kara_templater import (
     PINK,
+    AssBudget,
     Document,
     EventOrigin,
     Lifetime,
@@ -12,7 +13,6 @@ from kara_templater import (
     PathObject,
     RectangleClip,
     Scene,
-    SceneBudget,
     SceneCompileError,
     SourceRef,
     Vec2,
@@ -208,7 +208,7 @@ def test_group_mask_preflight_and_callback_errors_keep_group_origin():
     )
     scene = Scene(Document.create()).add(group)
     with pytest.raises(SceneCompileError, match="declared clip point budget") as caught:
-        scene.ass.compile(budget=SceneBudget(max_path_points=4))
+        scene.ass.compile(budget=AssBudget(max_path_points=4))
     assert caught.value.object_id == "group"
     assert caught.value.origin == origin
     assert calls == []
@@ -309,7 +309,7 @@ def test_boolean_work_budget_reports_the_mask_owner():
     )
     with pytest.raises(SceneCompileError, match="boolean work budget") as caught:
         Scene(Document.create()).add(group).ass.compile(
-            budget=SceneBudget(max_boolean_work=1)
+            budget=AssBudget(max_boolean_work=1)
         )
     assert caught.value.object_id == leaf.id
     assert caught.value.origin == origin

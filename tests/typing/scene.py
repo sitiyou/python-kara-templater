@@ -5,13 +5,13 @@ from typing import assert_type
 
 from kara_templater import (
     Affine2D,
+    AssEstimate,
+    AssObjectReport,
+    AssResult,
     Document,
     Lifetime,
-    ObjectReport,
     ScalePulse,
     Scene,
-    SceneEstimate,
-    SceneResult,
     StateFunction,
     StateKeyframe,
     StatePatch,
@@ -27,7 +27,7 @@ def wave(state: VisualState, progress: float) -> VisualState:
     return replace(state, position=state.position + Vec2(progress, 0))
 
 
-def author(document: Document) -> SceneResult:
+def author(document: Document) -> AssResult:
     timeline = Timeline().play(Tween(StatePatch(opacity=0.5)), duration=1)
     assert_type(
         timeline.play(
@@ -48,7 +48,7 @@ def author(document: Document) -> SceneResult:
     )
     result = Scene(document).add(node).ass.compile()
     assert_type(result.document, Document)
-    assert_type(result.objects, tuple[ObjectReport, ...])
+    assert_type(result.objects, tuple[AssObjectReport, ...])
     return result
 
 
@@ -61,14 +61,14 @@ def affine_contract(state: VisualState) -> Vec2:
     return matrix.apply(Vec2(10, 20))
 
 
-assert_type(Scene(Document.create()).ass.compile(native_tweens=True), SceneResult)
+assert_type(Scene(Document.create()).ass.compile(native_tweens=True), AssResult)
 
 
-def inspect_cost(estimate: SceneEstimate) -> None:
+def inspect_cost(estimate: AssEstimate) -> None:
     assert_type(estimate.estimated_events, int)
 
 
-assert_type(Scene(Document.create()).ass.compile(on_estimate=inspect_cost), SceneResult)
+assert_type(Scene(Document.create()).ass.compile(on_estimate=inspect_cost), AssResult)
 
 
 def explicit_clock(node: TextObject) -> float:

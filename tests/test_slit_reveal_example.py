@@ -2,11 +2,11 @@
 
 import pytest
 
-from examples.slit_reveal import FPS, UNSUNG, build
+from examples.slit_reveal import BEFORE_FILL, FPS, build
 from kara_templater import LyricLine, PathObject, RectangleClip, TextObject
 
 
-def test_default_reveal_has_invisible_clips_and_hands_off_to_the_singing_line():
+def test_default_reveal_has_invisible_clips_and_hands_off_to_the_timing_line():
     scene = build()
     assert not any(isinstance(node, PathObject) for node in scene.objects)
     line = next(node for node in scene.objects if isinstance(node, LyricLine))
@@ -21,7 +21,7 @@ def test_default_reveal_has_invisible_clips_and_hands_off_to_the_singing_line():
         assert isinstance(node.clip, RectangleClip) and node.clip.space == "screen"
         assert node.lifetime.start == pytest.approx((10 + index) / FPS)
         assert node.lifetime.end == line.lifetime.start
-        assert node.state.fill == UNSUNG
+        assert node.state.fill == BEFORE_FILL
         resting = poses.at(node.id, line.lifetime.start - 1 / FPS)
         assert (
             resting.position == poses.at(cells[node.id], line.lifetime.start).position

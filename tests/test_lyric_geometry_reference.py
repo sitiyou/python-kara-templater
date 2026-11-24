@@ -4,17 +4,17 @@
 import pytest
 
 from kara_templater import (
+    AssBudget,
     Document,
     LayoutCapabilityError,
     Line,
     LyricLine,
-    SceneBudget,
     Track,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 SIZE = (160, 100)
-BUDGET = SceneBudget(max_events=100_000, max_active=20_000)
+BUDGET = AssBudget(max_events=100_000, max_active=20_000)
 
 
 @pytest.mark.parametrize("field,value", (("Angle", "10"), ("BorderStyle", "3")))
@@ -32,6 +32,6 @@ def test_unsupported_source_geometry_fails_before_visual_factory(field, value):
     with pytest.raises(
         LayoutCapabilityError, match="border style 1 and zero style angle"
     ):
-        prepare_tracks(source, tracks=(Track(id="invalid", effects=(factory,)),))
+        build_lyric_scene(source, tracks=(Track(id="invalid", effects=(factory,)),))
     assert not calls
     assert source.dumps() == original

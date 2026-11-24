@@ -29,13 +29,13 @@ from kara_templater import (
     Vec2,
     VectorPath,
     VisualState,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
 def row_end(line: LyricLine, target: LyricTarget) -> tuple[TimeSpan, ...]:
-    """A reusable custom anchor: all characters share this row's singing end."""
-    end = max(span.end for span in line.query("line")[0].singing) + target.delay
+    """A reusable custom anchor: all characters share this row's timing end."""
+    end = max(span.end for span in line.query("line")[0].timing) + target.delay
     return (TimeSpan(end, end),)
 
 
@@ -69,10 +69,10 @@ def build() -> LyricScene:
     ))
     document.records.append(Line(start_time=1000, end_time=3000,
                                  text=r"{\k25}A{\k25}B{\k50}C{\k100}D"))
-    return prepare_tracks(document, tracks=(Track(
+    return build_lyric_scene(document, tracks=(Track(
         id="main", region=Box(80, 190, 480, 120), layout=Layout(alignment="center"),
         effects=(
-            LyricHighlights.from_singing(StatePatch(fill=CYAN)), arch,
+            LyricHighlights.from_timing(StatePatch(fill=CYAN)), arch,
             LyricRule("line", "enter", FadeIn(), duration=0.2),
         ),
     ),))

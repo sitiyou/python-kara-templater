@@ -65,7 +65,7 @@ def test_ruby_opacity_selection_keeps_whole_line_transform(body_only: bool):
 @pytest.mark.parametrize(
     "radius,border", ((0.1, 2), (1, 2), (10, 2), (50, 2), (30, 60))
 )
-def test_glow_preserves_lyric_layout_and_singing(
+def test_glow_preserves_lyric_layout_and_timing(
     radius: float, border: float
 ):
     from kara_templater import (
@@ -86,7 +86,7 @@ def test_glow_preserves_lyric_layout_and_singing(
     painted = LyricHighlights(
         highlights=(
             Highlight(
-                "singing",
+                "timing",
                 0,
                 (
                     HighlightPass(
@@ -103,7 +103,7 @@ def test_glow_preserves_lyric_layout_and_singing(
         glow=Glow(RED, border=border, blur=radius),
     )(line)
     assert painted.layout.lyrics == line.layout.lyrics
-    assert painted.query("character")[0].singing == line.query("character")[0].singing
+    assert painted.query("character")[0].timing == line.query("character")[0].timing
 
 
 def test_range_opacity_within_one_syllable_preserves_glyph_coverage():

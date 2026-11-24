@@ -2,26 +2,26 @@
 
 from dataclasses import dataclass, replace
 
-from ._hook_motion import _curve
-from ._scene_tree import SceneLeaf
-from .lyric_highlights import _FeatheredSingingClip
-from .paint_fields import LinearGradient
-from .scene import RectangleKeyframes, _LyricPaintClip
-from .scene_animation import VisualState
+from ..._scene_tree import SceneLeaf
+from ...lyrics.highlights import _FeatheredWipeClip
+from ...paint_fields import LinearGradient
+from ...scene import RectangleKeyframes, _LyricPaintClip
+from ...scene_animation import VisualState
+from .motion import _curve
 
 
 @dataclass(frozen=True)
-class SingingWipe:
+class Wipe:
     before: VisualState
     gradient: LinearGradient | None
     # Index of the moving side in (left, top, right, bottom) of the after clip.
     edge: int
 
 
-def singing_wipe(before: SceneLeaf, after: SceneLeaf) -> SingingWipe | None:
+def match_wipe(before: SceneLeaf, after: SceneLeaf) -> Wipe | None:
     first, second = before.node, after.node
     a, b = first.clip, second.clip
-    if not isinstance(a, _LyricPaintClip) or not isinstance(b, (_LyricPaintClip, _FeatheredSingingClip)):
+    if not isinstance(a, _LyricPaintClip) or not isinstance(b, (_LyricPaintClip, _FeatheredWipeClip)):
         return None
     if (a.space != "local" or b.space != "local"
             or not isinstance(a.deform, RectangleKeyframes) or not isinstance(b.deform, RectangleKeyframes)
@@ -36,9 +36,9 @@ def singing_wipe(before: SceneLeaf, after: SceneLeaf) -> SingingWipe | None:
     state = replace(first.state, fill=second.state.fill, outline=second.state.outline)
     if replace(first, id=second.id, state=state, material=second.material, clip=b) != second:
         return None
-    if isinstance(b, _FeatheredSingingClip) and (
-        b.unsung_fill != first.state.fill or b.unsung_outline != first.state.outline
-        or b.unsung_gradient != first.material
+    if isinstance(b, _FeatheredWipeClip) and (
+        b.before_fill != first.state.fill or b.before_outline != first.state.outline
+        or b.before_gradient != first.material
     ):
         return None
     assert first.material is None or isinstance(first.material, LinearGradient)
@@ -51,5 +51,5 @@ def singing_wipe(before: SceneLeaf, after: SceneLeaf) -> SingingWipe | None:
                and all(left[i] == full[i] for i in range(4) if i != opposite)
                and all(right[i] == full[i] for i in range(4) if i != edge)
                for (t, left), (u, right) in zip(a.deform.keyframes, b.deform.keyframes, strict=True)):
-            return SingingWipe(first.state, first.material, edge)
+            return Wipe(first.state, first.material, edge)
     return None

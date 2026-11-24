@@ -89,7 +89,7 @@ Factory input containing a stable cue ID, absolute seconds lifetime, absolute st
 
 Factories create local objects for that interval. host is the measured text
 cluster at the marker (the final cluster for an end marker), when available. colors supplies the before/after paint for the first nonblank role.
-role_font_size is its authored size for decoration scaling; role_em is its measured em in script pixels. base_gradient and gradient supply its unsung and sung fill ramps.
+role_font_size is its authored size for decoration scaling; role_em is its measured em in script pixels. base_gradient and gradient supply its base and highlight fill ramps.
 zoom_pulse_curve_level selects the lyric zoom curve for cue steps, or None for steady size.
 
 [Source](../../kara_templater/cues.py#L34)
@@ -105,8 +105,8 @@ CueContext(
     colors: PaintPair = PaintPair(before=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None), after=Paint(fill=Color(red=255, green=90, blue=111), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None)),
     zoom_pulse_curve_level: int | None = None,
     role_em: float | None = None,
-    gradient: LyricGradient | None = None,
-    base_gradient: LyricGradient | None = None,
+    gradient: highlights.LyricGradient | None = None,
+    base_gradient: highlights.LyricGradient | None = None,
     host_height: float | None = None,
     role_font_size: float | None = None,
 )
@@ -125,8 +125,8 @@ CueContext(
 | `colors` | `PaintPair` | `PaintPair(before=Paint(fill=Color(red=255, green=255, blue=255), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None), after=Paint(fill=Color(red=255, green=90, blue=111), outline=Color(red=34, green=34, blue=34), border=0, opacity=1, glow=None, secondary_outline=None))` |
 | `zoom_pulse_curve_level` | `int \| None` | `None` |
 | `role_em` | `float \| None` | `None` |
-| `gradient` | `LyricGradient \| None` | `None` |
-| `base_gradient` | `LyricGradient \| None` | `None` |
+| `gradient` | `highlights.LyricGradient \| None` | `None` |
+| `base_gradient` | `highlights.LyricGradient \| None` | `None` |
 | `host_height` | `float \| None` | `None` |
 | `role_font_size` | `float \| None` | `None` |
 
@@ -196,7 +196,7 @@ On a Track, line_edge places an independent cue above or below the measured
 lyric row (including ruby), reserves its dimensions and applies gap in pixels.
 Automatic gap is one eighth of the authored host font size (12 script pixels without a host).
 With no line_edge, independent cues use absolute position.
-An explicit trigger overrides the relevant singing interval default. colors fixes
+An explicit trigger overrides the relevant timing interval default. colors fixes
 the cue fill and outline pair across hosts. Omit it to follow the lyric palette.
 
 [Source](../../kara_templater/cues.py#L93)
@@ -259,7 +259,7 @@ Its group combines the adjusted text and reserved-space behavior.
 
 ```python
 CuedLayout(
-    text: DocumentLayout,
+    text: layout.TextLayout,
     cues: tuple[CuePlacement, ...],
     inline: tuple[ObjectGroup, ...],
     independent: tuple[ObjectGroup, ...],
@@ -270,7 +270,7 @@ CuedLayout(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `text` | `DocumentLayout` | `required` |
+| `text` | `layout.TextLayout` | `required` |
 | `cues` | `tuple[CuePlacement, ...]` | `required` |
 | `inline` | `tuple[ObjectGroup, ...]` | `required` |
 | `independent` | `tuple[ObjectGroup, ...]` | `required` |
@@ -294,7 +294,7 @@ Body/ruby with shared cue reservations; independent cues remain separate.
 
 ```python
 CuedLyrics(
-    lyrics: LyricLayout,
+    lyrics: layout.LyricLayout,
     cues: tuple[CuePlacement, ...],
     inline: tuple[ObjectGroup, ...],
     independent: tuple[ObjectGroup, ...],
@@ -305,7 +305,7 @@ CuedLyrics(
 
 | Name | Type | Default |
 | --- | --- | --- |
-| `lyrics` | `LyricLayout` | `required` |
+| `lyrics` | `layout.LyricLayout` | `required` |
 | `cues` | `tuple[CuePlacement, ...]` | `required` |
 | `inline` | `tuple[ObjectGroup, ...]` | `required` |
 | `independent` | `tuple[ObjectGroup, ...]` | `required` |
@@ -445,8 +445,8 @@ VolumeCue(
     ratio: float = 3,
     spacing: float = 0,
     countdown: float | None = None,
-    sung: Color | None = None,
-    unsung: Color | None = None,
+    after: Color | None = None,
+    before: Color | None = None,
     outline: Color | None = None,
 )
 ```
@@ -467,8 +467,8 @@ VolumeCue(
 | `ratio` | `float` | `3` |
 | `spacing` | `float` | `0` |
 | `countdown` | `float \| None` | `None` |
-| `sung` | `Color \| None` | `None` |
-| `unsung` | `Color \| None` | `None` |
+| `after` | `Color \| None` | `None` |
+| `before` | `Color \| None` | `None` |
 | `outline` | `Color \| None` | `None` |
 
 ### VolumeCue.__call__
@@ -485,7 +485,7 @@ VolumeCue.__call__(
 
 Bind input markers or equivalent Python values to the same object model.
 
-Defaults trigger at the first singing interval. Optional BPM sets automatic cue timing.
+Defaults trigger at the first timing interval. Optional BPM sets automatic cue timing.
 A preset can supply an absolute trigger. Inline reservations are included in
 range/background measurements and optionally released after the cue ends.
 
@@ -493,7 +493,7 @@ range/background measurements and optionally released after the cue ends.
 
 ```python
 bind_cues(
-    layout: DocumentLayout,
+    layout: layout.TextLayout,
     presets: Mapping[str, CuePreset],
     *,
     markers: tuple[CueMarker, ...] | None = None,
@@ -513,7 +513,7 @@ the expanded body box; before a unit it moves ruby by the full width.
 
 ```python
 bind_lyric_cues(
-    layout: LyricLayout,
+    layout: layout.LyricLayout,
     presets: Mapping[str, CuePreset],
     *,
     markers: tuple[CueMarker, ...] | None = None,

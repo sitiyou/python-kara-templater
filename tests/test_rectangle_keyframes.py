@@ -5,6 +5,7 @@ from dataclasses import replace
 import pytest
 
 from kara_templater import (
+    AssBudget,
     Document,
     Lifetime,
     ObjectGroup,
@@ -12,7 +13,6 @@ from kara_templater import (
     RectangleClip,
     RectangleKeyframes,
     Scene,
-    SceneBudget,
     SceneCompileError,
     VectorPath,
 )
@@ -59,7 +59,7 @@ def test_known_curve_uses_common_sampling_and_keeps_clock_after_crop(inverse):
         lifetime=leaf.lifetime,
         children=(leaf,),
     )
-    budget = SceneBudget()
+    budget = AssBudget()
     result = Scene(doc).add(group).ass.compile(budget=budget)
     for time, front in ((1100, 4), (1200, 8), (1300, 8), (1400, 2), (1600, 12)):
         reference = (
@@ -102,7 +102,7 @@ def test_native_curve_preserves_cropped_clock_pauses_resets_and_event_cost(inver
         clip=RectangleClip(0, 0, 16, 12, inverse=inverse, deform=curve()),
     )
     scene = Scene(doc).add(leaf)
-    result = scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=4))
+    result = scene.ass.compile(native_tweens=True, budget=AssBudget(max_events=4))
     assert result.event_count == 4
     assert result.objects[0].strategy == "native-clip"
     events = result.document.lines
@@ -110,7 +110,7 @@ def test_native_curve_preserves_cropped_clock_pauses_resets_and_event_cost(inver
     assert r"\t(" not in events[1].text  # plateau
     assert r"\t(" not in events[-1].text  # held tail
     with pytest.raises(SceneCompileError, match="event budget"):
-        scene.ass.compile(native_tweens=True, budget=SceneBudget(max_events=3))
+        scene.ass.compile(native_tweens=True, budget=AssBudget(max_events=3))
     for time, front in (
         (1100, 4),
         (1150, 6),

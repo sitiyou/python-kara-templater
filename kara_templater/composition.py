@@ -5,7 +5,7 @@ from math import log, sqrt
 from string import hexdigits
 from typing import Self
 
-from .timeline import _finite
+from .geometry import _finite
 
 _ASS_BLUR_TO_SIGMA = 2 / sqrt(log(256))
 

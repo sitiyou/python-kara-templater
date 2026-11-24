@@ -15,8 +15,8 @@ readme = "README.md"
 [project.scripts]
 kara-templater = "kara_templater.__main__:main"
 
-[tool.setuptools]
-packages = ["kara_templater"]
+[tool.setuptools.packages.find]
+include = ["kara_templater", "kara_templater.*"]
 
 [tool.setuptools.package-data]
 kara_templater = ["py.typed", "*.pyi"]
@@ -26,9 +26,9 @@ kara_templater = ["py.typed", "*.pyi"]
 testpaths = [
     "tests/test_ass.py",
     "tests/test_fonts.py",
-    "tests/test_import_ass.py",
+    "tests/test_ass_lyric_sources.py",
     "tests/test_structured_lyrics.py",
-    "tests/test_timeline.py",
+    "tests/test_progress_curves.py",
     "tests/test_lyric_layout.py",
     "tests/test_orchestration.py",
     "tests/test_cli_preset.py",

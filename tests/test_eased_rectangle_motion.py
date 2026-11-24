@@ -22,7 +22,7 @@ from kara_templater import (
 )
 from kara_templater._raster import rasterize
 from kara_templater._scene_tree import scene_leaves
-from kara_templater.scene_output import _eased_rectangle_leaf, _Leaf
+from kara_templater.output.ass_export import _eased_rectangle_leaf, _Leaf
 
 
 def subject(duration=2, rate=smooth_rate):

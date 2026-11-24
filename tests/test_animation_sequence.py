@@ -51,7 +51,7 @@ def test_context_factory_returns_the_same_composable_animation_protocol():
         calls.append((timing.line.id, timing.target.id))
         return animation()
 
-    bound = line.bind(LyricRule("syllable", "singing", factory, duration=0.5))
+    bound = line.bind(LyricRule("syllable", "timing", factory, duration=0.5))
     assert len(calls) == 2
     assert len(bound.children[0].animations) == 1
     assert bound.children[0].at(1.25).scale == Vec2(1.2, 1.2)
@@ -113,7 +113,7 @@ def test_lyric_factory_combines_material_and_geometry_on_common_timeline():
             .animation
         )
 
-    animated = line.bind(LyricRule("character", "singing", factory))
+    animated = line.bind(LyricRule("character", "timing", factory))
     assert calls == [target.id for target in line.query("character")]
     evaluator = Scene(document).add(animated).evaluator()
     target = animated.query("character")[0]

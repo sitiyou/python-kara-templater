@@ -9,6 +9,7 @@ from dataclasses import dataclass, replace
 from kara_templater import (
     CYAN,
     PINK,
+    AssBudget,
     BarsCue,
     CueMarker,
     CuePreset,
@@ -18,15 +19,14 @@ from kara_templater import (
     Jump,
     Layout,
     LayoutContext,
-    LayoutLine,
     Lifetime,
     Line,
+    LineLayoutRequest,
     LyricHighlights,
     LyricRule,
     LyricScene,
     PathObject,
     Placement,
-    SceneBudget,
     StatePatch,
     Style,
     TextCue,
@@ -34,10 +34,10 @@ from kara_templater import (
     Vec2,
     VectorPath,
     VisualState,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
-BUDGET = SceneBudget(max_events=250_000, max_bytes=30 * 1024 * 1024)
+BUDGET = AssBudget(max_events=250_000, max_bytes=30 * 1024 * 1024)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -48,7 +48,7 @@ class SongLayout(Layout):
     advance_solo: bool = False
 
     def allocate(
-        self, lines: tuple[LayoutLine, ...], context: LayoutContext
+        self, lines: tuple[LineLayoutRequest, ...], context: LayoutContext
     ) -> tuple[Placement, ...]:
         placements: list[Placement] = []
         occupied: dict[int, int] = {}
@@ -57,7 +57,7 @@ class SongLayout(Layout):
             if line.lead and self.reset_on_lead:
                 cursor = 0
             if "solo" in line.tags:
-                placements.append(Placement(line.id, Vec2(300, 260), line.display))
+                placements.append(Placement(line.id, Vec2(300, 260), line.requested_display))
                 cursor += int(self.advance_solo)
                 continue
             row = cursor % self.rows
@@ -69,11 +69,11 @@ class SongLayout(Layout):
             if row in occupied:
                 previous = occupied[row]
                 before = placements[previous]
-                if lines[previous].required.end > line.required.start:
+                if lines[previous].required_display.end > line.required_display.start:
                     raise ValueError(f"{line.id}: reset would overlap {before.id}")
                 if before.display.end > placement.display.start:
                     boundary = max(
-                        lines[previous].required.end, placement.display.start
+                        lines[previous].required_display.end, placement.display.start
                     )
                     placements[previous] = replace(
                         before,
@@ -96,7 +96,7 @@ class SongLayout(Layout):
 
 
 def song(*, dense: bool = False) -> Document:
-    """One song for every layout; optionally include overlapping singing."""
+    """One song for every layout; optionally include overlapping timing."""
     document = Document.create(
         width=960,
         height=540,
@@ -158,8 +158,8 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
         effects=(
             LyricRule("line", "enter", fade, duration=0.15),
             LyricRule("line", "exit", FadeOut(), duration=0.15),
-            LyricRule("segment", "singing", Jump(height=8)),
-            LyricHighlights.from_singing(StatePatch(fill=PINK), hook_feather=16),
+            LyricRule("segment", "timing", Jump(height=8)),
+            LyricHighlights.from_timing(StatePatch(fill=PINK), hook_feather=16),
         ),
         cues={
             "bars": CuePreset(
@@ -175,10 +175,10 @@ def build(*, layout: Layout | None = None, dense: bool = False) -> LyricScene:
         layout=Layout(position=Vec2(100, 50)),
         effects=(
             LyricRule("line", "enter", fade, duration=0.15),
-            LyricHighlights.from_singing(StatePatch(fill=CYAN), hook_feather=12),
+            LyricHighlights.from_timing(StatePatch(fill=CYAN), hook_feather=12),
         ),
     )
-    scene = prepare_tracks(song(dense=dense), tracks=(main, harmony))
+    scene = build_lyric_scene(song(dense=dense), tracks=(main, harmony))
     accent = PathObject(
         id="accent",
         lifetime=Lifetime(0, 12),

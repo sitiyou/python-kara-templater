@@ -1,4 +1,4 @@
-"""Inline volume bars and a separate row of lamps on the same singing clock."""
+"""Inline volume bars and a separate row of lamps on the same timing clock."""
 
 
 from kara_templater import (
@@ -16,7 +16,7 @@ from kara_templater import (
     Track,
     Vec2,
     VolumeCue,
-    prepare_tracks,
+    build_lyric_scene,
 )
 
 
@@ -47,7 +47,7 @@ def build() -> LyricScene:
             )
         )
     # Both types fill the same three-second window in this side-by-side demo.
-    return prepare_tracks(
+    return build_lyric_scene(
         doc,
         tracks=(
             Track(
@@ -63,10 +63,10 @@ def build() -> LyricScene:
                     )
                 },
                 effects=(KaraokeEffects(
-                    singing="none",
+                    highlight="none",
                     entry_duration=0.1,  # Finish the line fade before the first bar flash.
                     secondary_outline=SecondaryOutline(Color.hex("#9675BD"), width=3),
-                    sung_secondary_outline=SecondaryOutline(Color.hex("#FFCB86"), width=3),
+                    after_secondary_outline=SecondaryOutline(Color.hex("#FFCB86"), width=3),
                 ),),
             ),
             Track(
@@ -84,8 +84,8 @@ def build() -> LyricScene:
                     )
                 },
                 effects=(KaraokeEffects(
-                    singing="none", sung=Color.hex("#23CEAE"),
-                    sung_secondary_outline=SecondaryOutline(Color.hex("#436C9C"), width=3),
+                    highlight="none", after_fill=Color.hex("#23CEAE"),
+                    after_secondary_outline=SecondaryOutline(Color.hex("#436C9C"), width=3),
                 ),),
             ),
         ),
