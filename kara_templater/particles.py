@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
 from hashlib import sha256
 from typing import Protocol
@@ -15,7 +15,7 @@ from .object_references import (
     StateLookup,
     StateReference,
 )
-from .path_geometry import intersect_convex, path_bounds
+from .path_geometry import GeometryError, intersect_convex, path_bounds
 from .scene import ObjectGroup, PathObject, SceneObject
 from .scene_animation import (
     CHANNELS,
@@ -293,23 +293,38 @@ def echoes[T: SceneObject](
 def split_path(
     source: PathObject,
     *,
-    columns: int,
-    rows: int,
+    columns: int | None = None,
+    rows: int | None = None,
+    cells: Sequence[Sequence[Vec2]] | None = None,
     tolerance: float = 0.25,
     max_fragments: int = 256,
     max_points: int = 4096,
 ) -> tuple[PathObject, ...]:
-    """Cut static filled geometry into local grid cells, retaining object origin.
+    """Cut static filled geometry into local cells, retaining object origin.
+
+    Give both grid dimensions or supply convex polygons in source-local
+    coordinates. Custom cells may overlap or leave gaps. Empty intersections
+    are skipped and custom piece IDs retain the original cell index.
 
     Pieces move with their own geometry, not fixed screen-space clips. Appearance
     is preserved, so borders will also outline newly cut edges. Separate raster
     edges can show seams; use the uncut object for the final assembled hold.
     """
-    if any(
-        type(value) is not int or value < 1 for value in (columns, rows, max_fragments)
-    ):
-        raise ValueError("fragment dimensions and budget must be positive integers")
-    if columns * rows > max_fragments:
+    if type(max_fragments) is not int or max_fragments < 1:
+        raise ValueError("fragment budget must be a positive integer")
+    if cells is None:
+        if columns is None or rows is None:
+            raise ValueError("split_path requires both columns and rows or custom cells")
+        if type(columns) is not int or type(rows) is not int or min(columns, rows) < 1:
+            raise ValueError("fragment dimensions must be positive integers")
+        count = columns * rows
+        boundaries = _grid_cells(source, columns, rows)
+    else:
+        if columns is not None or rows is not None:
+            raise ValueError("custom cells cannot be combined with grid dimensions")
+        count = len(cells)
+        boundaries = ((str(index), polygon) for index, polygon in enumerate(cells))
+    if count > max_fragments:
         raise ValueError("fragment generation budget exceeded before subdivision")
     if source.deform is not None:
         raise ValueError("split_path requires static source geometry")
@@ -319,29 +334,36 @@ def split_path(
         or source.path.point_count > max_points
     ):
         raise ValueError("fragment source point budget exceeded")
+    result: list[PathObject] = []
+    for suffix, polygon in boundaries:
+        if not 3 <= len(polygon) <= max_points:
+            raise GeometryError("clip polygon needs 3..max_points vertices")
+        cut = intersect_convex(
+            source.path, tuple(polygon), tolerance=tolerance, max_points=max_points
+        )
+        if cut is not None:
+            result.append(replace(source, id=f"{source.id}/cell:{suffix}", path=cut))
+    return tuple(result)
+
+
+def _grid_cells(
+    source: PathObject, columns: int, rows: int
+) -> Iterable[tuple[str, Sequence[Vec2]]]:
     box = path_bounds(source.path)
     if box.width <= 0 or box.height <= 0:
         raise ValueError("cannot fragment a path with empty area bounds")
-    result: list[PathObject] = []
     for row in range(rows):
         for column in range(columns):
             left = box.left + box.width * column / columns
             right = box.left + box.width * (column + 1) / columns
             top = box.top + box.height * row / rows
             bottom = box.top + box.height * (row + 1) / rows
-            cut = intersect_convex(
-                source.path,
+            yield (
+                f"{row}:{column}",
                 (
                     Vec2(left, top),
                     Vec2(right, top),
                     Vec2(right, bottom),
                     Vec2(left, bottom),
                 ),
-                tolerance=tolerance,
-                max_points=max_points,
             )
-            if cut is not None:
-                result.append(
-                    replace(source, id=f"{source.id}/cell:{row}:{column}", path=cut)
-                )
-    return tuple(result)

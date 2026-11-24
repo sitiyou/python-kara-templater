@@ -585,7 +585,11 @@ emit_particles(
 
 ## split_path
 
-Cut static filled geometry into local grid cells, retaining object origin.
+Cut static filled geometry into local cells, retaining object origin.
+
+Give both grid dimensions or supply convex polygons in source-local
+coordinates. Custom cells may overlap or leave gaps. Empty intersections
+are skipped and custom piece IDs retain the original cell index.
 
 Pieces move with their own geometry, not fixed screen-space clips. Appearance
 is preserved, so borders will also outline newly cut edges. Separate raster
@@ -597,8 +601,9 @@ edges can show seams; use the uncut object for the final assembled hold.
 split_path(
     source: PathObject,
     *,
-    columns: int,
-    rows: int,
+    columns: int | None = None,
+    rows: int | None = None,
+    cells: Sequence[Sequence[Vec2]] | None = None,
     tolerance: float = 0.25,
     max_fragments: int = 256,
     max_points: int = 4096,

@@ -9,6 +9,8 @@ from itertools import pairwise
 from math import isfinite
 from typing import Self
 
+from .geometry import Vec2
+
 
 def _finite(value, name):
     if (
@@ -103,6 +105,40 @@ class ProgressCurve:
         if not 0 < time_fraction < 1 or not 0 < progress_fraction < 1:
             raise ValueError("stage fractions must be strictly within 0..1")
         return cls(((0, 0), (time_fraction, progress_fraction), (1, 1)))
+
+    @classmethod
+    def cubic_bezier(cls, x1: float, y1: float, x2: float, y2: float) -> Self:
+        """Approximate a normalized cubic Bézier with shared CPU and hook knots.
+
+        The endpoints are (0, 0) and (1, 1). The x controls specify normalized
+        time, and the y controls specify normalized progress. All controls
+        must be finite and within 0..1. The piecewise-linear result differs from
+        the Bézier by at most 0.0001 in progress at the same normalized time.
+        """
+        for value in (x1, y1, x2, y2):
+            _finite(value, "Bézier control")
+            if not 0 <= value <= 1:
+                raise ValueError("Bézier controls must be within 0..1")
+
+        tolerance = 0.0001
+        knots = [(0.0, 0.0)]
+
+        def subdivide(a: Vec2, b: Vec2, c: Vec2, d: Vec2) -> None:
+            dx = d.x - a.x
+            dy = d.y - a.y
+            # The control polygon bounds the vertical error from the chord.
+            error = max(abs((p.y - a.y) * dx - (p.x - a.x) * dy) for p in (b, c))
+            if dy <= tolerance or error <= tolerance * dx:
+                knots.append((d.x, d.y))
+                return
+            ab, bc, cd = a.lerp(b, 0.5), b.lerp(c, 0.5), c.lerp(d, 0.5)
+            left, right = ab.lerp(bc, 0.5), bc.lerp(cd, 0.5)
+            middle = left.lerp(right, 0.5)
+            subdivide(a, ab, left, middle)
+            subdivide(middle, right, cd, d)
+
+        subdivide(Vec2(), Vec2(x1, y1), Vec2(x2, y2), Vec2(1, 1))
+        return cls(tuple(knots))
 
     def at(self, time_fraction: float) -> float:
         """Evaluate normalized sweep progress from this piecewise-linear curve."""

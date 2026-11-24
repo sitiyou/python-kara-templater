@@ -20,6 +20,7 @@ from ._native_types import RasterImage
 from .geometry import Affine2D, Vec2
 from .lyric_highlights import _FeatheredSingingClip
 from .paint_fields import LinearGradient
+from .scene import RectangleKeyframes
 from .timeline import ProgressCurve
 
 _WIDTH = 2048
@@ -126,6 +127,7 @@ def _draw_record(
     clip_motion: int,
     edge: _FeatheredSingingClip | None,
     wipe: SingingWipe | None,
+    inherited: int,
 ) -> int:
     x, y, w, h, kind, color, pixels = image
     u, v = atlas.add(w, h, pixels) if pixels else (-1, -1)
@@ -185,7 +187,9 @@ def _draw_record(
         clip = -2 - wipe.edge
     elif draw.clip is not None:
         clip = table.add(*draw.clip.bounds, int(draw.clip.local))
-    return table.add(geom, paint, transform, clip, draw.opacity, motion, clip_motion)
+    return table.add(
+        geom, paint, transform, clip, draw.opacity, motion, clip_motion, inherited
+    )
 
 
 def _texture(
@@ -352,6 +356,21 @@ def _timeline(
             yield span.first - origin, order, span
             yield span.stop - origin, order, None
 
+    def clip_track(
+        keys: RectangleKeyframes, start: float, edge: int | None = None
+    ) -> int:
+        return table.add(
+            len(keys.keyframes),
+            *(
+                value
+                for time, bounds in keys.keyframes
+                for value in (
+                    (start + time) * fps - origin,
+                    table.add(*bounds) if edge is None else bounds[edge],
+                )
+            ),
+        )
+
     start, end = origin / fps, (origin + count) / fps
     streams = []
     wipes: dict[int, SingingWipe] = {}
@@ -371,6 +390,8 @@ def _timeline(
     active_tiles: dict[int, dict[int, list[int]]] = {}
     tile_draws: list[dict[int, list[int]]] = [{} for _ in range(cols * rows)]
     clip_records: dict[int, int] = {}
+    inherited_records: dict[str, int] = {}
+    group_masks: dict[str, int] = {}
     timelines = [[0, -1] for _ in tile_draws]
     for i, changes in groupby(stream, key=lambda event: event[0]):
         if i == count:
@@ -389,24 +410,30 @@ def _timeline(
                 else (draw.transform, span.motion.end.transform)
             )
             wipe = wipes.get(order)
+            node = frames.leaves[order].node
             clip_motion = clip_records.get(order, -1)
             if span.clip_keys and clip_motion < 0:
-                node = frames.leaves[order].node
-                keys = span.clip_keys.keyframes
-                clip_motion = table.add(
-                    len(keys),
-                    *(
-                        value
-                        for t, rect in keys
-                        for value in (
-                            (node.time_origin + t) * fps - origin,
-                            rect[wipe.edge] if wipe else table.add(*rect),
-                        )
-                    ),
+                clip_motion = clip_track(
+                    span.clip_keys, node.time_origin, wipe.edge if wipe else None
                 )
                 clip_records[order] = clip_motion
+            inherited = inherited_records.get(node.id, -1)
+            inherited_clips = frames.group_clips.get(node.id, ())
+            if inherited < 0 and inherited_clips:
+                masks = []
+                for group, rect in inherited_clips:
+                    if group.id not in group_masks:
+                        base = table.add(rect.left, rect.top, rect.right, rect.bottom)
+                        track = (
+                            clip_track(rect.deform, group.time_origin)
+                            if isinstance(rect.deform, RectangleKeyframes)
+                            else -1
+                        )
+                        group_masks[group.id] = table.add(base, track)
+                    masks.append(group_masks[group.id])
+                inherited = inherited_records[node.id] = table.add(len(masks), *masks)
             batch: dict[int, list[int]] = defaultdict(list)
-            clip = frames.leaves[order].node.clip
+            clip = node.clip
             edge = clip if isinstance(clip, _FeatheredSingingClip) else None
             variants = [(draw.images, 0)]
             if span.alternate_masks is not None:
@@ -418,7 +445,15 @@ def _timeline(
                 motion = _motion_record(table, span, fps, origin, mode)
                 for image in images:
                     record = _draw_record(
-                        table, atlas, draw, image, motion, clip_motion, edge, wipe
+                        table,
+                        atlas,
+                        draw,
+                        image,
+                        motion,
+                        clip_motion,
+                        edge,
+                        wipe,
+                        inherited,
                     )
                     for tile in (
                         _program_tiles(span.shader, image, cols, rows)
@@ -561,6 +596,27 @@ int preceding(int table, float t) {
     }
     return table+1+2*lo;
 }
+vec4 rectangleAt(int base,int track,float t) {
+    if(track<0) return vec4(pairAt(base),pairAt(base+2));
+    int k=preceding(track,t);
+    int first=refAt(k+1);
+    vec4 rect=vec4(pairAt(first),pairAt(first+2));
+    if(k+2>=track+1+2*refAt(track) || t<=item(k)) return rect;
+    int nextRect=refAt(k+3);
+    return mix(rect,vec4(pairAt(nextRect),pairAt(nextRect+2)),(t-item(k))/(item(k+2)-item(k)));
+}
+bool insideRect(vec2 p,vec4 rect) {
+    return all(greaterThanEqual(p,rect.xy)) && all(lessThan(p,rect.zw));
+}
+bool insideGroups(vec2 screen,int masks,float t) {
+    if(masks<0) return true;
+    int end=masks+1+refAt(masks);
+    for(int i=masks+1;i<end;i++) {
+        int mask=refAt(i);
+        if(!insideRect(screen,rectangleAt(refAt(mask),refAt(mask+1),t))) return false;
+    }
+    return true;
+}
 float weight(int motion, int index) {
     float p=clamp((float(index)-item(motion))/item(motion+1),0.,1.);
     float peak=item(motion+2);
@@ -651,6 +707,7 @@ vec4 hook() {
     int count=refAt(list);
     for(int j=0;j<count;j++) {
         int cmd=refAt(list+1+j), g=refAt(cmd), p=refAt(cmd+1), m=refAt(cmd+2);
+        if(!insideGroups(screen,refAt(cmd+7),float(index))) continue;
         mat2 basis=mat2(pairAt(m),pairAt(m+2));
         vec2 pos=pairAt(m+4);
         float alpha=item(cmd+4), pen=-1.;
@@ -689,20 +746,9 @@ vec4 hook() {
             edgeDistance=side<2 ? coord-edge : edge-coord;
         } else if(clip>=0) {
             vec2 pos=item(clip+4)>0.?local:screen;
-            vec4 rect=vec4(pairAt(clip),pairAt(clip+2));
-            int sweep=refAt(cmd+6);
-            if(sweep>=0) {
-                int k=preceding(sweep,float(index));
-                int first=refAt(k+1);
-                rect=vec4(pairAt(first),pairAt(first+2));
-                if(k+2<sweep+1+2*refAt(sweep) && float(index)>item(k)) {
-                    int nextRect=refAt(k+3);
-                    float t=(float(index)-item(k))/(item(k+2)-item(k));
-                    rect=mix(rect,vec4(pairAt(nextRect),pairAt(nextRect+2)),t);
-                }
-            }
+            vec4 rect=rectangleAt(clip,refAt(cmd+6),float(index));
             edgeDistance=min(pos.x-rect.x,rect.z-pos.x);
-            if(any(lessThan(pos,rect.xy)) || any(greaterThanEqual(pos,rect.zw))) continue;
+            if(!insideRect(pos,rect)) continue;
         }
         vec2 mask=pairAt(g+4)+clamp(uv,vec2(0.5),size-0.5);
         float coverage=item(g+4)<0. ? 1. : textureLod(KARAMASK,mask/vec2(textureSize(KARAMASK,0)),0.).r;

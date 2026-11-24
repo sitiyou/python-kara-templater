@@ -17,7 +17,7 @@ An absolute millisecond visibility interval independent of source singing time.
 
 Animation padding changes this window rather than lyric segment clocks.
 
-[Source](../../kara_templater/timeline.py#L28)
+[Source](../../kara_templater/timeline.py#L30)
 
 ```python
 DisplayWindow(
@@ -40,7 +40,7 @@ Monotone piecewise linear (normalized time, progress) knots.
 Repeated progress values represent pauses. Repeated times are forbidden;
 instantaneous singing is represented by a zero-duration HighlightPass.
 
-[Source](../../kara_templater/timeline.py#L73)
+[Source](../../kara_templater/timeline.py#L75)
 
 ```python
 ProgressCurve(
@@ -74,6 +74,24 @@ ProgressCurve.at(
 ) -> float
 ```
 
+### ProgressCurve.cubic_bezier
+
+Approximate a normalized cubic Bézier with shared CPU and hook knots.
+
+The endpoints are (0, 0) and (1, 1). The x controls specify normalized
+time, and the y controls specify normalized progress. All controls
+must be finite and within 0..1. The piecewise-linear result differs from
+the Bézier by at most 0.0001 in progress at the same normalized time.
+
+```python
+ProgressCurve.cubic_bezier(
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+) -> Self
+```
+
 ### ProgressCurve.two_stage
 
 Construct a piecewise-linear progress curve through one explicit time/progress breakpoint.
@@ -90,7 +108,7 @@ ProgressCurve.two_stage(
 
 A horizontal interval in script pixels; an empty interval is valid.
 
-[Source](../../kara_templater/timeline.py#L45)
+[Source](../../kara_templater/timeline.py#L47)
 
 ```python
 Region(
@@ -132,7 +150,7 @@ Type: `float`.
 
 Merge coverage without filling gaps or painting overlaps twice.
 
-[Source](../../kara_templater/timeline.py#L129)
+[Source](../../kara_templater/timeline.py#L165)
 
 ```python
 union_regions(

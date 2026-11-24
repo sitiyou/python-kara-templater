@@ -42,6 +42,26 @@ def test_piecewise_speed_pause_and_earliest_arrival():
         == 0.5
     )
 
+@pytest.mark.parametrize("controls", [
+    (.17, .17, 0, 1), (0, 1, 0, 1), (1, 0, 1, 0),
+    (1, 0, 0, 1), (0, 1, 1, 0), (.2, .2, .8, .8),
+])
+def test_cubic_bezier_progress_matches_parametric_reference(controls):
+    x1, y1, x2, y2 = controls
+    curve = ProgressCurve.cubic_bezier(*controls)
+    for index in range(1001):
+        s = index / 1000
+        b, c, d = 3 * (1 - s)**2 * s, 3 * (1 - s) * s**2, s**3
+        time = b*x1 + c*x2 + d
+        progress = b*y1 + c*y2 + d
+        assert curve.at(time) == pytest.approx(progress, abs=.000100001)
+
+
+@pytest.mark.parametrize("control", [float("nan"), float("inf"), -.1, 1.1, True])
+def test_cubic_bezier_rejects_unbounded_controls(control):
+    with pytest.raises(ValueError, match="Bézier control"):
+        ProgressCurve.cubic_bezier(.17, control, 0, 1)
+
 
 @pytest.mark.parametrize(
     "knots",

@@ -11,7 +11,9 @@ from kara_templater import (
     Color,
     Document,
     DriftOut,
+    Extrusion,
     Lifetime,
+    ObjectGroup,
     PathObject,
     ProgressCurve,
     RectangleClip,
@@ -129,7 +131,11 @@ def test_invalid_export_preserves_existing_file(tmp_path, options):
 
 
 @pytest.mark.parametrize(
-    "rate", [ProgressCurve(((0, 0), (0.25, 0.77), (1, 1))).at, ease_in]
+    "rate", [
+        ProgressCurve(((0, 0), (0.25, 0.77), (1, 1))).at,
+        ProgressCurve.cubic_bezier(.17, .17, 0, 1).at,
+        ease_in,
+    ]
 )
 def test_parametric_motion_matches_the_scene_evaluator(
     tmp_path, vulkan, rate, monkeypatch
@@ -494,10 +500,64 @@ def test_shader_motion_can_color_the_fill_and_outline_independently(tmp_path, vu
     assert sample(1, 6) == pytest.approx((0, 128, 0), abs=3)
 
 
-@pytest.mark.parametrize("reverse,feather,vertical,outer_width", [
-    (False, 0, False, 3), (True, 8, False, 3), (False, 0, True, 3), (False, 0, False, 6),
+def test_group_rectangles_use_their_own_clock_and_cut_extrusion(tmp_path, vulkan):
+    drawing = PathObject(
+        id="face", path=VectorPath.rectangle(28, 34), lifetime=Lifetime(.5, 1.75),
+        clock_start=.75,
+        clip=RectangleClip(
+            4, 0, 36, 40, space="local",
+            deform=RectangleKeyframes(((-.25, (4, 0, 36, 40)), (.75, (12, 0, 40, 40)))),
+        ),
+        extrusion=Extrusion(Vec2(8, 0), Color(255, 0, 0)),
+    )
+    inner = ObjectGroup(
+        id="row", children=(drawing,), lifetime=Lifetime(.25, 1.75),
+        state=VisualState(position=Vec2(7, 5)), clip=RectangleClip(0, 12, 64, 32),
+    )
+    outer = ObjectGroup(
+        id="viewport", children=(inner,), lifetime=Lifetime(.25, 1.75), clock_start=.5,
+        clip=RectangleClip(
+            8, 0, 24, 48, deform=RectangleKeyframes((
+                (0, (8, 0, 24, 48)), (.5, (20, 0, 40, 48)),
+                (.5, (20, 0, 20, 48)), (1, (20, 0, 56, 48)),
+            )),
+        ),
+    )
+    Scene(Document.create(width=64, height=48)).add(outer).export(
+        tmp_path / "group.hook", fps=4, start=.5, duration=1.25,
+    )
+    raw = subprocess.check_output([
+        "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi", "-i",
+        "color=c=black:s=64x48:r=4", "-vf", "libplacebo=custom_shader_path=group.hook:format=rgb24",
+        "-frames:v", "5", "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+    ], cwd=tmp_path)
+
+    def pixel(frame, x, y=20):
+        offset = 3 * ((48 * frame + y) * 64 + x)
+        return tuple(raw[offset:offset + 3])
+
+    white, red, black = (255, 255, 255), (255, 0, 0), (0, 0, 0)
+    assert pixel(0, 10) == pytest.approx(black, abs=3)
+    assert pixel(0, 11) == pytest.approx(white, abs=3)
+    assert pixel(0, 24) == pytest.approx(black, abs=3)
+    assert pixel(1, 20) == pytest.approx(white, abs=3)
+    assert pixel(1, 20, 11) == pytest.approx(black, abs=3)
+    assert pixel(1, 20, 12) == pytest.approx(white, abs=3)
+    assert pixel(1, 20, 32) == pytest.approx(black, abs=3)
+    assert pixel(2, 21) == pytest.approx(black, abs=3)
+    assert pixel(3, 37) == pytest.approx(red, abs=3)
+    assert pixel(3, 38) == pytest.approx(black, abs=3)
+    assert pixel(4, 40) == pytest.approx(red, abs=3)
+    assert pixel(4, 49) == pytest.approx(black, abs=3)
+
+
+@pytest.mark.parametrize("reverse,feather,vertical,outer_width,inherited", [
+    (False, 0, False, 3, False), (True, 8, False, 3, False),
+    (False, 0, True, 3, False), (False, 0, False, 6, False), (True, 8, False, 3, True),
 ])
-def test_shader_wipe_matches_split_draws_in_playback(tmp_path, vulkan, monkeypatch, reverse, feather, vertical, outer_width):
+def test_shader_wipe_matches_split_draws_in_playback(
+    tmp_path, vulkan, monkeypatch, reverse, feather, vertical, outer_width, inherited,
+):
     from kara_templater import (
         BLUE,
         RED,
@@ -518,6 +578,11 @@ def test_shader_wipe_matches_split_draws_in_playback(tmp_path, vulkan, monkeypat
         base_material=LyricGradient((BLUE, RED)), sung_outline=RED,
         secondary_outline=SecondaryOutline(RED, 3), sung_secondary_outline=SecondaryOutline(BLUE, outer_width),
     ),)),))
+    if inherited:
+        scene = Scene(doc).add(ObjectGroup(
+            id="viewport", children=tuple(node for node in scene.objects if isinstance(node, ObjectGroup)),
+            lifetime=Lifetime(0, 2), clip=RectangleClip(0, 0, 83, 96),
+        ))
     masks = []
     original = hook._draw_record
 
@@ -531,7 +596,7 @@ def test_shader_wipe_matches_split_draws_in_playback(tmp_path, vulkan, monkeypat
         scene.export(tmp_path / name, fps=10, start=0.2, duration=1.3)
         return subprocess.check_output([
             "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi", "-i",
-            "color=c=black:s=160x96:r=10", "-vf", f"libplacebo=custom_shader_path={name}",
+            "color=c=black:s=160x96:r=10", "-vf", f"libplacebo=custom_shader_path={name}:format=rgb24",
             "-frames:v", "13", "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
         ], cwd=tmp_path)
 
@@ -545,5 +610,9 @@ def test_shader_wipe_matches_split_draws_in_playback(tmp_path, vulkan, monkeypat
     else:
         # Only the face and primary outline share coverage.
         assert fused_count < len(masks) < 2 * fused_count
+    assert any(fused)
+    if inherited:
+        assert all(not any(fused[row + 3 * 83:row + 3 * 160])
+                   for row in range(0, len(fused), 3 * 160))
     assert fused[:160 * 96 * 3] != fused[-160 * 96 * 3:]
     assert fused == split

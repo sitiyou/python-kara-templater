@@ -67,7 +67,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L545)
+[Source](../../kara_templater/scene.py#L548)
 
 ```python
 NativeEvent(
@@ -91,6 +91,9 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
+Hook output supports normal screen-space rectangle clips with static
+bounds or RectangleKeyframes evaluated on the group's clock. A parent
+rectangle intersects child clips without replacing their local clocks.
 
 [Source](../../kara_templater/scene.py#L453)
 
@@ -327,7 +330,7 @@ Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 Prepare a new snapshot after changing the scene. Window exports share measured
 masks and the resolved object hierarchy. Each output has its own playback clock.
 
-[Source](../../kara_templater/scene.py#L630)
+[Source](../../kara_templater/scene.py#L633)
 
 ```python
 PreparedHook(
@@ -495,7 +498,7 @@ A Document-backed composition of visual objects and already-lowered NativeEvents
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L563)
+[Source](../../kara_templater/scene.py#L566)
 
 ```python
 Scene(

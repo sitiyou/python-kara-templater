@@ -9,6 +9,7 @@ from kara_templater import (
     Document,
     FadeOut,
     Lifetime,
+    ObjectGroup,
     RectangleClip,
     RectangleKeyframes,
     Scene,
@@ -61,6 +62,31 @@ def test_gpu_scene_keeps_clocks_and_reuses_coverage_after_seek():
     assert frames.at(3.75)[0].opacity < later[0].opacity
     assert frames.cached_bytes == translucent_size
     assert frames.at(2) == middle
+
+
+def test_gpu_scene_keeps_group_and_child_clip_coordinates_separate_after_seek():
+    text = node(clip=RectangleClip(-10, -10, 40, 40, space="local"))
+    group = ObjectGroup(
+        id="viewport",
+        children=(text,),
+        lifetime=Lifetime(0.5, 4),
+        clock_start=1.5,
+        clip=RectangleClip(
+            0,
+            0,
+            60,
+            50,
+            deform=RectangleKeyframes(((0, (0, 0, 0, 50)), (1, (0, 0, 60, 50)))),
+        ),
+    )
+    frames = SceneFrames(Scene(Document.create()).add(group))
+    (draw,) = frames.at(2)
+    assert draw.clip is not None
+    assert draw.clip.local and draw.clip.bounds == (-10, -10, 40, 40)
+    (inherited,) = draw.inherited_clips
+    assert not inherited.local and inherited.bounds == (0, 0, 30, 50)
+    assert frames.at(1.5) == ()
+    assert frames.at(2) == (draw,)
 
 
 def test_gpu_scene_coverage_retains_native_roles_and_negative_ink():

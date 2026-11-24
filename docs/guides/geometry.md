@@ -18,8 +18,14 @@ For a baseline-relative outline in em units, scale it by the measured glyph’s
 the layout advance when the replacement has different metrics.
 Whitespace can have layout advance without an extractable visible contour.
 
-split_path creates geometric pieces for independent animation. merge_geometry
-combines selected objects' evaluated geometry, allowing a shared silhouette,
+Use `split_path` with `rows` and `columns` for regular tiles or with `cells`
+for diagonal bands and other angular pieces. Each custom cell is a convex
+polygon of `Vec2` points in the source object's local coordinates. The cut
+preserves hole winding and leaves the object's origin in place. Supply
+adjacent polygons for adjoining pieces or leave gaps for visible cuts.
+Keep the intact outline visible during a hold to avoid seams along cut edges.
+
+merge_geometry combines selected objects' evaluated geometry, allowing a shared silhouette,
 outline, or glow. See the fragment, curved-text, and shared-word-glow examples
 in the [gallery](../examples/README.md).
 
@@ -85,11 +91,14 @@ Rotating or shearing animations, parent geometry animations, inherited masks, ma
 references and coverage can require frame sampling and raise SceneCompileError.
 ASS compilation also rejects arbitrary `RectangleFunction` callbacks.
 
-A group mask applies in its shared coordinate space. Nested masks compose and
-may require polygon/boolean lowering. path_boolean supports intersection, union,
-difference, and xor with an explicit work limit. Stroke expansion, flattening,
-and near-degenerate geometry can increase path cost; inspect reports rather than
-assuming every composition remains a single native ASS clip.
+In a Hook export, a normal screen-space rectangle on a group intersects the
+drawing masks of its descendants. A keyframed rectangle uses the group's clock.
+[Hook clip support](gpu-rendering.md#data-and-limits)
+
+In ASS, nested masks may require polygon or boolean lowering. `path_boolean`
+supports intersection, union, difference, and xor with an explicit work limit.
+Stroke expansion, flattening, and near-degenerate geometry can increase path
+cost. Inspect the compile report for the resulting clip strategy.
 
 Mirroring, skew, and zero scale are explicit geometry cases. Text can lower to
 paths to preserve transforms; unsupported/degenerate combinations raise

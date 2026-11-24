@@ -40,4 +40,6 @@ def author() -> ObjectGroup:
     node = custom(ParticleContext("test", 0, 1, Vec2(), None))
     assert_type(echoes(node), tuple[PathObject, ...])
     assert_type(split_path(node, rows=2, columns=2), tuple[PathObject, ...])
+    cells = ((Vec2(), Vec2(5, 0), Vec2(0, 5)),)
+    assert_type(split_path(node, cells=cells), tuple[PathObject, ...])
     return layout_path((PathItem(node, 10),), path)

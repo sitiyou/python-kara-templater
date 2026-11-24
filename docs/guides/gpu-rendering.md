@@ -92,6 +92,9 @@ Use `linear_rate`, `smooth_rate`, or `smoother_rate` for built-in easing. A
 custom piecewise-linear easing such as
 `FadeIn(rate=ProgressCurve(((0, 0), (0.3, 0.8), (1, 1))).at)` stores its
 normalized knots once across instances and durations. The built-in quadratic easings also run directly on the GPU.
+Use `ProgressCurve.cubic_bezier(.17, .17, 0, 1).at` for a measured Bézier
+timing curve with control values in 0..1. The curve uses the same interpolated
+knots in Scene evaluation and the standalone hook.
 Unsupported animation, reference or clip callbacks raise a SceneCompileError
 with the object, time and source location. Use a GPU motion for custom equations.
 
@@ -101,8 +104,15 @@ opacity, ordinary rectangle clips and continuous fill/outline linear gradients
 Dynamic stroke flashes and stretch halos share shaped contour segments. The shader computes round stroke coverage from the current pen radius. A fade on outlined
 text can reuse two native masks. The shader selects the translucent border
 when the fill fades so that the border does not show through the letter.
-Use standard ASS compilation for native events; inherited/vector/inverse clips,
-deformed paths and explicit coverage groups are unsupported by this backend.
+Normal screen-space rectangles on a group intersect the clips of each child
+drawing. A group's `RectangleKeyframes` use that group's clock, and each child
+keeps its own clip coordinates and clock. Group transforms move the content
+inside the fixed screen coordinates. The group mask also cuts lyric color
+layers and extrusion sides.
+
+Use standard ASS compilation for native events. Vector and inverse clips,
+group-local clips, deformed paths and explicit coverage groups are unsupported
+by this backend.
 
 Textures in the mpv hook format use hexadecimal text. Complex or long scenes
 can produce large files; compress the hook for transport and extract it before

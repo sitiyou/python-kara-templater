@@ -19,7 +19,15 @@ from .composition import Color
 from .geometry import Affine2D, CubicSegment, Vec2, VectorPath, finite
 from .paint_fields import LinearGradient, ShaderPaint
 from .path_geometry import path_bounds
-from .scene import PathObject, RectangleClip, Scene, TextObject, _LyricPaintClip
+from .scene import (
+    ObjectGroup,
+    PathObject,
+    RectangleClip,
+    RectangleKeyframes,
+    Scene,
+    TextObject,
+    _LyricPaintClip,
+)
 from .scene_animation import VisualState, local_seconds
 from .scene_output import SceneCompileError, _Leaf, _leaves
 from .text_geometry import outline_text
@@ -37,6 +45,16 @@ class GpuClip:
             raise ValueError("GPU clip bounds cannot be inverted")
 
 
+def _clip_at(rectangle: RectangleClip, time: float) -> GpuClip | None:
+    bounds = (rectangle.left, rectangle.top, rectangle.right, rectangle.bottom)
+    if rectangle.deform is not None:
+        sampled = rectangle.deform.sample(time)
+        if sampled is None:
+            return None
+        bounds = sampled
+    return GpuClip(bounds, local=rectangle.space == "local")
+
+
 @dataclass(frozen=True)
 class DrawCommand:
     object_id: str
@@ -49,6 +67,7 @@ class DrawCommand:
     time_origin: float = 0
     border: float = 0
     side_shading: tuple[bytes, Color] | None = None
+    inherited_clips: tuple[GpuClip, ...] = ()
 
 
 class _ExtrusionSide(_Leaf):
@@ -259,6 +278,7 @@ class SceneFrames:
                 f"hook cannot compile coverage groups at {group.lifetime.start:g}s",
                 object_id=group.id, origin=group.origin,
             )
+        group_clips: dict[str, tuple[tuple[ObjectGroup, RectangleClip], ...]] = {}
         for leaf in leaves:
             node = leaf.node
             reason = None
@@ -272,8 +292,6 @@ class SceneFrames:
                 not isinstance(node.clip, RectangleClip) or node.clip.inverse
             ):
                 reason = "vector/inverse clips"
-            elif any(parent.clip is not None for parent in leaf.parents):
-                reason = "inherited clips"
             if isinstance(node.material, LinearGradient) and any(
                 ramp is not None and len(ramp.stops) > 16
                 for ramp in (node.material.fill, node.material.outline)
@@ -284,6 +302,30 @@ class SceneFrames:
                     f"hook cannot compile {reason} at {leaf.start:g}s",
                     object_id=node.id, origin=node.origin,
                 )
+            inherited: list[tuple[ObjectGroup, RectangleClip]] = []
+            for parent in leaf.parents:
+                clip = parent.clip
+                if clip is None:
+                    continue
+                if (
+                    not isinstance(clip, RectangleClip)
+                    or clip.inverse
+                    or clip.space != "screen"
+                    or (
+                        clip.deform is not None
+                        and not isinstance(clip.deform, RectangleKeyframes)
+                    )
+                ):
+                    raise SceneCompileError(
+                        "hook requires a normal screen rectangle with optional "
+                        f"keyframes for inherited clips at {leaf.start:g}s",
+                        object_id=parent.id,
+                        origin=parent.origin,
+                    )
+                inherited.append((parent, clip))
+            if inherited:
+                group_clips[node.id] = tuple(inherited)
+        self.group_clips = group_clips
         passes = list(leaves)
         for leaf in leaves:
             node = leaf.node
@@ -330,22 +372,17 @@ class SceneFrames:
         node = leaf.node
         clip = None
         if isinstance(node.clip, RectangleClip):
-            rectangle = node.clip
-            bounds = (
-                rectangle.left,
-                rectangle.top,
-                rectangle.right,
-                rectangle.bottom,
-            )
-            if rectangle.deform is not None:
-                sampled = rectangle.deform.sample(local_seconds(time, node.time_origin))
-                if sampled is None:
-                    return None
-                bounds = sampled
-            if bounds[0] == bounds[2] or bounds[1] == bounds[3]:
+            clip = _clip_at(node.clip, local_seconds(time, node.time_origin))
+            if clip is None:
                 return None
-            clip = GpuClip(bounds, local=rectangle.space == "local")
-        return self.draw_state(leaf, state, clip)
+        inherited = []
+        for owner, rectangle in self.group_clips.get(node.id, ()):
+            screen_clip = _clip_at(rectangle, local_seconds(time, owner.time_origin))
+            if screen_clip is None:
+                return None
+            inherited.append(screen_clip)
+        draw = self.draw_state(leaf, state, clip)
+        return replace(draw, inherited_clips=tuple(inherited)) if inherited else draw
 
     def draw_state(
         self, leaf: _Leaf, state: VisualState, clip: GpuClip | None

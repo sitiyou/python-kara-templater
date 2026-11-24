@@ -188,6 +188,34 @@ def test_split_geometry_has_local_moving_cells_and_preserves_sources():
         )
 
 
+def test_split_geometry_accepts_angular_cells_and_preserves_hole_winding():
+    from kara_templater import split_path
+
+    outer = VectorPath.rectangle(10, 10)
+    hole = VectorPath.polygon(Vec2(2, 2), Vec2(2, 8), Vec2(8, 8), Vec2(8, 2))
+    node = PathObject(
+        id="glyph",
+        lifetime=Lifetime(0, 2),
+        path=VectorPath((*outer.contours, *hole.contours)),
+        state=VisualState(position=Vec2(30, 40)),
+    )
+    cells = (
+        (Vec2(0, 0), Vec2(10, 0), Vec2(0, 10)),
+        (Vec2(20, 20), Vec2(30, 20), Vec2(20, 30)),
+        (Vec2(10, 0), Vec2(10, 10), Vec2(0, 10)),
+    )
+    pieces = split_path(node, cells=cells)
+    assert [piece.id for piece in pieces] == ["glyph/cell:0", "glyph/cell:2"]
+    assert all(piece.state == node.state for piece in pieces)
+    for piece in pieces:
+        areas = [flatten(contour).signed_area for contour in piece.path.contours]
+        assert areas == pytest.approx([50, -18])
+    with pytest.raises(ValueError, match="cannot be combined"):
+        split_path(node, rows=2, columns=2, cells=cells)
+    with pytest.raises(ValueError, match="before subdivision"):
+        split_path(node, cells=cells, max_fragments=2)
+
+
 def test_curve_layout_preserves_grouped_annotation_and_local_animation():
     from kara_templater import PathItem, Polyline, TextObject, layout_path
 

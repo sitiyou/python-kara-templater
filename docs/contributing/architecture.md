@@ -94,6 +94,9 @@ The generated [API reference](../reference/README.md) documents the retained set
 Scene.export partitions each leaf at lifetime, clip and animation boundaries.
 Known motion spans store endpoint transforms and easing; rectangle keyframes
 interpolate independently. Custom motion programs receive per-instance data and the clip clock.
+The hook shares inherited screen-rectangle tracks across descendants and
+evaluates them using the owning group's clock. Leaf clips retain their own
+coordinate space and their role in lyric wipes.
 Hook export rasterizes filled paths with aggdraw and static round strokes with FreeType. Pillow filters the resulting coverage.
 The fragment shader evaluates dynamic strokes from positioned contours.
 A sparse timeline indexes tiled draws in painter order. Curve knots, shader parameters, tile lists,

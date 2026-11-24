@@ -456,6 +456,9 @@ class ObjectGroup(VisualNode):
 
     Opacity is inherited per child, not offscreen compositing of the group.
     Group paint is not inherited; use explicit child appearances instead.
+    Hook output supports normal screen-space rectangle clips with static
+    bounds or RectangleKeyframes evaluated on the group's clock. A parent
+    rectangle intersects child clips without replacing their local clocks.
     """
 
     children: tuple[SceneObject, ...]
