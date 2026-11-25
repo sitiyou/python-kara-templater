@@ -74,7 +74,7 @@ uv run python -m tools.generate_reference --check
 
 ## 视觉预览与回归检查
 
-修改 Hook 相关代码时，请把目标场景导出为 `.hook`，并用 FFmpeg 和 `libplacebo` 渲染到目标背景上核对画面，命令见[播放与渲染 Hook](../output/hook.md)。如果改动涉及画廊示例，也请在[文档站点](documentation-site.md)的浏览器 WebGL 播放器中拖动时间轴检查。
+修改着色器相关代码时，用 `scene.preview()` 在 WebGL 2 中检查场景，也要用 FFmpeg 将 `.hook` 渲染到目标背景上。若改动画廊示例，也请在示例的浏览器预览中拖动时间轴检查。[预览与导出](../output/README.md) · [播放与渲染 Hook](../output/hook.md) · [文档站点](documentation-site.md)
 
 ### ASS 画廊 GIF 生成
 

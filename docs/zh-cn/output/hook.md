@@ -107,7 +107,7 @@ Hook 导出器不支持 `AssDialogue` 记录、矢量裁剪、反向裁剪、分
 
 ## 重复导出预览窗口
 
-需要频繁拖拽时间轴的预览宿主可以先准备一次快照，再反复导出任意时间窗口，避免重复测量字形：
+在本地浏览器中查看场景，可调用 [`scene.preview()`](README.md#在浏览器里实时预览)。需要频繁拖拽时间轴的预览宿主可以先准备一次快照，再反复导出任意时间窗口，避免重复测量字形：
 
 ```python
 prepared = scene.prepare_hook()
@@ -121,7 +121,7 @@ prepared.export_resources("preview-window", start=36, duration=8, fps=60)
 
 ## 下一步
 
-- [选择输出格式](README.md)
+- [预览与导出](README.md)
 - [颜色与材质](../guides/materials.md)
 - [动画与时间轴](../guides/animation.md)
 - [故障排查](troubleshooting.md)

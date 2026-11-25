@@ -1,6 +1,6 @@
 # Command line
 
-Export a timed ASS file directly to a standalone Hook or standard ASS subtitle from the terminal. Use built-in preset flags for quick styling, or pass a Python effect file for reusable tracks and custom scenes.
+Turn timed ASS lyrics into karaoke effects from the terminal, then export a playback shader or a standard ASS subtitle. Use built-in preset flags for quick styling, or pass a Python effect file for reusable tracks and custom scenes.
 
 ## Export with preset options
 
@@ -71,14 +71,14 @@ Export either `tracks` or `build`, not both. Because `build` controls input sele
 
 ## Choose output format and budgets
 
-By default, the CLI writes a standalone Hook at 60 fps. Pass `--fps` (`1`–`240`) to match your delivery frame rate, or pass `--ass` to compile standard ASS instead.
+By default, the CLI packages the shader and textures as a `.hook` for mpv or FFmpeg at 60 fps. Pass `--fps` (`1`–`240`) to match your delivery frame rate, or pass `--ass` to compile standard ASS instead.
 
 ```sh
 kara-templater input.ass output.hook --fps 30
 kara-templater input.ass output.ass --ass
 ```
 
-With `--ass`, the CLI prints the generated event count, peak overlapping events, output size in bytes, and any compiler diagnostics.
+For real-time browser preview of a scene built in Python, see [Preview and export](../output/README.md). With `--ass`, the CLI prints the generated event count, peak overlapping events, output size in bytes, and any compiler diagnostics.
 
 | Flag | Applies to | Default | Purpose |
 | --- | --- | --- | --- |
@@ -92,7 +92,7 @@ With `--ass`, the CLI prints the generated event count, peak overlapping events,
 
 ## Next steps
 
-- [Choose an output](../output/README.md)
+- [Preview and export](../output/README.md)
 - [Play and render a Hook](../output/hook.md)
 - [Export standard ASS](../output/ass.md)
 - [Lay out vocal tracks](tracks.md)

@@ -1,4 +1,4 @@
-"""Serialize shared Scene draws as textures in a standalone libplacebo user shader."""
+"""Serialize the scene shader and textures as preview resources or a libplacebo package."""
 
 import hashlib
 import json

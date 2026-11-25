@@ -1,6 +1,6 @@
 # 架构概览
 
-了解带时间轴的歌词、场景对象、原生文本测量，以及 Hook 和 ASS 两套导出器如何协同工作。修改库模块或公共接口之前，请先阅读本页。
+了解带时间轴的歌词和测量后的字形如何组成场景，并用于实时预览、着色器播放与标准 ASS 导出。修改库模块或公共接口之前，请先阅读本页。
 
 ## 处理管线概览
 
@@ -14,8 +14,13 @@ flowchart LR
     T --> S
     C["Custom objects and animations"] --> S
     S --> G["Shared evaluation and cached glyph coverage"]
-    G --> H["Standalone libplacebo Hook"]
-    H --> R["FFmpeg or mpv libplacebo"]
+    W["WGSL material functions"] --> N["Naga"]
+    N --> Q["Assemble GLSL scene shader"]
+    G --> Q
+    Q --> B["GLSL + binary textures"]
+    B --> P2["WebGL 2 live preview"]
+    Q --> H["Standalone .hook package"]
+    H --> R["mpv playback / FFmpeg rendering"]
     S --> O["Standard ASS Document"]
 ```
 
@@ -62,15 +67,15 @@ flowchart LR
 
 `karaoke_effects.py` 将 `KaraokeEffects` 作为 `Track` 回调暴露出来，内部组合了 `LyricHighlights`、`LyricRule` 绑定以及普通粒子和路径节点。`_karaoke_motion.py` 和 `_karaoke_sprites.py` 存放私有的运动与图形配方，两者既不引入第二套时间线，也不直接编码 ASS。前沿与闪光别名共享源字形时钟，发射出的装饰粒子则拥有独立生命周期。
 
-## Hook 输出
+## 着色器编译与播放目标
 
-`output/hook/`（`export.py`、`draws.py`、`motion.py`、`materials.py`、`wipes.py`、`bands.py`）通过 `PreparedHook` 和 `HookDrawResolver` 实现 `Scene.export()` 与 `Scene.export_resources()`：
+`output/hook/` 准备绘制数据，并用 GLSL 模板组装场景渲染器。`Scene.export_resources()` 写出着色器与二进制纹理。`Scene.preview()` 把这些资源嵌入离线 HTML 页面，与画廊共用 WebGL 2 播放器。`Scene.export()` 则把同一套着色器和数据打包给 libplacebo。
 
 - **区间切分与运动**：每个叶子对象在生命周期、裁剪和动画边界处切分。已知运动区间保存端点变换与缓动；`RectangleKeyframes` 独立插值；`ShaderMotion` 着色器程序接收实例数据和片段时钟。继承的屏幕矩形轨道在后代之间共享，并按所属对象组的时钟求值；叶子裁剪则保留自身坐标空间及其在歌词走字中的作用。
-- **WGSL 材质**：文本和路径对象上有序挂载的 `MaterialClip` 会按不重复的 WGSL 函数通过内置 Naga 翻译器（`_kara_wgsl`，源码在 `native/wgsl/`）各编译一次，并在覆盖率计算完成后执行。具名 `PaintInput` 会成为着色器 uniform，通过 `PreparedHook.material_inputs()` 和 `textures.json` 向预览宿主暴露名称和默认值。
+- **WGSL 材质**：文本和路径对象上的 `MaterialClip` 按顺序应用。Naga（`_kara_wgsl`，源码在 `native/wgsl/`）将每个不同的 WGSL 函数校验并转译为 GLSL ES 3.00，渲染器在计算完覆盖率之后再运行材质函数。具名 `PaintInput` 会成为着色器 uniform，通过 `PreparedHook.material_inputs()` 和 `textures.json` 向预览宿主暴露名称和默认值。
 - **覆盖率与描边**：填充路径用 `aggdraw` 光栅化，静态圆角描边用 FreeType（`_text_native.round_stroke`）生成，模糊由 Pillow 滤镜处理（`_path_raster.py`）；动态描边则在片元着色器中根据定位轮廓实时计算（`_contour_stroke.py`）。
 - **稀疏分块时间线**：覆盖率遮罩按货架打包进 `KARAMASK`（宽 2048 像素、最高 8192 像素），去重后的帧、图块、曲线、材质和绘制记录打包进 `KARADATA` 浮点纹理。稀疏时间线按画家顺序索引 64×64 像素图块中的绘制项。每次绘制在多个覆盖率平面间共享变换、裁剪和不透明度；每个图块保留平面边界，并在按序合成前选择备用遮罩集。
-- **开销校验与数据共享**：会改变几何形状的着色器运动按 8 帧短窗口在输出帧网格上采样姿态；内置粒子则可使用解析运动与缩放边界。两条路径都会索引可达遮罩覆盖范围，并经过相同的每帧与每图块工作量上限检查。曲线控制点、着色器参数、图块列表、材质和遮罩均跨实例共享存储。帧时钟与 GPU 资源由 FFmpeg 或 mpv 的 `libplacebo` 管理。播放与格式限制详见[播放与渲染 Hook](../output/hook.md)。
+- **开销校验与数据共享**：会改变几何形状的着色器运动按 8 帧短窗口在输出帧网格上采样姿态；内置粒子则可使用解析运动与缩放边界。两条路径都会索引可达遮罩覆盖范围，并经过相同的每帧与每图块工作量上限检查。曲线控制点、着色器参数、图块列表、材质和遮罩均跨实例共享存储。帧时钟与 GPU 资源由各播放端管理。各目标的用法见[预览与导出](../output/README.md)。
 
 ## 原生文本测量与 ASS 导出
 

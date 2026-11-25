@@ -4,7 +4,7 @@
 
 ## 用 Track 构建场景
 
-`Track`（声部轨道）会从 `Document`（歌词文档）中筛选歌词行，并为其应用独立的样式、排布、提示与特效。将一个或多个轨道传给 `build_lyric_scene` 即可得到 `LyricScene`（场景），随后导出独立的 Hook（libplacebo 着色器 Hook）。
+`Track`（声部轨道）会从 `Document`（歌词文档）中筛选歌词行，并为其应用独立的样式、排布、提示与特效。将一个或多个轨道传给 `build_lyric_scene` 即可得到 `LyricScene`（场景），然后调用 `scene.preview()` 在浏览器里查看效果，或用 `scene.export()` 打包播放用的着色器。
 
 ```python
 from kara_templater import (

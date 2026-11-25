@@ -69,7 +69,7 @@ scene.export("extruded.hook")
 - 同时扫过填充轮廓与硬主描边（`filled=False` 时仅扫过描边）。
 - 随正面同步平移、缩放和淡入淡出；同一图层中，所有挤出侧面均绘制在正面背后。
 - 应用在 `Track` 上时同时作用于正文和注音，卡拉 OK 走字变色仍保留在正面，且不改变原有排版尺寸。
-- 仅支持 Hook（libplacebo 着色器 Hook）输出；导出标准 ASS 时遇到挤出对象会报错。
+- 浏览器预览和着色器播放支持立体挤出。标准 ASS 编译遇到挤出对象时会报错。
 
 ## 裁剪与遮罩
 
@@ -150,7 +150,7 @@ strand = PathObject(
 - **`PathFunction(function, max_points, breakpoints=())`**：在显式点数上限内调用自定义 `(base_path, local_seconds) -> VectorPath | None` 回调。
 
 > [!WARNING]
-> 逐帧变形的路径几何（`TrailPath`、`WritePath`、`MorphPath`、`PathFunction`）仅在 `SceneEvaluator` 中求值，Hook 导出与标准 ASS 导出均不支持。
+> 逐帧变形的路径几何（`TrailPath`、`WritePath`、`MorphPath`、`PathFunction`）仅在 `SceneEvaluator` 中求值，着色器与标准 ASS 导出均不支持。
 
 ## 下一步
 

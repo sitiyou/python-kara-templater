@@ -26,7 +26,7 @@ export default defineConfig({
         Hero: "./src/components/HomeHero.astro",
         PageTitle: "./src/components/PageTitle.astro",
       },
-      description: "Design, preview, and export animated karaoke lyrics in Python.",
+      description: "Design animated karaoke in Python with WGSL materials, real-time browser previews, and shader exports.",
       social: [
         {
           icon: "github",
@@ -157,7 +157,7 @@ export default defineConfig({
           label: "Output & playback",
           translations: {"zh-CN": "输出与播放"},
           items: [
-            {label: "Choose an output", translations: {"zh-CN": "选择输出格式"}, slug: "output"},
+            {label: "Preview and export", translations: {"zh-CN": "预览与导出"}, slug: "output"},
             {
               label: "Play and render a Hook",
               translations: {"zh-CN": "播放与渲染 Hook"},

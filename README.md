@@ -1,6 +1,6 @@
 # kara-templater
 
-Turn timed karaoke lyrics into animated subtitles exported as a standalone GPU shader or a standard ASS file.
+Build animated karaoke scenes in Python, write custom effects in WGSL, and preview them live in a browser.
 
 ![Japanese lyrics and their readings fill with gold as the highlight sweeps across each syllable](docs/examples/assets/chorus-hook.gif)
 
@@ -15,7 +15,7 @@ Every template follows the same four-step pipeline:
 1. **`Document`** holds your script resolution (`PlayRes`), styles, and timed lyric lines.
 2. **`Track`** selects a vocal part (such as lead or harmony), places rows or columns, and applies built-in or custom effects.
 3. **`Scene`** collects the measured lyric lines and any extra text, shapes, or groups into one renderable composition.
-4. **Hook or ASS** exports the result — a standalone libplacebo `.hook` shader (primary output for mpv and FFmpeg) or standard `.ass` when a regular subtitle player requires it.
+4. **Preview or export** compiles WGSL materials to GLSL with Naga. Open a real-time WebGL 2 preview, package the shader and its textures for mpv or FFmpeg, or compile standard ASS for subtitle compatibility.
 
 ## Quick install and first export
 
@@ -65,13 +65,13 @@ scene = build_lyric_scene(song, tracks=(vocal,))
 scene.export("chorus.hook", fps=30)
 ```
 
-Play the Hook directly over video in mpv or burn it in with FFmpeg — see [Quickstart](docs/getting-started.md) and [Play and render a Hook](docs/output/hook.md).
+Call `scene.preview()` to open the scene in your browser. The exported `.hook` can play over video in mpv or be rendered into a video with FFmpeg. See the [Quickstart](docs/getting-started.md) and [Preview and export](docs/output/README.md).
 
 ## Explore the docs
 
 - **Start here**: [Overview](docs/README.md) · [Quickstart](docs/getting-started.md) · [Core concepts](docs/concepts.md) · [Example scripts](docs/examples/README.md)
 - **Learn by building**: [Tutorials](docs/tutorials/README.md) · [Design a song layout](docs/tutorials/karaoke-design.md) · [Effect recipes](docs/tutorials/effect-recipes.md)
-- **Task guides & reference**: [Guides](docs/guides/README.md) · [Command line](docs/guides/cli.md) · [Choose an output](docs/output/README.md) · [API reference](docs/reference/README.md)
+- **Task guides & reference**: [Guides](docs/guides/README.md) · [Command line](docs/guides/cli.md) · [Preview and export](docs/output/README.md) · [API reference](docs/reference/README.md)
 - **中文用户**：从[简体中文文档概览](docs/zh-cn/README.md)开始阅读完整中文教程与指南。
 
 [Contributing](docs/contributing/README.md) · [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY.md)

@@ -14,10 +14,10 @@ from .scene import Scene
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Export lyric Tracks or Scenes as a standalone libplacebo hook"
+        description="Turn timed lyrics into karaoke effects and export a playback shader or standard ASS."
     )
     parser.add_argument("input", type=Path)
-    parser.add_argument("output", type=Path)
+    parser.add_argument("output", type=Path, help="destination .hook, or .ass with --ass")
     parser.add_argument(
         "--effect",
         type=Path,
@@ -52,7 +52,7 @@ def main() -> None:
     parser.add_argument("--fade-in-ms", type=int, default=0)
     parser.add_argument("--fade-out-ms", type=int, default=0)
     parser.add_argument("--ass", action="store_true", help="export native ASS")
-    parser.add_argument("--fps", type=int, default=60, help="hook frame rate")
+    parser.add_argument("--fps", type=int, default=60, help="shader playback frame rate")
     parser.add_argument("--max-events", type=int, help="limit generated ASS events")
     parser.add_argument("--max-bytes", type=int, help="limit Hook file or generated ASS event bytes")
     parser.add_argument("--max-active", type=int, help="limit simultaneously active ASS events")

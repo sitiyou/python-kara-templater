@@ -31,8 +31,8 @@ track = Track(
 
 | 工厂 | 视觉效果 | 输出支持 |
 | --- | --- | --- |
-| `Sparkle(color=None, size=3, duration=0.45, travel=Vec2(12, -24))` | 默认。向上飘散淡出的四角星芒 | Hook 与 ASS |
-| `Petal(color=None, size=4, duration=0.9, fall=40)` | 弧线飘落、旋转并翻飞的花瓣 | Hook |
+| `Sparkle(color=None, size=3, duration=0.45, travel=Vec2(12, -24))` | 默认。向上飘散淡出的四角星芒 | 着色器与 ASS |
+| `Petal(color=None, size=4, duration=0.9, fall=40)` | 弧线飘落、旋转并翻飞的花瓣 | 着色器 |
 | `Ribbon(color=None, width=1.5, duration=0.55, lag=0.18, travel=..., bend=...)` | 基于 `TrailPath` 的弯曲光带 | `SceneEvaluator`（动态变形路径） |
 
 粒子颜色遵循明确的回退顺序：工厂自身的 `color` 优先，其次是 `LyricParticles(color=...)`，再到轨道或预设的高亮角色色，最后回退到源文本片段色（脱离歌词轨道使用时采用预设强调色）。自定义工厂可从 `context.color` 读取解析后的颜色。

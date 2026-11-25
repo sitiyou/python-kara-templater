@@ -7,7 +7,7 @@ Install the native libraries, Rust toolchain, and Python check tools required to
 Building from source requires Python 3.12 or later, a C++17 compiler, and Cargo with Rust 1.87 or later:
 
 - **Native text extension** (`kara_templater._text_native`): links against FreeType, HarfBuzz, FriBidi, and Fontconfig (`libpng` is also required by FreeType/Pillow builds).
-- **Bundled WGSL translator** (`_kara_wgsl`): compiled from the locked Rust crate in `native/wgsl/` for Hook and preview shader export.
+- **Bundled WGSL translator** (`_kara_wgsl`): compiled from the locked Rust crate in `native/wgsl/` to validate WGSL materials and translate them to GLSL for browser preview and shader playback.
 
 Repaired wheels already bundle `_kara_wgsl` and the compiled extension so downstream users do not need a C++ or Rust toolchain.
 

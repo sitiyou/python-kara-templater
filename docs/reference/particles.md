@@ -268,7 +268,7 @@ ParticleFactory.__call__(
 A seeded falling petal with curved drift, rotation and projected flutter.
 
 size/fall are script pixels, duration is seconds. Unlike Sparkle this uses
-a custom Transform for flutter and requires hook export.
+a custom Transform for flutter and supports browser preview and playback shader export.
 
 ```python
 Petal(

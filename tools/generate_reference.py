@@ -55,8 +55,8 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str, str]] = {
     "scenes": (
         "Scenes and compilation",
         ("scene", "output.ass_export", "scene_evaluation"),
-        "Scene objects, world-space evaluation, Hook export, and budgeted ASS compilation. Lifetimes use seconds; geometry uses script pixels.",
-        "[Scene objects and groups](../guides/objects.md) · [Export standard ASS](../output/ass.md)",
+        "Scene objects, world-space evaluation, real-time browser preview, and shader and ASS export. Lifetimes use seconds. Geometry uses script pixels.",
+        "[Scene objects and groups](../guides/objects.md) · [Preview and export](../output/README.md)",
     ),
     "animation": (
         "Animation and timing",

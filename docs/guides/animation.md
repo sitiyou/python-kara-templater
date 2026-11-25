@@ -133,7 +133,7 @@ Each field (`offset`, `scale`, `rotation`, `opacity`) accepts a constant or a pu
 When you need the full incoming `VisualState`, wrap a pure `(base, progress) -> VisualState` function in `StateFunction(function, channels=...)`. Keep callbacks deterministic with no previous-frame state or global randomness, and pass `breakpoints` for abrupt jumps.
 
 > [!IMPORTANT]
-> Arbitrary Python callbacks in `Transform` and `StateFunction` work in `SceneEvaluator`, but Hook and ASS exports reject uncompilable Python callbacks. For custom equations in Hook export, use `ProgressCurve` or `ShaderMotion` below.
+> Arbitrary Python callbacks in `Transform` and `StateFunction` work in `SceneEvaluator`, but shader and ASS exports reject uncompilable Python callbacks. For custom equations in shader output, use `ProgressCurve` or `ShaderMotion` below.
 
 ### Keep a cursor moving smoothly through a phrase
 
@@ -149,7 +149,7 @@ Check consecutive frames around short-to-long transitions and at the start and r
 
 ## Author a GPU motion
 
-Use `ShaderMotion` when you need custom equations that run directly on the GPU in Hook export. Provide both a GLSL snippet (`source`) and a matching Python evaluator (`function`) for state capture and tile indexing on the output frame grid:
+Use `ShaderMotion` when you need custom equations that run directly on the GPU in preview and playback. Provide both a GLSL snippet (`source`) and a matching Python evaluator (`function`) for state capture and tile indexing on the output frame grid:
 
 ```python
 from dataclasses import replace
@@ -196,7 +196,7 @@ Pass reusable GLSL helper functions via `functions="..."` (using unique function
 
 ## Sampling and output notes
 
-Hook export evaluates built-in animations (`FadeIn`, `FadeOut`, `Slide`, `ScalePulse`, `DriftOut` with one easing, `Tween`), `ProgressCurve` knots, and `ShaderMotion` directly on the GPU. Each instance carries its own duration and pivot while sharing one shader.
+The scene shader evaluates built-in animations (`FadeIn`, `FadeOut`, `Slide`, `ScalePulse`, `DriftOut` with one easing, `Tween`), `ProgressCurve` knots, and `ShaderMotion` directly on the GPU. Each instance carries its own duration and pivot while sharing one shader.
 
 Animation evaluation and channel-conflict checks use a `1e-10` s tolerance, so adjacent clips such as `0.1 + 0.2` and `0.3` meet cleanly without false conflicts.
 

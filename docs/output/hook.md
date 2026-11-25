@@ -107,7 +107,7 @@ Because `.hook` files store textures as hexadecimal text, long or complex songs 
 
 ## Repeated window exports
 
-Preview hosts that scrub across a song can prepare the scene once and export multiple time windows without re-measuring glyphs:
+For a local browser player, call [`scene.preview()`](README.md#preview-live-in-a-browser). Custom preview hosts that scrub across a song can prepare the scene once and export multiple time windows without re-measuring glyphs:
 
 ```python
 prepared = scene.prepare_hook()
@@ -121,7 +121,7 @@ Create a new `PreparedHook` whenever you modify the `Scene`.
 
 ## Next steps
 
-- [Choose an output](README.md)
+- [Preview and export](README.md)
 - [Colour and materials](../guides/materials.md)
 - [Animation and timing](../guides/animation.md)
 - [Troubleshooting](troubleshooting.md)

@@ -94,7 +94,7 @@ This writes the compiled ASS and a diagnostic report to the target directory. It
 
 ## Next steps
 
-- [Choose an output](README.md)
+- [Preview and export](README.md)
 - [Choose and register fonts](../guides/fonts.md)
 - [Play and render a Hook](hook.md)
 - [Troubleshooting](troubleshooting.md)

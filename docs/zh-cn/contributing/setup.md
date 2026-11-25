@@ -7,7 +7,7 @@
 从源码构建需要 Python 3.12 及以上版本、C++17 编译器，以及 Cargo 和 Rust 1.87 及以上版本：
 
 - **原生文本扩展**（`kara_templater._text_native`）：链接 FreeType、HarfBuzz、FriBidi 和 Fontconfig（构建 FreeType 与 Pillow 时还需要 `libpng`）。
-- **内置 WGSL 翻译器**（`_kara_wgsl`）：从 `native/wgsl/` 中的锁定 Rust 工程编译而来，用于 Hook 和浏览器预览的着色器导出。
+- **内置 WGSL 翻译器**（`_kara_wgsl`）：从 `native/wgsl/` 中的锁定 Rust 工程编译而来，用于校验 WGSL 材质并转译为 GLSL，供浏览器预览和着色器播放使用。
 
 修复后的 Wheel 已经打包好 `_kara_wgsl` 和编译产物，下游用户无需安装 C++ 或 Rust 工具链。
 

@@ -69,7 +69,7 @@ Key extrusion behaviour:
 - Sweeps the filled silhouette and its hard primary border together (or only the stroke when `filled=False`).
 - Moves, scales and fades together with the front face; within a layer, all extruded sides draw behind the faces.
 - On a `Track`, applies to both body text and ruby while keeping karaoke wipe colours on the front face and leaving layout metrics unchanged.
-- Supported in Hook export only; ASS export raises an error on extruded objects.
+- Supported in browser preview and playback shader export. Standard ASS compilation raises an error for extruded objects.
 
 ## Clip and mask drawings
 
@@ -104,10 +104,10 @@ For custom procedural bounds in `SceneEvaluator`, pass `RectangleFunction(functi
 
 ### Group masks and backend support
 
-In Hook export, a normal screen-space `RectangleClip` (static or `RectangleKeyframes`) on an `ObjectGroup` intersects the clip of every descendant drawing, including lyric colour layers and extrusion sides. The group's keyframes run on the group's own clock while each child keeps its own clip coordinates and clock.
+For shader rendering, a normal screen-space `RectangleClip` (static or `RectangleKeyframes`) on an `ObjectGroup` intersects the clip of every descendant drawing, including lyric colour layers and extrusion sides. The group's keyframes run on the group's own clock while each child keeps its own clip coordinates and clock.
 
 > [!NOTE]
-> Hook export supports normal screen-space and local `RectangleClip` masks, `RectangleKeyframes`, and screen-space group rectangles. `VectorClip`, `inverse=True`, group-local clips and `RectangleFunction` callbacks are not supported by Hook export; see [Play and render a Hook](../output/hook.md) and [Export standard ASS](../output/ass.md) for backend details.
+> The scene shader supports normal screen-space and local `RectangleClip` masks, `RectangleKeyframes`, and screen-space group rectangles. `VectorClip`, `inverse=True`, group-local clips and `RectangleFunction` callbacks are not supported by Hook export; see [Play and render a Hook](../output/hook.md) and [Export standard ASS](../output/ass.md) for backend details.
 
 ## Path trails, writing and morphing
 
@@ -150,11 +150,11 @@ Here the head travels from local `0.0` s to `0.6` s and the tail follows from `0
 - **`PathFunction(function, max_points, breakpoints=())`**: Evaluates a custom `(base_path, local_seconds) -> VectorPath | None` callback under an explicit point budget.
 
 > [!WARNING]
-> Per-frame deformed path geometry (`TrailPath`, `WritePath`, `MorphPath`, `PathFunction`) is evaluated in `SceneEvaluator` and is not supported by Hook export or standard ASS export.
+> Per-frame deformed path geometry (`TrailPath`, `WritePath`, `MorphPath`, `PathFunction`) is evaluated in `SceneEvaluator` and is unsupported in shader and standard ASS exports.
 
 ## Next steps
 
 - Compose `PathObject` drawings inside groups in [Scene objects and groups](objects.md).
 - Use path geometry in custom particles in [Particles, copies and echoes](particles.md).
-- Check Hook clip and atlas limits in [Play and render a Hook](../output/hook.md).
+- Check shader clip and atlas limits in [Play and render a Hook](../output/hook.md).
 - Browse every geometry signature in [Geometry API reference](../reference/geometry.md).

@@ -74,7 +74,7 @@ uv run python -m tools.generate_reference --check
 
 ## Visual previews
 
-For Hook changes, export the target scene to `.hook` and render it over the intended background with FFmpeg and `libplacebo`; see [Play and render a Hook](../output/hook.md). If the change affects a gallery demo, also scrub the WebGL preview in the [documentation site](documentation-site.md).
+For shader changes, check the scene in WebGL 2 with `scene.preview()` and render the `.hook` over the intended background with FFmpeg. If a gallery demo changes, also scrub its browser preview. [Preview and export](../output/README.md) · [Play and render a Hook](../output/hook.md) · [Documentation site](documentation-site.md)
 
 ### ASS gallery GIFs
 

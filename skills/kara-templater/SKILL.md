@@ -9,7 +9,7 @@ Read the lyric phrasing and mood, listen for rhythmic accents and section change
 
 Use the default two-row karaoke layout that alternates left and right. Change the layout only when the user explicitly asks for it. Inherit library defaults and pass optional arguments only for deliberate design choices. Preserve the supplied lyric text, readings and timing.
 
-Follow the project's workflow when it fits the task. The CLI applies presets or effect files to timed ASS. Scripts and applications can build and export a Scene directly. [CLI guide](../../docs/guides/cli.md) · [Scene example](../../docs/getting-started.md#write-your-first-python-template)
+The CLI applies presets or effect files to timed ASS. Scripts and applications can build a scene, preview it in a browser with `scene.preview()`, and export for the target player. [CLI guide](../../docs/guides/cli.md) · [Preview and export](../../docs/output/README.md)
 
 ## Read the guide for the change
 
@@ -22,10 +22,10 @@ When exploring a design, start with the [example index by visual goal](../../doc
 | Sweep colours, entry, exit and timing effects | [Timed highlights](../../docs/tutorials/lyric-highlights.md) and [effect catalog](../../docs/guides/karaoke-effects.md) |
 | Count-ins | [Add a rhythmic count-in](../../docs/tutorials/karaoke-design.md#add-a-rhythmic-count-in) |
 | Custom motion or particles | [Motion studies](../../docs/tutorials/lyric-studies.md) and [effect gallery](../../docs/examples/README.md) |
-| Renderer constraints | [Output formats](../../docs/output/README.md) and [troubleshooting](../../docs/output/troubleshooting.md) |
+| Renderer constraints | [Preview and export](../../docs/output/README.md) and [troubleshooting](../../docs/output/troubleshooting.md) |
 
 ## Verify on representative lyrics
 
-Use a passage with a held vowel, a quick row change and ruby when present. Include overlapping voices for multi-voice songs. Use intended footage if available. A neutral background suffices for checking standalone Hook layout, timing and font coverage.
+Use a passage with a held vowel, a quick row change and ruby when present. Include overlapping voices for multi-voice songs. Check layout, timing and font coverage in a browser preview. Use the intended footage when verifying the exported playback shader.
 
 Play the rendered passage at the target frame rate. Inspect the first highlight, a mid-word sweep, a row handoff and the release. Check the longest line and densest reading before exporting the whole song.

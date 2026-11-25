@@ -4,7 +4,7 @@ Turn timed lyrics into positioned vocal streams with automatic row rotation, mul
 
 ## Build a scene with Track
 
-A `Track` turns selected lyrics from a `Document` into a positioned stream with its own styles, layout, cues, and effects. Pass one or more tracks to `build_lyric_scene` to create a `LyricScene`, then export a standalone Hook.
+A `Track` turns selected lyrics from a `Document` into a positioned stream with its own styles, layout, cues, and effects. Pass one or more tracks to `build_lyric_scene` to create a `LyricScene`, then call `scene.preview()` to see the result in a browser or `scene.export()` to package a playback shader.
 
 ```python
 from kara_templater import (

@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Diagnose common issues across installation, lyric input, layout, animation, Hook export, and standard ASS playback. Start from the failing object ID or record index and reproduce the error with the smallest input.
+Diagnose common issues across installation, lyric input, layout, animation, shader preview and playback, and standard ASS. Start from the failing object ID or record index and reproduce the error with the smallest input.
 
 ## Read the error context
 
@@ -48,12 +48,13 @@ Keep the full traceback and exception cause when debugging custom callbacks.
 | Object follows the wrong position | `object.at(t)` evaluates local state only. Use `scene.evaluator().at(id, t)` for world-space coordinates after parent transforms and references. |
 | Callback behaves differently after seeking | Remove previous-frame state and global random calls; use deterministic seeded randomness and declare dependencies and breakpoints. |
 
-## Hook output
+## Shader preview and playback
 
 | Symptom | Fix |
 | --- | --- |
-| `SceneCompileError` on Hook export | Hooks do not support `AssDialogue`, vector or inverse clips, group-local clips, deformed paths, gradients with more than 16 stops, overlapping varying animations on one node, or reference-dependent transforms. See [Play and render a Hook](hook.md). |
-| Hook GPU work, atlas, or data texture limit exceeded | Reduce simultaneous overlapping planes, tighten motion bounds (check `ShaderMotion` Python poses), or export shorter frame-aligned intervals with `start` and `duration`. |
+| `SceneCompileError` while compiling a shader | Shader rendering does not support `AssDialogue`, vector or inverse clips, group-local clips, deformed paths, gradients with more than 16 stops, overlapping varying animations on one node, or reference-dependent transforms. See [Play and render a Hook](hook.md). |
+| GPU work, atlas, or data texture limit exceeded | Reduce simultaneous overlapping planes, tighten motion bounds (check `ShaderMotion` Python poses), or export shorter frame-aligned intervals with `start` and `duration`. |
+| Browser did not open or preview could not start | Open the HTML path returned by `scene.preview()` in a browser with WebGL 2 enabled. If a texture exceeds the GPU limit, preview a shorter time window. |
 | Lyrics draw twice in mpv or FFmpeg | Pass `--sub-auto=no` in mpv and do not load a fallback `.ass` on top of the Hook. |
 | Glow is cut off sharply at the wipe edge | Ensure `blend_glow=True` (the default on `LyricHighlights`) is still enabled and that both before and after `Glow` use the same `border` and positive `blur`. |
 
@@ -61,14 +62,14 @@ Keep the full traceback and exception cause when debugging custom callbacks.
 
 | Symptom | Fix |
 | --- | --- |
-| `SceneCompileError` on ASS compile | Gradients, feathered or slanted wipes, soft scanlines, blended glow, extrusion, shader paint, and frame-sampled animations require a Hook. Switch to Hook export or use an ASS-compatible option such as `KaraokeEffects.duotone(feather=0)` or `Sparkle`. See [Choose an output](README.md). |
+| `SceneCompileError` on ASS compile | Gradients, feathered or slanted wipes, soft scanlines, blended glow, extrusion, shader paint, and frame-sampled animations use shader rendering. Preview or export the scene as a shader, or use an ASS-compatible option such as `KaraokeEffects.duotone(feather=0)` or `Sparkle`. See [Preview and export](README.md). |
 | Event, byte, active, path, or boolean budget exceeded | Inspect `AssResult` and `AssObjectReport` to find the heaviest object, simplify the effect, or raise the specific limit in `AssBudget`. See [Export standard ASS](ass.md). |
 | Faint colored fringes along sharp edges | YUV420 chroma subsampling blurs color transitions across 2 × 2 pixel blocks. Compare renders in RGB or full-resolution chroma. |
 | Another player renders differently | Confirm the player loads the exact same font files and check mpv flags and known libass/VSFilter differences in [Export standard ASS](ass.md). |
 
 ## Next steps
 
-- [Choose an output](README.md)
+- [Preview and export](README.md)
 - [Play and render a Hook](hook.md)
 - [Export standard ASS](ass.md)
 - [Choose and register fonts](../guides/fonts.md)

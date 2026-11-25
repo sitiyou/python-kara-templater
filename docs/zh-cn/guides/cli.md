@@ -1,6 +1,6 @@
 # 命令行
 
-在终端中直接将带时间轴的 ASS 文件导出为独立的 Hook 着色器或标准 ASS 字幕。内置预设参数适合快速套用样式，也可以通过 Python 特效文件加载可复用的声部轨道或自定义场景。
+在终端中把带时间轴的 ASS 歌词做成卡拉 OK 特效，再导出着色器或标准 ASS 字幕。内置预设参数适合快速套用样式，也可以通过 Python 特效文件加载可复用的声部轨道或自定义场景。
 
 ## 使用预设选项导出
 
@@ -71,14 +71,14 @@ kara-templater input.ass output.hook --effect my_scene.py
 
 ## 选择输出格式与预算上限
 
-命令行默认以 60 fps 导出独立的 Hook（libplacebo 着色器 Hook）。用 `--fps`（`1`–`240`）指定交付帧率，或加上 `--ass` 改为编译标准 ASS。
+命令行默认以 60 fps 将着色器与纹理打包为 `.hook`，供 mpv 或 FFmpeg 使用。用 `--fps`（`1`–`240`）指定交付帧率，或加上 `--ass` 改为编译标准 ASS。
 
 ```sh
 kara-templater input.ass output.hook --fps 30
 kara-templater input.ass output.ass --ass
 ```
 
-启用 `--ass` 后，命令行会打印生成的事件数、峰值并发事件数、输出字节数以及编译器诊断信息。
+在 Python 中构建的场景可以直接打开浏览器实时预览，见[预览与导出](../output/README.md)。启用 `--ass` 后，命令行会打印生成的事件数、峰值并发事件数、输出字节数以及编译器诊断信息。
 
 | 选项 | 适用格式 | 默认值 | 用途 |
 | --- | --- | --- | --- |
@@ -92,7 +92,7 @@ kara-templater input.ass output.ass --ass
 
 ## 下一步
 
-- [选择输出格式](../output/README.md)
+- [预览与导出](../output/README.md)
 - [播放与渲染 Hook](../output/hook.md)
 - [导出标准 ASS](../output/ass.md)
 - [布置声部轨道](tracks.md)

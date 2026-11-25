@@ -1,6 +1,6 @@
 # Quickstart
 
-Install kara-templater, export your first animated karaoke Hook from timed lyrics, and preview it with mpv or FFmpeg. Start here to get a working render in a few minutes.
+Install kara-templater, turn timed lyrics into an animated karaoke scene, and preview it in your browser or over a video.
 
 ## Install
 
@@ -68,12 +68,22 @@ Here is how the pieces connect:
 - `Line(...)` defines a lyric line from 0 ms to 3000 ms. Inside `text`, `\k90` gives the first syllable 90 centiseconds (0.9 s), and `星|ほし` attaches the reading `ほし` to `星`.
 - `KaraokeEffects.duotone(...)` creates a two-color feathered wipe between `before_fill` and `after_fill`.
 - `Track(...)` places the line at `(80, 180)` and applies the effect.
-- `build_lyric_scene(...)` measures the glyphs and builds a `Scene`, and `scene.export("chorus.hook", fps=30)` writes the Hook at 30 fps for a quick preview (the default is 60 fps).
+- `build_lyric_scene(...)` measures glyphs and builds a `Scene`. `scene.export("chorus.hook", fps=30)` packages a playback shader at 30 fps for the mpv and FFmpeg commands below.
 
 Try changing `before_fill` or `after_fill` to match your footage, or swap `gold` for `KaraokeEffects(entry="rise", exit="fade")` to add line transitions.
 
 > [!NOTE]
 > This script uses Japanese characters. Install a font with Japanese glyphs (such as Noto Sans CJK JP or Sarasa UI J) if characters render as missing-glyph boxes. See [Choose and register fonts](guides/fonts.md).
+
+## Preview in your browser
+
+Add this line after building the scene and run `python chorus.py` again:
+
+```python
+scene.preview()
+```
+
+Use the controls to play or scrub the scene. The player opens a local HTML file and renders it in WebGL 2.
 
 ## Preview the Hook
 
@@ -109,4 +119,4 @@ Both read the file's `PlayRes`, timing tags, and ruby readings. Match your FFmpe
 - [Core concepts](concepts.md) — Learn how time units, coordinates, lifetimes, and outputs fit together.
 - [Design a song layout](tutorials/karaoke-design.md) — Lay out lead and harmony vocals with automatic row rotation.
 - [Import timed lyrics](guides/documents.md) — Check all supported `\k` timing, ruby, and continuation syntax.
-- [Choose an output](output/README.md) — Compare Hook playback with standard ASS export.
+- [Preview and export](output/README.md) — Choose browser preview, shader playback, or standard ASS.

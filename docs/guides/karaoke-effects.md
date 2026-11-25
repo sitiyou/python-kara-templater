@@ -91,7 +91,7 @@ Watch the final held note in these three synchronised renders. Only the `highlig
 
 Fine-tune the highlight front with these options on `KaraokeEffects`:
 
-- **Soft Hook front**: Set `hook_feather` (script pixels or a `Glyph.font_size` expression) to blend fill and outline smoothly behind the moving edge. Add `front_color` to tint the edge itself. Supply matching `base_glow` and `glow` (same `border`, `blur` and `opacity`) to blend the halo across the same edge.
+- **Soft wipe front**: Set `hook_feather` (script pixels or a `Glyph.font_size` expression) to blend fill and outline smoothly behind the moving edge. Add `front_color` to tint the edge itself. Supply matching `base_glow` and `glow` (same `border`, `blur` and `opacity`) to blend the halo across the same edge.
 - **Scanline styling**: Adjust `scanline_width` (defaults to 16 px at 1080p, scaled to canvas height) and `scanline_softness` (defaults to 8 px at 1080p; `0` gives a hard band). Both accept `Canvas.height` or `Glyph.font_size` expressions. Set `scanline_mode` to `"color"` (default), `"brighten"` (lifts HSV value by `scanline_brightness`, default `0.60`), `"follow_before"`, or `"follow_after"`. In `"color"` mode, set `scanline_color` (supports `PaintInput` in Hook), `scanline_strength` (`0..1`, supports `PaintInput`), or `scanline_material` (such as a `LyricGradient`).
 - **Outline flash**: Set `stroke_flash=True` for a 0.24 s shine pulse along the body outline at each body note onset. Reading checkpoints do not retrigger it.
 - **Zoom curve**: Set `zoom_pulse_curve_level` from `0` to `5`. Levels `0` and `1` (default) are linear; levels `2`–`5` ease toward the peak and accelerate away.
@@ -170,13 +170,13 @@ uv run python -m examples.karaoke_catalog build/petals.hook --entry wave_in --ex
 > [!NOTE]
 > The catalog implements the visual families familiar from karaoke animation menus (entries, exits, highlights, decorations and outline flash) as an independent engine. It is not an importer or pixel-identical clone of any external editor.
 
-Hook export supports the full catalog, including feathered wipes, slanted italic fronts, gradients, soft scanlines and all particle transitions. Keep your recipe in a reusable function that accepts a `Document` and returns a `LyricScene`, then call `scene.export("song.hook")`.
+Browser preview and playback shader export support the full catalog, including feathered wipes, slanted fronts, gradients, soft scanlines, and particle transitions. Return a `LyricScene` from your template, then call `scene.preview()` to check the effects.
 
-Standard ASS export (`scene.ass.compile().document.save("song.ass")`) supports hard-edged wipes (`hook_feather=0`), native fades and eligible transforms; gradients, feathered wipes, soft scanlines and complex particle trajectories raise `SceneCompileError`. See [Choose an output](../output/README.md) and [Export standard ASS](../output/ass.md) for format trade-offs.
+Standard ASS export (`scene.ass.compile().document.save("song.ass")`) supports hard-edged wipes (`hook_feather=0`), native fades and eligible transforms; gradients, feathered wipes, soft scanlines and complex particle trajectories raise `SceneCompileError`. See [Preview and export](../output/README.md) and [Export standard ASS](../output/ass.md) for format trade-offs.
 
 ## Next steps
 
 - Style wipes with gradients, glows and WGSL shaders in [Colour and materials](materials.md).
 - Write custom motion rules and curves in [Animation and timing](animation.md).
 - Build custom particle emitters and onset echoes in [Particles, copies and echoes](particles.md).
-- Compare Hook playback and ASS export in [Choose an output](../output/README.md).
+- Find preview and delivery options in [Preview and export](../output/README.md).

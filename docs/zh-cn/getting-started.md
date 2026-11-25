@@ -1,6 +1,6 @@
 # 快速上手
 
-安装 kara-templater，从带时间轴的歌词导出第一个动态卡拉 OK Hook，并用 mpv 或 FFmpeg 预览效果。想在几分钟内跑通完整流程，请从这里开始。
+安装 kara-templater，用带时间轴的歌词做出第一个卡拉 OK 动画，在浏览器里实时查看，或叠加到视频上播放。
 
 ## 安装
 
@@ -68,12 +68,22 @@ scene.export("chorus.hook", fps=30)
 - `Line(...)` 定义了一句从 0 ms 到 3000 ms 的歌词行。`text` 中的 `\k90` 表示第一个音节持续 90 厘秒（0.9 秒），`星|ほし` 为 `星` 附上读音 `ほし`。
 - `KaraokeEffects.duotone(...)` 创建在 `before_fill` 和 `after_fill` 之间羽化过渡的双色走字效果。
 - `Track(...)` 将这句歌词放到 `(80, 180)` 并挂载特效。
-- `build_lyric_scene(...)` 测量字形并生成 `Scene`，最后 `scene.export("chorus.hook", fps=30)` 以 30 fps 导出 Hook 以便快速预览（默认帧率为 60 fps）。
+- `build_lyric_scene(...)` 测量字形并生成 `Scene`。`scene.export("chorus.hook", fps=30)` 按 30 fps 打包着色器，供下文的 mpv 和 FFmpeg 命令使用。
 
 你可以修改 `before_fill` 或 `after_fill` 以配合画面配色，也可以把 `gold` 换成 `KaraokeEffects(entry="rise", exit="fade")` 为整行加上入场和退场过渡。
 
 > [!NOTE]
 > 这段示例包含日语汉字和假名。如果渲染出的字形显示为缺字方框，请安装包含日语字形的字体（如 Noto Sans CJK JP 或 Sarasa UI J），详见[选择与注册字体](guides/fonts.md)。
+
+## 在浏览器里预览
+
+在构建场景后加上这一行，再次运行 `python chorus.py`：
+
+```python
+scene.preview()
+```
+
+预览会在浏览器中打开本地 HTML 文件并通过 WebGL 2 渲染。用页面上的控件播放或拖动时间轴。
 
 ## 预览导出的 Hook
 
@@ -109,4 +119,4 @@ song = Document.load("song.ass")
 - [核心概念](concepts.md) — 一次掌握时间单位、坐标空间、生命周期和输出格式。
 - [设计整曲布局](tutorials/karaoke-design.md) — 布置带自动换行的主唱与和声声部。
 - [导入带时间轴的歌词](guides/documents.md) — 查看所有受支持的 `\k` 计时、注音与续接语法。
-- [选择输出格式](output/README.md) — 对比 Hook 播放与标准 ASS 导出的适用场景。
+- [预览与导出](output/README.md) — 查看浏览器预览、着色器播放和标准 ASS 的用法。

@@ -131,4 +131,4 @@ python -m examples.gpu_gradient
 - [快速上手](../getting-started.md) — 用 mpv 或 FFmpeg 预览导出的 `.hook` 文件。
 - [内置卡拉 OK 特效](../guides/karaoke-effects.md) — 查阅所有内置入场、高亮、退场和装饰选项。
 - [设计整曲布局](../tutorials/karaoke-design.md) — 把单句示例扩展成完整的多声部整曲模板。
-- [选择输出格式](../output/README.md) — 了解哪些特效需要 Hook 输出，哪些兼容标准 ASS。
+- [预览与导出](../output/README.md) — 查看着色器播放与标准 ASS 各自支持的特效。

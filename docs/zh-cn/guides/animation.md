@@ -110,7 +110,7 @@ rule = LyricRule("character", "timing", pulse)
 
 - 内置平滑曲线：`linear_rate`、`smooth_rate`（三次曲线，两端速度为零）、`smoother_rate`（五次曲线，两端速度与加速度均为零）、`ease_in`、`ease_out`、`ease_in_out`。
 - `there_and_back(peak_at=0.25, return_at=0.5, rise=ease_in, fall=ease_out)`：生成可复用的“上升—保持—回落”曲线供 `Tween` 使用。
-- `ProgressCurve(knots)` 与 `ProgressCurve.cubic_bezier(x1, y1, x2, y2)`：分段线性或控制点在 `0..1` 内的三次贝塞尔曲线。节点仅存一次，在 Python 求值与 Hook GPU 着色器中表现完全一致。
+- `ProgressCurve(knots)` 与 `ProgressCurve.cubic_bezier(x1, y1, x2, y2)`：分段线性或控制点在 `0..1` 内的三次贝塞尔曲线。节点仅存一次，在 Python 求值与场景着色器中表现完全一致。
 
 缓动允许有限过冲：RGB 通道自动截断在 `0..255`，几何通道外推，但透明度必须保持在 `0..1` 且描边与模糊不能为负。
 
@@ -149,7 +149,7 @@ exit_motion = Transform(
 
 ## 编写 GPU 运动着色器
 
-需要在 Hook 导出中直接在 GPU 上运行自定义运动方程时，使用 `ShaderMotion`。同时提供 GLSL 代码片段（`source`）和与之等价的 Python 求值函数（`function`），供状态捕获与输出帧网格的瓦片索引使用：
+需要在预览或播放时用 GPU 计算自定义运动方程时，使用 `ShaderMotion`。同时提供 GLSL 代码片段（`source`）和与之等价的 Python 求值函数（`function`），供状态捕获与输出帧网格的瓦片索引使用：
 
 ```python
 from dataclasses import replace
@@ -190,7 +190,7 @@ scene.export("gpu-motion.hook")
 - 可修改的局部通道：`pos`（`vec2`）、`scale`（`vec2`）、`skew`（`vec2`）、`angle`（角度）、`alpha`、`pen`（描边半径）、`fill`（`0..1` 的 `vec3`）与 `outline`（`0..1` 的 `vec3`）。
 - 辅助函数 `basisOf(scale, skew, angle)`：返回局部线性变换矩阵。
 
-必须在 `channels=frozenset({...})` 中声明 GLSL 写入的全部通道（支持 `position`、`scale`、`skew`、`rotation`、`opacity`、`border`、`fill` 和 `outline`）。只要 `ShaderMotion` 改变了几何姿态（`position`、`scale`、`rotation` 或 `skew`），`function` 必须在整个片段内与 GLSL 计算出相同的姿态，Hook 导出才会把对象放进正确的屏幕瓦片中。
+必须在 `channels=frozenset({...})` 中声明 GLSL 写入的全部通道（支持 `position`、`scale`、`skew`、`rotation`、`opacity`、`border`、`fill` 和 `outline`）。只要 `ShaderMotion` 改变了几何姿态（`position`、`scale`、`rotation` 或 `skew`），`function` 必须在整个片段内与 GLSL 计算出相同的姿态，场景编译器才能把对象放进正确的屏幕瓦片中。
 
 可复用的 GLSL 辅助函数可通过 `functions="..."` 传入（函数名需在模板内保持唯一）。如果你习惯用 Python 生成 GLSL，也可以选装 Metashade，在模块加载时生成一次辅助函数字符串传给 `functions=`。
 

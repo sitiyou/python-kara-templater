@@ -43,5 +43,5 @@ scene.export("karaoke.hook")
 
 - [核心概念](../concepts.md)
 - [教程总览](../tutorials/README.md)
-- [选择输出格式](../output/README.md)
+- [预览与导出](../output/README.md)
 - [API 参考](../../reference/README.md)

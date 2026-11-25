@@ -1,6 +1,6 @@
 # 故障排查
 
-按安装、歌词导入、排版与字体、动画、Hook 导出以及标准 ASS 播放六个阶段排查常见问题。建议先从报错里的对象 ID 或记录索引入手，用最小输入复现问题。
+按安装、歌词导入、排版与字体、动画、着色器预览与播放以及标准 ASS 排查常见问题。建议先从报错里的对象 ID 或记录索引入手，用最小输入复现问题。
 
 ## 读懂报错上下文
 
@@ -48,12 +48,13 @@
 | 对象跟随的位置不对 | `object.at(t)` 只计算局部状态；要获取叠加父级变换和引用后的画布坐标，请改用 `scene.evaluator().at(id, t)`。 |
 | 拖动进度条后回调结果前后不一致 | 移除依赖上一帧的状态和全局随机数调用；改用带种子的确定性随机，并声明依赖项与断点。 |
 
-## Hook 导出与播放
+## 着色器预览与播放
 
 | 现象 | 排查与修复 |
 | --- | --- |
-| Hook 导出抛出 `SceneCompileError` | Hook 不支持 `AssDialogue`、矢量或反向裁剪、分组局部裁剪、变形路径、超过 16 个色标的渐变、同一节点上重叠的变化动画以及依赖引用的变换。请参阅[播放与渲染 Hook](hook.md)。 |
-| 超出 Hook GPU 工作量、图集或数据纹理上限 | 减少同帧重叠平面、收紧动画包围盒（检查 `ShaderMotion` 的 Python 姿态回调），或用 `start` 和 `duration` 拆分为较短的帧对齐时间段。 |
+| 着色器编译抛出 `SceneCompileError` | 着色器渲染不支持 `AssDialogue`、矢量或反向裁剪、分组局部裁剪、变形路径、超过 16 个色标的渐变、同一节点上重叠的变化动画以及依赖引用的变换。请参阅[播放与渲染 Hook](hook.md)。 |
+| 超出 GPU 工作量、图集或数据纹理上限 | 减少同帧重叠平面、收紧动画包围盒（检查 `ShaderMotion` 的 Python 姿态回调），或用 `start` 和 `duration` 拆分为较短的帧对齐时间段。 |
+| 浏览器未打开或预览无法启动 | 在启用 WebGL 2 的浏览器中打开 `scene.preview()` 返回的 HTML 路径。如果纹理超出显卡上限，可缩短预览时段。 |
 | mpv 或 FFmpeg 中歌词画了两遍 | 在 mpv 中传入 `--sub-auto=no`，渲染时不要在 Hook 之上再叠加兜底 `.ass` 文件。 |
 | 辉光在走字边界处被生硬截断 | 确认 `LyricHighlights` 的 `blend_glow=True`（默认值）未被关闭，且唱前与唱后 `Glow` 使用相同的 `border` 和大于 0 的 `blur`。 |
 
@@ -61,14 +62,14 @@
 
 | 现象 | 排查与修复 |
 | --- | --- |
-| ASS 编译抛出 `SceneCompileError` | 渐变、羽化或倾斜走字、柔和扫光、融合辉光、立体挤出、着色器材质和逐帧采样动画都需要 Hook。请改用 Hook 导出，或换用 ASS 兼容方案（如 `KaraokeEffects.duotone(feather=0)` 或 `Sparkle`）。请参阅[选择输出格式](README.md)。 |
+| ASS 编译抛出 `SceneCompileError` | 渐变、羽化或倾斜走字、柔和扫光、融合辉光、立体挤出、着色器材质和逐帧采样动画需要着色器渲染。请预览或导出着色器，或改用 ASS 兼容方案（如 `KaraokeEffects.duotone(feather=0)` 或 `Sparkle`）。请参阅[预览与导出](README.md)。 |
 | 超出事件数、字节数、并发数、路径点数或布尔运算预算 | 查看 `AssResult` 与 `AssObjectReport` 找出开销最大的对象，精简特效，或在 `AssBudget` 中有针对性地调高对应上限。请参阅[导出标准 ASS](ass.md)。 |
 | 锐利彩色边缘出现细微色边 | YUV420 色度抽样会在 2 × 2 像素块上混合色度。请改用 RGB 或全分辨率色度输出进行核对。 |
 | 不同播放器渲染结果有差异 | 确认播放器加载了完全相同的字体文件，并核对[导出标准 ASS](ass.md) 中的 mpv 参数及 libass 与 VSFilter 的已知差异。 |
 
 ## 下一步
 
-- [选择输出格式](README.md)
+- [预览与导出](README.md)
 - [播放与渲染 Hook](hook.md)
 - [导出标准 ASS](ass.md)
 - [选择与注册字体](../guides/fonts.md)

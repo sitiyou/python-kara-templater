@@ -107,20 +107,19 @@ A `Lifetime(start, end)` is an absolute, half-open interval `[start, end)` in se
 
 A `LyricRule` binds any `StateAnimation` (such as `FadeIn`, `ScalePulse`, `DriftOut`, or `Transform`) to a role or queried target at an anchor: `enter`, `exit`, `timing`, `after_timing`, or a custom anchor such as `HighlightArrival`. Original `\k` timing intervals stay fixed even when layout adjusts preview or tail padding.
 
-## Two outputs
+## Live preview and export
 
-Both outputs compile from the same `Scene`, and both raise `SceneCompileError` with the affected object ID if an effect exceeds what the chosen output supports.
+A single `Scene` can produce shader previews and playback files or compile to standard ASS. The shader pipeline uses Naga to translate WGSL materials into GLSL before writing the preview resources or playback package.
 
-| Output | Entry point | When to use it |
+| Use case | Entry point | Result |
 | --- | --- | --- |
-| Standalone libplacebo Hook (primary) | `scene.export("song.hook", fps=60)` | Default choice for mpv playback and FFmpeg video rendering. Supports feathered wipes, soft scanlines, gradients, glows, extrusions, particles, WGSL materials, and GPU motion. |
-| Standard ASS (compatibility) | `scene.ass.compile().document.save("song.ass")` | When delivery requires a plain `.ass` file for ordinary subtitle players. Supports text, vector drawings, hard wipes (`feather=0`), native moves, and eligible transforms within `AssBudget` limits. |
-
-Hook export does not support pass-through `AssDialogue`, vector or inverse clips, group-local clips, or deformed paths; standard ASS export does not support soft wipes, gradients, extrusions, WGSL materials, or frame-sampled callbacks.
+| Live browser preview | `scene.preview()` | Opens a WebGL 2 player for feathered wipes, soft scanlines, gradients, particles, and custom WGSL materials. |
+| Video playback and rendering | `scene.export("song.hook")` | Packages the shader and textures for mpv or FFmpeg. |
+| Standard ASS compatibility | `scene.ass.compile().document.save("song.ass")` | Produces a plain `.ass` file for subtitle players, with hard wipes and eligible ASS transforms. |
 
 ## Next steps
 
 - [Import timed lyrics](guides/documents.md) — See every supported `\k` tag, ruby separator, and structured input option.
 - [Lay out vocal tracks](guides/tracks.md) — Configure row rotation, spacing, vertical lyrics, and multiple vocals.
 - [Animation and timing](guides/animation.md) — Build timelines, rules, duration-aware factories, and easing curves.
-- [Choose an output](output/README.md) — Compare Hook and ASS capabilities in detail.
+- [Preview and export](output/README.md) — Compare shader and subtitle capabilities.

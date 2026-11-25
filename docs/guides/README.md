@@ -43,5 +43,5 @@ To add harmonies or translations, create another `Track` with a source filter an
 
 - [Core concepts](../concepts.md)
 - [Tutorials overview](../tutorials/README.md)
-- [Choose an output](../output/README.md)
+- [Preview and export](../output/README.md)
 - [API reference](../reference/README.md)

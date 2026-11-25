@@ -31,8 +31,8 @@ Choose from three built-in particle factories or supply your own:
 
 | Factory | Appearance | Output support |
 | --- | --- | --- |
-| `Sparkle(color=None, size=3, duration=0.45, travel=Vec2(12, -24))` | Default. Four-point star drifting upward and fading | Hook and ASS |
-| `Petal(color=None, size=4, duration=0.9, fall=40)` | Curved falling petal with rotation and flutter | Hook |
+| `Sparkle(color=None, size=3, duration=0.45, travel=Vec2(12, -24))` | Default. Four-point star drifting upward and fading | Shader and ASS |
+| `Petal(color=None, size=4, duration=0.9, fall=40)` | Curved falling petal with rotation and flutter | Shader |
 | `Ribbon(color=None, width=1.5, duration=0.55, lag=0.18, travel=..., bend=...)` | Curved luminous strand built with `TrailPath` | `SceneEvaluator` (deformed path) |
 
 Particle colour follows a clear fallback chain: an explicit `color` on the factory wins first, then `LyricParticles(color=...)`, then the track or catalog highlight colour, and finally the source text run (or catalog accent if used outside a lyric track). Custom factories read this resolved tint from `context.color`.

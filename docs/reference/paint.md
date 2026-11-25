@@ -130,7 +130,7 @@ A solid side swept from a drawing's hard silhouette in local script pixels.
 Offset is the vector from front to back. The side follows the face's
 transforms and opacity, and keeps its own color during a lyric wipe.
 back_color shades the side from color at the face to back_color at full depth.
-Zero offset gives a flat drawing. Hook output supports this appearance.
+Zero offset gives a flat drawing. Browser preview and playback shaders support this appearance.
 
 ```python
 Extrusion(
@@ -409,7 +409,7 @@ KaraokeTheme.overlay(
 
 An x/y gradient for fill, outline, or both; screen coordinates by default.
 
-The hook shades independent fill and outline ramps continuously. Local
+The scene shader shades independent fill and outline ramps continuously. Local
 space attaches color stops to the untransformed drawing.
 
 ```python

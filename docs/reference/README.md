@@ -14,7 +14,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 | [Documents and lyric input](documents.md) | Records, decoded lyric text, input selection, and source mappings. Raw line clocks use milliseconds; lyric timing spans use seconds. | 21 |
 | [Track authoring](tracks.md) | Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds. | 25 |
 | [Text measurement and layout](text.md) | Font registration, shaped glyph metrics, source clusters, and body/ruby binding. | 19 |
-| [Scenes and compilation](scenes.md) | Scene objects, world-space evaluation, Hook export, and budgeted ASS compilation. Lifetimes use seconds; geometry uses script pixels. | 20 |
+| [Scenes and compilation](scenes.md) | Scene objects, world-space evaluation, real-time browser preview, and shader and ASS export. Lifetimes use seconds. Geometry uses script pixels. | 20 |
 | [Animation and timing](animation.md) | Pure state and property animation, easing curves, and typed composition on second-based clocks. | 35 |
 | [Colors and appearance](paint.md) | RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles. | 34 |
 | [Geometry and paths](geometry.md) | Script-space vectors, clips, masks, path boolean operations, deformation, extrusion, and morphing. | 32 |

@@ -25,7 +25,8 @@ gold = KaraokeEffects.duotone(
     before_fill=Color.hex("#281C26"), after_fill=Color.hex("#FFE09A"),
 )
 vocal = Track(id="vocal", layout=Layout(position=Vec2(80, 180)), effects=(gold,))
-build_lyric_scene(song, tracks=(vocal,)).export("chorus.hook", fps=30)`;
+scene = build_lyric_scene(song, tracks=(vocal,))
+scene.preview()`;
 ---
 
 <StarlightPage

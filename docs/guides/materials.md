@@ -1,6 +1,6 @@
 # Colour and materials
 
-Style lyrics and shapes with RGB colours, gradients, outlines, glows and custom WGSL shaders. Use this guide to move beyond flat fills or to build per-pixel Hook effects.
+Style lyrics and shapes with RGB colours, gradients, outlines, glows and custom WGSL shaders. Use this guide to move beyond flat fills and write per-pixel effects.
 
 ## Colours and visual roles
 
@@ -101,7 +101,7 @@ When you need custom multi-pass wipes, pauses or overlapping highlight layers, c
 
 ## Write a WGSL material
 
-Use a `MaterialEffect` when an object's shape and timing are already right and you want to compute each covered pixel's colour or opacity in WGSL for Hook output.
+Use a `MaterialEffect` when an object's shape and timing are already right and you want to compute each covered pixel's colour or opacity in WGSL.
 
 Define a subclass of `MaterialEffect` with a `wgsl` string containing a `shade` function, return any extra parameters from `parameters()`, and attach it with `MaterialClip` to a `TextObject` or `PathObject`:
 
@@ -171,7 +171,7 @@ Configure `MaterialClip(effect=..., start=0.0, duration=None, target="fill")` to
 - `target` selects `"fill"` (default), `"outline"`, `"shadow"`, or `"all"`.
 - Multiple clips active on the same plane run in declaration order, each receiving the previous clip's output.
 
-The Hook compiler validates your WGSL at export time and reports errors with the affected scene object ID. See [the ribbon material example](../../examples/gallery_material.py) for another complete shader. If you need low-level raw GLSL instead of WGSL, see [`ShaderPaint`](../reference/paint.md#shaderpaint).
+During preview or shader export, Naga validates WGSL and translates the material functions to GLSL. Compilation errors include the affected scene object ID. See [the ribbon material example](../../examples/gallery_material.py) for another complete shader. If you need low-level raw GLSL instead of WGSL, see [`ShaderPaint`](../reference/paint.md#shaderpaint).
 
 ## Live parameters with PaintInput
 
@@ -182,11 +182,11 @@ A preview host can update those named uniforms live using the metadata written t
 > [!NOTE]
 > Several materials may share one `PaintInput` name as long as their types and default values match. Changes that affect layout, timing, mask coverage or effect selection still require rebuilding the scene. Standalone `.hook` files bake in the default values.
 
-For repeated preview exports across different time windows, call `prepared = scene.prepare_hook()`, inspect `prepared.material_inputs()`, and export windows with `prepared.export_resources(...)`. See [Play and render a Hook](../output/hook.md) for the full preview and export workflow.
+Call `scene.preview()` to adjust named inputs in a browser. To integrate your own player and export repeated time windows, call `prepared = scene.prepare_hook()`, inspect `prepared.material_inputs()`, and export windows with `prepared.export_resources(...)`. See [Play and render a Hook](../output/hook.md) for the full preview and export workflow.
 
 ## Next steps
 
 - Apply gradients and halos with presets in [Built-in karaoke effects](karaoke-effects.md).
 - Animate position, scale and custom GPU motions in [Animation and timing](animation.md).
-- Export and play Hook shaders in [Play and render a Hook](../output/hook.md).
+- Open a live preview or choose a playback target in [Preview and export](../output/README.md).
 - Browse all colour and paint signatures in [Paint API reference](../reference/paint.md).

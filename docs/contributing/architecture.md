@@ -1,6 +1,6 @@
 # Architecture
 
-Understand how timed lyrics, scene objects, native text measurement, and the Hook and ASS exporters fit together. Read this guide before modifying library modules or public interfaces.
+Understand how timed lyrics and glyph measurements become a scene for live preview, shader playback, or ASS export. Read this guide before modifying library modules or public interfaces.
 
 ## Pipeline overview
 
@@ -14,8 +14,13 @@ flowchart LR
     T --> S
     C["Custom objects and animations"] --> S
     S --> G["Shared evaluation and cached glyph coverage"]
-    G --> H["Standalone libplacebo Hook"]
-    H --> R["FFmpeg or mpv libplacebo"]
+    W["WGSL material functions"] --> N["Naga"]
+    N --> Q["Assemble GLSL scene shader"]
+    G --> Q
+    Q --> B["GLSL + binary textures"]
+    B --> P2["WebGL 2 live preview"]
+    Q --> H["Standalone .hook package"]
+    H --> R["mpv playback / FFmpeg rendering"]
     S --> O["Standard ASS Document"]
 ```
 
@@ -62,21 +67,21 @@ The CLI default recipe (`__main__.py` and `_cli_preset.py`) builds on this front
 
 `karaoke_effects.py` exposes `KaraokeEffects` as a `Track` callable. It composes `LyricHighlights`, `LyricRule` bindings, and ordinary particle/path nodes. `_karaoke_motion.py` and `_karaoke_sprites.py` hold private motion and shape recipes; neither introduces a second timeline or encodes ASS. Front and flash aliases share the source glyph clock, while emitted ornaments keep independent lifetimes.
 
-## Hook output
+## Shader compilation and playback targets
 
-`output/hook/` (`export.py`, `draws.py`, `motion.py`, `materials.py`, `wipes.py`, `bands.py`) implements `Scene.export()` and `Scene.export_resources()` via `PreparedHook` and `HookDrawResolver`:
+`output/hook/` prepares draw data and assembles the scene renderer from a GLSL template. `Scene.export_resources()` writes the shader and binary textures. `Scene.preview()` embeds those resources in an offline HTML player that shares its WebGL 2 code with the gallery. `Scene.export()` packages the same shader and data for libplacebo.
 
 - **Span partitioning and motion**: each leaf splits at lifetime, clip, and animation boundaries. Known motion spans store endpoint transforms and easing; `RectangleKeyframes` interpolate independently; `ShaderMotion` programs receive per-instance data and the clip clock. Inherited screen-rectangle tracks are shared across descendants and evaluated on the owning group's clock, while leaf clips keep their own coordinate space and lyric-wipe role.
-- **WGSL materials**: ordered `MaterialClip` entries on text and path objects compile once per distinct WGSL function through the bundled Naga translator (`_kara_wgsl`, built from `native/wgsl/`) and run after coverage calculation. Named `PaintInput` values become uniforms; `PreparedHook.material_inputs()` and `textures.json` expose their names and defaults to preview hosts.
+- **WGSL materials**: ordered `MaterialClip` entries on text and path objects are validated and translated to GLSL ES 3.00 once per distinct WGSL function by Naga (`_kara_wgsl`, built from `native/wgsl/`). The renderer applies them after coverage calculation. Named `PaintInput` values become uniforms; `PreparedHook.material_inputs()` and `textures.json` expose their names and defaults to preview hosts.
 - **Coverage and strokes**: filled paths rasterize with `aggdraw` and static round strokes with FreeType (`_text_native.round_stroke`). Pillow filters blurred coverage (`_path_raster.py`). Dynamic strokes evaluate in the fragment shader from positioned contours (`_contour_stroke.py`).
 - **Sparse tiled timeline**: coverage masks shelf-pack into `KARAMASK` (2048 px wide, up to 8192 px high) and deduplicated frame, tile, curve, material, and draw records pack into `KARADATA`. A sparse timeline indexes 64×64 tiled draws in painter order. Each draw shares its transform, clip, and opacity across coverage planes; tiles retain plane bounds and select alternate mask sets before compositing in order.
-- **Work checks and deduplication**: geometry-changing shader motions sample poses on the output frame grid in 8-frame windows; built-in particles can use analytic travel and scale bounds. Both paths index reachable mask coverage and pass through the same per-frame and per-tile work limits. Curve knots, shader parameters, tile lists, materials, and masks share storage across instances. FFmpeg or mpv `libplacebo` owns the frame clock and GPU resources. See [Play and render a Hook](../output/hook.md) for playback and format limits.
+- **Work checks and deduplication**: geometry-changing shader motions sample poses on the output frame grid in 8-frame windows; built-in particles can use analytic travel and scale bounds. Both paths index reachable mask coverage and pass through the same per-frame and per-tile work limits. Curve knots, shader parameters, tile lists, materials, and masks share storage across instances. Each playback host owns its frame clock and GPU resources. See [Preview and export](../output/README.md) for target details.
 
 ## Native text measurement and ASS export
 
 `text/measurement.py` (`text_extents`), `text/layout.py` (`layout_document_text`), and `_metrics.py` wrap the C++17 extension `_text_native` (`native/metrics.cpp`). The extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi, and shapes runs with HarfBuzz. `text_extents` pads each ink-bearing line's typographic box by `style.outline`; pen placement uses unpadded advances; shape queries (`text_geometry.py`) decompose FreeType outlines in script coordinates.
 
-`output/ass_export.py` implements `Scene.ass`, the secondary standard-ASS compatibility export. It runs whole-scene preflight, strategy selection, deterministic native ASS lowering, source ownership handling, reporting (`AssResult`, `AssObjectReport`), and `AssBudget` checks. `AssDialogue` preserves already-lowered ASS under the same provenance rules. Python author callbacks evaluate before serialization so players receive ordinary ASS in a new `Document`, leaving caller-owned scenes and sources intact. `_ass_preview.py` and `_raster.py` rasterize compiled ASS drawings on the CPU with `aggdraw` and Pillow.
+`output/ass_export.py` implements `Scene.ass`, the standard ASS compatibility export. It runs whole-scene preflight, strategy selection, deterministic native ASS lowering, source ownership handling, reporting (`AssResult`, `AssObjectReport`), and `AssBudget` checks. `AssDialogue` preserves already-lowered ASS under the same provenance rules. Python author callbacks evaluate before serialization so players receive ordinary ASS in a new `Document`, leaving caller-owned scenes and sources intact. `_ass_preview.py` and `_raster.py` rasterize compiled ASS drawings on the CPU with `aggdraw` and Pillow.
 
 ## Public API boundary
 

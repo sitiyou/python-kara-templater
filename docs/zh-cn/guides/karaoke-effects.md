@@ -91,7 +91,7 @@ harmony_track = Track(
 
 使用以下参数微调 `KaraokeEffects` 的高亮前沿：
 
-- **柔和 Hook 边缘**：设置 `hook_feather`（脚本像素或 `Glyph.font_size` 表达式）在走字边缘后方平滑混合填充与描边；传入 `front_color` 可单独为移动边缘染色。只要 `base_glow` 与 `glow` 的 `border`、`blur`、`opacity` 相同，辉光也会沿同一前沿平滑过渡。
+- **走字柔边**：设置 `hook_feather`（脚本像素或 `Glyph.font_size` 表达式）在走字边缘后方平滑混合填充与描边；传入 `front_color` 可单独为移动边缘染色。只要 `base_glow` 与 `glow` 的 `border`、`blur`、`opacity` 相同，辉光也会沿同一前沿平滑过渡。
 - **扫光条样式**：通过 `scanline_width`（1080p 下默认 16 px，按画布高度缩放）和 `scanline_softness`（1080p 下默认 8 px，`0` 为硬边）控制带宽与柔边，两者均支持 `Canvas.height` 或 `Glyph.font_size` 表达式。`scanline_mode` 可选 `"color"`（默认）、`"brighten"`（按 `scanline_brightness` 提亮 HSV 亮度，默认 `0.60`）、`"follow_before"` 或 `"follow_after"`。在 `"color"` 模式下，可设置 `scanline_color`（Hook 中支持 `PaintInput`）、`scanline_strength`（`0..1`，支持 `PaintInput`）或 `scanline_material`（如 `LyricGradient`）。
 - **描边闪光**：设置 `stroke_flash=True`，在每个正文音符起音时沿正文描边触发 0.24 s 的 `shine` 闪光，注音节点不会重复触发。
 - **缩放曲线**：`zoom_pulse_curve_level` 取值 `0`–`5`。`0` 和 `1`（默认）为线性，`2`–`5` 在接近峰值时放缓、离开时加速。
@@ -170,13 +170,13 @@ uv run python -m examples.karaoke_catalog build/petals.hook --entry wave_in --ex
 > [!NOTE]
 > 内置预设目录独立实现了常见卡拉 OK 动画菜单中的视觉家族（入场、退场、高亮、装饰和描边闪光），它不是外部编辑器的工程导入器，也不追求与特定渲染器逐像素一致。
 
-Hook（libplacebo 着色器 Hook）支持预设目录的全部特性，包括羽化走字、斜体倾斜前沿、渐变、柔和扫光条和所有粒子过渡。推荐把样式配方封装成一个接收 `Document`（歌词文档）并返回 `LyricScene` 的函数，然后调用 `scene.export("song.hook")` 导出。
+浏览器预览与着色器播放支持预设目录中的全部效果，包括羽化走字、倾斜前沿、渐变、柔和扫光条和粒子过渡。让模板返回一个 `LyricScene`，再调用 `scene.preview()` 查看效果。
 
-标准 ASS 导出（`scene.ass.compile().document.save("song.ass")`）仅支持硬边走字（`hook_feather=0`）、原生淡入淡出和受支持的变换；渐变、羽化走字、柔和扫光条和复杂粒子轨迹会触发 `SceneCompileError`。详见[选择输出格式](../output/README.md)与[导出标准 ASS](../output/ass.md)。
+标准 ASS 导出（`scene.ass.compile().document.save("song.ass")`）仅支持硬边走字（`hook_feather=0`）、原生淡入淡出和受支持的变换；渐变、羽化走字、柔和扫光条和复杂粒子轨迹会触发 `SceneCompileError`。详见[预览与导出](../output/README.md)与[导出标准 ASS](../output/ass.md)。
 
 ## 下一步
 
 - 用渐变、辉光和 WGSL 着色器定制色彩，见[颜色与材质](materials.md)。
 - 编写自定义运动规则和缓动曲线，见[动画与时间控制](animation.md)。
 - 构建自定义粒子发射器和起音残影，见[粒子、副本与残影](particles.md)。
-- 对比 Hook 播放与标准 ASS 导出，见[选择输出格式](../output/README.md)。
+- 查看预览与交付方式，见[预览与导出](../output/README.md)。

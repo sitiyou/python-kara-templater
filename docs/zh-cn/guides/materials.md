@@ -1,6 +1,6 @@
 # 颜色与材质
 
-用 RGB 颜色、渐变、描边、辉光和自定义 WGSL 着色器修饰歌词与图形。当纯色填充不够用，或需要逐像素的 Hook 视觉效果时，参考本指南。
+用 RGB 颜色、渐变、描边、辉光和自定义 WGSL 着色器修饰歌词与图形。在这个指南里学习如何使用材质逐像素控制颜色与不透明度。
 
 ## 颜色与视觉属性
 
@@ -171,7 +171,7 @@ Python 参数会自动映射为 WGSL 类型：`float` 转为 `f32`，`Color` 转
 - `target` 可选 `"fill"`（默认）、`"outline"`、`"shadow"` 或 `"all"`。
 - 同一平面上同时生效的多个片段按声明顺序依次执行，后一个片段接收前一个片段的输出。
 
-Hook 编译器会在导出时校验 WGSL，并在报错时指明对应的场景对象 ID。另一个完整示例见[丝带材质示例](../../../examples/gallery_material.py)。如果需要底层原生 GLSL 而非 WGSL，请参阅 [`ShaderPaint`](../../reference/paint.md#shaderpaint)。
+生成预览或导出着色器时，Naga 会校验 WGSL 并将材质函数转译为 GLSL。编译报错会指出对应的场景对象 ID。另一个完整示例见[丝带材质示例](../../../examples/gallery_material.py)。如果需要底层原生 GLSL 而非 WGSL，请参阅 [`ShaderPaint`](../../reference/paint.md#shaderpaint)。
 
 ## 使用 PaintInput 暴露可调参数
 
@@ -182,7 +182,7 @@ Hook 编译器会在导出时校验 WGSL，并在报错时指明对应的场景�
 > [!NOTE]
 > 多个材质只要类型和默认值一致，就可以共享同一个 `PaintInput` 名称。涉及排版、时间轴、遮罩覆盖或特效切换的改动仍需重建场景。独立导出的 `.hook` 文件会直接固化默认值。
 
-需要在预览中反复导出不同时间窗口时，先调用 `prepared = scene.prepare_hook()`，通过 `prepared.material_inputs()` 获取全部可调参数默认值，再调用 `prepared.export_resources(...)` 按窗口导出。完整的预览与导出流程见[播放与渲染 Hook](../output/hook.md)。
+调用 `scene.preview()` 可在浏览器里调整具名材质参数。接入自己的播放器、反复导出不同时间窗口时，先调用 `prepared = scene.prepare_hook()`，通过 `prepared.material_inputs()` 获取全部可调参数默认值，再调用 `prepared.export_resources(...)` 按窗口导出。完整的预览与导出流程见[播放与渲染 Hook](../output/hook.md)。
 
 ## 下一步
 

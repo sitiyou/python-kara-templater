@@ -1,23 +1,23 @@
 # Overview
 
-Turn timed karaoke lyrics into animated subtitles exported as a standalone GPU shader or a standard ASS file. Start here to learn how kara-templater works and where to go next.
+Build animated karaoke scenes from timed lyrics in Python, write custom materials in WGSL, and preview the result live in your browser.
 
 ## What kara-templater does
 
 `kara-templater` takes timed lyrics — typically an ASS file with `\k` syllable durations, optional ruby readings, and count-in markers — and turns them into animated karaoke overlays using Python. It measures actual font outlines with FreeType and HarfBuzz so wipes, ruby alignment, outlines, and decorations line up accurately with the rendered lettering.
 
-The primary output is a standalone libplacebo Hook (`.hook`) that plays directly in mpv or renders into video with FFmpeg. When you need playback in an ordinary subtitle player, the same `Scene` can also export standard ASS (`.ass`) for effects that ASS supports.
+Naga validates WGSL material functions and translates them to GLSL. The shader can run in a WebGL 2 preview or be packaged with its textures as a libplacebo `.hook` for mpv and FFmpeg. Standard ASS export supports conventional subtitle players.
 
 ## How a template fits together
 
-Every template follows four steps: `Document` → `Track` → `Scene` → Hook or ASS.
+Follow the lyrics from `Document` through `Track` and `Scene` to real-time preview or export.
 
 | Stage | Primary API | Role |
 | --- | --- | --- |
 | Lyrics & canvas | `Document`, `Style`, `Line` | Stores script resolution (`PlayRes`), font styles, and timed lyric lines loaded from ASS or built in Python. |
 | Vocal streams | `Track`, `KaraokeRows`, `Layout`, `KaraokeEffects`, `LyricRule` | Selects lines for each vocal part, arranges rows or columns, schedules display padding, and attaches visual effects. |
 | Composition | `build_lyric_scene`, `Scene`, `TextObject`, `PathObject`, `ObjectGroup` | Holds the measured, positioned lyric lines alongside any custom shapes, backgrounds, or animations. |
-| Output | `Scene.export`, `Scene.ass.compile` | Writes a standalone libplacebo Hook for full shader effects, or compiles standard ASS for compatibility. |
+| Preview and export | `Scene.preview`, `Scene.export_resources`, `Scene.export`, `Scene.ass.compile` | Opens a browser preview, writes shader resources or a playback package, or compiles standard ASS. |
 
 Read [Core concepts](concepts.md) for the exact time units, coordinate spaces, and lifetime rules shared across all four stages.
 
@@ -25,7 +25,7 @@ Read [Core concepts](concepts.md) for the exact time units, coordinate spaces, a
 
 ### Start here
 
-- [Quickstart](getting-started.md) — Install `kara-templater`, run a preset, write your first Python template, and preview the Hook.
+- [Quickstart](getting-started.md) — Install `kara-templater`, run a preset, write your first Python template, and preview it in a browser.
 - [Core concepts](concepts.md) — Learn the `Document` → `Track` → `Scene` model, time units, coordinates, lifetimes, and output choices.
 - [Example scripts](examples/README.md) — Browse runnable scripts and previews organized by visual goal.
 
@@ -46,12 +46,12 @@ Read [Core concepts](concepts.md) for the exact time units, coordinate spaces, a
 
 ### Output and reference
 
-- **Playback and export**: [Choose an output](output/README.md) · [Play and render a Hook](output/hook.md) · [Export standard ASS](output/ass.md) · [Troubleshooting](output/troubleshooting.md)
+- **Playback and export**: [Preview and export](output/README.md) · [Play and render a Hook](output/hook.md) · [Export standard ASS](output/ass.md) · [Troubleshooting](output/troubleshooting.md)
 - **Reference and development**: [API reference](reference/README.md) · [Contributing](contributing/README.md) · [Template authoring skill](../skills/kara-templater/SKILL.md)
 
 ## Next steps
 
-- [Quickstart](getting-started.md) — Produce and preview your first Hook in a few minutes.
+- [Quickstart](getting-started.md) — Export your first scene and open it in a browser.
 - [Core concepts](concepts.md) — Understand time units, coordinates, and lifetimes before authoring custom templates.
 - [Example scripts](examples/README.md) — Find a runnable script close to the look you want.
 - [Design a song layout](tutorials/karaoke-design.md) — Build a complete multi-vocal karaoke template.

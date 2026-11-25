@@ -1,1 +1,1 @@
-"""Standalone libplacebo Hook output."""
+"""Scene shader compilation for browser preview and libplacebo playback."""

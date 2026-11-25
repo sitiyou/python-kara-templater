@@ -107,20 +107,19 @@
 
 `LyricRule` 可以把任意 `StateAnimation`（如 `FadeIn`、`ScalePulse`、`DriftOut`、`Transform`）绑定到某个角色或查询结果，并锚定到 `enter`、`exit`、`timing`、`after_timing` 或自定义锚点（如 `HighlightArrival`）。即便布局阶段缩短了唱前或唱后留白，原始 `\k` 计时时钟也始终保持不变。
 
-## 两种输出：Hook 与 ASS
+## 实时预览与导出
 
-两种输出都从同一个 `Scene` 编译而来。一旦某个特效超出了目标后端的能力，编译就会抛出 `SceneCompileError` 并指出对应的对象 ID。
+同一个 `Scene` 可以生成着色器预览与播放文件，也可以编译为标准 ASS。着色器管线先用 Naga 将 WGSL 材质转译为 GLSL，再生成对应的预览资源或播放文件。
 
-| 输出格式 | 入口方法 | 适用场景 |
+| 用途 | 入口方法 | 结果 |
 | --- | --- | --- |
-| 独立 libplacebo Hook（主要输出） | `scene.export("song.hook", fps=60)` | mpv 播放与 FFmpeg 视频压制的首选。支持羽化走字、柔光扫描线、渐变、辉光、立体挤出、粒子、WGSL 材质与 GPU 动态。 |
-| 标准 ASS（兼容导出） | `scene.ass.compile().document.save("song.ass")` | 需要交付给普通字幕播放器时使用。支持文本、矢量图形、硬边走字（`feather=0`）、原生位移以及满足 `AssBudget` 预算上限的常规变换。 |
-
-Hook 导出不支持透传的 `AssDialogue`、矢量或反向裁剪、分组局部裁剪及形变路径；标准 ASS 导出不支持羽化走字、渐变、立体挤出、WGSL 材质或逐帧采样回调。
+| 浏览器实时预览 | `scene.preview()` | 在浏览器中打开 WebGL 2 播放器，查看羽化走字、柔光扫描线、渐变、粒子和自定义 WGSL 材质等效果。 |
+| 视频播放与渲染 | `scene.export("song.hook")` | 为 mpv 或 FFmpeg 打包着色器及纹理。 |
+| 标准 ASS 兼容导出 | `scene.ass.compile().document.save("song.ass")` | 生成普通字幕播放器可读的 `.ass` 文件，支持硬边走字和符合 ASS 规则的变换。 |
 
 ## 下一步
 
 - [导入带时间轴的歌词](guides/documents.md) — 查看所有受支持的 `\k` 标签、注音分隔符与结构化输入方式。
 - [布置声部轨道](guides/tracks.md) — 配置多行轮换、字距、竖排歌词与多声部轨道。
 - [动画与计时](guides/animation.md) — 使用时间线、规则、时长感知工厂和缓动曲线。
-- [选择输出格式](output/README.md) — 详细对比 Hook 与 ASS 的能力边界。
+- [预览与导出](output/README.md) — 查看着色器与字幕输出的能力和限制。

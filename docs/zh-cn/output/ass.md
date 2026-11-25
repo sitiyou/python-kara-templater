@@ -94,7 +94,7 @@ python -m tools.validate_scene_core --scene cues build/preview-cues
 
 ## 下一步
 
-- [选择输出格式](README.md)
+- [预览与导出](README.md)
 - [选择与注册字体](../guides/fonts.md)
 - [播放与渲染 Hook](hook.md)
 - [故障排查](troubleshooting.md)

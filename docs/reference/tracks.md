@@ -943,9 +943,10 @@ LyricScene.evaluator() -> SceneEvaluator
 
 ### LyricScene.export
 
-Write a standalone libplacebo .hook for a constant-frame-rate video.
+Package the scene shader and resources in a standalone libplacebo .hook.
 
-Export animation parameters. Unsupported animations raise a compile error.
+WGSL material functions are translated to GLSL by Naga at export time.
+Unsupported animations raise a compile error.
 Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
@@ -965,9 +966,10 @@ LyricScene.export(
 
 ### LyricScene.export_resources
 
-Publish binary textures and GLSL for a preview host to a new directory.
+Write the GLSL scene shader and binary textures to a new directory.
 
-The clock and rendering contract match export(). Each .bin contains a
+Use preview() to open a player directly, or load these resources from
+your own host. The clock matches export(). Each .bin contains a
 row-aligned texture with dimensions given by textures.json.
 
 ```python
@@ -992,6 +994,27 @@ Snapshot the scene for repeated window exports with a shared glyph cache.
 
 ```python
 LyricScene.prepare_hook() -> PreparedHook
+```
+
+### LyricScene.preview
+
+Write and open a self-contained HTML scene preview with WebGL 2.
+
+The player loops on demand and supports seeking and editing named material inputs.
+Frame rate and time windows follow export_resources(). If path is omitted,
+write a temporary HTML file. Return the file path so it can be reopened or
+removed. Pass open_browser=False to save without launching a browser.
+If no browser can be opened, warn and return the saved path.
+
+```python
+LyricScene.preview(
+    path: str | pathlib.Path | None = None,
+    *,
+    fps: int = 60,
+    start: float = 0,
+    duration: float | None = None,
+    open_browser: bool = True,
+) -> pathlib.Path
 ```
 
 ### LyricScene.replace_source

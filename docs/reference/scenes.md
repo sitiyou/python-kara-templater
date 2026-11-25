@@ -1,8 +1,8 @@
 # Scenes and compilation
 
-Scene objects, world-space evaluation, Hook export, and budgeted ASS compilation. Lifetimes use seconds; geometry uses script pixels.
+Scene objects, world-space evaluation, real-time browser preview, and shader and ASS export. Lifetimes use seconds. Geometry uses script pixels.
 
-Related guides: [Scene objects and groups](../guides/objects.md) · [Export standard ASS](../output/ass.md) · [All public symbols](README.md#symbol-index)
+Related guides: [Scene objects and groups](../guides/objects.md) · [Preview and export](../output/README.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
@@ -192,7 +192,7 @@ Local child coordinates; absolute lifetimes intersect parent lifetimes.
 
 Opacity is inherited per child, not offscreen compositing of the group.
 Group paint is not inherited; use explicit child appearances instead.
-Hook output supports normal screen-space rectangle clips with static
+Shader preview and playback support normal screen-space rectangle clips with static
 bounds or RectangleKeyframes evaluated on the group's clock. A parent
 rectangle intersects child clips without replacing their local clocks.
 
@@ -396,7 +396,7 @@ Type: `float`.
 
 ## PreparedHook
 
-*class* · [Source](../../kara_templater/scene.py#L644)
+*class* · [Source](../../kara_templater/scene.py#L664)
 
 Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 
@@ -411,9 +411,10 @@ PreparedHook(
 
 ### PreparedHook.export
 
-Write a standalone libplacebo .hook for a constant-frame-rate video.
+Package the scene shader and resources in a standalone libplacebo .hook.
 
-Export animation parameters. Unsupported animations raise a compile error.
+WGSL material functions are translated to GLSL by Naga at export time.
+Unsupported animations raise a compile error.
 Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
@@ -433,7 +434,7 @@ PreparedHook.export(
 
 ### PreparedHook.export_resources
 
-Publish binary textures and GLSL for a preview host to a new directory.
+Write the GLSL scene shader and binary textures to a new directory.
 
 The clock and rendering contract match export(). Each .bin contains a
 row-aligned texture with dimensions given by textures.json.
@@ -628,9 +629,10 @@ Scene.evaluator() -> SceneEvaluator
 
 ### Scene.export
 
-Write a standalone libplacebo .hook for a constant-frame-rate video.
+Package the scene shader and resources in a standalone libplacebo .hook.
 
-Export animation parameters. Unsupported animations raise a compile error.
+WGSL material functions are translated to GLSL by Naga at export time.
+Unsupported animations raise a compile error.
 Start is frame-aligned in seconds. mpv uses media PTS;
 the sequential clock in FFmpeg begins at start. Duration defaults to the remaining Scene;
 subsequent frames pass through. Render at the exported fps on an opaque
@@ -650,9 +652,10 @@ Scene.export(
 
 ### Scene.export_resources
 
-Publish binary textures and GLSL for a preview host to a new directory.
+Write the GLSL scene shader and binary textures to a new directory.
 
-The clock and rendering contract match export(). Each .bin contains a
+Use preview() to open a player directly, or load these resources from
+your own host. The clock matches export(). Each .bin contains a
 row-aligned texture with dimensions given by textures.json.
 
 ```python
@@ -671,6 +674,27 @@ Snapshot the scene for repeated window exports with a shared glyph cache.
 
 ```python
 Scene.prepare_hook() -> PreparedHook
+```
+
+### Scene.preview
+
+Write and open a self-contained HTML scene preview with WebGL 2.
+
+The player loops on demand and supports seeking and editing named material inputs.
+Frame rate and time windows follow export_resources(). If path is omitted,
+write a temporary HTML file. Return the file path so it can be reopened or
+removed. Pass open_browser=False to save without launching a browser.
+If no browser can be opened, warn and return the saved path.
+
+```python
+Scene.preview(
+    path: str | pathlib.Path | None = None,
+    *,
+    fps: int = 60,
+    start: float = 0,
+    duration: float | None = None,
+    open_browser: bool = True,
+) -> pathlib.Path
 ```
 
 ### Scene.replace_source

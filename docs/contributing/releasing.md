@@ -23,7 +23,7 @@ python -m build
 python -m twine check --strict dist/*
 ```
 
-The source distribution includes Python and native C++/Rust sources, dependency license notices, documentation and preview media, examples, skills, tests, and test fonts (configured in `MANIFEST.in`). It must not depend on `.dev/` or `build/`. Fonts have separate licenses and are not bundled into runtime wheels.
+The source distribution includes Python and native C++/Rust sources, dependency license notices, the offline HTML and JavaScript player, documentation and preview media, examples, skills, tests, and test fonts (configured in `MANIFEST.in`). It must not depend on `.dev/` or `build/`. Fonts have separate licenses and are not bundled into runtime wheels.
 
 Native dependency notices live in `vendor/runtime-licenses/README.md` for Windows runtime DLLs and `vendor/runtime-licenses/wgsl/LICENSES.txt` for the bundled WGSL translator's locked Rust crates. Builds include these files directly without scanning the host; update them manually whenever you change native dependencies, the Windows DLL bundle, or `native/wgsl/Cargo.lock`.
 

@@ -1,15 +1,38 @@
-# Choose an output
+# Preview and export
 
-Export a standalone libplacebo Hook for full shader quality in mpv and FFmpeg, or compile standard ASS when you need an editable subtitle file. Both outputs are generated from the same scene.
+Write materials in WGSL, preview effects live in the browser, or export a playback shader. Compile standard ASS from the same scene when you need an editable subtitle file.
 
-## Hook vs standard ASS
+## How the scene shader is built
 
-The standalone Hook is the primary output format. It embeds glyph coverage, gradients, clips, and animation parameters in one shader file so playback looks the same regardless of installed fonts. Standard ASS is a compatibility format for subtitle players and workflows that need plain-text `.ass` events.
+At export time, Naga validates WGSL material functions and translates them to GLSL. The scene compiler adds those functions to its GLSL renderer and prepares glyph masks and timeline data for the playback host. The current scene shader exports are GLSL. WGSL is the source language for the material functions.
 
-| Aspect | Standalone Hook | Standard ASS |
+| Use case | Python API | Result |
 | --- | --- | --- |
-| Python export | `scene.export("song.hook")` | `scene.ass.compile().document.save("song.ass")` |
-| Playback and rendering | mpv (`--vo=gpu-next`) and FFmpeg (`libplacebo`) | ASS subtitle players (mpv, libass, VSFilter) |
+| Preview live in a browser | `scene.preview()` | Opens a self-contained WebGL 2 player with playback, scrubbing, and named material controls. |
+| Use your own preview player | `scene.export_resources("preview-resources")` | Writes GLSL, binary textures, and `textures.json`. |
+| Play or render over video | `scene.export("song.hook")` | Packages the shader and textures as a libplacebo `.hook` for mpv or FFmpeg. |
+| Deliver a conventional subtitle | `scene.ass.compile().document.save("song.ass")` | Compiles standard ASS for subtitle renderers such as libass and VSFilter. |
+
+## Preview live in a browser
+
+Call `scene.preview()` after building a scene. It opens your default browser and returns the path to the HTML file. You can reopen that file offline.
+
+```python
+preview_path = scene.preview()
+```
+
+To inspect a chorus or generate a preview on a headless machine, pass a filename and a time window:
+
+```python
+scene.preview("chorus.html", start=36, duration=8, open_browser=False)
+```
+
+`start` and `duration` are in seconds. Align `start` to the requested frame rate. Material edits apply to the open preview. See [Export a time interval](hook.md#export-a-time-interval) for frame-rate and window limits.
+
+## Shader rendering and standard ASS capabilities
+
+| Aspect | Shader rendering | Standard ASS |
+| --- | --- | --- |
 | Fonts on playback machine | Not required; glyph masks are baked at export time | Required; install or attach fonts in the container |
 | Supported effects | Text, static paths, feathered and slanted wipes, gradients (up to 16 stops), soft scanlines, blended glow, extrusion, GPU motion, WGSL materials, `Petal` and `Sparkle` particles | Text, vector drawings, hard wipes, linear moves, eligible transforms and fades, static/inverse vector clips, linear `Sparkle` particles, preserved `AssDialogue` |
 | Unsupported features | `AssDialogue`, vector and inverse clips, group-local clips, deformed paths, object references | Gradients, feathered or slanted wipes, soft scanlines, blended glow, extrusion, shader paint/materials, frame-sampled animations |

@@ -131,4 +131,4 @@ These focused scripts power the live browser previews in the gallery and run fro
 - [Quickstart](../getting-started.md) — Preview any exported `.hook` in mpv or FFmpeg.
 - [Built-in karaoke effects](../guides/karaoke-effects.md) — Browse every built-in entrance, highlight, exit, and ornament option.
 - [Design a song layout](../tutorials/karaoke-design.md) — Turn a single-line example into a multi-track song template.
-- [Choose an output](../output/README.md) — Check which effects require Hook export vs standard ASS.
+- [Preview and export](../output/README.md) — Check which effects are available for shader playback or standard ASS.

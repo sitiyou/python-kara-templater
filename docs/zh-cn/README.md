@@ -1,23 +1,23 @@
 # 概览
 
-将带时间轴的卡拉 OK 歌词转换为动态字幕，并导出为独立的 GPU 着色器或标准 ASS 文件。先在这里了解 kara-templater 的工作方式，再按你的目标找到对应文档。
+用 Python 把带时间轴的歌词编排成卡拉 OK 特效，以 WGSL 编写自定义材质，再到浏览器里实时预览。
 
 ## kara-templater 能做什么
 
 `kara-templater` 读取带时间轴的歌词——通常是包含 `\k` 音节时长、可选注音（振假名）和倒数提示标记的 ASS 文件——让你用 Python 编写可复用的卡拉 OK 模板。库内部通过 FreeType 和 HarfBuzz 测量真实字形轮廓，使走字（扫色）、注音对齐、描边和装饰图形都能紧贴实际文字。
 
-主要输出格式是独立的 libplacebo Hook（`.hook`），可直接在 mpv 中播放或通过 FFmpeg 压制进视频。当目标播放器仅支持普通字幕时，同一个 `Scene` 也可以导出标准 ASS（`.ass`），覆盖 ASS 本身支持的那部分特效。
+Naga 校验 WGSL 材质函数并将其转译为 GLSL。着色器可在 WebGL 2 中实时预览，也可随纹理打包成供 mpv 和 FFmpeg 使用的 libplacebo `.hook`。需要普通字幕时，可另行导出标准 ASS。
 
 ## 模板的基本结构
 
-所有模板都遵循同一条四步流程：`Document` → `Track` → `Scene` → Hook 或 ASS。
+歌词依次经过 `Document`、`Track` 和 `Scene`，最后进入实时预览或导出。
 
 | 阶段 | 核心 API | 作用 |
 | --- | --- | --- |
 | 歌词与画布 | `Document`、`Style`、`Line` | 保存脚本分辨率（PlayRes）、字体样式和带时间轴的歌词行，可从 ASS 导入或在 Python 中构建。 |
 | 声部轨道 | `Track`、`KaraokeRows`、`Layout`、`KaraokeEffects`、`LyricRule` | 筛选各声部的歌词行、安排行或列布局、管理唱前与唱后留白，并挂载内置或自定义特效。 |
 | 场景组合 | `build_lyric_scene`、`Scene`、`TextObject`、`PathObject`、`ObjectGroup` | 汇总完成测量和排版的歌词行，以及额外添加的文本、矢量图形、分组和动画。 |
-| 导出输出 | `Scene.export`、`Scene.ass.compile` | 导出独立的 libplacebo Hook 以呈现完整着色器效果，或在需要兼容普通播放器时导出标准 ASS。 |
+| 预览与导出 | `Scene.preview`、`Scene.export_resources`、`Scene.export`、`Scene.ass.compile` | 打开浏览器预览，导出着色器资源或播放文件，也可单独编译标准 ASS。 |
 
 各阶段共用的时间单位、坐标空间与生命周期规则，请阅读[核心概念](concepts.md)。
 
@@ -25,8 +25,8 @@
 
 ### 从这里开始
 
-- [快速上手](getting-started.md) — 安装 `kara-templater`，运行内置预设，编写第一个 Python 模板并预览 Hook。
-- [核心概念](concepts.md) — 掌握 `Document` → `Track` → `Scene` 模型、时间单位、坐标体系、生命周期和两种输出格式。
+- [快速上手](getting-started.md) — 安装 `kara-templater`，运行内置预设，编写第一个 Python 模板并在浏览器里预览。
+- [核心概念](concepts.md) — 掌握 `Document` → `Track` → `Scene` 模型、时间单位、坐标体系、生命周期和输出方式。
 - [示例脚本](examples/README.md) — 按视觉效果浏览可运行的示例脚本与动态预览。
 
 ### 教程
@@ -46,12 +46,12 @@
 
 ### 输出与参考
 
-- **播放与导出**：[选择输出格式](output/README.md) · [播放与渲染 Hook](output/hook.md) · [导出标准 ASS](output/ass.md) · [故障排查](output/troubleshooting.md)
+- **播放与导出**：[预览与导出](output/README.md) · [播放与渲染 Hook](output/hook.md) · [导出标准 ASS](output/ass.md) · [故障排查](output/troubleshooting.md)
 - **参考与开发**：[API 参考（英文）](../reference/README.md) · [参与贡献](contributing/README.md) · [模板编写 Skill](../../skills/kara-templater/SKILL.md)
 
 ## 下一步
 
-- [快速上手](getting-started.md) — 在几分钟内导出并预览你的第一个 Hook。
+- [快速上手](getting-started.md) — 导出你的第一个场景，并在浏览器里查看效果。
 - [核心概念](concepts.md) — 写自定义模板前先理清时间单位、坐标和生命周期。
 - [示例脚本](examples/README.md) — 找一个最接近目标视觉效果的可运行脚本。
 - [设计整曲布局](tutorials/karaoke-design.md) — 动手完成一套包含主唱与和声的完整模板。
