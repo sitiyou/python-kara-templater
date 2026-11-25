@@ -196,8 +196,11 @@ class _SweepClip(RectangleClip):
     pivot_y: float = 0.0
 
 
+@dataclass(frozen=True, kw_only=True)
 class _ColorStripClip(_SweepClip):
     """Moving color strip used to draw soft scanlines and blended glow."""
+
+    band: str = ""
 
 
 class _LyricPaintClip(_SweepClip):

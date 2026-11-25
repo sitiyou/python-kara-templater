@@ -68,7 +68,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L546)
+[Source](../../kara_templater/scene.py#L549)
 
 ```python
 AssDialogue(
@@ -211,7 +211,7 @@ Hook output supports normal screen-space rectangle clips with static
 bounds or RectangleKeyframes evaluated on the group's clock. A parent
 rectangle intersects child clips without replacing their local clocks.
 
-[Source](../../kara_templater/scene.py#L459)
+[Source](../../kara_templater/scene.py#L462)
 
 ```python
 ObjectGroup(
@@ -304,7 +304,7 @@ Coordinates are local to its local origin and parent transforms. Set filled=Fals
 for an outline-only drawing. The border radius uses script pixels by default.
 With scale_border=True the radius is measured in local path coordinates.
 
-[Source](../../kara_templater/scene.py#L418)
+[Source](../../kara_templater/scene.py#L421)
 
 ```python
 PathObject(
@@ -416,7 +416,7 @@ Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 Prepare a new snapshot after changing the scene. Window exports share measured
 masks and the resolved object hierarchy. Each output has its own playback clock.
 
-[Source](../../kara_templater/scene.py#L632)
+[Source](../../kara_templater/scene.py#L635)
 
 ```python
 PreparedHook(
@@ -586,7 +586,7 @@ A Document-backed composition of visual objects and already-lowered ASS dialogue
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L564)
+[Source](../../kara_templater/scene.py#L567)
 
 ```python
 Scene(
@@ -785,7 +785,7 @@ Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
 
-[Source](../../kara_templater/scene.py#L374)
+[Source](../../kara_templater/scene.py#L377)
 
 ```python
 TextObject(
@@ -899,7 +899,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L214)
+[Source](../../kara_templater/scene.py#L217)
 
 ```python
 VectorClip(
@@ -930,7 +930,7 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L236)
+[Source](../../kara_templater/scene.py#L239)
 
 ```python
 VisualNode(

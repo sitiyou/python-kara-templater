@@ -618,7 +618,7 @@ def _split_glow(
                 return ownership.strip(x + start, 65536 if end is None else x + end)
             return ownership.strip(-65536 if end is None else x - end, x - start)
 
-        return _ColorStripClip(0, 0, 1, 1, space="local", slope=ownership.slope, pivot_y=ownership.pivot_y, deform=RectangleKeyframes(
+        return _ColorStripClip(0, 0, 1, 1, space="local", slope=ownership.slope, pivot_y=ownership.pivot_y, band=halo.id, deform=RectangleKeyframes(
             tuple((t, bounds(rect[edge])) for t, rect in keys.keyframes)
         ))
 

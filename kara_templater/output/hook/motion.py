@@ -183,7 +183,8 @@ def _varies(clip: AnimationClip) -> bool:
 
 
 def iter_draw_spans(
-    frames: HookDrawResolver, leaf: SceneLeaf, fps: int, first: int, stop: int
+    frames: HookDrawResolver, leaf: SceneLeaf, fps: int, first: int, stop: int,
+    *, visible: tuple[tuple[int, int], ...] | None = None,
 ) -> Iterator[DrawSpan]:
     def grid(seconds: float) -> int:
         return ceil(round(seconds * fps, 9))
@@ -209,6 +210,9 @@ def iter_draw_spans(
         for node in leaf.parents:
             parent = compose_states(parent, node.state)
     for lo, hi in pairwise(sorted(x for x in bounds if first <= x <= stop)):
+        windows = ((lo, hi),) if visible is None else tuple(
+            (max(lo, start), min(hi, end)) for start, end in visible if start < hi and end > lo
+        )
         t = lo / fps
         active = [
             (n, c)
@@ -281,6 +285,8 @@ def iter_draw_spans(
                 object_id=leaf.node.id,
                 origin=leaf.node.origin,
             )
+        if not windows:
+            continue
         clip = None
         if rect is not None:
             clip = GpuClip(
@@ -330,12 +336,8 @@ def iter_draw_spans(
                 and state.border > 0 and round((1 - state.face_opacity) * 255) == 0):
             other = replace(state, opacity=1 if cutout else 0.5)
             alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).mask_planes
-        yield DrawSpan(
-            lo,
-            hi,
-            draw,
-            motion,
-            keys if isinstance(keys, RectangleKeyframes) else None,
-            alternate,
-            shader,
-        )
+        for start, end in windows:
+            yield DrawSpan(
+                start, end, draw, motion, keys if isinstance(keys, RectangleKeyframes) else None,
+                alternate, shader,
+            )

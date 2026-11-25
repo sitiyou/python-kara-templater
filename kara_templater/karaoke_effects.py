@@ -1434,7 +1434,6 @@ class KaraokeEffects:
                     yield lo, 0, strength, left_paint
                     yield 0, hi, strength, right_paint
 
-        clip_type = _ColorStripClip if softness else _SweepClip
         for strip, (lo, hi, strength, paint) in enumerate(painted_slices()):
             empty = (0.0, top, 0.0, bottom)
             mask = RectangleKeyframes((
@@ -1458,6 +1457,12 @@ class KaraokeEffects:
                     shadow=Vec2(),
                     opacity=node.state.opacity * strength,
                 )
+            clip = (
+                _ColorStripClip(0, 0, 1, 1, space="local", deform=mask, slope=slope, pivot_y=pivot_y,
+                                band=f"{node.id}/{self.id}:front:{index}")
+                if softness else
+                _SweepClip(0, 0, 1, 1, space="local", deform=mask, slope=slope, pivot_y=pivot_y)
+            )
             copy = replace(
                 node,
                 id=f"{node.id}/{self.id}:front:{index}:{strip}",
@@ -1468,9 +1473,7 @@ class KaraokeEffects:
                 reference=None,
                 layer=node.layer if sides else node.layer + 2,
                 state=state,
-                clip=clip_type(
-                    0, 0, 1, 1, space="local", deform=mask, slope=slope, pivot_y=pivot_y
-                ),
+                clip=clip,
             )
             yield copy
 

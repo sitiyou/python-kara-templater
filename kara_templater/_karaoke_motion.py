@@ -35,6 +35,10 @@ class RowSlide(Slide):
         return replace(self, offset=Vec2(-self.offset.x, 0)) if row else self
 
 
+class _LyricShaderMotion(ShaderMotion):
+    """Geometry ignores paint; the shader multiplies the incoming opacity once."""
+
+
 def unit_hash(index: int, channel: int) -> float:
     """Studio's deterministic 24-bit sample, using unsigned 32-bit arithmetic."""
     value = (index * 0x85EBCA77 + channel * 0xC2B2AE3D) & 0xFFFFFFFF
@@ -122,7 +126,7 @@ def glow_transition(entering: bool, pivot: Vec2, *, echo: float | None = None) -
         offset=None if echo is None else travel_at,
     )
     params = (pivot.x, pivot.y, float(entering))
-    return ShaderMotion(
+    return _LyricShaderMotion(
         motion.sample, motion.channels, _GLOW if echo is None else _GLOW_ECHO,
         params if echo is None else (*params, echo),
     )
@@ -136,7 +140,7 @@ def stretch(entering: bool, pivot: Vec2) -> ShaderMotion:
         opacity=lambda p: min(1, 4 * p) if entering else 1 - smooth_rate(p),
         pivot=pivot,
     )
-    return ShaderMotion(
+    return _LyricShaderMotion(
         motion.sample,
         motion.channels,
         """
@@ -304,18 +308,18 @@ def transition(
         {"position", "scale", "rotation", "skew", "opacity"}
     )
     if kind == "tilt_pop" and entering:
-        return ShaderMotion(
+        return _LyricShaderMotion(
             sample,
             channels,
             _TILT_POP,
             (center.x, center.y, utopia_pivot.x, utopia_pivot.y),
         )
     if kind == "spin_flip":
-        return ShaderMotion(
+        return _LyricShaderMotion(
             sample, channels, _SPIN_FLIP, (center.x, center.y, float(entering))
         )
     if kind == "char_drip":
-        return ShaderMotion(sample, frozenset({"position", "skew", "opacity"}),
+        return _LyricShaderMotion(sample, frozenset({"position", "skew", "opacity"}),
                             _CHAR_DRIP, (drip_edge, 0, float(entering)))
     if kind in {"assemble_in", "dissolve_out"}:
         channels = frozenset({"opacity"})
@@ -372,7 +376,7 @@ def transition(
         body = "alpha*=opacity;"
     if len(parameters) == 2:
         parameters += (float(entering),)
-    return ShaderMotion(
+    return _LyricShaderMotion(
         sample,
         channels,
         """

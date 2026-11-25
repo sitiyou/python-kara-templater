@@ -14,6 +14,12 @@ secondary outlines, gradients and feathered edges. The exporter combines
 adjacent draws when they share geometry and motion and their clips meet at
 one moving edge. Different stroke widths keep their own masks.
 
+Soft scanlines and blended glows can share one draw per coverage plane.
+When adjacent strips partition the same moving band and share geometry and
+motion, the shader looks up the current band boundary and selects the strip's
+original paint at each pixel. Empty clip intervals and rows outside a local clip
+are excluded from the candidate index where the bounds prove they cannot draw.
+
 Export a prepared lyric scene with `scene.export("song.hook", fps=60)`.
 See [Export a song](karaoke-effects.md#export-a-song) for a Track-based entry point.
 The lower-level example below supplies its own fallback for a raw Scene.

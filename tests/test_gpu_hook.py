@@ -385,7 +385,7 @@ def test_parametric_motion_matches_the_scene_evaluator(
     from kara_templater.output.hook import export as hook
     from kara_templater.output.hook.motion import DrawSpan
 
-    def oracle(frames, leaf, fps, first, stop):
+    def oracle(frames, leaf, fps, first, stop, *, visible=None):
         for index in range(first, stop):
             if leaf.start <= index / fps < leaf.end:
                 draw = frames.draw_at(leaf, index / fps)
@@ -790,6 +790,60 @@ def test_shader_wipe_matches_split_draws_in_playback(
                    for row in range(0, len(fused), 3 * 160))
     assert fused[:160 * 96 * 3] != fused[-160 * 96 * 3:]
     assert fused == split
+
+
+@pytest.mark.parametrize("reverse", [False, True])
+def test_shader_color_bands_match_scanline_and_glow_strips(tmp_path, vulkan, monkeypatch, reverse):
+    from kara_templater import (
+        BLUE,
+        RED,
+        Glow,
+        KaraokeEffects,
+        LyricGradient,
+        SecondaryOutline,
+        Track,
+        build_lyric_scene,
+    )
+    from kara_templater.output.hook import export as hook
+
+    doc = Document.create(width=192, height=112, styles=(Style(fontname="DejaVu Sans", fontsize=30, outline=2),))
+    doc.records.append(Line(text=r"{\k35}M{\k40}i", start_time=700, end_time=1600))
+    scene = build_lyric_scene(doc, tracks=(Track(id="vocal", effects=(KaraokeEffects(
+        entry="tilt_pop", exit="spin_flip", highlight="utopia_scanline", reverse_wipe=reverse,
+        scanline_width=12, scanline_softness=5, sweep_angle=19,
+        base_material=LyricGradient((BLUE, WHITE)), material=LyricGradient((RED, WHITE)),
+        secondary_outline=SecondaryOutline(RED, 1),
+        base_glow=Glow(BLUE, blur=4, border=4, opacity=0.6),
+        glow=Glow(RED, blur=4, border=4, opacity=0.4),
+    ),)),))
+
+    band_opacity_modes = set()
+    original_paint = hook._BandedSpan.paint
+
+    def record_band(band, table, *args):
+        offset = original_paint(band, table, *args)
+        band_opacity_modes.add(table.values[offset + 2])
+        return offset
+
+    monkeypatch.setattr(hook._BandedSpan, "paint", record_band)
+
+    def play(name):
+        scene.export(tmp_path / name, fps=20, start=0.25, duration=2)
+        return subprocess.check_output([
+            "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi", "-i",
+            "color=c=black:s=192x112:r=20", "-vf", f"libplacebo=custom_shader_path={name}:format=rgb24",
+            "-frames:v", "40", "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
+        ], cwd=tmp_path)
+
+    packed = play("band.hook")
+    monkeypatch.setattr(hook, "match_band", lambda *_: None)
+    monkeypatch.setattr(hook, "visible_windows", lambda *args: ((0, args[-1]),))
+    original = play("strips.hook")
+
+    assert packed == original
+    assert any(packed)
+    assert band_opacity_modes == {0, 1}
+    assert (tmp_path / "band.hook").stat().st_size < (tmp_path / "strips.hook").stat().st_size
 
 
 @pytest.mark.parametrize(("angle", "reverse", "feather"), [(None, False, 4), (-28, True, 4), (28, False, 0)])

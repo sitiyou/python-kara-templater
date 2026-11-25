@@ -5,6 +5,7 @@ import json
 from array import array
 from collections import defaultdict
 from collections.abc import Iterator
+from dataclasses import dataclass
 from heapq import merge
 from itertools import groupby
 from math import ceil, floor, hypot, isfinite
@@ -12,14 +13,15 @@ from pathlib import Path
 from tempfile import NamedTemporaryFile, TemporaryDirectory
 from typing import Protocol
 
-from ..._karaoke_motion import ZoomScale
+from ..._karaoke_motion import ZoomScale, _LyricShaderMotion
 from ..._karaoke_sprites import _ParticleMotion
 from ..._native_types import RasterImage
 from ...easing import ProgressCurve
 from ...geometry import Affine2D, Vec2
 from ...lyrics.highlights import _FeatheredWipeClip
 from ...paint_fields import LinearGradient
-from ...scene import RectangleKeyframes, SceneCompileError, _SweepClip
+from ...scene import RectangleClip, RectangleKeyframes, SceneCompileError, _SweepClip
+from .bands import ColorBand, band_key, match_band, same_band_span, visible_windows
 from .draws import DrawCommand, HookDrawResolver
 from .motion import DrawSpan, ShaderInstance, iter_draw_spans
 from .wipes import Wipe, match_wipe
@@ -148,6 +150,7 @@ def _draw_record(
     sweep: _SweepClip | None,
     wipe: Wipe | None,
     inherited_offset: int,
+    band: int = -1,
 ) -> int:
     x, y, w, h, kind, color, pixels = image
     u, v = atlas.add(w, h, pixels) if pixels else (-1, -1)
@@ -199,7 +202,31 @@ def _draw_record(
         program = table.paints.setdefault(shader.source, len(table.paints))
         data = table.add(*shader.parameters) if shader.parameters else -1
         custom = table.add(program, data, draw.time_origin, kind, draw.border)
-    paint = table.add(
+    paint = _paint_record(table, draw, kind, color, stops, feather, custom)
+    m = draw.transform
+    transform = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty)
+    clip = -1
+    if band >= 0:
+        clip = -6
+        clip_motion_offset = band
+    elif wipe is not None:
+        # Tags -2 through -5 select which rectangle side supplies the shader wipe.
+        clip = -2 - wipe.edge
+    elif draw.clip is not None:
+        clip = table.add(*draw.clip.bounds, int(draw.clip.local))
+    projection = table.add(sweep.slope, sweep.pivot_y) if sweep is not None and sweep.slope else -1
+    return table.add(
+        geom, paint, transform, clip, draw.opacity, motion_offset, clip_motion_offset, inherited_offset,
+        projection,
+    )
+
+
+def _paint_record(
+    table: _HookRecordTable, draw: DrawCommand, kind: int, color: int, stops: int,
+    feather: int = -1, custom: int = -1,
+) -> int:
+    mat = draw.gradient
+    return table.add(
         *(float(color >> s & 255) / 255 for s in (24, 16, 8)),
         1 - (color & 255) / 255,
         stops,
@@ -210,19 +237,54 @@ def _draw_record(
         kind,
         draw.face_opacity,
     )
-    m = draw.transform
-    transform = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty)
-    clip = -1
-    if wipe is not None:
-        # Tags below -1 select which rectangle side supplies the shader wipe.
-        clip = -2 - wipe.edge
-    elif draw.clip is not None:
-        clip = table.add(*draw.clip.bounds, int(draw.clip.local))
-    projection = table.add(sweep.slope, sweep.pivot_y) if sweep is not None and sweep.slope else -1
-    return table.add(
-        geom, paint, transform, clip, draw.opacity, motion_offset, clip_motion_offset, inherited_offset,
-        projection,
-    )
+
+
+@dataclass(frozen=True)
+class _BandedSpan:
+    layout: ColorBand
+    strips: tuple[DrawSpan, ...]
+
+    def paint(self, table: _HookRecordTable, track: int, index: int, alternate: bool) -> int:
+        shader = self.strips[0].shader
+        relative_alpha = shader is not None and isinstance(shader.program, _LyricShaderMotion)
+        entries = []
+        for span in self.strips:
+            draw = span.draw
+            masks = span.alternate_masks if alternate else draw.mask_planes
+            assert masks is not None
+            _, _, _, _, kind, color, _ = masks[index]
+            paint = _paint_record(table, draw, kind, color, _ramp_record(table, draw.gradient, kind))
+            if relative_alpha:
+                assert span.shader is not None
+                entries.extend((paint, span.shader.base.opacity, span.shader.outer.opacity * span.shader.inner.opacity))
+            else:
+                end_alpha = span.motion.end_state.opacity if span.motion is not None else draw.opacity
+                entries.extend((paint, draw.opacity, end_alpha))
+        return table.add(track, len(self.strips), int(relative_alpha), *entries)
+
+
+type _SpanPaint = tuple[DrawSpan, _BandedSpan | None]
+
+
+def _band_spans(
+    band: ColorBand, spans: dict[int, list[DrawSpan]],
+) -> dict[int, list[_SpanPaint]]:
+    representative = min(band.orders)
+    phases: dict[tuple[int, int], dict[int, DrawSpan]] = defaultdict(dict)
+    for order, stream in spans.items():
+        for span in stream:
+            phases[span.first_frame, span.stop_frame][order] = span
+    streams: dict[int, list[_SpanPaint]] = defaultdict(list)
+    for _, active in sorted(phases.items()):
+        first = active.get(representative)
+        if (first is not None and len(active) == len(band.orders)
+                and all(same_band_span(first, span) for order, span in active.items() if order != representative)):
+            strips = tuple(active[order] for order in band.orders)
+            streams[representative].append((first, _BandedSpan(band, strips)))
+        else:
+            for order, span in active.items():
+                streams[order].append((span, None))
+    return streams
 
 
 def _texture(
@@ -373,9 +435,9 @@ def _timeline(
     rows: int,
 ) -> int:
     def events(
-        order: int, stream: Iterator[DrawSpan]
-    ) -> Iterator[tuple[int, int, DrawSpan | None, tuple[Affine2D, ...]]]:
-        for span in stream:
+        order: int, stream: Iterator[_SpanPaint],
+    ) -> Iterator[tuple[int, int, DrawSpan | None, tuple[Affine2D, ...], _BandedSpan | None]]:
+        for span, band in stream:
             instance = span.shader
             if (instance is not None and instance.program.channels & _GEOMETRY_CHANNELS
                     and not isinstance(instance.program, _ParticleMotion)):
@@ -383,10 +445,24 @@ def _timeline(
                 # once per frame and reuse its bounds for every paint plane.
                 for first in range(span.first_frame, span.stop_frame, _COVERAGE_WINDOW_FRAMES):
                     stop = min(first + _COVERAGE_WINDOW_FRAMES, span.stop_frame)
-                    yield first - origin, order, span, instance.transforms(fps, first, stop)
+                    yield first - origin, order, span, instance.transforms(fps, first, stop), band
             else:
-                yield span.first_frame - origin, order, span, ()
-            yield span.stop_frame - origin, order, None, ()
+                yield span.first_frame - origin, order, span, (), band
+            yield span.stop_frame - origin, order, None, (), None
+
+    def draw_spans(order: int, *, fused_wipe: bool = False) -> Iterator[DrawSpan]:
+        leaf = frames.leaves[order]
+        clip = leaf.node.clip
+        if (not fused_wipe and isinstance(clip, RectangleClip)
+                and isinstance(clip.deform, RectangleKeyframes)):
+            return iter_draw_spans(
+                frames, leaf, fps, origin, origin + count,
+                visible=tuple(
+                    (a + origin, b + origin)
+                    for a, b in visible_windows(clip.deform, leaf.node.time_origin, fps, origin, count)
+                ),
+            )
+        return iter_draw_spans(frames, leaf, fps, origin, origin + count)
 
     def clip_track(
         keys: RectangleKeyframes, start: float, edge: int | None = None
@@ -406,17 +482,48 @@ def _timeline(
     start, end = origin / fps, (origin + count) / fps
     streams = []
     wipes: dict[int, Wipe] = {}
+    band_tracks: dict[int, int] = {}
+    clip_rows: dict[int, tuple[int, int]] = {}
+
+    def track_rows(order: int) -> None:
+        clip = frames.leaves[order].node.clip
+        if not isinstance(clip, RectangleClip) or clip.space != "local":
+            return
+        top, bottom = clip.top, clip.bottom
+        if isinstance(clip.deform, RectangleKeyframes):
+            top = min(bounds[1] for _, bounds in clip.deform.keyframes)
+            bottom = max(bounds[3] for _, bounds in clip.deform.keyframes)
+        # The shader stores rectangle coordinates as float32.
+        top, bottom = array("f", (top, bottom))
+        if isfinite(top) and isfinite(bottom):
+            clip_rows[order] = floor(top), ceil(bottom)
+
     i = 0
     while i < len(frames.leaves):
         leaf = frames.leaves[i]
         if leaf.end > start - 1e-9 and leaf.start < end + 1e-9:
+            key = band_key(leaf)
+            if key:
+                j = i + 1
+                while j < len(frames.leaves) and band_key(frames.leaves[j]) == key:
+                    j += 1
+                orders = tuple(range(i, j))
+                band = match_band(frames.leaves, orders)
+                if band is not None:
+                    per_order = _band_spans(band, {order: list(draw_spans(order)) for order in orders})
+                    streams.extend(events(order, iter(spans)) for order, spans in per_order.items())
+                    for order in per_order:
+                        track_rows(order)
+                    i = j
+                    continue
             if i + 1 < len(frames.leaves):
                 wipe = match_wipe(leaf, frames.leaves[i + 1])
                 if wipe is not None:
                     i += 1
                     wipes[i] = wipe
-                    leaf = frames.leaves[i]
-            streams.append(events(i, iter_draw_spans(frames, leaf, fps, origin, origin + count)))
+            if i not in wipes:
+                track_rows(i)
+            streams.append(events(i, ((span, None) for span in draw_spans(i, fused_wipe=i in wipes))))
         i += 1
     stream = merge(*streams, key=lambda event: event[:2])
     active_tiles: dict[int, dict[int, list[int]]] = {}
@@ -431,15 +538,94 @@ def _timeline(
                   for y in range(rows) for x in range(cols)]
     tile_counts = [0] * len(tile_draws)
     pixel_checks = 0
+
+    def index_draws(
+        order: int, span: DrawSpan, band: _BandedSpan | None,
+    ) -> Iterator[tuple[int, RasterImage, float]]:
+        draw = span.draw
+        rows = clip_rows.get(order)
+        wipe = wipes.get(order)
+        node = frames.leaves[order].node
+        clip_motion = clip_records.get(order, -1)
+        band_track = -1
+        if band is not None:
+            band_track = band_tracks.get(order, -1)
+            if band_track < 0:
+                band_track = band_tracks[order] = table.add(
+                    len(band.layout.keys),
+                    *(value for time, bounds in band.layout.keys
+                      for value in ((node.time_origin + time) * fps - origin, table.add(*bounds))),
+                )
+        elif span.clip_keys and clip_motion < 0:
+            clip_motion = clip_track(
+                span.clip_keys, node.time_origin, wipe.edge if wipe else None
+            )
+            clip_records[order] = clip_motion
+        inherited = inherited_records.get(node.id, -1)
+        inherited_clips = frames.group_clips.get(node.id, ())
+        if inherited < 0 and inherited_clips:
+            masks = []
+            for group, rect in inherited_clips:
+                if group.id not in group_masks:
+                    base = table.add(rect.left, rect.top, rect.right, rect.bottom)
+                    track = (
+                        clip_track(rect.deform, group.time_origin)
+                        if isinstance(rect.deform, RectangleKeyframes)
+                        else -1
+                    )
+                    group_masks[group.id] = table.add(base, track)
+                masks.append(group_masks[group.id])
+            inherited = inherited_records[node.id] = table.add(len(masks), *masks)
+        clip = node.clip
+        sweep = clip if isinstance(clip, _SweepClip) else None
+        variants = [(draw.mask_planes, 0)]
+        if span.alternate_masks is not None:
+            # Select the native border bitmap at playback opacity without
+            # sampling an entire fade or exporting a per-frame command list.
+            mode = 1 if round((1 - draw.opacity * draw.face_opacity) * 255) == 0 else -1
+            variants = [(draw.mask_planes, mode), (span.alternate_masks, -mode)]
+        for variant, (images, mode) in enumerate(variants):
+            motion = _motion_record(table, span, fps, origin, mode)
+            for index, image in enumerate(images):
+                stroke = draw.fixed_stroke
+                indexed_image = image
+                # A projected sweep changes x only. Its local y bounds
+                # still cut the coverage, including the scanline caps.
+                # A fixed screen-space pen can extend beyond its bitmap.
+                if rows is not None and not (stroke and image[4] in (1, 2)):
+                    x, y, w, h, kind, color, pixels = image
+                    top, bottom = rows
+                    low, high = max(y, top), min(y + h, bottom)
+                    if low >= high:
+                        continue
+                    indexed_image = x, low, w, high - low, kind, color, pixels
+                band_paint = -1 if band is None else band.paint(table, band_track, index, variant > 0)
+                record = _draw_record(
+                    table,
+                    atlas,
+                    draw,
+                    image,
+                    motion,
+                    clip_motion,
+                    sweep,
+                    wipe,
+                    inherited,
+                    band_paint,
+                )
+                padding = draw.border + 4 * stroke.sigma + 1 if stroke and image[4] in (1, 2) else 0
+                yield record, indexed_image, padding
+
+    indexed: dict[int, tuple[DrawSpan, tuple[tuple[int, RasterImage, float], ...]]] = {}
     for i, changes in groupby(stream, key=lambda event: event[0]):
         if i == count:
             break
         dirty: set[int] = set()
-        for _, order, span, poses in changes:
+        for _, order, span, poses, band in changes:
             for tile in active_tiles.pop(order, ()):
                 del tile_draws[tile][order]
                 dirty.add(tile)
             if span is None:
+                indexed.pop(order, None)
                 continue
             draw = span.draw
             transforms = (
@@ -447,62 +633,19 @@ def _timeline(
                 if span.motion is None
                 else (draw.transform, span.motion.end_state.transform)
             )
-            wipe = wipes.get(order)
-            node = frames.leaves[order].node
-            clip_motion = clip_records.get(order, -1)
-            if span.clip_keys and clip_motion < 0:
-                clip_motion = clip_track(
-                    span.clip_keys, node.time_origin, wipe.edge if wipe else None
-                )
-                clip_records[order] = clip_motion
-            inherited = inherited_records.get(node.id, -1)
-            inherited_clips = frames.group_clips.get(node.id, ())
-            if inherited < 0 and inherited_clips:
-                masks = []
-                for group, rect in inherited_clips:
-                    if group.id not in group_masks:
-                        base = table.add(rect.left, rect.top, rect.right, rect.bottom)
-                        track = (
-                            clip_track(rect.deform, group.time_origin)
-                            if isinstance(rect.deform, RectangleKeyframes)
-                            else -1
-                        )
-                        group_masks[group.id] = table.add(base, track)
-                    masks.append(group_masks[group.id])
-                inherited = inherited_records[node.id] = table.add(len(masks), *masks)
+            previous = indexed.get(order)
+            if previous is None or previous[0] is not span:
+                previous = indexed[order] = (span, tuple(index_draws(order, span, band)))
             batch: dict[int, list[int]] = defaultdict(list)
-            clip = node.clip
-            sweep = clip if isinstance(clip, _SweepClip) else None
-            variants = [(draw.mask_planes, 0)]
-            if span.alternate_masks is not None:
-                # Select the native border bitmap at playback opacity without
-                # sampling an entire fade or exporting a per-frame command list.
-                mode = 1 if round((1 - draw.opacity * draw.face_opacity) * 255) == 0 else -1
-                variants = [(draw.mask_planes, mode), (span.alternate_masks, -mode)]
-            for images, mode in variants:
-                motion = _motion_record(table, span, fps, origin, mode)
-                for image in images:
-                    record = _draw_record(
-                        table,
-                        atlas,
-                        draw,
-                        image,
-                        motion,
-                        clip_motion,
-                        sweep,
-                        wipe,
-                        inherited,
-                    )
-                    stroke = draw.fixed_stroke
-                    padding = draw.border + 4 * stroke.sigma + 1 if stroke and image[4] in (1, 2) else 0
-                    if poses:
-                        tiles = _tiles(image, poses, cols, rows, padding + 1)
-                    elif span.shader and isinstance(span.shader.program, _ParticleMotion):
-                        tiles = _particle_tiles(span.shader, span.shader.program, image, cols, rows, padding)
-                    else:
-                        tiles = _tiles(image, transforms, cols, rows, padding)
-                    for tile in tiles:
-                        batch[tile].append(record)
+            for record, indexed_image, padding in previous[1]:
+                if poses:
+                    tiles = _tiles(indexed_image, poses, cols, rows, padding + 1)
+                elif span.shader and isinstance(span.shader.program, _ParticleMotion):
+                    tiles = _particle_tiles(span.shader, span.shader.program, indexed_image, cols, rows, padding)
+                else:
+                    tiles = _tiles(indexed_image, transforms, cols, rows, padding)
+                for tile in tiles:
+                    batch[tile].append(record)
             active_tiles[order] = batch
             for tile, commands in batch.items():
                 tile_draws[tile][order] = commands
@@ -669,6 +812,26 @@ vec4 rectangleAt(int base,int track,float t) {
     int nextRect=refAt(k+3);
     return mix(rect,vec4(pairAt(nextRect),pairAt(nextRect+2)),(t-item(k))/(item(k+2)-item(k)));
 }
+float bandEdge(int first,int next,int column,float w) {
+    return first==next ? item(first+column) : mix(item(first+column),item(next+column),w);
+}
+int bandPaint(int band,vec2 p,float t) {
+    int track=refAt(band), k=preceding(track,t);
+    int first=refAt(k+1), next=first, last=refAt(band+1);
+    float w=0.;
+    if(k+2<track+1+2*refAt(track) && t>item(k)) {
+        next=refAt(k+3);
+        w=(t-item(k))/(item(k+2)-item(k));
+    }
+    if(p.y<bandEdge(first,next,0,w) || p.y>=bandEdge(first,next,1,w) ||
+       p.x<bandEdge(first,next,2,w) || p.x>=bandEdge(first,next,last+2,w)) return -1;
+    int lo=0, hi=last;
+    while(lo+1<hi) {
+        int mid=(lo+hi)/2;
+        if(p.x>=bandEdge(first,next,mid+2,w)) lo=mid; else hi=mid;
+    }
+    return band+3+3*lo;
+}
 bool insideRect(vec2 p,vec4 rect) {
     return all(greaterThanEqual(p,rect.xy)) && all(lessThan(p,rect.zw));
 }
@@ -730,11 +893,12 @@ void applyPaint(int paint,vec2 screen,vec2 local,inout float coverage,float time
     time-=item(paint+2);
     switch(refAt(paint)){PAINT_CASES}
 }
-void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha,out float pen,int component,out vec3 animatedInk) {
+void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha,out float pen,int component,
+                  out vec3 animatedInk,bool relativeAlpha) {
     int data=refAt(b+1);
     vec2 pos=pairAt(b+2), scale=pairAt(b+4), skew=pairAt(b+6);
     float angle=item(b+8);
-    alpha=item(b+9);
+    alpha=relativeAlpha ? 1. : item(b+9);
     pen=item(b+25);
     p=p*item(b+23)+item(b+24);
     #if HAS_ANIMATED_COLORS
@@ -753,7 +917,7 @@ void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha
     mat2 outerBasis=matrixAt(b+11), localBasis=basisOf(scale,skew,angle);
     basis=outerBasis*localBasis*matrixAt(b+17);
     position=pairAt(b+15)+outerBasis*(pos+localBasis*pairAt(b+21));
-    alpha*=item(b+10);
+    if(!relativeAlpha) alpha*=item(b+10);
 }
 bool isometry(mat2 basis) {
     return abs(dot(basis[0],basis[0])-1.)<1e-6
@@ -838,25 +1002,28 @@ vec4 hook() {
         if(!insideGroups(screen,refAt(cmd+7),float(index))) continue;
         mat2 basis=mat2(pairAt(m),pairAt(m+2));
         vec2 pos=pairAt(m+4);
-        float alpha=item(cmd+4), pen=-1.;
+        float alpha=item(cmd+4), pen=-1., reveal=0.;
         vec3 animatedInk=vec3(-1.);
+        int clip=refAt(cmd+3);
+        int colorBand=clip==-6 ? refAt(cmd+6) : -1;
+        bool relativeAlpha=colorBand>=0 && refAt(colorBand+2)>0;
         int motion=refAt(cmd+5);
         if(motion>=0) {
             if(refAt(motion+3)==-1) {
                 float phase=clamp((float(index)-item(motion))/item(motion+1),0.,1.);
-                applyProgram(refAt(motion+4),phase,basis,pos,alpha,pen,refAt(p+9),animatedInk);
+                applyProgram(refAt(motion+4),phase,basis,pos,alpha,pen,refAt(p+9),animatedInk,relativeAlpha);
             } else {
             float w=weight(motion,index);
             int end=refAt(motion+4);
             basis=mat2(mix(basis[0],pairAt(end),w),mix(basis[1],pairAt(end+2),w));
             pos=mix(pos,pairAt(end+4),w);
-            float reveal=item(motion+5)>0. ? clamp(4.*(float(index)-item(motion))/item(motion+1),0.,1.) : w;
+            reveal=item(motion+5)>0. ? clamp(4.*(float(index)-item(motion))/item(motion+1),0.,1.) : w;
             alpha=mix(alpha,item(end+6),reveal);
             }
             int mode=refAt(motion+6);
-            if(mode!=0 && (mode>0)!=(alpha*item(p+10)>=1.-0.5/255.)) continue;
+            if(!relativeAlpha && mode!=0 && (mode>0)!=(alpha*item(p+10)>=1.-0.5/255.)) continue;
         }
-        if(alpha<=0. || determinant(basis)==0.) continue;
+        if((clip!=-6 && alpha<=0.) || determinant(basis)==0.) continue;
         mat2 toLocal=inverse(basis);
         vec2 local=toLocal*(screen-pos);
         int fixedStroke=refAt(g+6);
@@ -864,14 +1031,25 @@ vec4 hook() {
         vec2 uv=local-pairAt(g), size=pairAt(g+2);
         if(!useFixed && (any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,size)))) continue;
         float edgeDistance=0.;
-        int clip=refAt(cmd+3);
         bool waiting=false;
         vec2 clipLocal=local;
         if(clip!=-1) {
             int projection=refAt(cmd+8);
             if(projection>=0) clipLocal.x+=item(projection)*(local.y-item(projection+1));
         }
-        if(clip < -1) {
+        if(colorBand>=0) {
+            int band=bandPaint(colorBand,clipLocal,float(index));
+            if(band<0) continue;
+            p=refAt(band);
+            if(relativeAlpha) {
+                alpha=item(band+1)*alpha*item(band+2);
+                int mode=refAt(motion+6);
+                if(mode!=0 && (mode>0)!=(alpha*item(p+10)>=1.-0.5/255.)) continue;
+            } else if(motion<0 || refAt(motion+3)!=-1) {
+                alpha=mix(item(band+1),item(band+2),reveal);
+            }
+            if(alpha<=0.) continue;
+        } else if(clip < -1) {
             if(any(lessThan(clipLocal,vec2(-65536.))) || any(greaterThanEqual(clipLocal,vec2(65536.)))) continue;
             int side=-2-clip, sweep=refAt(cmd+6), k=preceding(sweep,float(index));
             float edge=item(k+1);
