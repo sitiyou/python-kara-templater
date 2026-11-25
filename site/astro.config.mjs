@@ -21,6 +21,7 @@ export default defineConfig({
       components: {
         ThemeProvider: "./src/components/ThemeProvider.astro",
         ThemeSelect: "./src/components/ThemeSelect.astro",
+        LanguageSelect: "./src/components/LanguageSelect.astro",
         Header: "./src/components/Header.astro",
         Hero: "./src/components/HomeHero.astro",
         PageTitle: "./src/components/PageTitle.astro",
@@ -48,6 +49,7 @@ export default defineConfig({
             {label: "Quickstart", translations: {"zh-CN": "快速上手"}, slug: "getting-started"},
             {label: "Core concepts", translations: {"zh-CN": "核心概念"}, slug: "concepts"},
             {label: "Effect gallery", translations: {"zh-CN": "特效画廊"}, link: "/gallery/"},
+            {label: "Component library", translations: {"zh-CN": "组件库"}, link: "/components/"},
             {label: "Example scripts", translations: {"zh-CN": "示例脚本"}, slug: "examples"},
           ],
         },

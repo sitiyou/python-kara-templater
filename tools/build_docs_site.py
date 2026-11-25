@@ -13,6 +13,8 @@ from typing import NotRequired, TypedDict, cast
 from urllib.parse import quote, unquote, urlsplit
 
 from kara_templater import Scene, load_font
+from tools.build_component_library import stage_components
+from tools.docs_preview_media import render_card
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
@@ -223,7 +225,7 @@ def stage_docs(stage: Path, base: str, source_ref: str) -> None:
     shutil.copyfile(ROOT / "site" / "favicon.png", stage / "public/favicon.png")
 
 
-def stage_gallery(stage: Path) -> None:
+def stage_gallery(stage: Path) -> set[str]:
     with (DOCS / "examples" / "gallery.toml").open("rb") as stream:
         raw_demos = cast("list[dict[str, object]]", tomllib.load(stream)["demo"])
     load_font(ROOT / "tests/fonts/DejaVuSans.ttf")
@@ -244,7 +246,12 @@ def stage_gallery(stage: Path) -> None:
         count = round(demo["duration"] * FPS)
         if count < 1 or not 0 <= demo["still"] < count / FPS:
             raise ValueError(f"Invalid gallery sample time for {slug}")
-        scene.export_resources(folder, fps=FPS, duration=count / FPS)
+        hook = scene.prepare_hook()
+        hook.export_resources(folder, fps=FPS, duration=count / FPS)
+        render_card(
+            hook, folder, fps=FPS, duration=count / FPS, still=demo["still"],
+            resolution=(scene.document.meta.res_x, scene.document.meta.res_y),
+        )
         shutil.copyfile(source, folder / source.name)
         entry: dict[str, object] = {
             **{key: value for key, value in raw.items() if key != "zh-cn"},
@@ -261,6 +268,7 @@ def stage_gallery(stage: Path) -> None:
     (stage / "gallery.json").write_text(
         json.dumps(entries, ensure_ascii=False), encoding="utf-8"
     )
+    return {demo["id"] for demo in cast("list[Demo]", raw_demos)}
 
 
 def main() -> None:
@@ -271,7 +279,8 @@ def main() -> None:
     with TemporaryDirectory(dir=BUILD.parent) as directory:
         stage = Path(directory) / "docs-site"
         stage_docs(stage, prefix, source_ref)
-        stage_gallery(stage)
+        gallery_ids = stage_gallery(stage)
+        stage_components(stage, DOCS / "examples/components.toml", gallery_ids)
         if BUILD.exists():
             shutil.rmtree(BUILD)
         stage.rename(BUILD)

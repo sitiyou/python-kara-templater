@@ -1,0 +1,107 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import entries from "../../../build/docs-site/components.json";
+import {assetUrl, getUi, type Locale, url} from "../lib/i18n";
+import CardPreview from "./CardPreview.astro";
+import ComponentCategoryIcon from "./ComponentCategoryIcon.astro";
+import ComponentCategoryPicker from "./ComponentCategoryPicker.astro";
+import PreviewGrid from "./PreviewGrid.astro";
+
+interface Props {
+	locale: Locale;
+}
+
+interface Component {
+	id: string;
+	group: string;
+	api: string;
+	reference: string;
+	title: string;
+	zh: string;
+	details?: string;
+	zh_details?: string;
+	gallery?: string;
+	sampled?: boolean;
+	ass?: boolean;
+}
+
+const {locale} = Astro.props;
+const ui = getUi(locale);
+const copy = ui.components;
+const components: Component[] = entries;
+const groups = Object.entries(copy.groups).map(([id, label]) => ({
+	id,
+	label,
+	hint: copy.groupHints[id],
+	description: copy.groupDetails[id],
+	items: components.filter((entry) => entry.group === id),
+}));
+const unknownGroup = components.find((entry) => !(entry.group in copy.groups));
+if (unknownGroup) throw new Error(`Unknown component group: ${unknownGroup.group}`);
+
+function folder(entry: Component): string {
+	return assetUrl(entry.gallery ? `previews/${entry.gallery}/` : `component-previews/${entry.id}/`);
+}
+---
+
+<StarlightPage frontmatter={{title: copy.title, description: copy.description, template: "splash"}}>
+	<div class="gallery-page component-library">
+		<div class="gallery-intro">
+			<p class="gallery-lede">{copy.description}</p>
+			<div class="gallery-more">
+				<a class="inline-action" href={url("gallery/", locale)}>{ui.gallery.title} <span aria-hidden="true">→</span></a>
+				<a class="inline-action" href={assetUrl("component-previews/component_previews.py")} download>{copy.componentSource}</a>
+			</div>
+		</div>
+
+		<PreviewGrid locale={locale}>
+			<nav slot="index" class="component-index" aria-label={copy.navigation}>
+				{groups.map(({id, label, hint}) => (
+					<a href={`#${id}`}>
+						<ComponentCategoryIcon category={id} />
+						<span class="component-index-label">
+							<strong>{label}</strong>
+							<span>{hint}</span>
+						</span>
+					</a>
+				))}
+			</nav>
+			<Fragment slot="navigation">
+				<ComponentCategoryPicker label={copy.navigation} groups={groups} />
+				<label class="component-search" hidden>
+					<span class="sr-only">{copy.search}</span>
+					<input type="search" placeholder={copy.search} />
+				</label>
+			</Fragment>
+			<p class="component-results" role="status" data-matches={copy.matches} data-empty={copy.noMatches}></p>
+			{groups.map(({id, label, description, items}) => (
+				<section class="component-section" aria-labelledby={id}>
+					<h2 id={id}>{label}</h2>
+					{description && <p class="component-description">{description}</p>}
+					<div class="gallery-grid component-grid">
+						{items.map((item) => {
+							const title = locale === "zh-cn" ? item.zh : item.title;
+							const details = locale === "zh-cn" ? item.zh_details : item.details;
+							const [page, anchor] = item.reference.split("#");
+							return (
+								<article class="gallery-card" id={item.id}>
+									<CardPreview folder={folder(item)} title={title} locale={locale} animated={id !== "typography"} />
+									<div class="gallery-caption">
+										<h3>{title}</h3>
+										<a class="component-api" href={url(`reference/${page}/#${anchor}`, locale)} title={copy.reference}>
+											<code>{item.api}</code>
+										</a>
+										{details && <p class="component-detail">{details}</p>}
+										{item.gallery && <a class="component-example" href={url(`gallery/${item.gallery}/`, locale)}>{copy.galleryExample}</a>}
+										{item.ass ? <p class="component-note">{copy.assPreview}</p> :
+											item.sampled && <p class="component-note">{copy.sampled}</p>}
+									</div>
+								</article>
+							);
+						})}
+					</div>
+				</section>
+			))}
+		</PreviewGrid>
+	</div>
+</StarlightPage>

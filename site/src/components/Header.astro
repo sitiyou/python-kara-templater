@@ -7,7 +7,8 @@ import SocialIcons from "virtual:starlight/components/SocialIcons";
 import ThemeSelect from "virtual:starlight/components/ThemeSelect";
 import {detectLocale, getUi} from "../lib/i18n";
 
-const locale = detectLocale(Astro.locals.starlightRoute.locale);
+const {locale: routeLocale, hasSidebar} = Astro.locals.starlightRoute;
+const locale = detectLocale(routeLocale);
 const ui = getUi(locale);
 const pathname = Astro.url.pathname;
 const shouldRenderSearch =
@@ -29,8 +30,8 @@ const shouldRenderSearch =
 		</nav>
 	</div>
 	<div class="sl-flex print:hidden header-search">{shouldRenderSearch && <Search />}</div>
-	<div class="sl-hidden md:sl-flex print:hidden right-group">
-		<div class="sl-flex social-icons"><SocialIcons /></div>
+	<div class:list={["sl-flex print:hidden right-group", {"mobile-sidebar-preferences": hasSidebar}]}>
+		<div class="sl-hidden md:sl-flex social-icons"><SocialIcons /></div>
 		<ThemeSelect />
 		<LanguageSelect />
 	</div>
@@ -110,6 +111,51 @@ const shouldRenderSearch =
 	@media (min-width: 68rem) {
 		.stage-nav {
 			display: flex;
+		}
+	}
+
+	@media (max-width: 49.999rem) {
+		.mobile-sidebar-preferences {
+			display: none;
+		}
+
+		.stage-header {
+			gap: 0.4rem;
+		}
+
+		.right-group {
+			gap: 0.18rem;
+		}
+
+		.right-group :global(.site-dropdown-trigger) {
+			justify-content: center;
+			min-width: 2.05rem;
+			min-height: 2.25rem;
+			padding-inline: 0.4rem;
+		}
+
+		.right-group :global(.site-dropdown-trigger::after) {
+			display: none;
+		}
+
+		.right-group :global(.site-dropdown-current) {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+		}
+	}
+
+	@media (max-width: 23rem) {
+		.title-wrapper :global(.site-title) {
+			gap: 0.45rem;
+			font-size: 1.05rem;
+		}
+
+		.title-wrapper :global(.site-title img) {
+			width: 1.85rem;
+			height: 1.85rem;
 		}
 	}
 </style>

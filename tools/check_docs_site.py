@@ -18,11 +18,14 @@ class Page(HTMLParser):
         self.ids: set[str] = set()
         self.links: set[str] = set()
         self.has_body = False
+        self.has_native_select = False
         self.markdown_depth = 0
         self.body_depth = 0
         self.feed(file.read_text(encoding="utf-8"))
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "select":
+            self.has_native_select = True
         if tag == "div":
             classes = (dict(attrs).get("class") or "").split()
             if self.markdown_depth or "sl-markdown-content" in classes:
@@ -34,7 +37,11 @@ class Page(HTMLParser):
                 continue
             if name == "id":
                 self.ids.add(value)
-            if (tag in {"a", "link"} and name == "href") or name == "src":
+            if (
+                (tag in {"a", "link"} and name == "href")
+                or name == "src"
+                or (tag == "video" and name == "data-src")
+            ):
                 self.links.add(value)
 
     def handle_endtag(self, tag: str) -> None:
@@ -71,6 +78,8 @@ def check_links(dist: Path, prefix: str) -> tuple[int, list[str]]:
 
     for path, page in pages.items():
         relative = path.relative_to(dist)
+        if page.has_native_select:
+            errors.append(f"{relative}: native select bypasses the site dropdown")
         page_url = f"{prefix}/{relative.as_posix().removesuffix('index.html')}"
         for target in sorted(page.links):
             href = urlsplit(urljoin(page_url, target))
@@ -93,6 +102,16 @@ def check_links(dist: Path, prefix: str) -> tuple[int, list[str]]:
     return len(pages), errors
 
 
+def check_card(folder: Path, *, animated: bool = True) -> None:
+    if animated:
+        with (folder / "card.mp4").open("rb") as video:
+            if video.read(8)[4:] != b"ftyp":
+                raise ValueError(f"{folder.name}: invalid MP4 preview")
+    with (folder / "card.jpg").open("rb") as poster:
+        if poster.read(2) != b"\xff\xd8":
+            raise ValueError(f"{folder.name}: invalid JPEG poster")
+
+
 def check_previews(dist: Path) -> int:
     entries = json.loads((BUILD / "gallery.json").read_text(encoding="utf-8"))
     if not entries:
@@ -100,6 +119,7 @@ def check_previews(dist: Path) -> int:
     for entry in entries:
         slug = entry["id"]
         folder = dist / "previews" / slug
+        check_card(folder)
         source = folder / entry["source"]
         if source.read_text(encoding="utf-8") != entry["code"]:
             raise ValueError(f"{slug}: downloadable script differs from displayed code")
@@ -129,15 +149,34 @@ def check_previews(dist: Path) -> int:
     return len(entries)
 
 
+def check_components(dist: Path) -> int:
+    entries = json.loads((BUILD / "components.json").read_text(encoding="utf-8"))
+    if not entries:
+        raise ValueError("The component library has no entries")
+    for locale in (Path(), Path("zh-cn")):
+        page = Page(dist / locale / "components/index.html")
+        for entry in entries:
+            if entry["id"] not in page.ids:
+                raise ValueError(f"{locale / 'components'}: missing #{entry['id']}")
+    for entry in entries:
+        if not entry.get("gallery"):
+            check_card(
+                dist / "component-previews" / entry["id"],
+                animated=entry["group"] != "typography",
+            )
+    return len(entries)
+
+
 def main() -> None:
     path = os.environ.get("DOCS_BASE", "").strip("/")
     prefix = f"/{path}" if path else ""
     dist = BUILD / "dist"
     pages, errors = check_links(dist, prefix)
     previews = check_previews(dist)
+    components = check_components(dist)
     if errors:
         raise SystemExit("\n".join(errors))
-    print(f"{pages} pages and {previews} bilingual browser previews checked")
+    print(f"{pages} pages, {previews} gallery previews and {components} component cards checked")
 
 
 if __name__ == "__main__":

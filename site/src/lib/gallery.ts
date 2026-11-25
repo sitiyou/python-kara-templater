@@ -32,7 +32,6 @@ export interface Demo {
 export interface LocalizedDemo extends Demo {
   shortTitle: string;
   rawCategory: string;
-  hasControls: boolean;
 }
 
 export const demos: Demo[] = entries;
@@ -50,7 +49,6 @@ export function localizeDemo(demo: Demo, locale: Locale): LocalizedDemo {
     summary: tr?.summary ?? demo.summary,
     details: tr?.details ?? demo.details,
     labels,
-    hasControls: Boolean(labels && Object.keys(labels).length > 0),
   };
 }
 

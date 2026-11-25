@@ -1,6 +1,6 @@
 # Write and build the documentation site
 
-Author bilingual guides, add live WebGL gallery demos, and build the Astro and Starlight documentation site locally. Use this page whenever you edit documentation or add an example preview.
+Author bilingual guides, add gallery and component previews, and build the Astro and Starlight documentation site locally.
 
 ## Bilingual layout and checks
 
@@ -80,7 +80,9 @@ Use GitHub alert syntax for callouts; the site converts them into Starlight asid
 
 ## Build and preview locally
 
-You need Node.js 24 (`site/package.json` requires Node `>=22.23.4`), `uv`, the [native build dependencies](setup.md), and [DejaVu Sans](https://dejavu-fonts.github.io/) plus [Noto Sans CJK JP](https://github.com/notofonts/noto-cjk) for gallery previews (`fonts-dejavu-core` and `fonts-noto-cjk` on Ubuntu).
+You need Node.js 24 (`site/package.json` requires Node `>=22.23.4`), `uv`, the [native build dependencies](setup.md), and [DejaVu Sans](https://dejavu-fonts.github.io/) plus [Noto Sans CJK JP](https://github.com/notofonts/noto-cjk) for gallery previews (`fonts-dejavu-core`, `fonts-dejavu-extra` and `fonts-noto-cjk` on Ubuntu).
+
+Card previews are rendered during the build. Install FFmpeg with `libplacebo`, `libx264` and `libass`, and provide a Vulkan device. The GitHub Actions build uses Mesa's software Vulkan driver.
 
 From the checkout root:
 
@@ -95,7 +97,7 @@ npm run preview --prefix site
 
 Open the URL printed by Astro. To edit Astro components and CSS with live reload, run `npm run dev --prefix site`. Restart the dev server after changing Markdown pages or Python examples so its `predev` hook re-runs `tools.build_docs_site`.
 
-The static output is written to `build/docs-site/dist/` and uses WebGL 2 in the browser for live gallery previews. `tools.check_docs_site` verifies that every Markdown page renders a non-empty body, that all internal links and anchors resolve, and that every gallery preview has matching downloadable source, a non-empty shader, valid `KARAMASK`/`KARADATA` checksums, and declared `PaintInput` labels.
+The build writes static output to `build/docs-site/dist/`. Cards use silent video loops with JPEG fallback images. Gallery details use WebGL 2 for scrubbing and editing `PaintInput` values. `tools.check_docs_site` checks rendered Markdown, links and anchors, bilingual cards and media, source downloads, and shader resources.
 
 ## Add an example to the gallery
 
@@ -129,7 +131,17 @@ details = "提示读者观察哪个时间点。"
 strength = "特效强度"
 ```
 
-Choose `still` (in seconds) for the gallery card and initial paused frame, and set `duration` to cover the full effect. During staging, `tools.build_docs_site` calls `scene.export_resources()`, copies the Python script for download, and embeds its exact source. Scrub the preview in the browser after building, and also verify standalone Hook playback with FFmpeg or mpv; see [Play and render a Hook](../output/hook.md).
+Choose `still` (in seconds) for the card poster and initial paused frame, and set `duration` to cover the full effect. The builder renders the card with FFmpeg and calls `scene.export_resources()` for the interactive WebGL preview. Play the card and scrub the example in the browser after building. See [Play and render a Hook](../output/hook.md).
+
+## Add a component
+
+The [component manifest](../examples/components.toml) supplies bilingual labels for every public `KaraokeEffects` preset. The builder takes the preset values from their public types and requires a label for each value.
+
+For a reusable visual component, add an entry with an ID, a category, English and Chinese titles, and a reference anchor. Set `gallery` to reuse an existing clip, or add a case for the ID in [component_previews.py](../../examples/component_previews.py). Pick a short playback window and a poster that shows the effect. Use standalone Hook rendering where available. Label evaluator samples and standard ASS previews in the manifest so readers can identify how they were rendered.
+
+```sh
+uv run python -m examples.component_previews entry-wave-in build/wave.hook
+```
 
 ## Deploy to GitHub Pages
 

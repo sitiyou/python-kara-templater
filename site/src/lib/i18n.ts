@@ -54,9 +54,7 @@ export interface UiStrings {
     lede: string;
     allFilter: string;
     filterAria: string;
-    interactiveBadge: string;
     moreLink: string;
-    errorStatus: string;
     breadcrumbHome: string;
     howItWorks: string;
     readGuide: string;
@@ -68,6 +66,22 @@ export interface UiStrings {
     sourceTitle: string;
     relatedTitle: string;
   };
+  components: {
+    title: string;
+    description: string;
+    navigation: string;
+    groups: Record<string, string>;
+    groupHints: Record<string, string>;
+    groupDetails: Record<string, string>;
+    search: string;
+    matches: string;
+    noMatches: string;
+    sampled: string;
+    assPreview: string;
+    reference: string;
+    componentSource: string;
+    galleryExample: string;
+  };
   preview: {
     play: string;
     pause: string;
@@ -78,6 +92,10 @@ export interface UiStrings {
     secondsUnit: string;
     adjustTitle: string;
     reset: string;
+    playCard: string;
+    pauseCard: string;
+    autoPlay: string;
+    autoPause: string;
   };
   notFound: {
     title: string;
@@ -94,6 +112,7 @@ export function getUi(locale: Locale): UiStrings {
       nav: [
         {label: "快速上手", href: url("getting-started/", locale), match: "/zh-cn/getting-started"},
         {label: "特效画廊", href: url("gallery/", locale), match: "/zh-cn/gallery"},
+        {label: "组件库", href: url("components/", locale), match: "/zh-cn/components"},
         {label: "教程", href: url("tutorials/", locale), match: "/zh-cn/tutorials"},
         {label: "指南", href: url("guides/", locale), match: "/zh-cn/guides"},
         {label: "API", href: url("reference/", locale), match: "/zh-cn/reference"},
@@ -186,12 +205,10 @@ export function getUi(locale: Locale): UiStrings {
         title: "特效画廊",
         description: "在浏览器中直接播放卡拉 OK 特效、实时调节着色器参数并下载对应的 Python 脚本。",
         eyebrow: "WebGL 2",
-        lede: "由真实 Python 示例构建的实时预览，与导出后的 libplacebo Hook 共用同一套着色与计时逻辑。",
+        lede: "卡片会循环播放从独立 libplacebo Hook 渲染的片段。点开示例可拖动时间轴、调节可用参数并下载源码。",
         allFilter: "全部",
         filterAria: "按特效分类筛选",
-        interactiveBadge: "支持实时调参",
         moreLink: "更多示例与长篇动效研究",
-        errorStatus: "部分缩略图暂时不可用，仍可点开查看源码。",
         breadcrumbHome: "特效画廊",
         howItWorks: "原理",
         readGuide: "指南",
@@ -203,6 +220,51 @@ export function getUi(locale: Locale): UiStrings {
         sourceTitle: "源码",
         relatedTitle: "更多特效",
       },
+      components: {
+        title: "组件库",
+        description: "按类别预览内置预设和可组合的 Python 组件。入场、退场、走字和装饰使用同一句带时间轴的歌词，方便对比。",
+        navigation: "选择组件类别",
+        groups: {
+          entry: "入场",
+          exit: "退场",
+          highlight: "走字与高亮",
+          sweep: "走字前沿与扫描线",
+          motion: "动画",
+          decoration: "节拍装饰",
+          cues: "倒数提示",
+          particles: "粒子与回声",
+          typography: "字体与字形样式",
+          paint: "色彩与材质",
+          layout: "歌词排版",
+          geometry: "路径与遮罩",
+        },
+        groupHints: {
+          entry: "滑入 · 淡入",
+          exit: "漂移 · 消散",
+          highlight: "扫色 · 音节弹动",
+          sweep: "色带 · 羽化",
+          motion: "补间 · 路径运动",
+          decoration: "起音星光 · 涟漪",
+          cues: "数字 · 指示灯",
+          particles: "发射 · 延时副本",
+          typography: "斜体 · 描边 · 模糊",
+          paint: "渐变 · 辉光 · 着色器",
+          layout: "双行 · 注音",
+          geometry: "裁剪 · 路径变形",
+        },
+        groupDetails: {
+          typography: "每张卡片左侧为基准，右侧展示样式变化。",
+          sweep: "左侧为对照，右侧展示当前设置。扫描线是在扫色前沿移动的一条色带。羽化则让唱前色与唱后色在前沿逐渐过渡。",
+        },
+        search: "搜名称或参数，例如 blur",
+        matches: "找到 {count} 个组件",
+        noMatches: "没有找到匹配的组件。",
+        sampled: "逐帧求值预览",
+        assPreview: "标准 ASS 预览",
+        reference: "API 参考",
+        componentSource: "下载预设与组件示例",
+        galleryExample: "画廊示例",
+      },
       preview: {
         play: "播放",
         pause: "暂停",
@@ -213,6 +275,10 @@ export function getUi(locale: Locale): UiStrings {
         secondsUnit: "s",
         adjustTitle: "参数",
         reset: "重置参数",
+        playCard: "播放「{title}」",
+        pauseCard: "暂停「{title}」",
+        autoPlay: "开启自动播放",
+        autoPause: "暂停全部预览",
       },
       notFound: {
         title: "页面未找到",
@@ -228,6 +294,7 @@ export function getUi(locale: Locale): UiStrings {
     nav: [
       {label: "Quickstart", href: url("getting-started/", locale), match: "/getting-started"},
       {label: "Gallery", href: url("gallery/", locale), match: "/gallery"},
+      {label: "Components", href: url("components/", locale), match: "/components"},
       {label: "Tutorials", href: url("tutorials/", locale), match: "/tutorials"},
       {label: "Guides", href: url("guides/", locale), match: "/guides"},
       {label: "API", href: url("reference/", locale), match: "/reference"},
@@ -320,12 +387,10 @@ export function getUi(locale: Locale): UiStrings {
       title: "Effect gallery",
       description: "Play live karaoke effects in your browser, tune shader controls, and download the runnable Python behind them.",
       eyebrow: "WebGL 2",
-      lede: "Built straight from runnable Python scripts with the same shader and timing contract as exported Hooks.",
+      lede: "Each card loops a clip rendered from a standalone libplacebo Hook. Open an example to scrub, tune available controls, and download the Python source.",
       allFilter: "All",
       filterAria: "Filter by effect category",
-      interactiveBadge: "Live controls",
       moreLink: "More examples & motion studies",
-      errorStatus: "Some thumbnails are unavailable. Every example page and script is still accessible.",
       breadcrumbHome: "Gallery",
       howItWorks: "How it works",
       readGuide: "Guide",
@@ -337,6 +402,51 @@ export function getUi(locale: Locale): UiStrings {
       sourceTitle: "Source",
       relatedTitle: "More effects",
     },
+    components: {
+      title: "Component library",
+      description: "Browse built-in presets and reusable Python components. Entrances, exits, highlights, and timing ornaments use the same timed lyric for comparison.",
+      navigation: "Choose a component category",
+      groups: {
+        entry: "Entrances",
+        exit: "Exits",
+        highlight: "Wipes and highlights",
+        sweep: "Sweep fronts and scanlines",
+        motion: "Animation",
+        decoration: "Timing ornaments",
+        cues: "Countdown cues",
+        particles: "Particles and echoes",
+        typography: "Typography",
+        paint: "Colour and materials",
+        layout: "Lyric layout",
+        geometry: "Paths and masks",
+      },
+      groupHints: {
+        entry: "Slide in · Fade in",
+        exit: "Drift away · Dissolve",
+        highlight: "Colour wipes · Note pulses",
+        sweep: "Moving bands · Feathering",
+        motion: "Tweens · Motion paths",
+        decoration: "Onset stars · Ripples",
+        cues: "Numbers · Lamps",
+        particles: "Emitters · Delayed copies",
+        typography: "Italic · Outline · Blur",
+        paint: "Gradients · Glow · Shaders",
+        layout: "Alternating rows · Ruby",
+        geometry: "Clips · Path deformation",
+      },
+      groupDetails: {
+        typography: "Compare the baseline on the left with the styled text on the right.",
+        sweep: "Compare the reference on the left with the variant on the right. A scanline adds a moving band at the wipe front. Feathering blends the waiting and sung colours across the front.",
+      },
+      search: "Search names or parameters, e.g. blur",
+      matches: "{count} matching components",
+      noMatches: "No matching components.",
+      sampled: "Frame-sampled preview",
+      assPreview: "Standard ASS preview",
+      reference: "API reference",
+      componentSource: "Download presets and component examples",
+      galleryExample: "Gallery example",
+    },
     preview: {
       play: "Play",
       pause: "Pause",
@@ -347,6 +457,10 @@ export function getUi(locale: Locale): UiStrings {
       secondsUnit: "s",
       adjustTitle: "Controls",
       reset: "Reset parameters",
+      playCard: "Play {title}",
+      pauseCard: "Pause {title}",
+      autoPlay: "Enable autoplay",
+      autoPause: "Pause all previews",
     },
     notFound: {
       title: "Page not found",

@@ -1,0 +1,28 @@
+---
+import {getUi, type Locale} from "../lib/i18n";
+
+interface Props {
+	folder: string;
+	title: string;
+	locale: Locale;
+	animated?: boolean;
+}
+
+const {folder, title, locale, animated = true} = Astro.props;
+const {playCard, pauseCard} = getUi(locale).preview;
+const play = playCard.replace("{title}", title);
+const pause = pauseCard.replace("{title}", title);
+---
+
+<div class="card-preview">
+	<img src={`${folder}card.jpg`} alt="" loading="lazy" decoding="async" />
+	{animated && (
+		<>
+			<video data-src={`${folder}card.mp4`} preload="none" muted loop playsinline aria-hidden="true"></video>
+			<button class="preview-play card-play" type="button" data-play={play} data-pause={pause} aria-label={play} title={play} hidden>
+				<span class="icon-play" aria-hidden="true">▶</span>
+				<span class="icon-pause" aria-hidden="true">Ⅱ</span>
+			</button>
+		</>
+	)}
+</div>

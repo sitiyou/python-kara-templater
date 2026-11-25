@@ -1,0 +1,232 @@
+---
+interface Props {
+	category: string;
+}
+
+const {category} = Astro.props;
+---
+
+<span class="category-icon" data-icon={category} aria-hidden="true">
+	{category === "typography" ? (
+		<><b>A</b><em>a</em></>
+	) : category === "cues" ? (
+		<><b>3</b><b>2</b><b>1</b></>
+	) : (
+		<><i></i><i></i><i></i></>
+	)}
+</span>
+
+<style>
+	.category-icon {
+		--ink: #a9bbff;
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		inline-size: 3.75rem;
+		block-size: 3.25rem;
+		overflow: hidden;
+		border-radius: 0.55rem;
+		background: color-mix(in srgb, var(--ink) 16%, #111421);
+		color: var(--ink);
+	}
+
+	.category-icon :is(i, b, em) {
+		margin: 0;
+	}
+
+	.category-icon i {
+		position: absolute;
+		display: block;
+	}
+
+	[data-icon="entry"] { --ink: #82f2be; }
+	[data-icon="exit"] { --ink: #ff9e92; }
+	[data-icon="highlight"] { --ink: #ffe08c; }
+	[data-icon="sweep"] { --ink: #76e6ff; }
+	[data-icon="motion"] { --ink: #c7b3ff; }
+	[data-icon="decoration"] { --ink: #ffc392; }
+	[data-icon="cues"] { --ink: #d2e890; }
+	[data-icon="particles"] { --ink: #ffa5ce; }
+	[data-icon="typography"] { --ink: #e0c8ff; }
+	[data-icon="paint"] { --ink: #bcb2ff; }
+	[data-icon="layout"] { --ink: #94e2d5; }
+
+	/* The gate shows which side the text is moving into or out of. */
+	:is([data-icon="entry"], [data-icon="exit"]) i:first-child {
+		top: 0.72rem;
+		width: 1.4rem;
+		height: 1.8rem;
+		border: 2px solid color-mix(in srgb, var(--ink) 48%, transparent);
+		border-radius: 0.27rem;
+	}
+
+	[data-icon="entry"] i:first-child { right: 0.42rem; }
+	[data-icon="exit"] i:first-child { left: 0.42rem; }
+
+	:is([data-icon="entry"], [data-icon="exit"]) i:nth-child(2) {
+		top: 1.13rem;
+		width: 2.15rem;
+		height: 1rem;
+		background: currentColor;
+		clip-path: polygon(0 39%, 73% 39%, 73% 0, 100% 50%, 73% 100%, 73% 61%, 0 61%);
+	}
+
+	[data-icon="entry"] i:nth-child(2) { left: 0.48rem; }
+	[data-icon="exit"] i:nth-child(2) { right: 0.38rem; }
+
+	[data-icon="highlight"] i:first-child {
+		inset: 1.02rem 0.5rem auto;
+		height: 0.67rem;
+		border-radius: 0.16rem;
+		background: linear-gradient(90deg, currentColor 60%, #786942 60%);
+	}
+
+	[data-icon="highlight"] i:nth-child(2) {
+		inset: auto 0.5rem 0.94rem;
+		height: 0.15rem;
+		background: linear-gradient(90deg, currentColor 60%, #786942 60%);
+	}
+
+	[data-icon="sweep"] i:first-child {
+		inset: 0.83rem 0.52rem 0.78rem;
+		background: repeating-linear-gradient(to bottom, #4e7596 0 0.21rem, transparent 0.21rem 0.61rem);
+	}
+
+	[data-icon="sweep"] i:nth-child(2) {
+		inset: 0.52rem auto 0.52rem 1.73rem;
+		width: 0.34rem;
+		transform: skewX(-16deg);
+		background: currentColor;
+		box-shadow: 0 0 0.54rem #5dceff;
+	}
+
+	[data-icon="motion"] i:first-child {
+		inset: 0.85rem 0.68rem 0.91rem;
+		background: currentColor;
+		clip-path: polygon(0 87%, 24% 82%, 47% 63%, 67% 32%, 96% 9%, 100% 22%, 73% 43%, 53% 74%, 28% 94%, 0 100%);
+	}
+
+	[data-icon="motion"] i:nth-child(2),
+	[data-icon="motion"] i:nth-child(3) {
+		width: 0.39rem;
+		height: 0.39rem;
+		transform: rotate(45deg);
+		background: currentColor;
+	}
+
+	[data-icon="motion"] i:nth-child(2) { left: 0.53rem; bottom: 0.74rem; }
+	[data-icon="motion"] i:nth-child(3) { right: 0.52rem; top: 0.8rem; }
+
+	[data-icon="decoration"] i:first-child {
+		inset: auto 0.49rem 0.7rem;
+		height: 1.1rem;
+		background: currentColor;
+		clip-path: polygon(0 67%, 23% 67%, 34% 45%, 44% 78%, 61% 5%, 75% 67%, 100% 67%, 100% 80%, 70% 80%, 61% 40%, 46% 100%, 34% 67%, 26% 80%, 0 80%);
+	}
+
+	[data-icon="decoration"] i:nth-child(2) {
+		top: 0.47rem;
+		left: 1.52rem;
+		width: 0.69rem;
+		height: 0.79rem;
+		background: currentColor;
+		clip-path: polygon(50% 0, 65% 34%, 100% 50%, 65% 66%, 50% 100%, 35% 66%, 0 50%, 35% 34%);
+	}
+
+	[data-icon="cues"] {
+		gap: 0.11rem;
+		font-family: var(--sl-font-mono);
+	}
+
+	[data-icon="cues"] b {
+		display: grid;
+		place-items: center;
+		width: 0.88rem;
+		height: 1.15rem;
+		border-bottom: 2px solid currentColor;
+		font-size: 0.75rem;
+		line-height: 1;
+	}
+
+	[data-icon="cues"] b:nth-child(2) { opacity: 0.67; }
+	[data-icon="cues"] b:nth-child(3) { opacity: 0.43; }
+
+	[data-icon="particles"] i {
+		border-radius: 50%;
+		background: currentColor;
+	}
+
+	[data-icon="particles"] i:first-child {
+		top: 1.61rem;
+		left: 0.86rem;
+		width: 0.46rem;
+		height: 0.46rem;
+		box-shadow: 1.34rem -0.91rem 0 -0.12rem #ef9dc2, 1.55rem 0.45rem 0 -0.1rem #ce77a5;
+	}
+
+	[data-icon="particles"] i:nth-child(2) {
+		top: 0.96rem;
+		left: 1.54rem;
+		width: 0.34rem;
+		height: 0.34rem;
+		box-shadow: 0.76rem 0.51rem #ee8bb9, -0.04rem 1.21rem #976286, 1.02rem 0.04rem 0 -0.06rem #976286;
+	}
+
+	[data-icon="particles"] i:nth-child(3) {
+		top: 1.67rem;
+		left: 1.78rem;
+		width: 0.28rem;
+		height: 0.28rem;
+		box-shadow: -0.72rem -0.82rem #b77d9d;
+	}
+
+	[data-icon="typography"] {
+		gap: 0.03rem;
+		font-family: var(--kara-font-display);
+		font-size: 1.64rem;
+		line-height: 1;
+	}
+
+	[data-icon="typography"] em { font-weight: 500; }
+
+	[data-icon="paint"] i:first-child {
+		inset: 0.64rem auto 0.64rem 0.69rem;
+		width: 1.26rem;
+		border-radius: 0.26rem;
+		background: linear-gradient(155deg, #78ddff, #b895fd 59%, #fd86b2);
+	}
+
+	[data-icon="paint"] i:nth-child(2),
+	[data-icon="paint"] i:nth-child(3) {
+		left: 2.16rem;
+		width: 0.89rem;
+		height: 0.9rem;
+		border-radius: 0.21rem;
+	}
+
+	[data-icon="paint"] i:nth-child(2) { top: 0.64rem; background: #fabc86; }
+	[data-icon="paint"] i:nth-child(3) { bottom: 0.64rem; background: #a58df4; }
+
+	[data-icon="layout"] i {
+		height: 0.24rem;
+		border-radius: 0.1rem;
+		background: currentColor;
+	}
+
+	[data-icon="layout"] i:first-child { top: 0.81rem; left: 0.91rem; width: 0.92rem; opacity: 0.55; }
+	[data-icon="layout"] i:nth-child(2) { top: 1.31rem; left: 0.61rem; width: 2.04rem; height: 0.39rem; }
+	[data-icon="layout"] i:nth-child(3) { top: 2.02rem; right: 0.61rem; width: 1.6rem; opacity: 0.75; }
+
+	[data-icon="geometry"] i:first-child {
+		inset: 0.62rem 0.66rem;
+		border: 2px dashed #798ebc;
+		border-radius: 0.16rem;
+	}
+
+	[data-icon="geometry"] i:nth-child(2) {
+		inset: 0.42rem 1.1rem 0.62rem 1.21rem;
+		background: linear-gradient(145deg, #c3ccff, #83a2fb);
+		clip-path: polygon(50% 0%, 100% 50%, 64% 86%, 36% 86%, 0% 50%);
+	}
+</style>

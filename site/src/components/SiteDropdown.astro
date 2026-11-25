@@ -1,0 +1,29 @@
+---
+interface Props {
+	label: string;
+	current: string;
+	value: string;
+	align?: "start" | "end";
+	variant?: "field" | "compact";
+	hidden?: boolean;
+}
+
+const {label, current, value, align = "start", variant = "compact", hidden = false} = Astro.props;
+---
+
+<kara-dropdown class="site-dropdown not-content" data-value={value} data-align={align} data-variant={variant} hidden={hidden ? "" : undefined}>
+	<details>
+		<summary class="site-dropdown-trigger">
+			<span class="sr-only">{label}</span>
+			<slot name="icon" />
+			<span class="site-dropdown-current">{current}</span>
+		</summary>
+		<div class="site-dropdown-menu">
+			<slot />
+		</div>
+	</details>
+</kara-dropdown>
+
+<script>
+	import "../lib/site-dropdown";
+</script>

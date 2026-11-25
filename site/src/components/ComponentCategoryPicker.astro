@@ -1,0 +1,20 @@
+---
+import ComponentCategoryIcon from "./ComponentCategoryIcon.astro";
+import SiteDropdown from "./SiteDropdown.astro";
+
+interface Props {
+	label: string;
+	groups: Array<{id: string; label: string}>;
+}
+
+const {label, groups} = Astro.props;
+---
+
+<SiteDropdown label={label} current={groups[0].label} value={groups[0].id} variant="field" hidden>
+	{groups.map(({id, label}) => (
+		<a class="site-dropdown-option" data-option={id} href={`#${id}`} aria-current={id === groups[0].id ? "location" : undefined}>
+			<span class="component-picker-icon"><ComponentCategoryIcon category={id} /></span>
+			<span class="site-dropdown-name">{label}</span>
+		</a>
+	))}
+</SiteDropdown>

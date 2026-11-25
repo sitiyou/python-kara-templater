@@ -1,84 +1,70 @@
 ---
 import {Icon} from "@astrojs/starlight/components";
-import Select from "@astrojs/starlight/components/Select.astro";
+import SiteDropdown from "./SiteDropdown.astro";
+
+const themes = [
+	{value: "dark", icon: "moon", label: Astro.locals.t("themeSelect.dark")},
+	{value: "light", icon: "sun", label: Astro.locals.t("themeSelect.light")},
+	{value: "auto", icon: "laptop", label: Astro.locals.t("themeSelect.auto")},
+] as const;
 ---
 
-<starlight-theme-select>
-	<Select
-		label={Astro.locals.t("themeSelect.accessibleLabel")}
-		options={[
-			{label: Astro.locals.t("themeSelect.dark"), selected: true, value: "dark"},
-			{label: Astro.locals.t("themeSelect.light"), selected: false, value: "light"},
-			{label: Astro.locals.t("themeSelect.auto"), selected: false, value: "auto"},
-		]}
-		width="6.25em"
-	>
-		<Fragment slot="icon">
-			<Icon name="moon" class="sl-theme-icon-dark" />
-			<Icon name="sun" class="sl-theme-icon-light" />
-			<Icon name="laptop" class="sl-theme-icon-auto" />
-		</Fragment>
-	</Select>
-</starlight-theme-select>
-
-<script
-	is:inline
-	set:html={`(() => {
-		const stored = typeof localStorage !== "undefined" && localStorage.getItem("starlight-theme");
-		const value = stored === "light" || stored === "dark" || stored === "auto" ? stored : "dark";
-		document.querySelectorAll("starlight-theme-select select").forEach((s) => { s.value = value; });
-	})();`}
-></script>
+<div data-theme-dropdown>
+	<SiteDropdown label={Astro.locals.t("themeSelect.accessibleLabel")} current={themes[0].label} value="dark" align="end">
+		<span slot="icon" class="site-dropdown-icon" aria-hidden="true">
+			{themes.map(({icon, value}) => <Icon name={icon} class={`theme-icon-${value}`} />)}
+		</span>
+		{themes.map(({icon, label, value}) => (
+			<button type="button" class="site-dropdown-option" data-option={value} aria-pressed={value === "dark"}>
+				<Icon name={icon} class="site-dropdown-icon" />
+				<span class="site-dropdown-name">{label}</span>
+			</button>
+		))}
+	</SiteDropdown>
+</div>
 
 <style>
-	@layer starlight.components {
-		starlight-theme-select:has([value="dark"]:not(:checked)) :global(.sl-theme-icon-dark),
-		starlight-theme-select:has([value="light"]:not(:checked)) :global(.sl-theme-icon-light),
-		starlight-theme-select:has([value="auto"]:not(:checked)) :global(.sl-theme-icon-auto) {
-			display: none;
-		}
+	[data-theme-dropdown] :global(kara-dropdown:not([data-value="dark"]) .theme-icon-dark),
+	[data-theme-dropdown] :global(kara-dropdown:not([data-value="light"]) .theme-icon-light),
+	[data-theme-dropdown] :global(kara-dropdown:not([data-value="auto"]) .theme-icon-auto) {
+		display: none;
 	}
 </style>
 
 <script>
 	type Theme = "auto" | "dark" | "light";
 	const storageKey = "starlight-theme";
+	const systemTheme = matchMedia("(prefers-color-scheme: light)");
 
 	const parseTheme = (theme: unknown): Theme =>
 		theme === "auto" || theme === "dark" || theme === "light" ? theme : "dark";
 
-	const loadTheme = (): Theme =>
-		parseTheme(typeof localStorage !== "undefined" && localStorage.getItem(storageKey));
+	function loadTheme(): Theme {
+		return parseTheme(localStorage.getItem(storageKey));
+	}
 
-	const getSystemTheme = (): "light" | "dark" =>
-		matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
-
-	function applyTheme(theme: Theme, persist: boolean): void {
-		document
-			.querySelectorAll<HTMLSelectElement>("starlight-theme-select select")
-			.forEach((select) => {
-				select.value = theme;
-			});
-		document.documentElement.dataset.theme = theme === "auto" ? getSystemTheme() : theme;
-		if (persist && typeof localStorage !== "undefined") {
-			localStorage.setItem(storageKey, theme);
+	function applyTheme(theme: Theme): void {
+		document.documentElement.dataset.theme = theme === "auto"
+			? systemTheme.matches ? "light" : "dark"
+			: theme;
+		for (const dropdown of document.querySelectorAll<HTMLElement>("[data-theme-dropdown] kara-dropdown")) {
+			dropdown.dataset.value = theme;
 		}
 	}
 
-	matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
-		if (loadTheme() === "auto") applyTheme("auto", false);
+	document.addEventListener("click", (event) => {
+		const option = (event.target as Element).closest<HTMLElement>("[data-theme-dropdown] [data-option]");
+		if (!option) return;
+		const theme = parseTheme(option.dataset.option);
+		localStorage.setItem(storageKey, theme);
+		applyTheme(theme);
 	});
-
-	class StarlightThemeSelect extends HTMLElement {
-		constructor() {
-			super();
-			applyTheme(loadTheme(), false);
-			this.querySelector("select")?.addEventListener("change", (event) => {
-				if (event.currentTarget instanceof HTMLSelectElement) {
-					applyTheme(parseTheme(event.currentTarget.value), true);
-				}
-			});
-		}
-	}
-	customElements.define("starlight-theme-select", StarlightThemeSelect);
+	systemTheme.addEventListener("change", () => {
+		if (loadTheme() === "auto") applyTheme("auto");
+	});
+	window.addEventListener("pageshow", () => applyTheme(loadTheme()));
+	window.addEventListener("storage", (event) => {
+		if (event.key === storageKey || event.key === null) applyTheme(loadTheme());
+	});
+	applyTheme(loadTheme());
 </script>

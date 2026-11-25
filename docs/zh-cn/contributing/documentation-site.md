@@ -1,6 +1,6 @@
 # 编写与构建文档站点
 
-撰写中英双语指南、添加交互式 WebGL 画廊示例，并在本地构建 Astro 与 Starlight 文档站点。每次编辑文档或新增示例预览时，请参考本页。
+编写双语指南、添加画廊与组件预览，并在本地构建 Astro 和 Starlight 文档站。
 
 ## 双语目录结构与校验
 
@@ -80,7 +80,9 @@
 
 ## 本地构建与预览
 
-本地构建需要 Node.js 24（`site/package.json` 要求 Node `>=22.23.4`）、`uv`、[原生构建依赖](setup.md)，以及用于画廊预览的 [DejaVu Sans](https://dejavu-fonts.github.io/) 和 [Noto Sans CJK JP](https://github.com/notofonts/noto-cjk)（Ubuntu 上对应 `fonts-dejavu-core` 和 `fonts-noto-cjk`）。
+本地构建需要 Node.js 24（`site/package.json` 要求 Node `>=22.23.4`）、`uv`、[原生构建依赖](setup.md)，以及用于画廊预览的 [DejaVu Sans](https://dejavu-fonts.github.io/) 和 [Noto Sans CJK JP](https://github.com/notofonts/noto-cjk)（Ubuntu 上对应 `fonts-dejavu-core`、`fonts-dejavu-extra` 和 `fonts-noto-cjk`）。
+
+卡片预览在构建时渲染。请安装带有 `libplacebo`、`libx264` 和 `libass` 的 FFmpeg，并提供 Vulkan 设备。GitHub Actions 使用 Mesa 的软件 Vulkan 驱动。
 
 在仓库根目录运行：
 
@@ -95,7 +97,7 @@ npm run preview --prefix site
 
 打开 Astro 输出的本地地址即可预览。修改 Astro 组件或样式时，可运行 `npm run dev --prefix site` 开启热重载；如果改动了 Markdown 文档或 Python 示例，请重启开发服务器，让 `predev` 钩子重新运行 `tools.build_docs_site`。
 
-构建产物输出在 `build/docs-site/dist/`，浏览器通过 WebGL 2 运行交互式画廊播放器。`tools.check_docs_site` 会逐项检查：每篇 Markdown 是否生成了非空正文、站内链接和锚点是否全部有效、画廊下载脚本是否与页面展示源码一致、着色器文件非空、`KARAMASK`/`KARADATA` 纹理大小与 SHA-256 校验和正确，以及界面标签是否对应声明的 `PaintInput`。
+构建产物输出到 `build/docs-site/dist/`。卡片使用静音循环视频，静态预览使用 JPEG。画廊详情页通过 WebGL 2 提供拖动进度和调节 `PaintInput` 的功能。`tools.check_docs_site` 检查 Markdown 正文、站内链接与锚点、双语卡片与媒体、源码下载和着色器资源。
 
 ## 向画廊添加示例
 
@@ -129,7 +131,17 @@ details = "提示读者观察哪个时间点。"
 strength = "特效强度"
 ```
 
-用 `still`（单位：秒）指定画廊卡片和初始暂停帧的时间点，用 `duration` 覆盖完整特效时长。暂存阶段，`tools.build_docs_site` 会调用 `scene.export_resources()` 导出着色器与纹理，复制下载脚本并嵌入完整源码。构建完成后，请在浏览器中播放并拖动时间轴检查，再用 FFmpeg 或 mpv 验证独立 Hook 渲染效果，详见[播放与渲染 Hook](../output/hook.md)。
+用 `still`（秒）指定卡片封面和初始暂停帧，用 `duration` 覆盖完整特效。构建脚本用 FFmpeg 渲染卡片，并通过 `scene.export_resources()` 导出交互式 WebGL 预览资源。构建后请在浏览器中播放卡片，并在详情页拖动时间轴检查。参见[播放与渲染 Hook](../output/hook.md)。
+
+## 添加组件
+
+[组件清单](../../examples/components.toml) 为每个公开的 `KaraokeEffects` 预设提供中英文名称。构建脚本从公开类型读取预设取值，检查每个取值是否都有对应名称。
+
+添加可复用的视觉组件时，填写 ID、类别、中英文标题和 API 参考锚点。用 `gallery` 复用已有片段，或在 [component_previews.py](../../../examples/component_previews.py) 中添加这个 ID 的场景。选取较短的播放区间和能体现效果的封面。优先用独立 Hook 渲染，并在清单中标注逐帧求值预览和标准 ASS 预览的渲染方式。
+
+```sh
+uv run python -m examples.component_previews entry-wave-in build/wave.hook
+```
 
 ## 部署到 GitHub Pages
 

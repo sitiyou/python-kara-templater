@@ -1,0 +1,24 @@
+---
+import {getUi, type Locale} from "../lib/i18n";
+
+interface Props {
+	locale: Locale;
+}
+
+const {locale} = Astro.props;
+const {autoPlay, autoPause} = getUi(locale).preview;
+---
+
+<kara-gallery>
+	<slot name="index" />
+	<div class="gallery-toolbar">
+		<slot name="navigation" />
+		<button class="gallery-motion" type="button" data-motion data-play={autoPlay} data-pause={autoPause} hidden>
+			{autoPause}
+		</button>
+	</div>
+	<slot />
+</kara-gallery>
+<script>
+	import "../lib/gallery-cards";
+</script>

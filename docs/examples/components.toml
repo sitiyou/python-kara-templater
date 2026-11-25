@@ -1,0 +1,694 @@
+# Keep these labels aligned with the public KaraokeEffects preset values.
+[presets]
+none = ["Cut", "直接切换"]
+fade = ["Line fade", "整行淡入淡出"]
+slide_in = ["Slide in", "滑入"]
+slide_out = ["Slide out", "滑出"]
+rise = ["Rise", "上移"]
+char_fade = ["Staggered fade", "逐字淡入淡出"]
+char_drip = ["Character shear", "逐字倾斜"]
+spin_flip = ["Spin flip", "旋转翻转"]
+utopia = ["Utopia", "Utopia"]
+tilt_pop = ["Tilt and pop", "倾斜弹入"]
+tracking_in = ["Close letter spacing", "字距收拢"]
+converge_out = ["Converge", "向中心合拢"]
+wave_in = ["Rising wave", "波浪入场"]
+scatter_out = ["Radial scatter", "径向散开"]
+stretch_in = ["Stretch in", "拉伸入场"]
+stretch_out = ["Stretch out", "拉伸退场"]
+glow_in = ["Glow in", "辉光入场"]
+glow_out = ["Glow out", "辉光退场"]
+assemble_in = ["Particle assembly", "粒子聚合"]
+dissolve_out = ["Particle dissolve", "粒子消散"]
+sparkle = ["Starburst", "星光迸发"]
+ripple = ["Ripples", "涟漪"]
+note = ["Musical notes", "音符"]
+petal = ["Petals", "花瓣"]
+snow = ["Open snowflakes", "镂空雪花"]
+snow_solid = ["Solid snowflakes", "实心雪花"]
+no_wipe = ["Change colour at note end", "收音时整音节换色"]
+scanline = ["Scanline", "扫描线"]
+utopia_scanline = ["Utopia pulse with scanline", "Utopia 弹动与扫描线"]
+zoom_pulse = ["Zoom on held note", "长音渐进缩放"]
+zoom_pulse_scanline = ["Zoom with scanline", "缩放与扫描线"]
+twinkle = ["Drifting stars", "漂移星光"]
+twinkle_classic = ["Pulsing stars", "呼吸星光"]
+
+# In each group, use either a component_previews.py case or a Gallery demo.
+# The last fields select its playback window and poster in seconds.
+[[component]]
+id = "default-recipe"
+group = "highlight"
+api = "KaraokeEffects()"
+reference = "tracks#karaokeeffects"
+title = "Default karaoke recipe"
+zh = "默认卡拉 OK 预设"
+
+[[component]]
+id = "duotone"
+group = "highlight"
+api = "KaraokeEffects.duotone()"
+reference = "tracks#karaokeeffectsduotone"
+title = "Two-colour fill and outline"
+zh = "填充与描边双色走字"
+
+[[component]]
+id = "stroke-flash"
+group = "highlight"
+api = "stroke_flash=True"
+reference = "tracks#karaokeeffects"
+title = "Outline flash at note onset"
+zh = "起音时描边闪光"
+start = 1.2
+end = 3.8
+still = 1.8
+
+[[component]]
+id = "soft-front"
+group = "highlight"
+api = "hook_feather / front_color"
+reference = "tracks#karaokeeffects"
+title = "Soft, tinted wipe front"
+zh = "带边缘染色的羽化走字"
+gallery = "scanline-and-glow"
+
+[[component]]
+id = "bars-cue"
+group = "cues"
+api = "BarsCue"
+reference = "cues#barscue"
+title = "Stepped countdown bars"
+zh = "阶梯式倒数条"
+end = 2.4
+still = 0.5
+
+[[component]]
+id = "volume-cue"
+group = "cues"
+api = "VolumeCue"
+reference = "cues#volumecue"
+title = "Pulsing volume bars"
+zh = "脉动音量条"
+end = 2.4
+still = 0.5
+
+[[component]]
+id = "signal-cue"
+group = "cues"
+api = "SignalCue"
+reference = "cues#signalcue"
+title = "Countdown lamps"
+zh = "倒数指示灯"
+end = 2.4
+still = 0.5
+
+[[component]]
+id = "text-cue"
+group = "cues"
+api = "TextCue"
+reference = "cues#textcue"
+title = "Text countdown"
+zh = "文字倒数"
+end = 2.4
+still = 0.5
+
+[[component]]
+id = "fade-in"
+group = "motion"
+api = "FadeIn"
+reference = "animation#fadein"
+title = "Fade in"
+zh = "淡入"
+
+[[component]]
+id = "fade-out"
+group = "motion"
+api = "FadeOut"
+reference = "animation#fadeout"
+title = "Fade out"
+zh = "淡出"
+still = 0.85
+
+[[component]]
+id = "slide"
+group = "motion"
+api = "Slide"
+reference = "animation#slide"
+title = "Slide and fade"
+zh = "滑动与淡化"
+
+[[component]]
+id = "jump"
+group = "motion"
+api = "Jump"
+reference = "animation#jump"
+title = "Jump and return"
+zh = "跳起后落回"
+
+[[component]]
+id = "scale-pulse"
+group = "motion"
+api = "ScalePulse"
+reference = "animation#scalepulse"
+title = "Scale pulse around a pivot"
+zh = "绕支点缩放弹动"
+
+[[component]]
+id = "curve-in"
+group = "motion"
+api = "CurveIn"
+reference = "animation#curvein"
+title = "Curved entrance"
+zh = "沿曲线入场"
+sampled = true
+
+[[component]]
+id = "drift-out"
+group = "motion"
+api = "DriftOut"
+reference = "animation#driftout"
+title = "Drift, shrink and fade"
+zh = "漂移、缩小并淡出"
+still = 0.9
+
+[[component]]
+id = "scatter-out"
+group = "motion"
+api = "ScatterOut"
+reference = "tracks#scatterout"
+title = "Seeded glyph scatter"
+zh = "逐字散开，轨迹可复现"
+start = 2.7
+still = 3.65
+sampled = true
+
+[[component]]
+id = "tween"
+group = "motion"
+api = "Tween / ProgressCurve"
+reference = "animation#tween"
+title = "Two-stage position and scale tween"
+zh = "位置与缩放的双阶段补间"
+
+[[component]]
+id = "move-along"
+group = "motion"
+api = "MoveAlong"
+reference = "geometry#movealong"
+title = "Motion along a curve"
+zh = "沿曲线路径移动"
+sampled = true
+
+[[component]]
+id = "lyric-highlights"
+group = "paint"
+api = "LyricHighlights"
+reference = "paint#lyrichighlights"
+title = "Per-note wipe colours"
+zh = "按音节设定走字色"
+
+[[component]]
+id = "karaoke-theme"
+group = "paint"
+api = "KaraokeTheme"
+reference = "paint#karaoketheme"
+title = "Shared lyric palette"
+zh = "共享歌词配色"
+
+[[component]]
+id = "lyric-gradient"
+group = "paint"
+api = "LyricGradient"
+reference = "paint#lyricgradient"
+title = "Gradient across lyric glyphs"
+zh = "歌词字形渐变"
+
+[[component]]
+id = "linear-gradient"
+group = "paint"
+api = "LinearGradient / ColorRamp"
+reference = "paint#lineargradient"
+title = "Gradient locked to the object"
+zh = "随对象移动的线性渐变"
+gallery = "gradient-paint"
+
+[[component]]
+id = "glow"
+group = "paint"
+api = "Glow"
+reference = "paint#glow"
+title = "Soft highlight halo"
+zh = "高亮柔光"
+
+[[component]]
+id = "secondary-outline"
+group = "paint"
+api = "SecondaryOutline"
+reference = "paint#secondaryoutline"
+title = "Secondary outline"
+zh = "外层描边"
+
+[[component]]
+id = "extrusion"
+group = "paint"
+api = "Extrusion"
+reference = "paint#extrusion"
+title = "Shaded extrusion"
+zh = "带明暗变化的立体侧面"
+
+[[component]]
+id = "material-effect"
+group = "paint"
+api = "MaterialEffect / MaterialClip / PaintInput"
+reference = "paint#materialeffect"
+title = "Animated WGSL material"
+zh = "动态 WGSL 材质"
+gallery = "wgsl-ribbon"
+
+[[component]]
+id = "shader-paint"
+group = "paint"
+api = "ShaderPaint"
+reference = "paint#shaderpaint"
+title = "Colour wave in GLSL"
+zh = "GLSL 色彩波纹"
+
+[[component]]
+id = "sparkle"
+group = "particles"
+api = "LyricParticles / Sparkle"
+reference = "particles#sparkle"
+title = "Particles following the wipe front"
+zh = "跟随走字前沿的星光粒子"
+
+[[component]]
+id = "petal"
+group = "particles"
+api = "Petal"
+reference = "particles#petal"
+title = "Fluttering petals"
+zh = "翻转飘落的花瓣"
+
+[[component]]
+id = "ribbon"
+group = "particles"
+api = "Ribbon"
+reference = "particles#ribbon"
+title = "Curved ribbon particle"
+zh = "弧形光带粒子"
+end = 2.5
+still = 1.0
+sampled = true
+
+[[component]]
+id = "lyric-echo"
+group = "particles"
+api = "LyricEcho"
+reference = "tracks#lyricecho"
+title = "Copies at note onset"
+zh = "起音时生成的回声副本"
+
+[[component]]
+id = "echoes"
+group = "particles"
+api = "echoes"
+reference = "particles#echoes"
+title = "Copies trailing the original motion"
+zh = "沿原始动作拖出的延时副本"
+sampled = true
+
+[[component]]
+id = "ruby"
+group = "layout"
+api = "RubyText"
+reference = "documents#rubytext"
+title = "Timed ruby and body text"
+zh = "注音与正文同步走字"
+gallery = "ruby-sweep"
+
+[[component]]
+id = "karaoke-rows"
+group = "layout"
+api = "KaraokeRows"
+reference = "tracks#karaokerows"
+title = "Alternating lyric rows"
+zh = "交替放置歌词行"
+
+[[component]]
+id = "vector-guide"
+group = "layout"
+api = "VectorGuide"
+reference = "text#vectorguide"
+title = "Custom timed lyric symbol"
+zh = "带时间轴的自定义歌词符号"
+
+[[component]]
+id = "rectangle-clip"
+group = "geometry"
+api = "RectangleClip / RectangleKeyframes"
+reference = "scenes#rectangleclip"
+title = "Animated rectangular reveal"
+zh = "矩形遮罩逐渐揭示文字"
+
+[[component]]
+id = "trail-path"
+group = "geometry"
+api = "TrailPath"
+reference = "geometry#trailpath"
+title = "Moving path trail"
+zh = "沿路径行进的拖尾"
+still = 1.0
+sampled = true
+
+[[component]]
+id = "write-path"
+group = "geometry"
+api = "WritePath / WritingStroke"
+reference = "geometry#writepath"
+title = "Writing stroke by stroke"
+zh = "按笔顺逐笔书写"
+still = 1.35
+sampled = true
+
+[[component]]
+id = "morph-path"
+group = "geometry"
+api = "MorphPath"
+reference = "geometry#morphpath"
+title = "Morph between vector silhouettes"
+zh = "矢量轮廓之间的变形"
+sampled = true
+
+[[component]]
+id = "timeline"
+group = "motion"
+api = "Timeline"
+reference = "animation#timeline"
+title = "Sequence fade, jump and release"
+zh = "依次淡入、跳起、淡出"
+still = 1.1
+
+[[component]]
+id = "shader-motion"
+group = "motion"
+api = "ShaderMotion"
+reference = "animation#shadermotion"
+title = "Arcing GPU motion"
+zh = "GPU 弧线位移"
+still = 0.8
+
+[[component]]
+id = "transform"
+group = "motion"
+api = "Transform"
+reference = "animation#transform"
+title = "Rock around a pivot"
+zh = "绕支点左右摇摆"
+still = 0.72
+sampled = true
+
+[[component]]
+id = "state-function"
+group = "motion"
+api = "StateFunction"
+reference = "animation#statefunction"
+title = "Pulse opacity with a callback"
+zh = "用回调实现透明度脉冲"
+sampled = true
+
+[[component]]
+id = "follow-object"
+group = "particles"
+api = "FollowObject"
+reference = "particles#followobject"
+title = "Follow another object's path with delay"
+zh = "延时跟随另一个对象的轨迹"
+sampled = true
+
+[[component]]
+id = "object-group"
+group = "layout"
+api = "ObjectGroup / TextObject / PathObject"
+reference = "scenes#objectgroup"
+title = "Scale lettering and a vector ring together"
+zh = "文字与矢量图形一起缩放"
+
+[[component]]
+id = "rectangle-function"
+group = "geometry"
+api = "RectangleFunction"
+reference = "scenes#rectanglefunction"
+title = "Reveal from the centre with a callback"
+zh = "用回调让文字从中间显现"
+sampled = true
+
+[[component]]
+id = "path-function"
+group = "geometry"
+api = "PathFunction"
+reference = "geometry#pathfunction"
+title = "Deform a vector path with a callback"
+zh = "用回调改变矢量路径的形状"
+sampled = true
+
+[[component]]
+id = "vector-clip"
+group = "geometry"
+api = "VectorClip"
+reference = "scenes#vectorclip"
+title = "Reveal through a circular mask"
+zh = "用圆形遮罩露出文字"
+ass = true
+
+[[component]]
+id = "type-family"
+group = "typography"
+api = 'font="DejaVu Serif"'
+reference = "scenes#textobject"
+title = "Sans and serif"
+zh = "无衬线与衬线字体"
+details = "DejaVu Sans and DejaVu Serif at the same size. Use Style.fontname for timed lyrics."
+zh_details = "同字号的 DejaVu Sans 与 DejaVu Serif。带时间轴的歌词用 Style.fontname 选择字体。"
+
+[[component]]
+id = "type-size"
+group = "typography"
+api = "font_size=94"
+reference = "scenes#textobject"
+title = "Font size"
+zh = "字号"
+details = "69 versus 94 script pixels. The equivalent lyric style field is Style.fontsize."
+zh_details = "对比 69 与 94 脚本像素。歌词样式的对应字段是 Style.fontsize。"
+
+[[component]]
+id = "type-bold"
+group = "typography"
+api = "bold=True"
+reference = "documents#style"
+title = "Regular and bold"
+zh = "常规字重与粗体"
+details = "Both sides use the same family and size. The right side requests the bold face."
+zh_details = "左右使用相同字体和字号，右侧选择粗体字面。"
+
+[[component]]
+id = "type-italic"
+group = "typography"
+api = "italic=True"
+reference = "documents#style"
+title = "Upright and italic"
+zh = "正体与斜体"
+details = "The right side requests an italic or oblique face. Horizontal karaoke wipes also take on a default slant."
+zh_details = "右侧选择斜体字面。横排歌词使用斜体时，走字前沿也会默认倾斜。"
+
+[[component]]
+id = "type-spacing"
+group = "typography"
+api = "spacing=18"
+reference = "documents#style"
+title = "Letter spacing"
+zh = "字距"
+details = "Add 18 script pixels of letter spacing while keeping the glyphs the same size."
+zh_details = "增加 18 脚本像素的字距，字形大小保持一致。"
+
+[[component]]
+id = "type-scale"
+group = "typography"
+api = "scale=Vec2(0.78, 1.32)"
+reference = "animation#visualstate"
+title = "Horizontal and vertical scale"
+zh = "横向与纵向缩放"
+details = "Compress width to 78% and stretch height to 132%. Style.scale_x and scale_y take percentages."
+zh_details = "宽度压到 78%，高度拉到 132%。Style.scale_x 和 scale_y 使用百分比。"
+
+[[component]]
+id = "type-border"
+group = "typography"
+api = "border=7"
+reference = "animation#visualstate"
+title = "Primary outline"
+zh = "主描边"
+details = "Add a purple 7 px outline. The corresponding lyric style field is Style.outline."
+zh_details = "右侧加上 7 脚本像素的紫色主描边。歌词样式的对应字段是 Style.outline。"
+
+[[component]]
+id = "type-blur"
+group = "typography"
+api = "blur=9"
+reference = "animation#visualstate"
+title = "Blurred lettering"
+zh = "字形模糊"
+details = "The right side softens the lettering itself. Use Glow to add a separate halo around crisp text."
+zh_details = "右侧把文字本身变柔。如果要让文字保持清晰、只在外面加柔光，可以用 Glow。"
+
+[[component]]
+id = "type-shadow"
+group = "typography"
+api = "shadow=Vec2(9, 12)"
+reference = "animation#visualstate"
+title = "Offset shadow"
+zh = "偏移阴影"
+details = "Offset the shadow 9 px to the right and 12 px down."
+zh_details = "阴影向右偏移 9、向下偏移 12 脚本像素。"
+
+[[component]]
+id = "sweep-color"
+group = "sweep"
+api = 'scanline_mode="color"'
+reference = "tracks#karaokeeffects"
+title = "Solid-colour scanline"
+zh = "单色扫描线"
+details = 'The left is a plain wipe. The right uses highlight="scanline" and a cyan scanline_color.'
+zh_details = '左侧是普通扫色，右侧使用 highlight="scanline" 并把 scanline_color 设成青色。'
+still = 1.45
+
+[[component]]
+id = "sweep-brighten"
+group = "sweep"
+api = 'scanline_mode="brighten"'
+reference = "tracks#karaokeeffects"
+title = "Brighten both sides"
+zh = "分别提亮前后色"
+details = "The band lightens the waiting and sung colours independently, so both colours meet inside the band."
+zh_details = "色带分别提亮唱前色和唱后色，两种颜色在带内交会。"
+still = 1.45
+
+[[component]]
+id = "sweep-follow-before"
+group = "sweep"
+api = 'scanline_mode="follow_before"'
+reference = "tracks#karaokeeffects"
+title = "Follow the waiting colour"
+zh = "跟随唱前色"
+details = "The entire band takes its hue from the waiting side."
+zh_details = "整条色带采用唱前侧的色相。"
+still = 1.45
+
+[[component]]
+id = "sweep-follow-after"
+group = "sweep"
+api = 'scanline_mode="follow_after"'
+reference = "tracks#karaokeeffects"
+title = "Follow the sung colour"
+zh = "跟随唱后色"
+details = "The entire band takes its hue from the sung side."
+zh_details = "整条色带采用唱后侧的色相。"
+still = 1.45
+
+[[component]]
+id = "sweep-width"
+group = "sweep"
+api = "scanline_width=26"
+reference = "tracks#karaokeeffects"
+title = "Narrow and wide bands"
+zh = "窄色带与宽色带"
+details = "Compare a 9 px band with a 26 px band at the same speed."
+zh_details = "在相同速度下对比 9 与 26 脚本像素的色带。"
+still = 1.45
+
+[[component]]
+id = "sweep-softness"
+group = "sweep"
+api = "scanline_softness=13"
+reference = "tracks#karaokeeffects"
+title = "Hard and soft band edges"
+zh = "扫描线硬边与柔边"
+details = "Both bands are 26 px wide. Softness blends the band into the text on both edges."
+zh_details = "两条色带都宽 26 脚本像素。右侧的色带在两边逐渐融入文字。"
+still = 1.45
+
+[[component]]
+id = "sweep-strength"
+group = "sweep"
+api = "scanline_strength=0.35"
+reference = "tracks#karaokeeffects"
+title = "Scanline tint strength"
+zh = "扫描线着色强度"
+details = "The right band applies 35% of the tint at the same width."
+zh_details = "右侧色带仅混入 35% 的颜色，宽度与左侧相同。"
+still = 1.45
+
+[[component]]
+id = "sweep-gradient"
+group = "sweep"
+api = "scanline_material=LyricGradient(...)"
+reference = "tracks#karaokeeffects"
+title = "Gradient scanline"
+zh = "渐变扫描线"
+details = "Blend from cyan through pink to gold along the height of the moving band."
+zh_details = "移动色带沿字形高度从青色过渡到粉色，再到金色。"
+still = 1.45
+
+[[component]]
+id = "sweep-feather"
+group = "sweep"
+api = "hook_feather=24"
+reference = "tracks#karaokeeffects"
+title = "Feathered wipe edge"
+zh = "羽化走字前沿"
+details = "Blend waiting and sung colours across 24 px at the wipe front."
+zh_details = "唱前色和唱后色在走字前沿的 24 脚本像素内逐渐混合。"
+still = 1.45
+
+[[component]]
+id = "sweep-front-tint"
+group = "sweep"
+api = "front_color=CYAN"
+reference = "tracks#karaokeeffects"
+title = "Tinted wipe edge"
+zh = "走字前沿染色"
+details = "Both fronts are feathered. The right adds cyan within the transition."
+zh_details = "两侧都开启羽化。右侧在过渡区内加入青色。"
+still = 1.45
+
+[[component]]
+id = "sweep-angle"
+group = "sweep"
+api = "sweep_angle=28"
+reference = "tracks#karaokeeffects"
+title = "Tilted sweep front"
+zh = "倾斜的走字前沿"
+details = "The lettering stays upright while the right front leans 28°."
+zh_details = "文字保持正体，右侧的走字前沿倾斜 28°。"
+still = 1.45
+
+[[component]]
+id = "sweep-reverse"
+group = "sweep"
+api = "reverse_wipe=True"
+reference = "tracks#karaokeeffects"
+title = "Right-to-left sweep"
+zh = "从右往左走字"
+details = "The right preview reverses the sweep within the timed unit and keeps the glyph order."
+zh_details = "右侧在计时单元内反向扫色，文字顺序保持不变。"
+still = 1.45
+
+[[component]]
+id = "sweep-ruby"
+group = "sweep"
+api = 'ruby_scanline="reading"'
+reference = "tracks#karaokeeffects"
+title = "Scanline on ruby only"
+zh = "扫描线只走注音"
+details = "The body and readings share the timing. On the right, only the readings carry the band."
+zh_details = "正文和注音共用时间轴。右侧只在注音上绘制扫描线。"
+still = 1.45

@@ -21,6 +21,9 @@ const ui = getUi(locale);
 	<div class="gallery-page">
 		<div class="gallery-intro">
 			<p class="gallery-lede">{ui.gallery.lede}</p>
+			<a class="inline-action" href={url("components/", locale)}>
+				{ui.components.title} <span aria-hidden="true">→</span>
+			</a>
 		</div>
 		<GalleryCards locale={locale} />
 		<p class="gallery-more">

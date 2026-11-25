@@ -1,0 +1,43 @@
+---
+import {Icon} from "@astrojs/starlight/components";
+import config from "virtual:starlight/user-config";
+import {baseUrl, detectLocale, url} from "../lib/i18n";
+import SiteDropdown from "./SiteDropdown.astro";
+
+const locale = detectLocale(Astro.locals.starlightRoute.locale);
+const path = Astro.url.pathname.slice(baseUrl().length).replace(/^\/+/, "").replace(/^zh-cn(?:\/|$)/, "");
+const isNotFound = /^404(?:\.html|\/)?$/.test(path);
+const languages = [
+	{value: "en", label: config.locales.root.label, lang: "en"},
+	{value: "zh-cn", label: config.locales["zh-cn"].label, lang: "zh-CN"},
+] as const;
+const current = languages.find(({value}) => value === locale)!;
+---
+
+<SiteDropdown label={Astro.locals.t("languageSelect.accessibleLabel")} current={current.label} value={locale} align="end">
+	<Icon slot="icon" name="translate" class="site-dropdown-icon" />
+	{languages.map(({value, label, lang}) => (
+		<a class="site-dropdown-option" data-option={value} data-language-link={isNotFound ? undefined : ""} href={url(isNotFound ? "" : path, value)}
+			lang={lang} hreflang={lang} aria-current={value === locale ? "page" : undefined}>
+			<span class="site-dropdown-name">{label}</span>
+		</a>
+	))}
+</SiteDropdown>
+
+<script>
+	function carryLocation(event: MouseEvent): void {
+		const link = (event.target as Element).closest<HTMLAnchorElement>("a[data-language-link]");
+		if (!link) return;
+		if (event.type === "click" && link.hasAttribute("aria-current") &&
+			!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) {
+			event.preventDefault();
+			return;
+		}
+		const next = new URL(link.href);
+		next.search = location.search;
+		next.hash = location.hash;
+		link.href = next.href;
+	}
+	document.addEventListener("click", carryLocation);
+	document.addEventListener("auxclick", carryLocation);
+</script>

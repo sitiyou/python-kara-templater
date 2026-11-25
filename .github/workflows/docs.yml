@@ -37,7 +37,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config libfreetype-dev libharfbuzz-dev \
-            libfribidi-dev libfontconfig-dev libpng-dev fonts-dejavu-core fonts-noto-cjk
+            libfribidi-dev libfontconfig-dev libpng-dev fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk \
+            ffmpeg mesa-vulkan-drivers
           rustup default 1.87.0
       - name: Build library and install site dependencies
         run: |

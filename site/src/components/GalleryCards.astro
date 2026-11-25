@@ -1,6 +1,8 @@
 ---
 import {demos, localizeDemo, previewUrl, url} from "../lib/gallery";
 import {getUi, type Locale} from "../lib/i18n";
+import CardPreview from "./CardPreview.astro";
+import PreviewGrid from "./PreviewGrid.astro";
 
 interface Props {
 	locale?: Locale;
@@ -22,8 +24,8 @@ const categories = [
 ];
 ---
 
-<kara-gallery data-error-text={ui.gallery.errorStatus}>
-	<div class="gallery-filters" role="group" aria-label={ui.gallery.filterAria} hidden>
+<PreviewGrid locale={locale}>
+	<div slot="navigation" class="gallery-filters" role="group" aria-label={ui.gallery.filterAria} hidden>
 		{categories.map((category) => (
 			<button
 				type="button"
@@ -35,47 +37,16 @@ const categories = [
 			</button>
 		))}
 	</div>
-	<p class="gallery-status" role="status" hidden></p>
 	<div class="gallery-grid">
 		{localized.map((demo) => (
-			<article data-category={demo.rawCategory}>
-				<a
-					class="gallery-card"
-					href={url(`gallery/${demo.id}/`, locale)}
-					style={`--sample-accent:${demo.accent}`}
-				>
-					<div
-						class="gallery-still"
-						data-resources={previewUrl(demo)}
-						data-still={demo.still}
-						data-width={demo.width}
-						data-height={demo.height}
-					>
-						<img alt="" hidden />
-						{demo.hasControls && (
-							<span
-								class="gallery-badge"
-								title={ui.gallery.interactiveBadge}
-								aria-label={ui.gallery.interactiveBadge}
-							>
-								<svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-									<path d="M2.5 4.5h11M2.5 11.5h11" />
-									<circle cx="6" cy="4.5" r="1.7" fill="#0a0b10" />
-									<circle cx="10.5" cy="11.5" r="1.7" fill="#0a0b10" />
-								</svg>
-							</span>
-						)}
-					</div>
-					<div class="gallery-caption">
-						<span class="gallery-category">{demo.category}</span>
-						<h2>{demo.title}</h2>
-						<p>{demo.summary}</p>
-					</div>
-				</a>
+			<article class="gallery-card" data-category={demo.rawCategory} style={`--sample-accent:${demo.accent}`}>
+				<CardPreview folder={previewUrl(demo)} title={demo.title} locale={locale} />
+				<div class="gallery-caption">
+					<span class="gallery-category">{demo.category}</span>
+					<h2><a href={url(`gallery/${demo.id}/`, locale)}>{demo.title}</a></h2>
+					<p>{demo.summary}</p>
+				</div>
 			</article>
 		))}
 	</div>
-</kara-gallery>
-<script>
-	import "../lib/gallery-cards";
-</script>
+</PreviewGrid>
