@@ -52,11 +52,15 @@ from .lyrics.highlights import (
     _style_material,
     _tilted_sweep_bounds,
 )
+from .lyrics.materials import _ScanlineTint
 from .paint_fields import (
     ColorRamp,
     ColorStop,
     LinearGradient,
+    MaterialClip,
+    PaintInput,
     _mix,
+    _PaintTrack,
 )
 from .parameters import Glyph, LengthExpr, _width
 from .particles import ParticleContext
@@ -1016,6 +1020,8 @@ class KaraokeEffects:
     ASS supports native clips and eligible transforms. Complex motion, gradients
     and soft fronts raise SceneCompileError on ASS export. Hook export uses
     the same Scene; dynamic blur can require additional cached native coverage.
+    Solid scanlines accept a named paint input for color or strength in Hook.
+    Strength is a fraction in [0,1] and changes tint without changing coverage.
     No dependency on Manim, Qt, or the reference application is introduced.
     """
 
@@ -1056,7 +1062,8 @@ class KaraokeEffects:
     scanline_material: LyricMaterial = None
     scanline_brightness: float = 0.60
     shine: Color | None = None
-    scanline_color: Color | None = None
+    scanline_color: Color | PaintInput | None = None
+    scanline_strength: float | PaintInput = 1
     hook_feather: float | LengthExpr = 0
     front_color: Color | None = None
     before_outline: Color | None = None
@@ -1072,6 +1079,10 @@ class KaraokeEffects:
     @property
     def _hard_border(self) -> float:
         return max(_hard_glow_border(self.base_glow), _hard_glow_border(self.glow))
+
+    @property
+    def _shader_scanline(self) -> bool:
+        return isinstance(self.scanline_color, PaintInput) or self.scanline_strength != 1
 
     @classmethod
     def duotone(
@@ -1126,8 +1137,18 @@ class KaraokeEffects:
             finite(self.scanline_softness)
             if self.scanline_softness < 0:
                 raise ValueError("scanline softness must be nonnegative")
-        if self.scanline_color is not None and not isinstance(self.scanline_color, Color):
-            raise TypeError("scanline_color must be a Color")
+        color = self.scanline_color
+        if isinstance(color, PaintInput):
+            color = color.value
+        if color is not None and not isinstance(color, Color):
+            raise TypeError("scanline_color must be a Color or a named Color input")
+        strength = self.scanline_strength
+        if isinstance(strength, PaintInput):
+            strength = strength.value
+        if isinstance(strength, bool) or not isinstance(strength, (int, float)) or not 0 <= strength <= 1:
+            raise ValueError("scanline strength must be in [0,1]")
+        if self._shader_scanline and (self.scanline_mode != "color" or self.scanline_material is not None):
+            raise ValueError("named color and adjustable strength require a solid color scanline")
         rate = 1 if self.particle_rate is None else self.particle_rate
         finite(
             self.entry_duration,
@@ -1383,7 +1404,7 @@ class KaraokeEffects:
         material, before_material = layer.highlight_brush, layer.waiting_brush
         if self.scanline_mode == "brighten" and self.scanline_brightness == 0:
             return
-        assert self.scanline_color is not None and self.after_fill is not None and self.before_fill is not None
+        assert isinstance(self.scanline_color, Color) and self.after_fill is not None and self.before_fill is not None
         before = after = (self.scanline_color, self.scanline_color, material)
         if self.scanline_mode != "color":
 
@@ -2067,9 +2088,61 @@ class KaraokeEffects:
                 band_paths = tuple(_band_path(p, scale.x, node.time_origin, pulses, width) for p in paths)
                 for layer in layers:
                     strip_top, strip_bottom = top, bottom
+                    if not transformed_band and layer.sides:
+                        strip_top, strip_bottom = -65536, 65536
+                    tint_sides = bool(
+                        layer.sides and (softness > 0 or not transformed_band)
+                        and self.scanline_mode == "color"
+                        and layer.highlight_brush is None and layer.waiting_brush is None
+                    )
+                    if band_paths and ((tint_sides and softness > 0) or self._shader_scanline):
+                        assert self.scanline_color is not None
+                        for index, path in enumerate(band_paths):
+                            start, stop = path[0][0], path[-1][0]
+                            if stop <= start:
+                                continue
+                            tint = _ScanlineTint(
+                                _PaintTrack(tuple((t, x) for t, x, _ in path)),
+                                _PaintTrack(tuple((t, per_px) for t, _, per_px in path)),
+                                Vec2(1, slope), slope * pivot_y, self.scanline_color,
+                                width / 2, min(softness, width / 2), Vec2(strip_top, strip_bottom),
+                                self.scanline_strength, float(not tint_sides),
+                            )
+                            if tint_sides:
+                                assert layer.sides is not None
+                                effect = MaterialClip(effect=tint, start=start, duration=stop - start, target="all")
+                                for piece in layer.sides:
+                                    current = replacements.get(piece.id, piece)
+                                    replacements[piece.id] = replace(current, material_effects=(*current.material_effects, effect))
+                                continue
+                            drawing = layer.drawing
+                            if (drawing.lifetime.start >= drawing.time_origin + stop
+                                    or drawing.lifetime.end <= drawing.time_origin + start
+                                    or strip_bottom <= strip_top):
+                                continue
+                            # Keep the host lifetime so later lyric bindings can
+                            # animate this alias with the same clock as the glyph.
+                            # The mask gates both draw indexing and visibility.
+                            bounds = (-65536, strip_top, 65536, strip_bottom)
+                            empty = (0, strip_top, 0, strip_bottom)
+                            gate = RectangleKeyframes((
+                                (start, empty), (start, bounds), (stop, bounds), (stop, empty),
+                            ))
+                            overlay = replace(
+                                drawing, id=f"{drawing.id}/{self.id}:front:{index}",
+                                animations=(), material=None, reference=None,
+                                clip=RectangleClip(*bounds, space="local", deform=gate),
+                                layer=drawing.layer + 2,
+                                material_effects=(MaterialClip(
+                                    effect=tint, target="all",
+                                    start=min(0, local_seconds(drawing.lifetime.start, drawing.time_origin)),
+                                ),),
+                                state=replace(drawing.state, blur=0, shadow=Vec2()),
+                            )
+                            additions.setdefault(drawing.id, []).append(overlay)
+                            aliases.setdefault(target.id, []).append(overlay.id)
+                        continue
                     if band_paths and layer.sides and (not transformed_band or softness > 0):
-                        if not transformed_band:
-                            strip_top, strip_bottom = -65536, 65536
                         highlight, waiting = layer.sides
                         left_piece, right_piece = (waiting, highlight) if self.reverse_wipe else (highlight, waiting)
                         for piece, offset, left in (

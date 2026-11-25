@@ -12,7 +12,14 @@ from typing import TYPE_CHECKING, Literal, Self
 from .ass import Document, Line
 from .geometry import Vec2, VectorPath, finite
 from .object_references import StateReference
-from .paint_fields import Extrusion, LinearGradient, ShaderPaint
+from .paint_fields import (
+    Extrusion,
+    LinearGradient,
+    MaterialClip,
+    PaintInput,
+    PaintValue,
+    ShaderPaint,
+)
 from .path_animation import GeometryAnimation
 from .path_geometry import GeometryError
 from .scene_animation import (
@@ -198,7 +205,7 @@ class _SweepClip(RectangleClip):
 
 @dataclass(frozen=True, kw_only=True)
 class _ColorStripClip(_SweepClip):
-    """Moving color strip used to draw soft scanlines and blended glow."""
+    """Moving color strip for scanlines with a separately sampled brush."""
 
     band: str = ""
 
@@ -398,6 +405,7 @@ class TextObject(VisualNode):
     encoding: int = 1
     scale_border: bool = False
     shader_paint: ShaderPaint | None = None
+    material_effects: tuple[MaterialClip, ...] = ()
     extrusion: Extrusion | None = None
     filled: bool = True
 
@@ -432,6 +440,7 @@ class PathObject(VisualNode):
     filled: bool = True
     scale_border: bool = False
     shader_paint: ShaderPaint | None = None
+    material_effects: tuple[MaterialClip, ...] = ()
     extrusion: Extrusion | None = None
 
     def __post_init__(self) -> None:
@@ -643,6 +652,25 @@ class PreparedHook:
         from .output.hook.draws import HookDrawResolver
 
         self._frames = HookDrawResolver(scene)
+
+    def material_inputs(self) -> dict[str, PaintValue]:
+        """List the named material defaults across the prepared Scene.
+
+        Preview hosts can discover editable inputs before exporting a window.
+        The uniforms in each exported window depend on its visible materials.
+        """
+        values: dict[str, PaintValue] = {}
+        for leaf in self._frames.leaves:
+            for clip in leaf.node.material_effects:
+                for argument in clip.effect._arguments():
+                    if not isinstance(argument, PaintInput):
+                        continue
+                    default = values.setdefault(argument.name, argument.value)
+                    if default != argument.value:
+                        raise SceneCompileError(
+                            f"paint input {argument.name!r} has conflicting values", object_id=leaf.node.id,
+                        )
+        return values
 
     def export(
         self, path: str | Path, *, fps: int = 60, start: float = 0,

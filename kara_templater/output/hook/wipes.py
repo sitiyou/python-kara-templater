@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, replace
 
+from ..._karaoke_motion import _LyricShaderMotion
 from ..._scene_tree import SceneLeaf
 from ...lyrics.highlights import _FeatheredWipeClip
 from ...paint_fields import LinearGradient
@@ -32,7 +33,7 @@ def match_wipe(before: SceneLeaf, after: SceneLeaf) -> Wipe | None:
     # A custom motion can depend on the incoming color even when it only writes geometry.
     if (before.parents != after.parents or first.shader_paint or first.extrusion or second.extrusion
             or before.evaluator.referenced(first.id) or after.evaluator.referenced(second.id)
-            or any(_curve(c) is None for c in first.animations)):
+            or any(_curve(c) is None and not isinstance(c.animation, _LyricShaderMotion) for c in first.animations)):
         return None
     state = replace(first.state, fill=second.state.fill, outline=second.state.outline)
     if replace(first, id=second.id, state=state, material=second.material, clip=b) != second:

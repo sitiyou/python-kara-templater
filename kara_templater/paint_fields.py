@@ -1,7 +1,7 @@
 """Continuous RGB gradients and shader paint for Hook drawings."""
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import ClassVar, Literal
 
 from .composition import Color
 from .geometry import Vec2, finite
@@ -50,6 +50,74 @@ class ShaderPaint:
         if not self.source.strip() or "//!" in self.source + self.functions:
             raise ValueError("shader paint requires a GLSL function body")
         finite(*self.parameters)
+
+
+type PaintValue = float | Color | Vec2
+
+
+@dataclass(frozen=True)
+class _PaintTrack:
+    """Piecewise-linear material argument on its object's local clock."""
+
+    keys: tuple[tuple[float, float], ...]
+
+
+@dataclass(frozen=True)
+class PaintInput:
+    """A named material value that a preview host may update while playing."""
+
+    name: str
+    value: PaintValue
+
+    def __post_init__(self) -> None:
+        if not self.name or not self.name.isascii() or not self.name.isidentifier():
+            raise ValueError("paint input requires an ASCII identifier")
+
+
+class MaterialEffect:
+    """A reusable WGSL function evaluated after sampling a coverage plane.
+
+    Define ``shade(material: vec4<f32>, ctx: KaraPaintContext, ...)`` to
+    return straight RGB and opacity. The renderer provides ``ctx.local`` and
+    ``ctx.screen`` in script pixels, ``ctx.coverage`` in 0..1, ``ctx.time`` in
+    seconds from the effect start, and ``ctx.progress`` in 0..1. Component
+    indices are 0 for fill, 1 for outline, 2 for shadow and 3 for extrusion.
+    Additional arguments follow ``parameters()`` in order. Float, Color and
+    Vec2 become f32, vec3<f32> in 0..1, and vec2<f32> respectively.
+    """
+
+    wgsl: ClassVar[str] = ""
+    entry_point: ClassVar[str] = "shade"
+
+    def parameters(self) -> tuple[PaintValue | PaintInput, ...]:
+        """Return the values supplied as arguments after material and context."""
+        return ()
+
+    def _arguments(self) -> tuple[PaintValue | PaintInput | _PaintTrack, ...]:
+        return self.parameters()
+
+
+@dataclass(frozen=True, kw_only=True)
+class MaterialClip:
+    """Apply a WGSL effect to one or all coverage planes over a local interval.
+
+    Start is relative to the object's clock, and an omitted duration extends
+    to the end of its lifetime. Effects on a plane run in declaration order.
+    """
+
+    effect: MaterialEffect
+    start: float = 0.0
+    duration: float | None = None
+    target: Literal["fill", "outline", "shadow", "all"] = "fill"
+
+    def __post_init__(self) -> None:
+        finite(self.start)
+        if self.target not in ("fill", "outline", "shadow", "all"):
+            raise ValueError("material clip target must be fill, outline, shadow or all")
+        if self.duration is not None:
+            finite(self.duration)
+            if self.duration <= 0:
+                raise ValueError("material clip duration must be positive")
 
 
 @dataclass(frozen=True)

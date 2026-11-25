@@ -97,6 +97,7 @@ def same_band_span(first: DrawSpan, other: DrawSpan) -> bool:
     a, b = first.draw, other.draw
     if (first.first_frame != other.first_frame or first.stop_frame != other.stop_frame
             or a.shader_paint is not None or b.shader_paint is not None
+            or a.material_effects or b.material_effects
             or a.side_shading is not None or b.side_shading is not None
             or a.fixed_stroke != b.fixed_stroke or a.transform != b.transform
             or not _same_masks(a.mask_planes, b.mask_planes)

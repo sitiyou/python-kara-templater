@@ -140,5 +140,7 @@ def text_to_path(
         origin=node.origin,
         clip=node.clip,
         material=node.material,
+        shader_paint=node.shader_paint,
+        material_effects=node.material_effects,
         reference=node.reference,
     )

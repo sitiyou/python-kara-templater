@@ -1273,7 +1273,7 @@ def compile_ass(
         node = leaf.node
         if node.extrusion is not None and node.extrusion.offset != Vec2():
             raise SceneCompileError("ASS does not support extrusion", object_id=node.id, origin=node.origin)
-        if node.shader_paint is not None:
+        if node.shader_paint is not None or node.material_effects:
             raise SceneCompileError("ASS does not support shader paint", object_id=node.id, origin=node.origin)
         if node.material is not None:
             raise SceneCompileError(

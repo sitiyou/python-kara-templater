@@ -60,6 +60,8 @@ jobs:
           sudo apt-get install -y pkg-config \
             libfreetype-dev libharfbuzz-dev libfribidi-dev libfontconfig-dev \
             libpng-dev fonts-dejavu-core fonts-noto-cjk
+      - name: Install Rust for WGSL compilation
+        run: rustup default 1.87.0
       - name: Install and test source distribution
         run: |
           python -m pip install --group checks dist/*.tar.gz
@@ -139,6 +141,9 @@ jobs:
           "$env:pythonLocation" >> $env:GITHUB_PATH
       - name: Install wheel build tools
         run: python -m pip install cibuildwheel==4.3.5 twine
+      - name: Install Rust for Windows wheels
+        if: runner.os == 'Windows'
+        run: rustup default 1.87.0-x86_64-pc-windows-gnu
       - name: Build and test Linux wheels
         if: runner.os == 'Linux'
         env:
@@ -167,7 +172,10 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         env:
-          CIBW_TEST_SKIP: "*-win_amd64"
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: gcc
+          CIBW_TEST_COMMAND: >-
+            python -m pytest tests/test_wgsl_material.py -q &&
+            python -m kara_templater examples/karaoke.ass output.hook
         run: python -m cibuildwheel --output-dir wheelhouse dist/*.tar.gz
       - name: Inspect Windows extension and bundled DLLs
         if: runner.os == 'Windows'
@@ -182,6 +190,7 @@ jobs:
               with ZipFile(wheel) as archive:
                   files = archive.namelist()
                   assert f'kara_templater/_text_native.{abi}-win_amd64.pyd' in files, wheel
+                  assert 'kara_templater/_kara_wgsl.exe' in files, wheel
                   assert any(f.lower().endswith('/libharfbuzz-0.dll') for f in files), wheel
           PY
       - name: Check wheel metadata

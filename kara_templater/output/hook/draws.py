@@ -17,7 +17,8 @@ from ..._path_raster import STROKE_FACE, cutout_border, path_coverage
 from ..._scene_tree import SceneLeaf, scene_leaves
 from ...composition import Color
 from ...geometry import Affine2D, Vec2, VectorPath, finite
-from ...paint_fields import LinearGradient, ShaderPaint
+from ...lyrics.materials import _solid_glow
+from ...paint_fields import LinearGradient, MaterialClip, ShaderPaint
 from ...scene import (
     ObjectGroup,
     PathObject,
@@ -69,6 +70,9 @@ class DrawCommand:
     inherited_clips: tuple[GpuClip, ...] = ()
     fixed_stroke: FixedStroke | None = None
     face_opacity: float = 1
+    material_effects: tuple[MaterialClip, ...] = ()
+    time_end: float = 0
+    solid_backing: bool = False
 
 
 @dataclass(frozen=True)
@@ -78,6 +82,7 @@ class FixedStroke:
     sigma: float
     filled: bool
     shadow: Vec2
+    solid_backing: bool = False
 
 
 def _isometry(transform: Affine2D) -> bool:
@@ -111,6 +116,8 @@ def _shape_key(leaf: SceneLeaf, state: VisualState) -> tuple[object, ...]:
                 node.extrusion.back_color is not None)
     if isinstance(node.shader_paint, ContourStroke):
         return ("stroke", node.shader_paint.bounds)
+    if _solid_glow(node.material_effects):
+        return ("solid glow", *shape, state.border, state.blur)
     return (*shape, node.filled, state.border, state.blur, state.shadow, cutout_border(state, node.filled))
 
 
@@ -139,6 +146,7 @@ def _coverage(
         path, state, node.filled, pixel_budget, node.id, sweep=offset,
         shaded=bool(node.extrusion and node.extrusion.back_color is not None),
         keep_face=screen_space_stroke,
+        solid_backing=_solid_glow(node.material_effects),
     )
     return images, contour_grid(path, 1)[1] if screen_space_stroke else None
 
@@ -211,7 +219,7 @@ class HookDrawResolver:
                 continue
             # Only a timing-color partition is face-specific. User clip masks
             # still cut the entire extruded object.
-            side = replace(node, material=None, shader_paint=None,
+            side = replace(node, material=None, shader_paint=None, material_effects=(),
                            clip=None if isinstance(node.clip, _LyricPaintClip) else node.clip)
             passes.append(_ExtrusionSide(side, leaf.parents, leaf.start, leaf.end, leaf.evaluator))
         self.leaves = tuple(sorted(passes, key=lambda leaf: (
@@ -267,6 +275,7 @@ class HookDrawResolver:
         varying_basis: bool = False,
     ) -> DrawCommand:
         node = leaf.node
+        solid_backing = _solid_glow(node.material_effects)
         screen_space_stroke = (
             state.border > 0
             and not node.scale_border
@@ -301,6 +310,7 @@ class HookDrawResolver:
                     grid, (x, y, w, h, kind, color, data), state.blur * 2 / sqrt(log(256)),
                     node.filled,
                     Vec2(round(state.shadow.x), round(state.shadow.y)),
+                    solid_backing,
                 )
                 continue
             if kind == 4:
@@ -327,5 +337,6 @@ class HookDrawResolver:
         return DrawCommand(
             node.id, tuple(tinted), state.transform, state.opacity, material, clip,
             node.shader_paint, node.time_origin, state.border, shading, fixed_stroke=stroke,
-            face_opacity=state.face_opacity,
+            face_opacity=state.face_opacity, material_effects=node.material_effects,
+            time_end=node.lifetime.end, solid_backing=solid_backing,
         )

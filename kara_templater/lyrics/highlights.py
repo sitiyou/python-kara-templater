@@ -5,8 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from functools import partial
-from math import ceil, hypot, radians, tan
-from statistics import NormalDist
+from math import hypot, radians, tan
 from typing import Literal
 
 from ..composition import _ASS_BLUR_TO_SIGMA, Color, Glow, SecondaryOutline
@@ -14,7 +13,13 @@ from ..document_lyrics import LyricUnit
 from ..document_text import TimedTextSpan
 from ..geometry import Box, Region, Vec2, finite, union_regions
 from ..lyric_line import LyricLine, LyricTarget, _line_x
-from ..paint_fields import ColorRamp, ColorStop, LinearGradient, _mix
+from ..paint_fields import (
+    ColorRamp,
+    ColorStop,
+    LinearGradient,
+    MaterialClip,
+    _PaintTrack,
+)
 from ..parameters import LengthExpr, _width
 from ..path_geometry import path_bounds
 from ..scene import (
@@ -26,7 +31,6 @@ from ..scene import (
     SceneObject,
     TextObject,
     _CellWipeClip,
-    _ColorStripClip,
     _LyricPaintClip,
     _SweepClip,
 )
@@ -34,6 +38,7 @@ from ..scene_animation import StatePatch, TimeSpan, VisualState, linear_rate
 from ..text.layout import PositionedText
 from ..text_geometry import _VectorGuideText
 from .layout import LyricLayout, _after_onset
+from .materials import _GlowMix
 
 type LyricGlow = Glow | Callable[[LyricLine, LyricTarget], Glow | None] | None
 
@@ -600,45 +605,29 @@ class _HighlightClipPlan:
         return self.strip(region.left, region.right)
 
 
-def _split_glow(
-    halo: SceneObject, opposite: Color, opposite_opacity: float, ownership: _HighlightClipPlan, padding: float,
-) -> tuple[SceneObject, ...]:
-    """Approximate a blurred color step by its Gaussian integral across the moving front."""
-    # The step response of a Gaussian is its cumulative distribution. Scale
-    # the radius to the same local coordinates as the existing timing clip.
+def _blend_halo(
+    halo: TextObject | PathObject, after: Color, after_opacity: float,
+    ownership: _HighlightClipPlan, padding: float,
+) -> TextObject | PathObject:
     sigma = halo.state.blur * _ASS_BLUR_TO_SIGMA / ownership.scale
-    reach = 2 * sigma
-    keys = ownership.wipe_keyframes(padding + reach)
-    suffix = (ownership.highlight_id is None) != ownership.highlights[0].passes[0].reverse
-    edge = int(ownership.local_y) + (0 if suffix else 2)
-
-    def strip(start: float, end: float | None) -> RectangleClip:
-        def bounds(x: float) -> tuple[float, float, float, float]:
-            if suffix:
-                return ownership.strip(x + start, 65536 if end is None else x + end)
-            return ownership.strip(-65536 if end is None else x - end, x - start)
-
-        return _ColorStripClip(0, 0, 1, 1, space="local", slope=ownership.slope, pivot_y=ownership.pivot_y, band=halo.id, deform=RectangleKeyframes(
-            tuple((t, bounds(rect[edge])) for t, rect in keys.keyframes)
-        ))
-
-    pieces = [replace(halo, clip=strip(reach, None))]
-    count = min(4, max(1, ceil(reach * ownership.scale)))
-    gaussian = NormalDist()
-    # Equal color increments place narrower strips where the transition is steep.
-    step = (gaussian.cdf(2) - 0.5) / count
-    a = 0.0
-    for i in range(count):
-        weight = 0.5 + (i + 0.5) * step
-        b = reach if i + 1 == count else sigma * gaussian.inv_cdf(0.5 + (i + 1) * step)
-        # Studio blurs premultiplied RGBA. Weight RGB by each side's visible ink.
-        own_alpha = weight * halo.state.opacity
-        opacity = own_alpha + (1 - weight) * opposite_opacity
-        ink = _mix(opposite, halo.state.fill, own_alpha / opacity if opacity else 0)
-        pieces.append(replace(halo, id=f"{halo.id}/band:{i}", clip=strip(a, b),
-                              state=replace(halo.state, fill=ink, outline=ink, opacity=opacity)))
-        a = b
-    return tuple(pieces)
+    reverse = ownership.highlights[0].passes[0].reverse
+    edge = int(ownership.local_y) + (2 if reverse else 0)
+    sign = -1 if reverse else 1
+    keys = ownership.wipe_keyframes(padding + 2 * sigma)
+    front = _PaintTrack(tuple((t, sign * rect[edge]) for t, rect in keys.keyframes))
+    axis = Vec2(0, sign) if ownership.local_y else Vec2(sign, sign * ownership.slope)
+    origin = 0 if ownership.local_y else sign * ownership.slope * ownership.pivot_y
+    opacity = max(halo.state.opacity, after_opacity)
+    effect = _GlowMix(
+        front, axis, origin, sigma, halo.state.fill, after,
+        Vec2(halo.state.opacity / opacity, after_opacity / opacity),
+    )
+    return replace(
+        halo, clip=None, state=replace(halo.state, opacity=opacity),
+        material_effects=(MaterialClip(
+            effect=effect, start=halo.lifetime.start - halo.time_origin, target="all",
+        ),),
+    )
 
 
 @dataclass(frozen=True)
@@ -946,6 +935,7 @@ class LyricHighlights:
             soften_glow = (
                 self.blend_glow and native_wipe and isinstance(base_glow, Glow) and isinstance(highlight_glow, Glow)
                 and base_glow.blur == highlight_glow.blur > 0 and base_glow.border == highlight_glow.border
+                and chosen[0].passes[0].time.start < chosen[0].passes[-1].time.end
                 and (before_alpha != after_alpha or (before_alpha > 0 and base_glow.color != highlight_glow.color))
             )
             padding = (
@@ -1072,7 +1062,7 @@ class LyricHighlights:
                                           border=piece.state.border + rim.width, shadow=Vec2()),
                         )
                         pieces.append(secondary)
-                    if isinstance(glow, Glow):
+                    if isinstance(glow, Glow) and (not soften_glow or highlight is None):
                         halo = piece.copy(id=f"{piece.id}/glow")
                         halo = replace(
                             halo,
@@ -1100,12 +1090,10 @@ class LyricHighlights:
                             ),
                         )
                         if soften_glow:
-                            other = highlight_glow if highlight is None else base_glow
-                            assert isinstance(other, Glow)
-                            other_alpha = after_alpha if highlight is None else before_alpha
-                            pieces.extend(_split_glow(halo, other.color, other_alpha, ownership, padding))
-                        else:
-                            pieces.append(halo)
+                            assert isinstance(highlight_glow, Glow)
+                            halo = _blend_halo(halo, highlight_glow.color, after_alpha, ownership, padding)
+                        pieces.append(halo)
+                        if not soften_glow:
                             halo_layer = halo
                     if index == 0:
                         primary_layers.append(_PaintLayers(piece, secondary, halo_layer))

@@ -4,6 +4,8 @@ The Python effects pipeline and C++ binding are independently written. Karaoke t
 
 The C++ text engine uses HarfBuzz for shaping, FreeType for font files and outlines, FriBidi for bidirectional ordering, and Fontconfig for system font matching. Windows wheels bundle native runtime libraries; their notices are in [vendor/runtime-licenses](vendor/runtime-licenses/README.md).
 
+The bundled WGSL translator uses Naga. Notices for its locked Rust dependencies are in [WGSL translator licenses](vendor/runtime-licenses/wgsl/LICENSES.txt).
+
 Tests and visual-validation tools carry unmodified DejaVu Sans regular and oblique
 fonts in `tests/fonts/DejaVuSans.ttf` and `tests/fonts/DejaVuSans-Oblique.ttf`, with
 their Bitstream/Arev license in `tests/fonts/LICENSE`.

@@ -18,14 +18,14 @@ Use `--check` to verify that committed pages match the current public API.
 | [Track authoring](tracks.md) | 25 |
 | [Text measurement and layout](text.md) | 19 |
 | [Geometry and paths](geometry.md) | 32 |
-| [Colors and appearance](paint.md) | 30 |
+| [Colors and appearance](paint.md) | 34 |
 | [Lyric cues](cues.md) | 13 |
 | [Particles and references](particles.md) | 14 |
 | [Raster previews](native.md) | 2 |
 
 ## Symbol index
 
-211 public exports.
+215 public exports.
 
 - [Affine2D](geometry.md#affine2d)
 - [Animation](animation.md#animation)
@@ -119,6 +119,8 @@ Use `--check` to verify that committed pages match the current public API.
 - [LyricTarget](tracks.md#lyrictarget)
 - [LyricUnit](documents.md#lyricunit)
 - [MAGENTA](paint.md#magenta)
+- [MaterialClip](paint.md#materialclip)
+- [MaterialEffect](paint.md#materialeffect)
 - [MorphPath](geometry.md#morphpath)
 - [MoveAlong](geometry.md#movealong)
 - [Note](animation.md#note)
@@ -128,7 +130,9 @@ Use `--check` to verify that committed pages match the current public API.
 - [PINK](paint.md#pink)
 - [PURPLE](paint.md#purple)
 - [Paint](paint.md#paint)
+- [PaintInput](paint.md#paintinput)
 - [PaintPair](paint.md#paintpair)
+- [PaintValue](paint.md#paintvalue)
 - [ParticleContext](particles.md#particlecontext)
 - [ParticleFactory](particles.md#particlefactory)
 - [PathBooleanOperation](geometry.md#pathbooleanoperation)

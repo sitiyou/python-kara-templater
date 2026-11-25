@@ -71,9 +71,11 @@ a second hard rim is a separate drawing of the same moving particle.
 ASS supports native clips and eligible transforms. Complex motion, gradients
 and soft fronts raise SceneCompileError on ASS export. Hook export uses
 the same Scene; dynamic blur can require additional cached native coverage.
+Solid scanlines accept a named paint input for color or strength in Hook.
+Strength is a fraction in [0,1] and changes tint without changing coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
-[Source](../../kara_templater/karaoke_effects.py#L988)
+[Source](../../kara_templater/karaoke_effects.py#L992)
 
 ```python
 KaraokeEffects(
@@ -113,7 +115,8 @@ KaraokeEffects(
     scanline_material: LinearGradient | Callable[[LyricLine, LyricTarget], LinearGradient | None] | None | Mapping[str, highlights.LyricGradient] = None,
     scanline_brightness: float = 0.6,
     shine: Color | None = None,
-    scanline_color: Color | None = None,
+    scanline_color: Color | PaintInput | None = None,
+    scanline_strength: float | PaintInput = 1,
     hook_feather: float | LengthExpr = 0,
     front_color: Color | None = None,
     before_outline: Color | None = None,
@@ -163,7 +166,8 @@ KaraokeEffects(
 | `scanline_material` | `LinearGradient \| Callable[[LyricLine, LyricTarget], LinearGradient \| None] \| None \| Mapping[str, highlights.LyricGradient]` | `None` |
 | `scanline_brightness` | `float` | `0.6` |
 | `shine` | `Color \| None` | `None` |
-| `scanline_color` | `Color \| None` | `None` |
+| `scanline_color` | `Color \| PaintInput \| None` | `None` |
+| `scanline_strength` | `float \| PaintInput` | `1` |
 | `hook_feather` | `float \| LengthExpr` | `0` |
 | `front_color` | `Color \| None` | `None` |
 | `before_outline` | `Color \| None` | `None` |

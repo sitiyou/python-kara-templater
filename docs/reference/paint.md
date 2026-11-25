@@ -25,11 +25,15 @@ RGB colors, typed appearance, spatial fields, and material animation. Pixel dist
 - [LyricGradient](#lyricgradient)
 - [LyricHighlights](#lyrichighlights)
 - [MAGENTA](#magenta)
+- [MaterialClip](#materialclip)
+- [MaterialEffect](#materialeffect)
 - [ORANGE](#orange)
 - [PINK](#pink)
 - [PURPLE](#purple)
 - [Paint](#paint)
+- [PaintInput](#paintinput)
 - [PaintPair](#paintpair)
+- [PaintValue](#paintvalue)
 - [RED](#red)
 - [SecondaryOutline](#secondaryoutline)
 - [ShaderPaint](#shaderpaint)
@@ -100,7 +104,7 @@ Color.hex(
 
 Piecewise linear colors at absolute script coordinates; ends clamp.
 
-[Source](../../kara_templater/paint_fields.py#L69)
+[Source](../../kara_templater/paint_fields.py#L137)
 
 ```python
 ColorRamp(
@@ -130,7 +134,7 @@ An RGB color at a finite script-space position along a paint field axis.
 
 ColorRamp requires ordered stops.
 
-[Source](../../kara_templater/paint_fields.py#L55)
+[Source](../../kara_templater/paint_fields.py#L123)
 
 ```python
 ColorStop(
@@ -237,7 +241,7 @@ Glow.from_studio(
 
 A named paint contribution for one lyric unit, independent of Track streams.
 
-[Source](../../kara_templater/lyrics/highlights.py#L202)
+[Source](../../kara_templater/lyrics/highlights.py#L207)
 
 ```python
 Highlight(
@@ -290,7 +294,7 @@ priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
 
-[Source](../../kara_templater/lyrics/highlights.py#L1142)
+[Source](../../kara_templater/lyrics/highlights.py#L1130)
 
 ```python
 HighlightArrival(
@@ -336,7 +340,7 @@ round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
 
-[Source](../../kara_templater/lyrics/highlights.py#L134)
+[Source](../../kara_templater/lyrics/highlights.py#L139)
 
 ```python
 HighlightPass(
@@ -435,7 +439,7 @@ An x/y gradient for fill, outline, or both; screen coordinates by default.
 The hook shades independent fill and outline ramps continuously. Local
 space attaches color stops to the untransformed drawing.
 
-[Source](../../kara_templater/paint_fields.py#L95)
+[Source](../../kara_templater/paint_fields.py#L163)
 
 ```python
 LinearGradient(
@@ -479,7 +483,7 @@ Pass as material to LyricHighlights.from_timing. Coordinates are derived
 from undecorated glyph bounds. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
 
-[Source](../../kara_templater/lyrics/highlights.py#L78)
+[Source](../../kara_templater/lyrics/highlights.py#L83)
 
 ```python
 LyricGradient(
@@ -522,7 +526,7 @@ use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
 
-[Source](../../kara_templater/lyrics/highlights.py#L657)
+[Source](../../kara_templater/lyrics/highlights.py#L646)
 
 ```python
 LyricHighlights(
@@ -636,6 +640,67 @@ Public constant:
 MAGENTA = Color(red=255, green=0, blue=255)
 ```
 
+## MaterialClip
+
+Apply a WGSL effect to one or all coverage planes over a local interval.
+
+Start is relative to the object's clock, and an omitted duration extends
+to the end of its lifetime. Effects on a plane run in declaration order.
+
+[Source](../../kara_templater/paint_fields.py#L100)
+
+```python
+MaterialClip(
+    *,
+    effect: MaterialEffect,
+    start: float = 0.0,
+    duration: float | None = None,
+    target: Literal['fill', 'outline', 'shadow', 'all'] = 'fill',
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `effect` | `MaterialEffect` | `required` |
+| `start` | `float` | `0.0` |
+| `duration` | `float \| None` | `None` |
+| `target` | `Literal['fill', 'outline', 'shadow', 'all']` | `'fill'` |
+
+## MaterialEffect
+
+A reusable WGSL function evaluated after sampling a coverage plane.
+
+Define ``shade(material: vec4<f32>, ctx: KaraPaintContext, ...)`` to
+return straight RGB and opacity. The renderer provides ``ctx.local`` and
+``ctx.screen`` in script pixels, ``ctx.coverage`` in 0..1, ``ctx.time`` in
+seconds from the effect start, and ``ctx.progress`` in 0..1. Component
+indices are 0 for fill, 1 for outline, 2 for shadow and 3 for extrusion.
+Additional arguments follow ``parameters()`` in order. Float, Color and
+Vec2 become f32, vec3<f32> in 0..1, and vec2<f32> respectively.
+
+[Source](../../kara_templater/paint_fields.py#L77)
+
+```python
+MaterialEffect()
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `wgsl` | `ClassVar[str]` | `instance attribute` |
+| `entry_point` | `ClassVar[str]` | `instance attribute` |
+
+### MaterialEffect.parameters
+
+Return the values supplied as arguments after material and context.
+
+```python
+MaterialEffect.parameters() -> tuple[PaintValue | PaintInput, ...]
+```
+
 ## ORANGE
 
 Public constant:
@@ -690,6 +755,26 @@ Paint(
 | `glow` | `Glow \| None` | `None` |
 | `secondary_outline` | `SecondaryOutline \| None` | `None` |
 
+## PaintInput
+
+A named material value that a preview host may update while playing.
+
+[Source](../../kara_templater/paint_fields.py#L65)
+
+```python
+PaintInput(
+    name: str,
+    value: PaintValue,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `name` | `str` | `required` |
+| `value` | `PaintValue` | `required` |
+
 ## PaintPair
 
 The Paint values before and after the karaoke transition.
@@ -711,6 +796,14 @@ PaintPair(
 | --- | --- | --- |
 | `before` | `Paint` | `Paint()` |
 | `after` | `Paint` | `Paint()` |
+
+## PaintValue
+
+Public type alias:
+
+```python
+type PaintValue = float | Color | Vec2
+```
 
 ## RED
 

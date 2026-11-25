@@ -92,12 +92,19 @@ The generated [API reference](../reference/README.md) documents the retained set
 `output/hook/` implements `Scene.export()`. It partitions each leaf at lifetime, clip and animation boundaries.
 Known motion spans store endpoint transforms and easing; rectangle keyframes
 interpolate independently. Custom motion programs receive per-instance data and the clip clock.
+WGSL materials are carried by the Scene's text and path objects as ordered clips.
+The Hook exporter compiles each distinct function through the bundled Naga adapter
+and applies the active functions after calculating coverage. Named material inputs
+are uniforms. The resource manifest gives preview hosts their names and defaults.
 The hook shares inherited screen-rectangle tracks across descendants and
 evaluates them using the owning group's clock. Leaf clips retain their own
 coordinate space and their role in lyric wipes.
 Hook export rasterizes filled paths with aggdraw and static round strokes with FreeType. Pillow filters the resulting coverage.
 The fragment shader evaluates dynamic strokes from positioned contours.
-A sparse timeline indexes tiled draws in painter order. Geometry-changing shader
+A sparse timeline indexes tiled draws in painter order. Each draw shares its
+transform, clip and opacity across its coverage planes. Tiles retain individual
+plane bounds, and the shader selects any alternate mask set before compositing
+its planes in order. Geometry-changing shader
 motions use poses on the output frame grid in short windows. Built-in particles
 can use analytic travel and scale bounds. Both paths index the reachable mask
 coverage and pass through the same per-frame and per-tile work checks. Curve

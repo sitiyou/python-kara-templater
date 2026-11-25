@@ -24,6 +24,8 @@ from kara_templater import (
     layout_document_lyrics,
 )
 from kara_templater._raster import rasterize
+from kara_templater.lyrics.materials import _GlowMix
+from kara_templater.output.hook.draws import HookDrawResolver
 
 
 def make_line(text=r"{\k8}A{\k15}B"):
@@ -135,43 +137,32 @@ def test_single_pass_matches_static_boundary_pixels():
 
 
 @pytest.mark.parametrize("reverse", [False, True])
-def test_two_color_soft_glow_meets_at_the_timing_front(reverse):
+@pytest.mark.parametrize("before_alpha", [0, 0.25])
+def test_two_color_glow_uses_one_coverage_plane_on_the_base_clock(reverse, before_alpha):
     doc, line = make_line()
     painted = LyricHighlights.from_timing(
         StatePatch(fill=RED), reverse=reverse,
-        glow=Glow.from_studio(RED, radius=4), base_glow=Glow.from_studio(BLUE, radius=4),
+        glow=Glow(RED, blur=4, border=2), base_glow=Glow(BLUE, blur=4, border=2, opacity=before_alpha),
     )(line)
     nodes = {n.id: n for n in leaves(painted)}
     char = painted.query("character")[0]
-    halos = [nodes[k] for k in char.aliases if "/glow" in k]
-    strips = []
-    for halo in halos:
-        assert isinstance(halo.clip, RectangleClip) and isinstance(halo.clip.deform, RectangleKeyframes)
-        left, _, right, _ = halo.clip.deform.bounds_at(1.04 - halo.time_origin)
-        strips.append((left, right, halo.state.fill))
-    strips.sort(key=lambda strip: strip[0])
-    assert all(a[1] == b[0] for a, b in zip(strips, strips[1:], strict=False))
-    red = [ink.red for _, _, ink in strips]
-    assert red == sorted(red, reverse=not reverse)
-    assert min(red) == 0 and max(red) == 255
-    assert max(abs(a - b) for a, b in zip(red, red[1:], strict=False)) < 64
-
-
-@pytest.mark.parametrize("before_alpha", [0, 0.25])
-def test_soft_glow_blends_premultiplied_color(before_alpha):
-    _, line = make_line()
-    effect = LyricHighlights.from_timing(
-        StatePatch(fill=RED), glow=Glow(RED, blur=4),
-        base_glow=Glow(BLUE, blur=4, opacity=before_alpha),
-    )(line)
-    char = effect.query("character")[0]
-    strips = [node.state for node in leaves(effect) if node.id in char.aliases and "/band:" in node.id]
-    assert strips and all(before_alpha < state.opacity < 1 for state in strips)
-    for state in strips:
-        # Opacity gives the highlight fraction independently of strip placement.
-        highlight = (state.opacity - before_alpha) / (1 - before_alpha)
-        assert state.fill.red * state.opacity == pytest.approx(255 * highlight, abs=0.5)
-        assert state.fill.blue * state.opacity == pytest.approx(255 * before_alpha * (1 - highlight), abs=0.5)
+    halo, = (nodes[k] for k in char.aliases if "/glow" in k)
+    assert halo.clip is None
+    clip, = halo.material_effects
+    mix = clip.effect
+    assert isinstance(mix, _GlowMix)
+    assert mix.axis.x == (-1 if reverse else 1)
+    assert (mix.before, mix.after) == (BLUE, RED)
+    assert (mix.alphas.x, mix.alphas.y) == (before_alpha, 1)
+    base = nodes[char.node_id]
+    assert isinstance(base.clip, RectangleClip) and isinstance(base.clip.deform, RectangleKeyframes)
+    edge = 2 if reverse else 0
+    middle = mix.front.keys[1:-1]
+    assert middle and all(value == pytest.approx(mix.axis.x * base.clip.deform.bounds_at(t)[edge])
+                          for t, value in middle)
+    draws = HookDrawResolver(Scene(doc).add(painted)).at(1.04)
+    rendered, = (d for d in draws if d.object_id == halo.id)
+    assert len(rendered.mask_planes) == 1
 
 
 def test_delayed_copy_offsets_each_ruby_glyphs_own_wipe():

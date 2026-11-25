@@ -37,3 +37,7 @@ Sources: [MSYS2 package repository](https://repo.msys2.org/mingw/ucrt64/),
 These notices preserve upstream license texts. Dependency redistribution must
 also follow the applicable upstream terms, including corresponding-source and
 runtime-exception provisions where relevant.
+
+The bundled WGSL translator's locked Rust dependencies are documented in
+[wgsl/LICENSES.txt](wgsl/LICENSES.txt). Update the notices when the dependency
+lockfile changes.

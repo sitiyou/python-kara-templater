@@ -7,6 +7,9 @@
 __pycache__/
 *.so
 *.pyd
+/kara_templater/_kara_wgsl
+/kara_templater/_kara_wgsl.exe
+/native/wgsl/target/
 /refs/
 /.firecrawl/
 /.dev/

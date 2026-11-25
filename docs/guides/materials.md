@@ -124,8 +124,8 @@ interior region boundaries remain precise cuts.
 
 During an automatic wipe, halos with matching blur and border blend their
 color and opacity across the front. A fully transparent side contributes no
-color, so a fading halo keeps its visible hue. The engine approximates
-the Gaussian color transition with up to eight narrow moving strips between
-the two outer colors. Each strip follows the same timing clock as the text.
-These blended strips require hook export. For ASS, choose separate halos with `blend_glow=False`. Differences in
-halo geometry use separate clipped layers.
+color, so a fading halo keeps its visible hue. One blurred glyph mask supplies
+coverage while the WGSL material evaluates the Gaussian color transition on
+the text's timing clock. Blended halos require Hook export. For ASS, choose
+separate halos with `blend_glow=False`. Distinct halo geometry uses separate
+clipped layers.

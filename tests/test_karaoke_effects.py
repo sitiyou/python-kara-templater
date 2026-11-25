@@ -10,23 +10,28 @@ from kara_templater import (
     AssBudget,
     Color,
     Document,
+    Glow,
     KaraokeDecoration,
     KaraokeEffects,
     KaraokeEntry,
     KaraokeExit,
     KaraokeHighlight,
     Line,
+    PaintInput,
     PathObject,
     RectangleClip,
+    RectangleKeyframes,
     SceneCompileError,
     SecondaryOutline,
     Style,
+    TextObject,
     Track,
     build_lyric_scene,
 )
 from kara_templater._karaoke_motion import transition
 from kara_templater.karaoke_effects import _walk
 from kara_templater.lyric_line import LyricAnimationContext
+from kara_templater.lyrics.materials import _ScanlineTint
 from kara_templater.output.hook.draws import HookDrawResolver
 from kara_templater.scene_animation import VisualState
 
@@ -556,19 +561,46 @@ def test_entry_is_visible_before_motion_has_settled():
     assert end == VisualState()
 
 
+def _material_front(node, time):
+    assert isinstance(node, TextObject)
+    local_time = time - node.time_origin
+    result = []
+    for clip in node.material_effects:
+        effect = clip.effect
+        if not isinstance(effect, _ScanlineTint) or not effect.front.keys[0][0] <= local_time < effect.front.keys[-1][0]:
+            continue
+        curve = RectangleKeyframes(tuple(
+            (t, (x - scale * effect.half_width, effect.rows.x, x + scale * effect.half_width, effect.rows.y))
+            for (t, x), (_, scale) in zip(effect.front.keys, effect.inverse_scale.keys, strict=True)
+        ))
+        result.append(curve.bounds_at(local_time))
+    return result
+
+
+def test_named_scanline_can_follow_the_full_lyric_motion_with_a_reverse_angled_feather(tmp_path):
+    recipe = KaraokeEffects(
+        highlight="utopia_scanline", hook_feather=5, reverse_wipe=True, sweep_angle=20,
+        scanline_color=PaintInput("shine", Color(120, 225, 255)),
+        scanline_strength=PaintInput("strength", 0.65),
+        base_glow=Glow(Color(10, 15, 225), blur=4, border=4, opacity=0.5),
+        glow=Glow(Color(240, 40, 17), blur=4, border=4, opacity=0.65),
+    )
+    scene = build(recipe=recipe)
+    overlays = [node for node in _walk(scene.lines[0]) if ":front:" in node.id]
+    assert overlays and all(node.animations and node.clip for node in overlays)
+    prepared = scene.prepare_hook()
+    assert prepared.material_inputs()["strength"] == 0.65
+    prepared.export(tmp_path / "combined.hook", fps=30, duration=4)
+
+
 def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
     scene = subject(entry="none", exit="none", highlight="scanline")
     line = scene.lines[0]
     nodes = {n.id: n for n in _walk(line)}
-    fronts = [
-        nodes[next(a for a in t.aliases if ":front:" in a)]
-        for t in line.query("character")[:2]
-    ]
+    fronts = [nodes[t.node_id] for t in line.query("character")[:2]]
     positions = []
     for front in fronts:
-        assert isinstance(front.clip, RectangleClip) and front.clip.deform is not None
-        bounds = front.clip.deform.sample(1.25 - front.time_origin)
-        assert bounds is not None
+        bounds, = _material_front(front, 1.25)
         positions.append(
             front.state.position.x + (bounds[0] + bounds[2]) / 2 * front.state.scale.x
         )
@@ -580,9 +612,7 @@ def test_scanline_uses_one_unit_front_across_two_characters_and_ruby():
     extra = second.bounds.left - first.bounds.left - (b.bounds.left - a.bounds.left)
     assert extra > 0
     assert positions[1] - positions[0] == pytest.approx(extra)
-    clip = fronts[0].clip
-    assert isinstance(clip, RectangleClip) and clip.deform is not None
-    assert clip.deform.sample(0.5 - fronts[0].time_origin) is None
+    assert not _material_front(fronts[0], 0.5)
 
 
 @pytest.mark.parametrize("highlight", ["zoom_pulse", "zoom_pulse_scanline"])
@@ -1102,7 +1132,7 @@ def test_scanline_treatment_is_consistent_on_body_with_and_without_readings(high
         nodes = {n.id: n for n in _walk(line)}
 
         def bounds(target, ms):
-            result = []
+            result = _material_front(nodes[target.node_id], ms / 1000)
             for name in target.aliases:
                 if ":front:" not in name:
                     continue

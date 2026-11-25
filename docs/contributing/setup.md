@@ -2,6 +2,9 @@
 
 The project uses Python 3.12 or later and a C++ extension linked to FreeType, HarfBuzz, FriBidi and Fontconfig. Installing the library from source builds that extension. A
 matching repaired wheel avoids the native build toolchain on the destination.
+Source builds also need Cargo and Rust 1.87 or later to build the bundled WGSL
+translator from the lockfile in `native/wgsl/`. Installed wheels include the
+translator for Hook and preview export.
 
 ## Linux
 
@@ -52,6 +55,9 @@ checkout root, adjust the MSYS2 path if necessary:
 
 ```powershell
 $env:Path = "C:\msys64\ucrt64\bin;C:\msys64\usr\bin;$env:Path"
+rustup toolchain install 1.87.0-x86_64-pc-windows-gnu
+$env:RUSTUP_TOOLCHAIN = "1.87.0-x86_64-pc-windows-gnu"
+$env:CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = "gcc"
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install delvewheel

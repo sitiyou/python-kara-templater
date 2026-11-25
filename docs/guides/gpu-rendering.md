@@ -105,7 +105,7 @@ Unsupported animation, reference or clip callbacks raise a SceneCompileError
 with the object, time and source location. Use a GPU motion for custom equations.
 
 Hook export and browser resources share a per-frame work limit. Each tile can
-contain up to 1,024 candidate draws. The sum of its draw count times its pixel
+contain up to 1,024 candidate coverage planes. The sum of each tile's plane count times its pixel
 area is limited to 128 times the scene area, capped at the 1920 × 1080 budget.
 The estimate includes candidates that the shader may skip. Exceeding a limit
 raises `SceneCompileError` at the first affected timestamp. Motion bounds
@@ -117,7 +117,9 @@ on the intended device.
 
 The shader draws text/static paths in layer order, with affine transforms,
 opacity, ordinary rectangle clips and continuous fill/outline linear gradients
-(up to 16 stops). Static glyphs and paths use aggdraw for fills and the FreeType round stroker for fixed borders. Pillow applies blur to the coverage masks.
+(up to 16 stops). Fill, outline and shadow planes of a draw share one transform
+and clip evaluation. Each plane keeps its own bounds and blending order.
+Static glyphs and paths use aggdraw for fills and the FreeType round stroker for fixed borders. Pillow applies blur to the coverage masks.
 Dynamic stroke flashes and stretch halos share shaped contour segments. The shader computes round stroke coverage from the current pen radius. A fade on outlined
 text can reuse two native masks. The shader selects the translucent border
 when the fill fades so that the border does not show through the letter.
@@ -199,10 +201,59 @@ fade = ShaderMotion(
 )
 ```
 
+## Author a WGSL material
+
+A `MaterialEffect` changes the color and opacity of a coverage plane. The
+effect class owns the WGSL function, and an instance supplies its arguments.
+Attach a `MaterialClip` to a text or path object to choose the plane and the
+local interval. Effects on the same plane receive the result of the preceding
+effect in declaration order.
+
+```python
+from dataclasses import dataclass
+
+from kara_templater import Color, MaterialClip, MaterialEffect, PaintInput
+
+
+@dataclass(frozen=True)
+class TintPulse(MaterialEffect):
+    color: Color
+    strength: float
+
+    wgsl = """
+fn shade(ink: vec4<f32>, ctx: KaraPaintContext, color: vec3<f32>, strength: f32) -> vec4<f32> {
+    let amount = strength * sin(3.14159265 * ctx.progress);
+    return vec4<f32>(mix(ink.rgb, color, amount), ink.a);
+}
+"""
+
+    def parameters(self) -> tuple[PaintInput, float]:
+        return PaintInput("tint", self.color), self.strength
+
+
+paint = MaterialClip(effect=TintPulse(Color.hex("#E8BD66"), 0.6))
+```
+
+Pass `material_effects=(paint,)` to a `TextObject` or `PathObject`.
+`KaraPaintContext` supplies script-space `local` and `screen` coordinates, the
+mask `coverage`, `time` in seconds since the effect started, normalized
+`progress`, and the coverage plane `component`. The compiler validates the
+module when exporting and reports any errors with the affected Scene object.
+
+A `PaintInput` supplies a named value to the preview host. It may update
+that value using the documented uniform names in `textures.json` while reusing
+the same shader, glyph masks and tile data. A named value can be shared by
+several materials if its type and value agree. Use named inputs for values
+whose changes are confined to the bound material arguments. Template fields
+shared with layout, timing, mask coverage or effect selection require a scene
+update. Standalone Hooks embed the selected values.
+
 ## Repeated window exports
 
 For a preview host that requests multiple time windows, call
 `prepared = scene.prepare_hook()` once after building the scene.
+`prepared.material_inputs()` reports the named defaults across the Scene,
+including inputs that first appear in a later window.
 `prepared.export_resources(directory, start=..., duration=..., fps=...)`
 reuses the resolved hierarchy and glyph coverage across sequential requests,
 including backward seeks. Create a new snapshot when the scene changes.

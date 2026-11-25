@@ -18,6 +18,8 @@ from kara_templater import (
     Lifetime,
     Line,
     LineSegment,
+    MaterialClip,
+    MaterialEffect,
     ObjectGroup,
     PathObject,
     ProgressCurve,
@@ -36,6 +38,8 @@ from kara_templater import (
 )
 from kara_templater._cli_preset import preset_scene
 from kara_templater._raster import rasterize
+from kara_templater.lyrics.materials import _GlowMix
+from kara_templater.paint_fields import _PaintTrack
 
 
 def test_custom_shader_motion_indexes_only_reachable_tiles_for_each_window(tmp_path):
@@ -157,6 +161,65 @@ def _render_hook(scene, directory, *, fps=2, background="black", duration=1):
         ],
         cwd=directory,
     )
+
+
+def test_material_order_matches_reference_on_overlapping_translucent_glyphs(tmp_path, vulkan):
+    class Red(MaterialEffect):
+        wgsl = """
+fn shade(ink: vec4<f32>, context: KaraPaintContext) -> vec4<f32> {
+    return vec4<f32>(1.0, 0.0, 0.0, ink.a);
+}
+"""
+
+    class Dim(MaterialEffect):
+        wgsl = """
+fn shade(ink: vec4<f32>, context: KaraPaintContext) -> vec4<f32> {
+    return vec4<f32>(ink.rgb * 128.0 / 255.0, ink.a);
+}
+"""
+
+    def render(fill, *materials):
+        scene = Scene(Document.create(width=160, height=120))
+        for index, (position, color, opacity) in enumerate((
+            (Vec2(30, 25), Color(0, 255, 0), 0.5),
+            (Vec2(47, 25), fill, 0.5),
+        )):
+            scene.add(TextObject(
+                id=f"glyph-{index}", text="H", font_size=64, layer=index, lifetime=Lifetime(0, 1),
+                state=VisualState(position=position, fill=color, opacity=opacity),
+                material_effects=tuple(MaterialClip(effect=m) for m in materials) if index else (),
+            ))
+        return _render_hook(scene, tmp_path, fps=1)
+
+    dim_red = render(Color(0, 0, 0), Red(), Dim())
+    red = render(Color(0, 0, 0), Dim(), Red())
+    assert dim_red == render(Color(128, 0, 0))
+    assert red == render(Color(255, 0, 0))
+    assert any(r > 40 and g > 40 for r, g in zip(red[::3], red[1::3], strict=True))
+
+
+def test_two_color_glow_does_not_mix_rgb_from_an_invisible_side(tmp_path, vulkan):
+    before, after = Color(0, 0, 255), Color(255, 0, 0)
+    glow = _GlowMix(
+        _PaintTrack(((0, 35), (1, 35))), Vec2(1, 0), 0, 5, before, after, Vec2(0, 1),
+    )
+    scene = Scene(Document.create(width=160, height=120)).add(
+        PathObject(
+            id="halo", path=VectorPath.rectangle(70, 40), filled=False,
+            lifetime=Lifetime(0, 1), material_effects=(MaterialClip(effect=glow, target="outline"),),
+            state=VisualState(position=Vec2(35, 40), outline=after, border=4, blur=5),
+        ),
+    )
+    frame = _render_hook(scene, tmp_path, fps=1)
+
+    def pixel(x, y):
+        offset = (160 * y + x) * 3
+        return tuple(frame[offset:offset + 3])
+
+    assert pixel(50, 60)[0] > 240
+    assert 75 < pixel(70, 60)[0] < 180
+    assert pixel(90, 60)[0] < 5
+    assert max(frame[2::3]) < 5
 
 
 @pytest.mark.parametrize("filled", [False, True])
@@ -617,7 +680,7 @@ def test_python_only_animation_reports_object_and_preserves_hook(tmp_path):
     assert output.read_bytes() == b"previous export"
 
 
-def test_shader_motion_can_color_the_fill_and_outline_independently(tmp_path, vulkan):
+def test_shader_motion_can_color_the_fill_and_outline_through_a_fade(tmp_path, vulkan):
     from kara_templater import ShaderMotion
 
     node = PathObject(
@@ -631,9 +694,10 @@ def test_shader_motion_can_color_the_fill_and_outline_independently(tmp_path, vu
                 base,
                 fill=Color(round(255 * p), 0, 0),
                 outline=Color(0, round(255 * (1 - p)), 0),
+                opacity=base.opacity * (1 - p),
             ),
-            frozenset({"fill", "outline"}),
-            "fill=vec3(p,0.,0.); outline=vec3(0.,1.-p,0.);",
+            frozenset({"fill", "outline", "opacity"}),
+            "fill=vec3(p,0.,0.); outline=vec3(0.,1.-p,0.); alpha*=1.-p;",
         ),
         duration=1,
     )
@@ -670,8 +734,9 @@ def test_shader_motion_can_color_the_fill_and_outline_independently(tmp_path, vu
 
     assert sample(0, 16) == pytest.approx((0, 0, 0), abs=3)
     assert sample(0, 6) == pytest.approx((0, 255, 0), abs=3)
-    assert sample(1, 16) == pytest.approx((128, 0, 0), abs=3)
-    assert sample(1, 6) == pytest.approx((0, 128, 0), abs=3)
+    # The translucent fill uses the cutout outline, so green cannot show through it.
+    assert sample(1, 16) == pytest.approx((64, 0, 0), abs=3)
+    assert sample(1, 6) == pytest.approx((0, 64, 0), abs=3)
 
 
 def test_group_rectangles_use_their_own_clock_and_cut_extrusion(tmp_path, vulkan):
@@ -758,13 +823,13 @@ def test_shader_wipe_matches_split_draws_in_playback(
             lifetime=Lifetime(0, 2), clip=RectangleClip(0, 0, 83, 96),
         ))
     masks = []
-    original = hook._draw_record
+    original = hook._plane_record
 
     def record(table, atlas, draw, image, *args):
         masks.append(image[4])
         return original(table, atlas, draw, image, *args)
 
-    monkeypatch.setattr(hook, "_draw_record", record)
+    monkeypatch.setattr(hook, "_plane_record", record)
 
     def play(name):
         scene.export(tmp_path / name, fps=10, start=0.2, duration=1.3)
@@ -793,7 +858,7 @@ def test_shader_wipe_matches_split_draws_in_playback(
 
 
 @pytest.mark.parametrize("reverse", [False, True])
-def test_shader_color_bands_match_scanline_and_glow_strips(tmp_path, vulkan, monkeypatch, reverse):
+def test_shader_color_bands_match_gradient_scanline_strips(tmp_path, vulkan, monkeypatch, reverse):
     from kara_templater import (
         BLUE,
         RED,
@@ -811,6 +876,7 @@ def test_shader_color_bands_match_scanline_and_glow_strips(tmp_path, vulkan, mon
     scene = build_lyric_scene(doc, tracks=(Track(id="vocal", effects=(KaraokeEffects(
         entry="tilt_pop", exit="spin_flip", highlight="utopia_scanline", reverse_wipe=reverse,
         scanline_width=12, scanline_softness=5, sweep_angle=19,
+        scanline_material=LyricGradient((WHITE, BLUE)),
         base_material=LyricGradient((BLUE, WHITE)), material=LyricGradient((RED, WHITE)),
         secondary_outline=SecondaryOutline(RED, 1),
         base_glow=Glow(BLUE, blur=4, border=4, opacity=0.6),
@@ -842,8 +908,8 @@ def test_shader_color_bands_match_scanline_and_glow_strips(tmp_path, vulkan, mon
 
     assert packed == original
     assert any(packed)
-    assert band_opacity_modes == {0, 1}
-    assert (tmp_path / "band.hook").stat().st_size < (tmp_path / "strips.hook").stat().st_size
+    assert band_opacity_modes and band_opacity_modes <= {0, 1}
+    assert (tmp_path / "band.hook").stat().st_size <= (tmp_path / "strips.hook").stat().st_size
 
 
 @pytest.mark.parametrize(("angle", "reverse", "feather"), [(None, False, 4), (-28, True, 4), (28, False, 0)])

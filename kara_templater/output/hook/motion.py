@@ -328,11 +328,11 @@ def iter_draw_spans(
         alternate = None
         filled = leaf.node.filled
         cutout = cutout_border(state, filled)
-        if (not isinstance(leaf, _ExtrusionSide) and motion
+        if (not isinstance(leaf, _ExtrusionSide) and not draw.solid_backing and motion
                 and cutout != cutout_border(motion.end_state, filled)):
             other = replace(state, opacity=motion.end_state.opacity)
             alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).mask_planes
-        if (not isinstance(leaf, _ExtrusionSide) and shader is not None and filled
+        if (not isinstance(leaf, _ExtrusionSide) and not draw.solid_backing and shader is not None and filled
                 and state.border > 0 and round((1 - state.face_opacity) * 255) == 0):
             other = replace(state, opacity=1 if cutout else 0.5)
             alternate = frames.draw_state(leaf, other, clip, varying_basis=varying_basis).mask_planes

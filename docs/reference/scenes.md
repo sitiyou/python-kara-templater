@@ -68,7 +68,7 @@ Already-lowered Dialogue, including historical empty/negative intervals.
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
 
-[Source](../../kara_templater/scene.py#L549)
+[Source](../../kara_templater/scene.py#L558)
 
 ```python
 AssDialogue(
@@ -175,7 +175,7 @@ An absolute half-open seconds interval with 0 <= start < end.
 Parent lifetimes further restrict child visibility without changing local
 animation clocks.
 
-[Source](../../kara_templater/scene.py#L50)
+[Source](../../kara_templater/scene.py#L57)
 
 ```python
 Lifetime(
@@ -211,7 +211,7 @@ Hook output supports normal screen-space rectangle clips with static
 bounds or RectangleKeyframes evaluated on the group's clock. A parent
 rectangle intersects child clips without replacing their local clocks.
 
-[Source](../../kara_templater/scene.py#L462)
+[Source](../../kara_templater/scene.py#L471)
 
 ```python
 ObjectGroup(
@@ -304,7 +304,7 @@ Coordinates are local to its local origin and parent transforms. Set filled=Fals
 for an outline-only drawing. The border radius uses script pixels by default.
 With scale_border=True the radius is measured in local path coordinates.
 
-[Source](../../kara_templater/scene.py#L421)
+[Source](../../kara_templater/scene.py#L429)
 
 ```python
 PathObject(
@@ -324,6 +324,7 @@ PathObject(
     filled: bool = True,
     scale_border: bool = False,
     shader_paint: ShaderPaint | None = None,
+    material_effects: tuple[MaterialClip, ...] = (),
     extrusion: Extrusion | None = None,
 )
 ```
@@ -347,6 +348,7 @@ PathObject(
 | `filled` | `bool` | `True` |
 | `scale_border` | `bool` | `False` |
 | `shader_paint` | `ShaderPaint \| None` | `None` |
+| `material_effects` | `tuple[MaterialClip, ...]` | `()` |
 | `extrusion` | `Extrusion \| None` | `None` |
 
 ### PathObject.animate
@@ -416,7 +418,7 @@ Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 Prepare a new snapshot after changing the scene. Window exports share measured
 masks and the resolved object hierarchy. Each output has its own playback clock.
 
-[Source](../../kara_templater/scene.py#L635)
+[Source](../../kara_templater/scene.py#L644)
 
 ```python
 PreparedHook(
@@ -463,13 +465,24 @@ PreparedHook.export_resources(
 ) -> None
 ```
 
+### PreparedHook.material_inputs
+
+List the named material defaults across the prepared Scene.
+
+Preview hosts can discover editable inputs before exporting a window.
+The uniforms in each exported window depend on its visible materials.
+
+```python
+PreparedHook.material_inputs() -> dict[str, PaintValue]
+```
+
 ## RectangleClip
 
 A positive-area normal or inverse rectangle in screen or object-local space.
 
 Optional deformation evaluates local seconds and can produce an empty mask.
 
-[Source](../../kara_templater/scene.py#L168)
+[Source](../../kara_templater/scene.py#L175)
 
 ```python
 RectangleClip(
@@ -501,7 +514,7 @@ Pure signed-local-seconds rectangle bounds; None denotes an empty mask.
 
 The owning object validates breakpoint times against its absolute clock.
 
-[Source](../../kara_templater/scene.py#L71)
+[Source](../../kara_templater/scene.py#L78)
 
 ```python
 RectangleFunction(
@@ -537,7 +550,7 @@ the first is the left limit and the second takes effect at that time.
 Zero width or height is an empty mask, with its coordinates retained for
 interpolation. The owning object validates absolute breakpoint times.
 
-[Source](../../kara_templater/scene.py#L98)
+[Source](../../kara_templater/scene.py#L105)
 
 ```python
 RectangleKeyframes(
@@ -586,7 +599,7 @@ A Document-backed composition of visual objects and already-lowered ASS dialogue
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
 
-[Source](../../kara_templater/scene.py#L567)
+[Source](../../kara_templater/scene.py#L576)
 
 ```python
 Scene(
@@ -693,7 +706,7 @@ An invalid scene or exceeded compilation limit with object_id and optional sourc
 
 Callback causes remain available for diagnosis.
 
-[Source](../../kara_templater/scene.py#L34)
+[Source](../../kara_templater/scene.py#L41)
 
 ```python
 SceneCompileError(
@@ -785,7 +798,7 @@ Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
 
-[Source](../../kara_templater/scene.py#L377)
+[Source](../../kara_templater/scene.py#L384)
 
 ```python
 TextObject(
@@ -810,6 +823,7 @@ TextObject(
     encoding: int = 1,
     scale_border: bool = False,
     shader_paint: ShaderPaint | None = None,
+    material_effects: tuple[MaterialClip, ...] = (),
     extrusion: Extrusion | None = None,
     filled: bool = True,
 )
@@ -839,6 +853,7 @@ TextObject(
 | `encoding` | `int` | `1` |
 | `scale_border` | `bool` | `False` |
 | `shader_paint` | `ShaderPaint \| None` | `None` |
+| `material_effects` | `tuple[MaterialClip, ...]` | `()` |
 | `extrusion` | `Extrusion \| None` | `None` |
 | `filled` | `bool` | `True` |
 
@@ -899,7 +914,7 @@ A filled mask; deform uses object-local seconds. None is an empty region.
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
 
-[Source](../../kara_templater/scene.py#L217)
+[Source](../../kara_templater/scene.py#L224)
 
 ```python
 VectorClip(
@@ -930,7 +945,7 @@ scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
 
-[Source](../../kara_templater/scene.py#L239)
+[Source](../../kara_templater/scene.py#L246)
 
 ```python
 VisualNode(

@@ -3,7 +3,7 @@
 import hashlib
 import json
 from array import array
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass
 from heapq import merge
@@ -23,6 +23,7 @@ from ...paint_fields import LinearGradient
 from ...scene import RectangleClip, RectangleKeyframes, SceneCompileError, _SweepClip
 from .bands import ColorBand, band_key, match_band, same_band_span, visible_windows
 from .draws import DrawCommand, HookDrawResolver
+from .materials import MaterialPrograms
 from .motion import DrawSpan, ShaderInstance, iter_draw_spans
 from .wipes import Wipe, match_wipe
 
@@ -90,7 +91,13 @@ class _HookRecordTable:
         self.functions: dict[str, None] = {}
         self.paints: dict[str, int] = {}
         self.programs: dict[str, int] = {}
+        self.materials = MaterialPrograms()
+        self.has_materials = False
+        self.has_feather = False
         self.animated_colors = False
+        self.has_motion = False
+        self.has_bands = False
+        self.has_batches = False
         self.values = array("f")
         self.records: dict[bytes, int] = {}
 
@@ -140,18 +147,15 @@ def _ramp_record(table: _HookRecordTable, mat: LinearGradient | None, kind: int)
     )
 
 
-def _draw_record(
+def _plane_record(
     table: _HookRecordTable,
     atlas: _Atlas,
     draw: DrawCommand,
     image: RasterImage,
-    motion_offset: int,
-    clip_motion_offset: int,
     sweep: _SweepClip | None,
     wipe: Wipe | None,
-    inherited_offset: int,
-    band: int = -1,
-) -> int:
+    band: int,
+) -> tuple[int, int, int]:
     x, y, w, h, kind, color, pixels = image
     u, v = atlas.add(w, h, pixels) if pixels else (-1, -1)
     mat = draw.gradient
@@ -161,6 +165,7 @@ def _draw_record(
         stops = table.add(*atlas.add(w, h, depth_pixels), back.red / 255, back.green / 255, back.blue / 255)
     feather = -1
     edge = sweep if isinstance(sweep, _FeatheredWipeClip) else None
+    table.has_feather |= edge is not None
     if (edge is not None or wipe is not None) and kind in (0, 1):
         if edge is not None:
             before = edge.before_fill if kind == 0 else edge.before_outline
@@ -191,7 +196,8 @@ def _draw_record(
         fx, fy, fw, fh, _, _, face = stroke.face
         mask = table.add(fx, fy, fw, fh, *atlas.add(fw, fh, face))
         fixed = table.add(
-            table.add(*stroke.grid), mask, draw.border, stroke.sigma, int(stroke.filled),
+            table.add(*stroke.grid), mask, draw.border, stroke.sigma,
+            2 if stroke.solid_backing else int(stroke.filled),
             stroke.shadow.x, stroke.shadow.y,
         )
     geom = table.add(x, y, w, h, u, v, fixed)
@@ -202,28 +208,46 @@ def _draw_record(
         program = table.paints.setdefault(shader.source, len(table.paints))
         data = table.add(*shader.parameters) if shader.parameters else -1
         custom = table.add(program, data, draw.time_origin, kind, draw.border)
-    paint = _paint_record(table, draw, kind, color, stops, feather, custom)
+    materials = -1
+    if draw.material_effects:
+        try:
+            materials = table.materials.record(draw, kind, table.add, *table.values[:3])
+        except (ValueError, OverflowError) as error:
+            raise SceneCompileError(str(error), object_id=draw.object_id) from error
+    paint = _paint_record(table, draw, kind, color, stops, feather, custom, materials)
+    return geom, paint, band
+
+
+def _draw_state_record(
+    table: _HookRecordTable,
+    draw: DrawCommand,
+    motion: int,
+    clip_motion: int,
+    inherited: int,
+    sweep: _SweepClip | None,
+    wipe: Wipe | None,
+    banded: bool,
+    mode: int,
+) -> tuple[float, ...]:
+    table.has_motion |= motion >= 0
+    table.has_bands |= banded
     m = draw.transform
     transform = table.add(m.a, m.b, m.c, m.d, m.tx, m.ty)
     clip = -1
-    if band >= 0:
+    if banded:
         clip = -6
-        clip_motion_offset = band
     elif wipe is not None:
         # Tags -2 through -5 select which rectangle side supplies the shader wipe.
         clip = -2 - wipe.edge
     elif draw.clip is not None:
         clip = table.add(*draw.clip.bounds, int(draw.clip.local))
     projection = table.add(sweep.slope, sweep.pivot_y) if sweep is not None and sweep.slope else -1
-    return table.add(
-        geom, paint, transform, clip, draw.opacity, motion_offset, clip_motion_offset, inherited_offset,
-        projection,
-    )
+    return transform, clip, draw.opacity, motion, clip_motion, inherited, projection, mode, draw.face_opacity
 
 
 def _paint_record(
     table: _HookRecordTable, draw: DrawCommand, kind: int, color: int, stops: int,
-    feather: int = -1, custom: int = -1,
+    feather: int = -1, custom: int = -1, materials: int = -1,
 ) -> int:
     mat = draw.gradient
     return table.add(
@@ -236,6 +260,7 @@ def _paint_record(
         custom,
         kind,
         draw.face_opacity,
+        *((materials,) if table.has_materials else ()),
     )
 
 
@@ -264,6 +289,8 @@ class _BandedSpan:
 
 
 type _SpanPaint = tuple[DrawSpan, _BandedSpan | None]
+type _Plane = tuple[int, int, int]
+type _IndexedPlane = tuple[int, _Plane, RasterImage, float]
 
 
 def _band_spans(
@@ -298,9 +325,7 @@ def _texture(
     out.write(b"00" * (rows * stride - len(data)) + b"\n\n")
 
 
-def _motion_record(
-    table: _HookRecordTable, span: DrawSpan, fps: int, origin: int, opacity_mode: int
-) -> int:
+def _motion_record(table: _HookRecordTable, span: DrawSpan, fps: int, origin: int) -> int:
     instance = span.shader
     if instance is not None:
         program = instance.program
@@ -343,8 +368,6 @@ def _motion_record(
             0,
             -1,
             binding,
-            0,
-            opacity_mode,
         )
     motion = span.motion
     if motion is None:
@@ -365,7 +388,6 @@ def _motion_record(
         curve,
         end,
         int(motion.fast_reveal),
-        opacity_mode,
     )
 
 
@@ -434,6 +456,24 @@ def _timeline(
     cols: int,
     rows: int,
 ) -> int:
+    pose_windows: OrderedDict[tuple[object, ...], tuple[Affine2D, ...]] = OrderedDict()
+
+    def motion_poses(instance: ShaderInstance, first: int, stop: int) -> tuple[Affine2D, ...]:
+        if not isinstance(instance.program, _LyricShaderMotion):
+            return instance.transforms(fps, first, stop)
+        # Built-in motion geometry ignores paint and opacity. The same
+        # animation on the face, outline and glow can share sampled bounds.
+        base = instance.base
+        key = (instance.program, instance.start, instance.duration, first, stop,
+               instance.outer.transform, base.position, base.scale, base.skew, base.rotation,
+               instance.inner.transform)
+        poses = pose_windows.get(key)
+        if poses is None:
+            poses = pose_windows[key] = instance.transforms(fps, first, stop)
+            if len(pose_windows) > 8192:
+                pose_windows.popitem(last=False)
+        return poses
+
     def events(
         order: int, stream: Iterator[_SpanPaint],
     ) -> Iterator[tuple[int, int, DrawSpan | None, tuple[Affine2D, ...], _BandedSpan | None]]:
@@ -445,7 +485,7 @@ def _timeline(
                 # once per frame and reuse its bounds for every paint plane.
                 for first in range(span.first_frame, span.stop_frame, _COVERAGE_WINDOW_FRAMES):
                     stop = min(first + _COVERAGE_WINDOW_FRAMES, span.stop_frame)
-                    yield first - origin, order, span, instance.transforms(fps, first, stop), band
+                    yield first - origin, order, span, motion_poses(instance, first, stop), band
             else:
                 yield span.first_frame - origin, order, span, (), band
             yield span.stop_frame - origin, order, None, (), None
@@ -526,8 +566,8 @@ def _timeline(
             streams.append(events(i, ((span, None) for span in draw_spans(i, fused_wipe=i in wipes))))
         i += 1
     stream = merge(*streams, key=lambda event: event[:2])
-    active_tiles: dict[int, dict[int, list[int]]] = {}
-    tile_draws: list[dict[int, list[int]]] = [{} for _ in range(cols * rows)]
+    active_tiles: dict[int, tuple[int, ...]] = {}
+    tile_draws: list[dict[int, tuple[int, int]]] = [{} for _ in range(cols * rows)]
     clip_records: dict[int, int] = {}
     inherited_records: dict[str, int] = {}
     group_masks: dict[str, int] = {}
@@ -539,9 +579,9 @@ def _timeline(
     tile_counts = [0] * len(tile_draws)
     pixel_checks = 0
 
-    def index_draws(
+    def index_planes(
         order: int, span: DrawSpan, band: _BandedSpan | None,
-    ) -> Iterator[tuple[int, RasterImage, float]]:
+    ) -> tuple[tuple[float, ...], list[_IndexedPlane]]:
         draw = span.draw
         rows = clip_rows.get(order)
         wipe = wipes.get(order)
@@ -578,14 +618,19 @@ def _timeline(
             inherited = inherited_records[node.id] = table.add(len(masks), *masks)
         clip = node.clip
         sweep = clip if isinstance(clip, _SweepClip) else None
-        variants = [(draw.mask_planes, 0)]
+        mode = 0
+        variants = [draw.mask_planes]
         if span.alternate_masks is not None:
             # Select the native border bitmap at playback opacity without
             # sampling an entire fade or exporting a per-frame command list.
             mode = 1 if round((1 - draw.opacity * draw.face_opacity) * 255) == 0 else -1
-            variants = [(draw.mask_planes, mode), (span.alternate_masks, -mode)]
-        for variant, (images, mode) in enumerate(variants):
-            motion = _motion_record(table, span, fps, origin, mode)
+            variants.append(span.alternate_masks)
+        state = _draw_state_record(
+            table, draw, _motion_record(table, span, fps, origin), clip_motion,
+            inherited, sweep, wipe, band is not None, mode,
+        )
+        planes = []
+        for variant, images in enumerate(variants):
             for index, image in enumerate(images):
                 stroke = draw.fixed_stroke
                 indexed_image = image
@@ -600,22 +645,12 @@ def _timeline(
                         continue
                     indexed_image = x, low, w, high - low, kind, color, pixels
                 band_paint = -1 if band is None else band.paint(table, band_track, index, variant > 0)
-                record = _draw_record(
-                    table,
-                    atlas,
-                    draw,
-                    image,
-                    motion,
-                    clip_motion,
-                    sweep,
-                    wipe,
-                    inherited,
-                    band_paint,
-                )
+                record = _plane_record(table, atlas, draw, image, sweep, wipe, band_paint)
                 padding = draw.border + 4 * stroke.sigma + 1 if stroke and image[4] in (1, 2) else 0
-                yield record, indexed_image, padding
+                planes.append((variant, record, indexed_image, padding))
+        return state, planes
 
-    indexed: dict[int, tuple[DrawSpan, tuple[tuple[int, RasterImage, float], ...]]] = {}
+    indexed: dict[int, tuple[DrawSpan, tuple[float, ...], list[_IndexedPlane]]] = {}
     for i, changes in groupby(stream, key=lambda event: event[0]):
         if i == count:
             break
@@ -635,9 +670,10 @@ def _timeline(
             )
             previous = indexed.get(order)
             if previous is None or previous[0] is not span:
-                previous = indexed[order] = (span, tuple(index_draws(order, span, band)))
-            batch: dict[int, list[int]] = defaultdict(list)
-            for record, indexed_image, padding in previous[1]:
+                previous = indexed[order] = (span, *index_planes(order, span, band))
+            _, state, planes = previous
+            batch: dict[int, tuple[list[_Plane], list[_Plane]]] = defaultdict(lambda: ([], []))
+            for variant, record, indexed_image, padding in planes:
                 if poses:
                     tiles = _tiles(indexed_image, poses, cols, rows, padding + 1)
                 elif span.shader and isinstance(span.shader.program, _ParticleMotion):
@@ -645,17 +681,27 @@ def _timeline(
                 else:
                     tiles = _tiles(indexed_image, transforms, cols, rows, padding)
                 for tile in tiles:
-                    batch[tile].append(record)
-            active_tiles[order] = batch
-            for tile, commands in batch.items():
-                tile_draws[tile][order] = commands
+                    batch[tile][variant].append(record)
+            active_tiles[order] = tuple(batch)
+            for tile, (primary, alternate) in batch.items():
+                if span.alternate_masks is None and len(primary) == 1:
+                    record = table.add(*primary[0], *state)
+                else:
+                    table.has_batches = True
+                    # Negative tags point to the shared state of a set of planes.
+                    # The -4 bias keeps aligned float32 addresses exact above 2**24.
+                    record = table.add(
+                        -4 - table.add(*state), len(primary), len(alternate),
+                        *(table.add(*plane) for plane in (*primary, *alternate)),
+                    )
+                tile_draws[tile][order] = record, len(primary) + len(alternate)
                 dirty.add(tile)
         for tile in dirty:
             draws = tile_draws[tile]
-            commands = [cmd for order in sorted(draws) for cmd in draws[order]]
-            count_in_tile = len(commands)
+            commands = [draws[order][0] for order in sorted(draws)]
+            count_in_tile = sum(planes for _, planes in draws.values())
             if count_in_tile > _MAX_TILE_DRAWS:
-                heaviest = frames.leaves[max(draws, key=lambda order: len(draws[order]))].node
+                heaviest = frames.leaves[max(draws, key=lambda order: draws[order][1])].node
                 raise SceneCompileError(
                     f"Hook GPU work budget exceeded at {(origin + i) / fps:g}s: "
                     f"tile ({tile % cols}, {tile // cols}) has {count_in_tile} draw "
@@ -664,7 +710,7 @@ def _timeline(
                 )
             pixel_checks += (count_in_tile - tile_counts[tile]) * tile_areas[tile]
             tile_counts[tile] = count_in_tile
-            record = table.add(count_in_tile, *commands) if commands else -1
+            record = table.add(len(commands), *commands) if commands else -1
             timeline = timelines[tile]
             if i == 0:
                 timeline[1] = record
@@ -705,6 +751,7 @@ def export_hook(
         raise ValueError("hook interval must cover 1..250000 frames")
     count = ceil(length * fps)
     atlas, table = _Atlas(), _HookRecordTable()
+    table.has_materials = any(leaf.node.material_effects for leaf in frames.leaves)
     w, h = frames.resolution
     cols, rows = ceil(w / _TILE), ceil(h / _TILE)
     # The header is uniform across fragments. Per-song constants in this
@@ -717,9 +764,16 @@ def export_hook(
     cases = "\n".join(
         f"case {kind}: {{ {body} }} break;" for body, kind in table.programs.items()
     )
+    material_source = table.materials.source
+    sweep = table.materials.sweep() if table.has_feather else ""
     source = (
         _SHADER.replace("HAS_ANIMATED_COLORS", str(int(table.animated_colors)))
+        .replace("HAS_MOTION", str(int(table.has_motion)))
+        .replace("HAS_BANDS", str(int(table.has_bands)))
+        .replace("HAS_BATCHES", str(int(table.has_batches)))
         .replace("MOTION_FUNCTIONS", "\n".join(table.functions))
+        .replace("MATERIAL_FUNCTIONS", material_source + sweep)
+        .replace("SWEEP_COLOR", "ink=paintSweep(ink,before,phase,refAt(feather+4));" if sweep else "")
         .replace("MOTION_CASES", cases)
         .replace("PAINT_CASES", "\n".join(f"case {index}: {{ {body} }} break;"
                                         for body,index in table.paints.items()))
@@ -731,6 +785,14 @@ def export_hook(
                 a=coverage*clamp(opacity,0.,1.);
             }
         """ if table.paints else "")
+        .replace("APPLY_MATERIALS", """
+            int materialList=refAt(p+11);
+            if(materialList>=0 && coverage>0.) {
+                float opacity=a/coverage;
+                applyMaterials(materialList,local,screen,coverage,index,kind,ink,opacity);
+                a=coverage*clamp(opacity,0.,1.);
+            }
+""" if material_source else "")
         .replace("TILESIZE", str(_TILE))
         .replace("TEXWIDTH", str(_WIDTH))
     )
@@ -754,7 +816,9 @@ def export_hook(
                 digest = hashlib.sha256(raw)
                 digest.update(padding)
                 hashes[name] = digest.hexdigest()
-            metadata = dict(sizes, clock=[fps, round(start * fps), count], hashes=hashes)
+            metadata: dict[str, object] = dict(sizes, clock=[fps, round(start * fps), count], hashes=hashes)
+            if parameters := table.materials.parameters():
+                metadata["parameters"] = parameters
             (staging / "textures.json").write_text(
                 json.dumps(metadata), encoding="ascii"
             )
@@ -769,7 +833,7 @@ def export_hook(
             writer = out if max_bytes is None else _BoundedWriter(out, max_bytes)
             _texture(writer, "KARAMASK", "r8", atlas.data, _WIDTH)
             _texture(writer, "KARADATA", "rgba32f", table.values.tobytes(), _WIDTH * 16)
-            writer.write(source.encode())
+            writer.write((table.materials.hook_parameters() + source).encode())
             out.close()
             temp.replace(path)
         finally:
@@ -815,7 +879,7 @@ vec4 rectangleAt(int base,int track,float t) {
 float bandEdge(int first,int next,int column,float w) {
     return first==next ? item(first+column) : mix(item(first+column),item(next+column),w);
 }
-int bandPaint(int band,vec2 p,float t) {
+int bandIndex(int band,vec2 p,float t) {
     int track=refAt(band), k=preceding(track,t);
     int first=refAt(k+1), next=first, last=refAt(band+1);
     float w=0.;
@@ -830,7 +894,7 @@ int bandPaint(int band,vec2 p,float t) {
         int mid=(lo+hi)/2;
         if(p.x>=bandEdge(first,next,mid+2,w)) lo=mid; else hi=mid;
     }
-    return band+3+3*lo;
+    return lo;
 }
 bool insideRect(vec2 p,vec4 rect) {
     return all(greaterThanEqual(p,rect.xy)) && all(lessThan(p,rect.zw));
@@ -887,14 +951,14 @@ mat2 basisOf(vec2 scale,vec2 skew,float angle) {
 }
 mat2 matrixAt(int i) { return mat2(pairAt(i),pairAt(i+2)); }
 MOTION_FUNCTIONS
-void applyPaint(int paint,vec2 screen,vec2 local,inout float coverage,float time,inout vec3 ink,inout float alpha,float pen){
+MATERIAL_FUNCTIONSvoid applyPaint(int paint,vec2 screen,vec2 local,inout float coverage,float time,inout vec3 ink,inout float alpha,float pen){
     int data=refAt(paint+1),component=refAt(paint+3);
     if(pen<0.) pen=item(paint+4);
     time-=item(paint+2);
     switch(refAt(paint)){PAINT_CASES}
 }
-void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha,out float pen,int component,
-                  out vec3 animatedInk,bool relativeAlpha) {
+void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha,out float pen,
+                  out vec3 animatedFill,out vec3 animatedOutline,bool relativeAlpha) {
     int data=refAt(b+1);
     vec2 pos=pairAt(b+2), scale=pairAt(b+4), skew=pairAt(b+6);
     float angle=item(b+8);
@@ -910,9 +974,11 @@ void applyProgram(int b,float p,out mat2 basis,out vec2 position,out float alpha
     #endif
     switch(refAt(b)) { MOTION_CASES }
     #if HAS_ANIMATED_COLORS
-    animatedInk=(colors & (1<<component))!=0 ? (component==0 ? fill : outline) : vec3(-1.);
+    animatedFill=(colors & 1)!=0 ? fill : vec3(-1.);
+    animatedOutline=(colors & 2)!=0 ? outline : vec3(-1.);
     #else
-    animatedInk=vec3(-1.);
+    animatedFill=vec3(-1.);
+    animatedOutline=vec3(-1.);
     #endif
     mat2 outerBasis=matrixAt(b+11), localBasis=basisOf(scale,skew,angle);
     basis=outerBasis*localBasis*matrixAt(b+17);
@@ -971,7 +1037,8 @@ float fixedCoverage(int stroke,int geom,vec2 local,mat2 basis,mat2 toLocal,int r
         }
     }
     float face=sampleMask(refAt(stroke+1),local), distance=sqrt(nearest);
-    bool cutout=item(stroke+4)==0. || (role==1 && faceAlpha<1.-0.5/255.);
+    int backing=refAt(stroke+4);
+    bool cutout=backing==0 || (backing==1 && role==1 && faceAlpha<1.-0.5/255.);
     if(sigma==0.) {
         float edge=clamp(0.5+pen-distance,0.,1.);
         return cutout ? max(edge-face,0.) : max(edge,face);
@@ -998,60 +1065,66 @@ vec4 hook() {
     if(list<0) return bg;
     int count=refAt(list);
     for(int j=0;j<count;j++) {
-        int cmd=refAt(list+1+j), g=refAt(cmd), p=refAt(cmd+1), m=refAt(cmd+2);
-        if(!insideGroups(screen,refAt(cmd+7),float(index))) continue;
+        int cmd=refAt(list+1+j);
+        #if HAS_BATCHES
+        int tag=refAt(cmd);
+        bool single=tag>=0;
+        int state=single ? cmd+3 : -4-tag;
+        int mode=single ? 0 : refAt(state+7);
+        #else
+        const bool single=true;
+        int state=cmd+3;
+        const int mode=0;
+        #endif
+        int m=refAt(state);
+        if(!insideGroups(screen,refAt(state+5),float(index))) continue;
         mat2 basis=mat2(pairAt(m),pairAt(m+2));
         vec2 pos=pairAt(m+4);
-        float alpha=item(cmd+4), pen=-1., reveal=0.;
-        vec3 animatedInk=vec3(-1.);
-        int clip=refAt(cmd+3);
-        int colorBand=clip==-6 ? refAt(cmd+6) : -1;
+        float alpha=item(state+2), pen=-1., reveal=0.;
+        vec3 animatedFill=vec3(-1.), animatedOutline=vec3(-1.);
+        int clip=refAt(state+1);
+        int colorBand=HAS_BANDS==1 && clip==-6 ? refAt((single ? cmd : refAt(cmd+3))+2) : -1;
         bool relativeAlpha=colorBand>=0 && refAt(colorBand+2)>0;
-        int motion=refAt(cmd+5);
+        int motion=HAS_MOTION==1 ? refAt(state+3) : -1;
         if(motion>=0) {
             if(refAt(motion+3)==-1) {
                 float phase=clamp((float(index)-item(motion))/item(motion+1),0.,1.);
-                applyProgram(refAt(motion+4),phase,basis,pos,alpha,pen,refAt(p+9),animatedInk,relativeAlpha);
+                applyProgram(refAt(motion+4),phase,basis,pos,alpha,pen,animatedFill,animatedOutline,relativeAlpha);
             } else {
-            float w=weight(motion,index);
-            int end=refAt(motion+4);
-            basis=mat2(mix(basis[0],pairAt(end),w),mix(basis[1],pairAt(end+2),w));
-            pos=mix(pos,pairAt(end+4),w);
-            reveal=item(motion+5)>0. ? clamp(4.*(float(index)-item(motion))/item(motion+1),0.,1.) : w;
-            alpha=mix(alpha,item(end+6),reveal);
+                float w=weight(motion,index);
+                int end=refAt(motion+4);
+                basis=mat2(mix(basis[0],pairAt(end),w),mix(basis[1],pairAt(end+2),w));
+                pos=mix(pos,pairAt(end+4),w);
+                reveal=item(motion+5)>0. ? clamp(4.*(float(index)-item(motion))/item(motion+1),0.,1.) : w;
+                alpha=mix(alpha,item(end+6),reveal);
             }
-            int mode=refAt(motion+6);
-            if(!relativeAlpha && mode!=0 && (mode>0)!=(alpha*item(p+10)>=1.-0.5/255.)) continue;
         }
+        bool alternate=mode!=0 && !relativeAlpha && (mode>0)!=(alpha*item(state+8)>=1.-0.5/255.);
         if((clip!=-6 && alpha<=0.) || determinant(basis)==0.) continue;
         mat2 toLocal=inverse(basis);
         vec2 local=toLocal*(screen-pos);
-        int fixedStroke=refAt(g+6);
-        bool useFixed=fixedStroke>=0 && !isometry(basis);
-        vec2 uv=local-pairAt(g), size=pairAt(g+2);
-        if(!useFixed && (any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,size)))) continue;
         float edgeDistance=0.;
         bool waiting=false;
         vec2 clipLocal=local;
         if(clip!=-1) {
-            int projection=refAt(cmd+8);
+            int projection=refAt(state+6);
             if(projection>=0) clipLocal.x+=item(projection)*(local.y-item(projection+1));
         }
+        int bandSlot=-1;
         if(colorBand>=0) {
-            int band=bandPaint(colorBand,clipLocal,float(index));
-            if(band<0) continue;
-            p=refAt(band);
+            bandSlot=bandIndex(colorBand,clipLocal,float(index));
+            if(bandSlot<0) continue;
+            int band=colorBand+3+3*bandSlot;
             if(relativeAlpha) {
                 alpha=item(band+1)*alpha*item(band+2);
-                int mode=refAt(motion+6);
-                if(mode!=0 && (mode>0)!=(alpha*item(p+10)>=1.-0.5/255.)) continue;
+                alternate=mode!=0 && (mode>0)!=(alpha*item(refAt(band)+10)>=1.-0.5/255.);
             } else if(motion<0 || refAt(motion+3)!=-1) {
                 alpha=mix(item(band+1),item(band+2),reveal);
             }
             if(alpha<=0.) continue;
         } else if(clip < -1) {
             if(any(lessThan(clipLocal,vec2(-65536.))) || any(greaterThanEqual(clipLocal,vec2(65536.)))) continue;
-            int side=-2-clip, sweep=refAt(cmd+6), k=preceding(sweep,float(index));
+            int side=-2-clip, sweep=refAt(state+4), k=preceding(sweep,float(index));
             float edge=item(k+1);
             if(k+2<sweep+1+2*refAt(sweep) && float(index)>item(k))
                 edge=mix(edge,item(k+3),(float(index)-item(k))/(item(k+2)-item(k)));
@@ -1060,39 +1133,55 @@ vec4 hook() {
             edgeDistance=side<2 ? coord-edge : edge-coord;
         } else if(clip>=0) {
             vec2 pos=item(clip+4)>0.?clipLocal:screen;
-            vec4 rect=rectangleAt(clip,refAt(cmd+6),float(index));
+            vec4 rect=rectangleAt(clip,refAt(state+4),float(index));
             edgeDistance=min(pos.x-rect.x,rect.z-pos.x);
             if(!insideRect(pos,rect)) continue;
         }
-        float coverage=useFixed
-            ? fixedCoverage(fixedStroke,g,local,basis,toLocal,refAt(p+9),alpha*item(p+10))
-            : sampleMask(g,local);
-        float a=coverage*item(p+3)*alpha;
-        int feather=refAt(p+7);
-        vec3 ink;
-        if(refAt(p+9)==3 && refAt(p+4)>=0) {
-            int shading=refAt(p+4);
-            vec2 depthUV=pairAt(shading)+clamp(uv,vec2(0.5),size-0.5);
-            float moment=textureLod(KARAMASK,depthUV/vec2(textureSize(KARAMASK,0)),0.).r;
-            ink=mix(rgbAt(p),rgbAt(shading+2),clamp(moment/max(coverage,0.00001),0.,1.));
-        } else if(waiting && feather>=0) {
-            ink=paintColor(rgbAt(feather),feather+5,screen,local);
-        } else {
-            ink=paintColor(animatedInk.r>=0. ? animatedInk : rgbAt(p),p+4,screen,local);
-            if(feather>=0 && edgeDistance<item(feather+3)) {
-                float phase=edgeDistance/item(feather+3);
-                vec3 before=paintColor(rgbAt(feather),feather+5,screen,local);
-                ink=mix(before,ink,smoothstep(0.,1.,phase));
-                int core=refAt(feather+4);
-                if(core>=0) {
-                    float strength=smoothstep(0.,0.16,phase)*(1.-smoothstep(0.42,0.78,phase));
-                    ink=mix(ink,rgbAt(core),strength);
+        int first=single ? -1 : cmd+3, stop=single ? 0 : first+refAt(cmd+1);
+        if(alternate) {
+            first=stop;
+            stop+=refAt(cmd+2);
+        }
+        #if HAS_BATCHES
+        for(int i=first;i<stop;i++) {
+            int plane=i<0 ? cmd : refAt(i), g=refAt(plane), p=refAt(plane+1);
+        #else
+            int plane=cmd, g=refAt(plane), p=refAt(plane+1);
+        #endif
+            if(bandSlot>=0) p=refAt(refAt(plane+2)+3+3*bandSlot);
+            int fixedStroke=refAt(g+6);
+            bool useFixed=fixedStroke>=0 && !isometry(basis);
+            vec2 uv=local-pairAt(g), size=pairAt(g+2);
+            if(!useFixed && (any(lessThan(uv,vec2(0))) || any(greaterThanEqual(uv,size)))) continue;
+            int kind=refAt(p+9);
+            float coverage=useFixed
+                ? fixedCoverage(fixedStroke,g,local,basis,toLocal,kind,alpha*item(p+10))
+                : sampleMask(g,local);
+            float a=coverage*item(p+3)*alpha;
+            int feather=refAt(p+7);
+            vec3 ink;
+            if(kind==3 && refAt(p+4)>=0) {
+                int shading=refAt(p+4);
+                vec2 depthUV=pairAt(shading)+clamp(uv,vec2(0.5),size-0.5);
+                float moment=textureLod(KARAMASK,depthUV/vec2(textureSize(KARAMASK,0)),0.).r;
+                ink=mix(rgbAt(p),rgbAt(shading+2),clamp(moment/max(coverage,0.00001),0.,1.));
+            } else if(waiting && feather>=0) {
+                ink=paintColor(rgbAt(feather),feather+5,screen,local);
+            } else {
+                vec3 animatedInk=kind==0 ? animatedFill : kind==1 ? animatedOutline : vec3(-1.);
+                ink=paintColor(animatedInk.r>=0. ? animatedInk : rgbAt(p),p+4,screen,local);
+                if(feather>=0 && edgeDistance<item(feather+3)) {
+                    float phase=edgeDistance/item(feather+3);
+                    vec3 before=paintColor(rgbAt(feather),feather+5,screen,local);
+                    SWEEP_COLOR
                 }
             }
+            APPLY_PAINT
+APPLY_MATERIALS            bg.rgb=mix(bg.rgb,ink,a);
+            bg.a=a+bg.a*(1.-a);
+        #if HAS_BATCHES
         }
-        APPLY_PAINT
-        bg.rgb=mix(bg.rgb,ink,a);
-        bg.a=a+bg.a*(1.-a);
+        #endif
     }
     return bg;
 }

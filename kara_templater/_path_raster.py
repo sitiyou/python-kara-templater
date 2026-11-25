@@ -66,6 +66,7 @@ def _sweep_mask(mask: Image.Image, offset: Vec2, depth: Image.Image | None = Non
 def path_coverage(
     path: VectorPath, state: VisualState, filled: bool, pixel_budget: int, object_id: str, *,
     sweep: Vec2 | None = None, shaded: bool = False, keep_face: bool = False,
+    solid_backing: bool = False,
 ) -> tuple[RasterImage, ...]:
     bounds = path_bounds(path)
     if not 0 <= state.blur <= 100:
@@ -143,12 +144,15 @@ def path_coverage(
             images.append((x, y, w, h, 4, 0, data))
         return tuple(images)
 
-    if (state.shadow.x or state.shadow.y) and (filled or state.border):
-        append(backing if filled else border_mask, 2, True, round(state.shadow.x), round(state.shadow.y))
-    if state.border:
-        append(border_mask, 1, True)
-    if filled:
-        append(fill, 0, not state.border)
+    if solid_backing:
+        append(backing, 1 if state.border else 0, True)
+    else:
+        if (state.shadow.x or state.shadow.y) and (filled or state.border):
+            append(backing if filled else border_mask, 2, True, round(state.shadow.x), round(state.shadow.y))
+        if state.border:
+            append(border_mask, 1, True)
+        if filled:
+            append(fill, 0, not state.border)
     if keep_face:
         if fill.getbbox() is not None:
             append(fill, STROKE_FACE, False)

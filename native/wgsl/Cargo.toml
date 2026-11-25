@@ -1,0 +1,11 @@
+[package]
+name = "kara-wgsl"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+naga = { version = "=29.0.3", default-features = false, features = ["glsl-out", "wgsl-in"] }
+
+[profile.release]
+strip = true

@@ -30,12 +30,9 @@ def source_without_dll_bootstrap(name: str, content: bytes, windows: bool) -> by
     """
     if not windows or name != "kara_templater/__init__.py":
         return content
-    prefix = re.match(
-        rb'"""""" # start delvewheel patch\n'
-        rb"def _delvewheel_patch_(\d+_\d+_\d+)\(\):\n",
-        content,
-    )
-    if prefix is None:
+    before, marker, patch = content.partition(b"\n# start delvewheel patch\n")
+    prefix = re.match(rb"def _delvewheel_patch_(\d+_\d+_\d+)\(\):\n", patch)
+    if not marker or prefix is None:
         return content
     version = prefix[1]
     expected = (
@@ -51,7 +48,9 @@ def source_without_dll_bootstrap(name: str, content: bytes, windows: bool) -> by
         + b"\n"
         + b"# end delvewheel patch\n\n"
     )
-    return content.removeprefix(expected)
+    if not patch.startswith(expected):
+        return content
+    return before + patch[len(expected):]
 
 
 def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None:
@@ -126,8 +125,14 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
                   and name.endswith((".so", ".pyd"))]
     if len(extensions) != 1 or not extensions[0].startswith("kara_templater/_text_native."):
         raise AssertionError(f"unexpected wheel extensions: {extensions}")
+    compiler = "kara_templater/_kara_wgsl.exe" if windows else "kara_templater/_kara_wgsl"
+    if compiler not in files:
+        raise AssertionError(f"wheel is missing {compiler}")
     for relative in (
         "native/metrics.cpp",
+        "native/wgsl/Cargo.toml",
+        "native/wgsl/Cargo.lock",
+        "native/wgsl/src/main.rs",
         "tests/fonts/KaraTestCJK.ttf",
         "tests/fonts/KaraTestMultiscript.ttf",
         "docs/getting-started.md",
