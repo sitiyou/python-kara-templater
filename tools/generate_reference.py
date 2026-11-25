@@ -204,9 +204,15 @@ def hints(value: object) -> dict[str, object]:
         **(vars(module) if module is not None else {}),
         **getattr(value, "__globals__", {}),
     }
+    type_scope = {
+        parameter.__name__: parameter
+        for parameter in getattr(value, "__type_params__", ())
+    }
     return {
         name: cast(object, expected)
-        for name, expected in get_type_hints(value, globalns=namespace).items()
+        for name, expected in get_type_hints(
+            value, globalns=namespace, localns=type_scope
+        ).items()
     }
 
 

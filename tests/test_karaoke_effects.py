@@ -1126,16 +1126,28 @@ def test_scanline_treatment_is_consistent_on_body_with_and_without_readings(high
 def test_unequal_readings_reach_the_same_body_midpoint_in_exported_ass():
     from kara_templater._raster import rasterize
 
+    width = 640
+
     def frame(text, ms):
         scene = subject(text=text, start=1000, end=1500, entry="none", exit="none",
                         highlight="none", ruby_scanline="both", after_outline=Color(30, 40, 50),
                         scanline_color=Color(0, 255, 255), scanline_width=16, scanline_softness=4)
-        return rasterize(scene.ass.compile().document.dumps(), ms, (640, 360)).rgba
+        return rasterize(scene.ass.compile().document.dumps(), ms, (width, 360)).rgba
+
+    def changed_columns(left: bytes, right: bytes) -> int:
+        return len({
+            index // 4 % width
+            for index, (a, b) in enumerate(zip(left, right, strict=True))
+            if a != b
+        })
 
     short = frame(r"{\k10}空|そ{\k40}#|ら", 1100)
     equal = frame(r"{\k25}空|そ{\k25}#|ら", 1250)
-    assert short == equal
-    assert short != frame(r"{\k10}空|そ{\k40}#|ら", 1250)
+    later = frame(r"{\k10}空|そ{\k40}#|ら", 1250)
+    # An explicit clip endpoint and a native tween can quantize the same edge
+    # to adjacent columns. A later phase must move the edge farther.
+    assert changed_columns(short, equal) <= 1
+    assert changed_columns(short, later) > 1
 
 
 @pytest.mark.parametrize("reverse", [False, True])

@@ -4,11 +4,12 @@ import inspect
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Any, TypeAliasType, get_args, get_type_hints
+from typing import Any, TypeAliasType, get_args
 
 import pytest
 
 import kara_templater
+from tools.generate_reference import hints
 
 
 def contains_any(annotation: object) -> bool:
@@ -56,10 +57,7 @@ def test_exported_callables_declare_parameters_and_return_types():
                     missing.append(f"{label}: {parameter.name}")
             if signature.return_annotation is inspect.Signature.empty:
                 missing.append(f"{label}: return")
-            namespace = {**vars(kara_templater), **function.__globals__}
-            for parameter, annotation in get_type_hints(
-                function, globalns=namespace
-            ).items():
+            for parameter, annotation in hints(function).items():
                 if contains_any(annotation):
                     missing.append(f"{label}: {parameter} contains Any")
     assert not missing, "Missing public annotations:\n" + "\n".join(missing)
