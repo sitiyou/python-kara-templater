@@ -12,6 +12,6 @@ recursive-include vendor/runtime-licenses *
 include THIRD_PARTY.md
 recursive-include examples *.ass *.py
 include skills/kara-templater/SKILL.md
-recursive-include docs *.md *.gif *.jpg *.png
+recursive-include docs *.md *.gif *.jpg *.png *.toml
 prune .dev
 prune build

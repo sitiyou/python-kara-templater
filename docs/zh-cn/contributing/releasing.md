@@ -4,7 +4,7 @@
 
 ## 发布流水线概览
 
-[release.yml](../../../.github/workflows/release.yml) 工作流包含四个阶段：
+`.github/workflows/release.yml` 工作流包含四个阶段：
 
 1. **`quality`**：使用锁定版本的 Ruff 和 ty 执行代码风格与类型检查。
 2. **`sdist`**：核对标签与 `pyproject.toml` 版本号一致，构建源码压缩包并运行 `twine check --strict`，随后在源码树外安装源码包，运行完整 `pytest tests` 套件和命令行 Hook 导出检查。
@@ -25,7 +25,7 @@ python -m twine check --strict dist/*
 
 源码分发包由 `MANIFEST.in` 控制，包含 Python 与 C++/Rust 源码、依赖许可声明、文档与预览媒体、示例、技能文件、测试与测试字体，且不得依赖 `.dev/` 或 `build/`。字体受独立许可约束，不会自动打入运行时 Wheel。
 
-原生依赖许可快照存放在 [vendor/runtime-licenses/README.md](../../../vendor/runtime-licenses/README.md)（Windows 运行时 DLL）和 [wgsl/LICENSES.txt](../../../vendor/runtime-licenses/wgsl/LICENSES.txt)（内置 WGSL 翻译器的锁定 Rust 依赖）。构建过程直接复制这些静态文件而不会扫描宿主环境；每当更换原生依赖、调整 Windows DLL 打包清单或更新 `native/wgsl/Cargo.lock` 时，都必须手动同步这些声明。
+原生依赖许可快照存放在 `vendor/runtime-licenses/README.md`（Windows 运行时 DLL）和 `vendor/runtime-licenses/wgsl/LICENSES.txt`（内置 WGSL 翻译器的锁定 Rust 依赖）。构建过程直接复制这些静态文件而不会扫描宿主环境；每当更换原生依赖、调整 Windows DLL 打包清单或更新 `native/wgsl/Cargo.lock` 时，都必须手动同步这些声明。
 
 ## 平台 Wheel 修复
 

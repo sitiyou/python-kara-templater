@@ -133,7 +133,7 @@ strength = "特效强度"
 
 ## 部署到 GitHub Pages
 
-在仓库的 **Settings → Pages** 中将构建与部署来源设为 **GitHub Actions**。[docs.yml](../../../.github/workflows/docs.yml) 工作流会在每次拉取请求时运行 `tools.check_docs`、构建站点并执行 `tools.check_docs_site`，并在推送到 `main` 分支后自动发布 `build/docs-site/dist/`。
+在仓库的 **Settings → Pages** 中将构建与部署来源设为 **GitHub Actions**。`.github/workflows/docs.yml` 工作流会在每次拉取请求时运行 `tools.check_docs`、构建站点并执行 `tools.check_docs_site`，并在推送到 `main` 分支后自动发布 `build/docs-site/dist/`。
 
 工作流会自动从 GitHub 读取 Pages 基础路径和站点域名，确保项目子路径与自定义域名下的链接都正确。要在本地复现项目子路径，可在构建和检查时设置 `DOCS_BASE=/python-kara-templater`。
 

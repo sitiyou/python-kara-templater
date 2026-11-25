@@ -4,7 +4,7 @@ Build source distributions and repaired wheels, verify an installed wheel outsid
 
 ## Release workflow overview
 
-The workflow in [release.yml](../../.github/workflows/release.yml) runs four jobs:
+The workflow in `.github/workflows/release.yml` runs four jobs:
 
 1. **`quality`**: lints and type-checks with the pinned Ruff and ty versions.
 2. **`sdist`**: checks that a tag matches `pyproject.toml`, builds the source archive, runs `twine check --strict`, installs the archive outside the checkout, and runs the full `pytest tests` suite plus CLI Hook export.
@@ -25,7 +25,7 @@ python -m twine check --strict dist/*
 
 The source distribution includes Python and native C++/Rust sources, dependency license notices, documentation and preview media, examples, skills, tests, and test fonts (configured in `MANIFEST.in`). It must not depend on `.dev/` or `build/`. Fonts have separate licenses and are not bundled into runtime wheels.
 
-Native dependency notices live in [vendor/runtime-licenses/README.md](../../vendor/runtime-licenses/README.md) for Windows runtime DLLs and [wgsl/LICENSES.txt](../../vendor/runtime-licenses/wgsl/LICENSES.txt) for the bundled WGSL translator's locked Rust crates. Builds include these files directly without scanning the host; update them manually whenever you change native dependencies, the Windows DLL bundle, or `native/wgsl/Cargo.lock`.
+Native dependency notices live in `vendor/runtime-licenses/README.md` for Windows runtime DLLs and `vendor/runtime-licenses/wgsl/LICENSES.txt` for the bundled WGSL translator's locked Rust crates. Builds include these files directly without scanning the host; update them manually whenever you change native dependencies, the Windows DLL bundle, or `native/wgsl/Cargo.lock`.
 
 ## Platform wheel repair
 

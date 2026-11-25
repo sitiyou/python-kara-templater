@@ -133,7 +133,7 @@ Choose `still` (in seconds) for the gallery card and initial paused frame, and s
 
 ## Deploy to GitHub Pages
 
-In the repository's **Settings → Pages**, set the build and deployment source to **GitHub Actions**. The workflow in [docs.yml](../../.github/workflows/docs.yml) runs `tools.check_docs`, builds the site, and runs `tools.check_docs_site` on every pull request, then publishes `build/docs-site/dist/` on pushes to `main`.
+In the repository's **Settings → Pages**, set the build and deployment source to **GitHub Actions**. The workflow in `.github/workflows/docs.yml` runs `tools.check_docs`, builds the site, and runs `tools.check_docs_site` on every pull request, then publishes `build/docs-site/dist/` on pushes to `main`.
 
 The workflow reads the Pages base path and origin from GitHub so links work on both a project site and a custom domain. To reproduce a project-site base path locally, build and check with `DOCS_BASE=/python-kara-templater`.
 
