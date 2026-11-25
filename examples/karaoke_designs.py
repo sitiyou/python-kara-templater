@@ -1,7 +1,7 @@
 """Reference-informed karaoke styles on one original, shared lyric fixture.
 
 uv run python -m examples.karaoke_designs build/broadcast.hook --style broadcast
-See docs/tutorials/karaoke-design.md for layout and docs/guides/fonts-and-preview.md for typefaces.
+See docs/tutorials/karaoke-design.md for layout and docs/guides/fonts.md for typefaces.
 """
 
 import argparse

@@ -1,49 +1,20 @@
 # Colors and appearance
 
-RGB colors, typed appearance, spatial fields, and material animation. Pixel distances and opacity in 0..1 are authoring values; ASS encodings are output details. See [materials](../guides/materials.md).
+RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Colour and materials](../guides/materials.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [BLACK](#black)
-- [BLUE](#blue)
-- [CYAN](#cyan)
-- [Color](#color)
-- [ColorRamp](#colorramp)
-- [ColorStop](#colorstop)
-- [Extrusion](#extrusion)
-- [GRAY](#gray)
-- [GREEN](#green)
-- [Glow](#glow)
-- [Highlight](#highlight)
-- [HighlightArrival](#highlightarrival)
-- [HighlightPass](#highlightpass)
-- [KaraokeTheme](#karaoketheme)
-- [LinearGradient](#lineargradient)
-- [LyricGlow](#lyricglow)
-- [LyricGradient](#lyricgradient)
-- [LyricHighlights](#lyrichighlights)
-- [MAGENTA](#magenta)
-- [MaterialClip](#materialclip)
-- [MaterialEffect](#materialeffect)
-- [ORANGE](#orange)
-- [PINK](#pink)
-- [PURPLE](#purple)
-- [Paint](#paint)
-- [PaintInput](#paintinput)
-- [PaintPair](#paintpair)
-- [PaintValue](#paintvalue)
-- [RED](#red)
-- [SecondaryOutline](#secondaryoutline)
-- [ShaderPaint](#shaderpaint)
-- [WHITE](#white)
-- [YELLOW](#yellow)
-- [paint_pair_from_style](#paint_pair_from_style)
+**Classes:** [`Color`](#color) · [`ColorRamp`](#colorramp) · [`ColorStop`](#colorstop) · [`Extrusion`](#extrusion) · [`Glow`](#glow) · [`Highlight`](#highlight) · [`HighlightArrival`](#highlightarrival) · [`HighlightPass`](#highlightpass) · [`KaraokeTheme`](#karaoketheme) · [`LinearGradient`](#lineargradient) · [`LyricGradient`](#lyricgradient) · [`LyricHighlights`](#lyrichighlights) · [`MaterialClip`](#materialclip) · [`MaterialEffect`](#materialeffect) · [`Paint`](#paint) · [`PaintInput`](#paintinput) · [`PaintPair`](#paintpair) · [`SecondaryOutline`](#secondaryoutline) · [`ShaderPaint`](#shaderpaint)
+
+**Functions:** [`paint_pair_from_style`](#paint_pair_from_style)
+
+**Types & constants:** [`BLACK`](#black) · [`BLUE`](#blue) · [`CYAN`](#cyan) · [`GRAY`](#gray) · [`GREEN`](#green) · [`LyricGlow`](#lyricglow) · [`MAGENTA`](#magenta) · [`ORANGE`](#orange) · [`PINK`](#pink) · [`PURPLE`](#purple) · [`PaintValue`](#paintvalue) · [`RED`](#red) · [`WHITE`](#white) · [`YELLOW`](#yellow)
 
 ## BLACK
 
-Public constant:
+*constant*
 
 ```python
 BLACK = Color(red=0, green=0, blue=0)
@@ -51,7 +22,7 @@ BLACK = Color(red=0, green=0, blue=0)
 
 ## BLUE
 
-Public constant:
+*constant*
 
 ```python
 BLUE = Color(red=0, green=0, blue=255)
@@ -59,7 +30,7 @@ BLUE = Color(red=0, green=0, blue=255)
 
 ## CYAN
 
-Public constant:
+*constant*
 
 ```python
 CYAN = Color(red=0, green=255, blue=255)
@@ -67,12 +38,12 @@ CYAN = Color(red=0, green=255, blue=255)
 
 ## Color
 
+*dataclass* · [Source](../../kara_templater/composition.py#L13)
+
 An immutable RGB color with integer channels in 0 through 255.
 
 hex accepts exactly #RRGGBB; ASS BGR conversion is performed at serialization
 boundaries.
-
-[Source](../../kara_templater/composition.py#L13)
 
 ```python
 Color(
@@ -102,9 +73,9 @@ Color.hex(
 
 ## ColorRamp
 
-Piecewise linear colors at absolute script coordinates; ends clamp.
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L137)
 
-[Source](../../kara_templater/paint_fields.py#L137)
+Piecewise linear colors at absolute script coordinates; ends clamp.
 
 ```python
 ColorRamp(
@@ -130,11 +101,11 @@ ColorRamp.at(
 
 ## ColorStop
 
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L123)
+
 An RGB color at a finite script-space position along a paint field axis.
 
 ColorRamp requires ordered stops.
-
-[Source](../../kara_templater/paint_fields.py#L123)
 
 ```python
 ColorStop(
@@ -152,14 +123,14 @@ ColorStop(
 
 ## Extrusion
 
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L19)
+
 A solid side swept from a drawing's hard silhouette in local script pixels.
 
 Offset is the vector from front to back. The side follows the face's
 transforms and opacity, and keeps its own color during a lyric wipe.
 back_color shades the side from color at the face to back_color at full depth.
 Zero offset gives a flat drawing. Hook output supports this appearance.
-
-[Source](../../kara_templater/paint_fields.py#L19)
 
 ```python
 Extrusion(
@@ -179,7 +150,7 @@ Extrusion(
 
 ## GRAY
 
-Public constant:
+*constant*
 
 ```python
 GRAY = Color(red=128, green=128, blue=128)
@@ -187,7 +158,7 @@ GRAY = Color(red=128, green=128, blue=128)
 
 ## GREEN
 
-Public constant:
+*constant*
 
 ```python
 GREEN = Color(red=0, green=255, blue=0)
@@ -195,11 +166,11 @@ GREEN = Color(red=0, green=255, blue=0)
 
 ## Glow
 
+*dataclass* · [Source](../../kara_templater/composition.py#L46)
+
 A paint glow with RGB color, nonnegative blur/border in script pixels, and opacity in 0 through 1.
 
 It is separate from the body fill and outline.
-
-[Source](../../kara_templater/composition.py#L46)
 
 ```python
 Glow(
@@ -239,9 +210,9 @@ Glow.from_studio(
 
 ## Highlight
 
-A named paint contribution for one lyric unit, independent of Track streams.
+*dataclass* · [Source](../../kara_templater/lyrics/highlights.py#L207)
 
-[Source](../../kara_templater/lyrics/highlights.py#L207)
+A named paint contribution for one lyric unit, independent of Track streams.
 
 ```python
 Highlight(
@@ -285,6 +256,8 @@ Highlight.regions(
 
 ## HighlightArrival
 
+*dataclass* · [Source](../../kara_templater/lyrics/highlights.py#L1130)
+
 Bind common animations to measured character crossings before allocation.
 
 Use as LyricRule.anchor. first selects the earliest highlight per repeat round;
@@ -293,8 +266,6 @@ Thresholds use original measured geometry, independent of animation and paint
 priority. The interval length is full character traversal. A partial traversal
 requires duration here; LyricRule.duration may further override that length.
 Nonlinear passes require a declared inverse_rate. No runtime state is retained.
-
-[Source](../../kara_templater/lyrics/highlights.py#L1130)
 
 ```python
 HighlightArrival(
@@ -332,6 +303,8 @@ HighlightArrival.__call__(
 
 ## HighlightPass
 
+*dataclass* · [Source](../../kara_templater/lyrics/highlights.py#L139)
+
 One horizontal pass, with absolute seconds and measured line-local x.
 
 reverse starts the front at the right edge and grows ownership to the left.
@@ -339,8 +312,6 @@ reverse starts the front at the right edge and grows ownership to the left.
 round identifies repeat groups; reset discards previous rounds. rate receives
 normalized progress. Declared breakpoints are seconds from the pass start.
 A zero-duration pass reveals its entire region at its start, as ASS k0 does.
-
-[Source](../../kara_templater/lyrics/highlights.py#L139)
 
 ```python
 HighlightPass(
@@ -391,6 +362,8 @@ HighlightPass.front(
 
 ## KaraokeTheme
 
+*dataclass* · [Source](../../kara_templater/appearance.py#L21)
+
 Color role overrides shared by catalog effects and their inherited cues.
 
 An omitted role inherits from the outer theme. Ordinary catalog effects
@@ -398,8 +371,6 @@ retain source outlines until an outline role is supplied. Duotone supplies
 contrasting outlines for both sides of the wipe. Explicit effect colors win.
 Before and after refer to the karaoke color transition at each point in
 the glyph. With no wipe, the whole unit switches at once.
-
-[Source](../../kara_templater/appearance.py#L21)
 
 ```python
 KaraokeTheme(
@@ -434,12 +405,12 @@ KaraokeTheme.overlay(
 
 ## LinearGradient
 
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L163)
+
 An x/y gradient for fill, outline, or both; screen coordinates by default.
 
 The hook shades independent fill and outline ramps continuously. Local
 space attaches color stops to the untransformed drawing.
-
-[Source](../../kara_templater/paint_fields.py#L163)
 
 ```python
 LinearGradient(
@@ -468,7 +439,7 @@ Type: `tuple[float, float]`.
 
 ## LyricGlow
 
-Public type alias:
+*type alias*
 
 ```python
 type LyricGlow = Glow | Callable[[LyricLine, LyricTarget], Glow | None] | None
@@ -476,14 +447,14 @@ type LyricGlow = Glow | Callable[[LyricLine, LyricTarget], Glow | None] | None
 
 ## LyricGradient
 
+*dataclass* · [Source](../../kara_templater/lyrics/highlights.py#L83)
+
 Evenly spaced colors on measured lyrics. Vertical colors span each glyph.
 Horizontal colors span all body glyphs sharing an ASS style and their readings.
 
 Pass as material to LyricHighlights.from_timing. Coordinates are derived
 from undecorated glyph bounds. This factory produces an
 ordinary LinearGradient and inherits its renderer restrictions.
-
-[Source](../../kara_templater/lyrics/highlights.py#L83)
 
 ```python
 LyricGradient(
@@ -512,6 +483,8 @@ LyricGradient.__call__(
 
 ## LyricHighlights
 
+*dataclass* · [Source](../../kara_templater/lyrics/highlights.py#L646)
+
 Build named union/priority/layer highlights with common visual objects.
 
 Each drawing uses ordinary per-layer alpha, with its glow clipped after blur.
@@ -525,8 +498,6 @@ masks still use vector clipping. Clip masks use local ±65536 outer bounds;
 use explicit custom masks for drawings outside that range.
 Glow factories receive the line and target once during construction, allowing
 distinct body/ruby geometry without invoking author selection on each frame.
-
-[Source](../../kara_templater/lyrics/highlights.py#L646)
 
 ```python
 LyricHighlights(
@@ -634,7 +605,7 @@ LyricHighlights.from_timing(
 
 ## MAGENTA
 
-Public constant:
+*constant*
 
 ```python
 MAGENTA = Color(red=255, green=0, blue=255)
@@ -642,12 +613,12 @@ MAGENTA = Color(red=255, green=0, blue=255)
 
 ## MaterialClip
 
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L100)
+
 Apply a WGSL effect to one or all coverage planes over a local interval.
 
 Start is relative to the object's clock, and an omitted duration extends
 to the end of its lifetime. Effects on a plane run in declaration order.
-
-[Source](../../kara_templater/paint_fields.py#L100)
 
 ```python
 MaterialClip(
@@ -670,6 +641,8 @@ MaterialClip(
 
 ## MaterialEffect
 
+*class* · [Source](../../kara_templater/paint_fields.py#L77)
+
 A reusable WGSL function evaluated after sampling a coverage plane.
 
 Define ``shade(material: vec4<f32>, ctx: KaraPaintContext, ...)`` to
@@ -679,8 +652,6 @@ seconds from the effect start, and ``ctx.progress`` in 0..1. Component
 indices are 0 for fill, 1 for outline, 2 for shadow and 3 for extrusion.
 Additional arguments follow ``parameters()`` in order. Float, Color and
 Vec2 become f32, vec3<f32> in 0..1, and vec2<f32> respectively.
-
-[Source](../../kara_templater/paint_fields.py#L77)
 
 ```python
 MaterialEffect()
@@ -703,7 +674,7 @@ MaterialEffect.parameters() -> tuple[PaintValue | PaintInput, ...]
 
 ## ORANGE
 
-Public constant:
+*constant*
 
 ```python
 ORANGE = Color(red=255, green=165, blue=0)
@@ -711,7 +682,7 @@ ORANGE = Color(red=255, green=165, blue=0)
 
 ## PINK
 
-Public constant:
+*constant*
 
 ```python
 PINK = Color(red=255, green=192, blue=203)
@@ -719,7 +690,7 @@ PINK = Color(red=255, green=192, blue=203)
 
 ## PURPLE
 
-Public constant:
+*constant*
 
 ```python
 PURPLE = Color(red=128, green=0, blue=128)
@@ -727,11 +698,11 @@ PURPLE = Color(red=128, green=0, blue=128)
 
 ## Paint
 
+*dataclass* · [Source](../../kara_templater/composition.py#L105)
+
 Resolved fill, outline, border width, opacity, and optional glow for one drawing.
 
 Distances use script pixels and opacity uses 0 through 1.
-
-[Source](../../kara_templater/composition.py#L105)
 
 ```python
 Paint(
@@ -757,9 +728,9 @@ Paint(
 
 ## PaintInput
 
-A named material value that a preview host may update while playing.
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L65)
 
-[Source](../../kara_templater/paint_fields.py#L65)
+A named material value that a preview host may update while playing.
 
 ```python
 PaintInput(
@@ -777,11 +748,11 @@ PaintInput(
 
 ## PaintPair
 
+*dataclass* · [Source](../../kara_templater/appearance.py#L10)
+
 The Paint values before and after the karaoke transition.
 
 Paint changes do not rewrite the source timing.
-
-[Source](../../kara_templater/appearance.py#L10)
 
 ```python
 PaintPair(
@@ -799,7 +770,7 @@ PaintPair(
 
 ## PaintValue
 
-Public type alias:
+*type alias*
 
 ```python
 type PaintValue = float | Color | Vec2
@@ -807,7 +778,7 @@ type PaintValue = float | Color | Vec2
 
 ## RED
 
-Public constant:
+*constant*
 
 ```python
 RED = Color(red=255, green=0, blue=0)
@@ -815,11 +786,11 @@ RED = Color(red=255, green=0, blue=0)
 
 ## SecondaryOutline
 
+*dataclass* · [Source](../../kara_templater/composition.py#L91)
+
 A solid outer lyric stroke. Width adds script pixels beyond the primary outline.
 
 A zero width hides the stroke. Its color is independent of fill, primary outline and glow.
-
-[Source](../../kara_templater/composition.py#L91)
 
 ```python
 SecondaryOutline(
@@ -837,6 +808,8 @@ SecondaryOutline(
 
 ## ShaderPaint
 
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L34)
+
 GLSL applied per covered pixel after the normal material and feather.
 
 The body can modify RGB ink and opacity alpha. local and screen are script
@@ -844,8 +817,6 @@ pixel coordinates, time is signed seconds from the object clock, coverage
 is the native mask, and component is 0 for fill, 1 for outline, 2 for
 shadow. Numeric parameters are accessible through item(data + offset).
 Optional functions can contain Metashade-generated GLSL definitions.
-
-[Source](../../kara_templater/paint_fields.py#L34)
 
 ```python
 ShaderPaint(
@@ -865,7 +836,7 @@ ShaderPaint(
 
 ## WHITE
 
-Public constant:
+*constant*
 
 ```python
 WHITE = Color(red=255, green=255, blue=255)
@@ -873,7 +844,7 @@ WHITE = Color(red=255, green=255, blue=255)
 
 ## YELLOW
 
-Public constant:
+*constant*
 
 ```python
 YELLOW = Color(red=255, green=255, blue=0)
@@ -881,9 +852,9 @@ YELLOW = Color(red=255, green=255, blue=0)
 
 ## paint_pair_from_style
 
-Decode the ASS secondary and primary colors as the before and after paints.
+*function* · [Source](../../kara_templater/appearance.py#L55)
 
-[Source](../../kara_templater/appearance.py#L55)
+Decode the ASS secondary and primary colors as the before and after paints.
 
 ```python
 paint_pair_from_style(

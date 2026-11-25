@@ -1,115 +1,89 @@
 # Architecture
 
+Understand how timed lyrics, scene objects, native text measurement, and the Hook and ASS exporters fit together. Read this guide before modifying library modules or public interfaces.
+
+## Pipeline overview
+
 ```mermaid
 flowchart LR
-    A[ASS file] --> D[Document]
-    P[Python construction] --> D
-    D --> L[Document text and lyric binding]
-    D --> T[Track configuration]
-    L --> S[Scene]
+    A["ASS file"] --> D["Document"]
+    P["Python construction"] --> D
+    D --> L["Document text and lyric binding"]
+    D --> T["Track configuration"]
+    L --> S["Scene"]
     T --> S
-    C[Custom objects and animations] --> S
-    S --> O[Standard ASS Document]
-    S --> G[Shared evaluation and cached glyph coverage]
-    G --> EGPU[Standalone libplacebo hook]
-    EGPU --> R[FFmpeg libplacebo filter]
+    C["Custom objects and animations"] --> S
+    S --> G["Shared evaluation and cached glyph coverage"]
+    G --> H["Standalone libplacebo Hook"]
+    H --> R["FFmpeg or mpv libplacebo"]
+    S --> O["Standard ASS Document"]
 ```
 
-## Shared model
+All authoring APIs share one unit system and leave caller-owned inputs unchanged:
 
-ass.py preserves ordered records and serializes standard ASS. Document text and
-lyric modules project decoded text, timing spans, ruby, and cue markers with
-source mappings. Imported lyrics use the template's styles and keep the original
-labels for selection. LyricSource wraps parsed or structured DocumentLyrics. Track authoring, lyric
-anchors and Scene object clocks use seconds; raw ASS records retain milliseconds.
+| Domain | Unit / convention |
+| --- | --- |
+| Raw ASS `Line` timestamps | Integer milliseconds |
+| `DocumentLyrics`, `Track`, `Scene`, animations, cues | Floating-point seconds |
+| Layout, paths, clips, outlines, blurs | Script pixels (`PlayResX` × `PlayResY`) |
+| Opacity (`Paint`, `VisualState`, groups) | `0.0` to `1.0` |
 
-scene.py defines text, path, group, and ASS dialogue objects. scene_animation.py
-provides typed animation declarations and seekable evaluation.
-SceneEvaluator composes hierarchy and reference dependencies in world coordinates.
-Geometry, masks, paint fields, particles, and cues are independent typed extensions.
+## Shared document and scene model
 
-## Frontends
+- **`ass.py`** preserves ordered ASS records and serializes standard ASS (`Document`, `Line`, `Record`, `Style`). Raw `Line` records retain millisecond timestamps.
+- **`document_text.py` and `document_lyrics.py`** decode text, timing spans (`TimedTextSpan`), ruby readings (`RubyText`), and cue markers (`CueMarker`) with source mappings. Imported lyrics adopt the template's styles while keeping original labels for selection. `LyricSource` wraps parsed ASS or structured `DocumentLyrics`.
+- **`scene.py`** defines `Scene`, `TextObject`, `PathObject`, `ObjectGroup`, `AssDialogue`, `PreparedHook`, and the `Scene.export()`, `Scene.export_resources()`, and `Scene.ass` entry points.
+- **`scene_animation.py` and `scene_evaluation.py`** provide typed animation declarations (`StateAnimation`, `AnimationSequence`, `ShaderMotion`, and friends) and seekable evaluation. `SceneEvaluator` composes group hierarchy and reference dependencies (`object_references.py`) in world coordinates.
+- **Independent typed extensions** sit alongside the core scene: `geometry.py`, `group_geometry.py`, `path_geometry.py`, `path_boolean.py`, `path_layout.py`, `path_animation.py`, `path_motion.py`, `text_geometry.py`, `paint_fields.py`, `particles.py`, `cues.py`, and `karaoke_cues.py`.
 
-`lyrics/tracks.py` implements `build_lyric_scene`, which selects independent Track streams, measures lyric
-objects, resolves timing rules from Track.effects, constructs its callable visuals once, collects
-authored visual intervals, calls Layout.allocate once per stream, and binds
-common animations to the prepared LyricLine targets. Custom callables can return
-`line.schedule(...)`: animation factories resolve once per interval when declared, while reservation
-and final alias binding use the same preparation helpers as Track rules.
-Visibility changes retain
-explicit local clock origins rather than rebuilding factory callbacks. LyricScene adds inspectable
-plans to Scene without overriding compilation. Arbitrary row counts use the same
-allocator; custom policies override its batch function. Source ownership and
-same-source visual views remain separate.
+## Lyric frontends and built-in effects
 
-The CLI default recipe uses this frontend with preset placement and before/after
-paint rules. Effect scripts return a Scene or declare
-Tracks. Lyrics remain editable scene objects until export.
+`lyrics/tracks.py` implements `build_lyric_scene`, which orchestrates multi-track karaoke authoring:
 
-Object groups carry hierarchy, inherited opacity and clipping.
+1. Select independent `Track` streams from `LyricSource` inputs.
+2. Measure lyric objects and resolve timing rules from `Track.effects`.
+3. Construct callable visuals once and collect authored visual intervals.
+4. Call `Layout.allocate` (`lyrics/placement.py`) once per stream to place lines.
+5. Bind animations to the prepared `LyricLine` (`lyric_line.py`) targets.
 
-The KaraokeRows preset fits cells to shaped ink and side bearings. Glyph-local paint
-and clipping use the pen origin, which may differ from the left edge of the cell.
-Registered vector guides split the font shaping run at the source character.
-Their em-scaled path and advance replace the cell before clearance and ruby placement.
-The glyph remains a lyric target through animation binding. The shared Scene leaf
-collector then lowers it and its paint layers to path drawings for ASS and GPU.
-Lyric binding applies Track outline clearance to shaped cluster ink bounds before
-ruby, cues and row allocation. Each cluster retains the cumulative extra distance
-so automatic sweeps follow the Studio primary-stroke interval or the native font advances.
+Custom callables can return `line.schedule(...)`: animation factories resolve once per interval when declared, while reservation and final alias binding reuse the same preparation helpers as `Track` rules. Visibility changes keep explicit local clock origins rather than rebuilding factory callbacks. `LyricScene` attaches inspectable `LyricLinePlan` records to `Scene` without overriding export. Arbitrary row counts share the same allocator; custom placement policies override `Layout.allocate`. Source ownership and same-source visual views remain separate.
 
-The lyric engine measures wipe progress
-over shaped text geometry. Studio measures the glyph and primary hard stroke,
-then shortens the endpoint where adjacent layout cells overlap. Clearance,
-secondary strokes and glow never expand the distance traversed during the wipe. The built-in
-highlighter reserves decorative edge transitions and lowers eligible linear
-clips internally. Templates declare appearance rather than compensating for
-blur in clip coordinates or source clocks.
+The CLI default recipe (`__main__.py` and `_cli_preset.py`) builds on this frontend with preset placement and before/after paint rules. `--effect` scripts export `tracks` or `build(document) -> Scene`; lyrics remain editable `Scene` objects until export.
 
-`karaoke_effects.py` exposes the built-in animation catalog as a Track callable.
-It composes existing highlights, semantic rules and ordinary particle/path nodes.
-`_karaoke_motion.py` and `_karaoke_sprites.py` contain private motion/shape recipes;
-neither evaluates a second timeline or encodes ASS. Front/flash aliases share the
-source glyph clock, while emitted ornaments keep independent lifetimes.
+### Shaping, clearance, and sweeps
 
-## Compiler and native measurement
+- `ObjectGroup` carries transform hierarchy, inherited opacity, and clipping.
+- `KaraokeRows` fits cells to shaped ink and side bearings. Glyph-local paint and clipping use the pen origin, which can differ from the cell's left edge.
+- `VectorGuide` entries (`Track.guide_symbols`, `lyrics/layout.py`) split the font shaping run at the source character. Their em-scaled path and advance replace the cell before clearance and ruby placement while remaining a lyric target through animation binding. The shared leaf collector (`_scene_tree.py`) lowers them and their paint layers to path drawings for both Hook and ASS output.
+- Lyric binding applies `Track` outline clearance to shaped cluster ink bounds before ruby, cues, and row allocation. Each cluster keeps cumulative extra distance so automatic sweeps follow `StudioSpacing` primary-stroke intervals or native font advances.
+- `lyrics/highlights.py` measures wipe progress over shaped text geometry. In Studio mode, it measures the glyph plus primary hard stroke and shortens the endpoint where adjacent layout cells overlap. Clearance, secondary strokes, and glow never expand wipe travel distance. `LyricHighlights` reserves decorative edge transitions and lowers eligible linear clips internally so templates declare appearance rather than compensating for blur in coordinates or clocks.
 
-`output/ass_export.py` performs whole-scene preflight, strategy selection, deterministic
-native ASS lowering, ownership handling, reporting, and final resource checks.
-AssDialogue preserves already-lowered ASS while sharing output/provenance rules.
-Rendered output is a new Document; caller-owned scene/source objects remain intact.
+### Built-in effect catalog
 
-`text/measurement.py` exposes extent queries. The native text backend provides font registration and positioned glyph outlines. The C++ extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi and shapes them with HarfBuzz. Public extent queries pad each ink-bearing line’s typographic box by the style outline radius. Pen placement uses the unpadded advances; shape queries decompose FreeType outlines in script coordinates. The CPU preview rasterizes compiler drawings with aggdraw and Pillow.
-Python author callbacks are evaluated
-before serialization; the player receives ordinary ASS rather than Python.
+`karaoke_effects.py` exposes `KaraokeEffects` as a `Track` callable. It composes `LyricHighlights`, `LyricRule` bindings, and ordinary particle/path nodes. `_karaoke_motion.py` and `_karaoke_sprites.py` hold private motion and shape recipes; neither introduces a second timeline or encodes ASS. Front and flash aliases share the source glyph clock, while emitted ornaments keep independent lifetimes.
 
-Public exports are defined once in kara_templater.__all__. Add a public interface
-only when authors need it; internal preparation/compiler values stay internal.
-The generated [API reference](../reference/README.md) documents the retained set.
+## Hook output
 
-## Default GPU output
+`output/hook/` (`export.py`, `draws.py`, `motion.py`, `materials.py`, `wipes.py`, `bands.py`) implements `Scene.export()` and `Scene.export_resources()` via `PreparedHook` and `HookDrawResolver`:
 
-`output/hook/` implements `Scene.export()`. It partitions each leaf at lifetime, clip and animation boundaries.
-Known motion spans store endpoint transforms and easing; rectangle keyframes
-interpolate independently. Custom motion programs receive per-instance data and the clip clock.
-WGSL materials are carried by the Scene's text and path objects as ordered clips.
-The Hook exporter compiles each distinct function through the bundled Naga adapter
-and applies the active functions after calculating coverage. Named material inputs
-are uniforms. The resource manifest gives preview hosts their names and defaults.
-The hook shares inherited screen-rectangle tracks across descendants and
-evaluates them using the owning group's clock. Leaf clips retain their own
-coordinate space and their role in lyric wipes.
-Hook export rasterizes filled paths with aggdraw and static round strokes with FreeType. Pillow filters the resulting coverage.
-The fragment shader evaluates dynamic strokes from positioned contours.
-A sparse timeline indexes tiled draws in painter order. Each draw shares its
-transform, clip and opacity across its coverage planes. Tiles retain individual
-plane bounds, and the shader selects any alternate mask set before compositing
-its planes in order. Geometry-changing shader
-motions use poses on the output frame grid in short windows. Built-in particles
-can use analytic travel and scale bounds. Both paths index the reachable mask
-coverage and pass through the same per-frame and per-tile work checks. Curve
-knots, shader parameters, tile lists,
-materials and raster masks share storage across instances. The fragment shader composites those
-draws in painter order onto the input video. FFmpeg/libplacebo owns the frame
-clock and GPU resources. Ordinary ASS can be saved independently.
-See [GPU output](../guides/gpu-rendering.md) for the clock and format limits.
+- **Span partitioning and motion**: each leaf splits at lifetime, clip, and animation boundaries. Known motion spans store endpoint transforms and easing; `RectangleKeyframes` interpolate independently; `ShaderMotion` programs receive per-instance data and the clip clock. Inherited screen-rectangle tracks are shared across descendants and evaluated on the owning group's clock, while leaf clips keep their own coordinate space and lyric-wipe role.
+- **WGSL materials**: ordered `MaterialClip` entries on text and path objects compile once per distinct WGSL function through the bundled Naga translator (`_kara_wgsl`, built from `native/wgsl/`) and run after coverage calculation. Named `PaintInput` values become uniforms; `PreparedHook.material_inputs()` and `textures.json` expose their names and defaults to preview hosts.
+- **Coverage and strokes**: filled paths rasterize with `aggdraw` and static round strokes with FreeType (`_text_native.round_stroke`). Pillow filters blurred coverage (`_path_raster.py`). Dynamic strokes evaluate in the fragment shader from positioned contours (`_contour_stroke.py`).
+- **Sparse tiled timeline**: coverage masks shelf-pack into `KARAMASK` (2048 px wide, up to 8192 px high) and deduplicated frame, tile, curve, material, and draw records pack into `KARADATA`. A sparse timeline indexes 64×64 tiled draws in painter order. Each draw shares its transform, clip, and opacity across coverage planes; tiles retain plane bounds and select alternate mask sets before compositing in order.
+- **Work checks and deduplication**: geometry-changing shader motions sample poses on the output frame grid in 8-frame windows; built-in particles can use analytic travel and scale bounds. Both paths index reachable mask coverage and pass through the same per-frame and per-tile work limits. Curve knots, shader parameters, tile lists, materials, and masks share storage across instances. FFmpeg or mpv `libplacebo` owns the frame clock and GPU resources. See [Play and render a Hook](../output/hook.md) for playback and format limits.
+
+## Native text measurement and ASS export
+
+`text/measurement.py` (`text_extents`), `text/layout.py` (`layout_document_text`), and `_metrics.py` wrap the C++17 extension `_text_native` (`native/metrics.cpp`). The extension selects faces with Fontconfig and FreeType, resolves bidirectional runs with FriBidi, and shapes runs with HarfBuzz. `text_extents` pads each ink-bearing line's typographic box by `style.outline`; pen placement uses unpadded advances; shape queries (`text_geometry.py`) decompose FreeType outlines in script coordinates.
+
+`output/ass_export.py` implements `Scene.ass`, the secondary standard-ASS compatibility export. It runs whole-scene preflight, strategy selection, deterministic native ASS lowering, source ownership handling, reporting (`AssResult`, `AssObjectReport`), and `AssBudget` checks. `AssDialogue` preserves already-lowered ASS under the same provenance rules. Python author callbacks evaluate before serialization so players receive ordinary ASS in a new `Document`, leaving caller-owned scenes and sources intact. `_ass_preview.py` and `_raster.py` rasterize compiled ASS drawings on the CPU with `aggdraw` and Pillow.
+
+## Public API boundary
+
+All public exports are listed once in `kara_templater.__all__` (`kara_templater/__init__.py`). Export a symbol only when template authors need it; keep preparation, lowering, and compiler internals private. Regenerate the [API reference](../reference/README.md) with `uv run python -m tools.generate_reference` whenever a public signature or docstring changes.
+
+## Next steps
+
+- [Checks and documentation](checks.md)
+- [Set up a development environment](setup.md)
+- [API reference](../reference/README.md)

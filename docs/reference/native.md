@@ -2,20 +2,19 @@
 
 Raster preview capability errors and display windows in absolute milliseconds.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Play and render a Hook](../output/hook.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [DisplayWindow](#displaywindow)
-- [OutputCapabilityError](#outputcapabilityerror)
+**Classes:** [`DisplayWindow`](#displaywindow) · [`OutputCapabilityError`](#outputcapabilityerror)
 
 ## DisplayWindow
+
+*dataclass* · [Source](../../kara_templater/_raster.py#L43)
 
 An absolute millisecond visibility interval independent of lyric timing.
 
 Animation padding changes this window rather than lyric segment clocks.
-
-[Source](../../kara_templater/_raster.py#L43)
 
 ```python
 DisplayWindow(
@@ -33,9 +32,9 @@ DisplayWindow(
 
 ## OutputCapabilityError
 
-An output failure with optional source and absolute-time context.
+*exception* · [Source](../../kara_templater/_raster.py#L17)
 
-[Source](../../kara_templater/_raster.py#L17)
+An output failure with optional source and absolute-time context.
 
 ```python
 OutputCapabilityError(

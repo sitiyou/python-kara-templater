@@ -13,10 +13,15 @@ from tools.check_docs import check
     ("page", "filename", "start", "duration"),
     (
         ("docs/getting-started.md", "chorus.hook", 0, 3000),
+        ("docs/zh-cn/getting-started.md", "chorus.hook", 0, 3000),
         ("docs/guides/karaoke-effects.md", "karaoke.hook", 0, 5600),
-        ("docs/guides/gpu-rendering.md", "song.ass", 0, 3000),
+        ("docs/zh-cn/guides/karaoke-effects.md", "karaoke.hook", 0, 5600),
+        ("docs/output/hook.md", "song.ass", 0, 3000),
+        ("docs/zh-cn/output/hook.md", "song.ass", 0, 3000),
         ("docs/tutorials/custom-animation.md", "sparks.hook", 0, 2300),
+        ("docs/zh-cn/tutorials/custom-animation.md", "sparks.hook", 0, 2300),
         ("docs/tutorials/lyric-highlights.md", "lyric-arc.hook", 0, 5000),
+        ("docs/zh-cn/tutorials/lyric-highlights.md", "lyric-arc.hook", 0, 5000),
     ),
 )
 def test_complete_author_script_runs_as_written(

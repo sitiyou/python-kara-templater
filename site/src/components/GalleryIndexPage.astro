@@ -1,0 +1,32 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import GalleryCards from "./GalleryCards.astro";
+import {getUi, type Locale, url} from "../lib/i18n";
+
+interface Props {
+	locale: Locale;
+}
+
+const {locale} = Astro.props;
+const ui = getUi(locale);
+---
+
+<StarlightPage
+	frontmatter={{
+		title: ui.gallery.title,
+		description: ui.gallery.description,
+		template: "splash",
+	}}
+>
+	<div class="gallery-page">
+		<div class="gallery-intro">
+			<p class="gallery-lede">{ui.gallery.lede}</p>
+		</div>
+		<GalleryCards locale={locale} />
+		<p class="gallery-more">
+			<a class="inline-action" href={url("examples/", locale)}>
+				{ui.gallery.moreLink} <span aria-hidden="true">→</span>
+			</a>
+		</p>
+	</div>
+</StarlightPage>

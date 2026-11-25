@@ -1,0 +1,161 @@
+---
+import LivePreview from "./LivePreview.astro";
+import {demos, localizeDemo, previewUrl, url} from "../lib/gallery";
+import {detectLocale, getUi} from "../lib/i18n";
+
+const locale = detectLocale(Astro.locals.starlightRoute.locale);
+const ui = getUi(locale);
+
+const featuredIds = ["scanline-and-glow", "ruby-sweep", "sweep-particles"];
+const featuredList = featuredIds
+	.map((id) => demos.find((demo) => demo.id === id))
+	.filter((demo): demo is (typeof demos)[number] => Boolean(demo))
+	.map((demo) => localizeDemo(demo, locale));
+
+const initial = featuredList[0] ?? localizeDemo(demos[0], locale);
+---
+
+<section class="stage-hero">
+	<div class="stage-hero-copy">
+		<p class="hero-eyebrow">
+			<span class="eyebrow-pulse" aria-hidden="true"></span>
+			{ui.hero.eyebrow}
+		</p>
+		<h1 id="_top" class="hero-title">
+			{locale === "zh-cn" ? (
+				<>
+					{ui.hero.titlePrefix}<br />
+					<span class="sweep-word">{ui.hero.titleSweep}</span><br />
+					{ui.hero.titleSuffix}
+				</>
+			) : (
+				<>
+					{ui.hero.titlePrefix}{" "}
+					<span class="sweep-word">{ui.hero.titleSweep}</span>{" "}
+					{ui.hero.titleSuffix}
+				</>
+			)}
+		</h1>
+		<p class="hero-tagline">{ui.hero.tagline}</p>
+		<div class="hero-actions">
+			<a class="cta-primary" href={url("getting-started/", locale)}>
+				{ui.hero.primaryCta}
+				<span aria-hidden="true">→</span>
+			</a>
+			<a class="cta-secondary" href={url("gallery/", locale)}>
+				{ui.hero.secondaryCta}
+				<span aria-hidden="true">↗</span>
+			</a>
+		</div>
+		<div class="hero-cli" aria-label={ui.hero.cliLabel}>
+			<span class="cli-prompt" aria-hidden="true">$</span>
+			<code>kara-templater examples/karaoke.ass karaoke.hook</code>
+		</div>
+	</div>
+
+	<div class="stage-monitor-wrap">
+		<figure class="stage-monitor" style={`--monitor-accent:${initial.accent}`}>
+			<div class="monitor-chrome">
+				<div class="monitor-title-group">
+					<span class="monitor-dot" aria-hidden="true"></span>
+					<span class="monitor-name" data-monitor-name>{initial.title}</span>
+				</div>
+				<a
+					class="monitor-open-icon"
+					data-monitor-link
+					href={url(`gallery/${initial.id}/`, locale)}
+					aria-label={ui.hero.stageOpen}
+					title={ui.hero.stageOpen}
+				>
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M5.5 3.5h7v7" />
+						<path d="M12.5 3.5 4 12" />
+					</svg>
+				</a>
+			</div>
+			<LivePreview id="hero-stage-preview" demo={initial} locale={locale} compact />
+			<figcaption class="monitor-footer">
+				<div class="monitor-switcher" role="group" aria-label={ui.hero.stageSwitchLabel}>
+					{featuredList.map((demo, index) => (
+						<button
+							type="button"
+							class="monitor-tab"
+							style={`--tab-accent:${demo.accent}`}
+							aria-pressed={index === 0 ? "true" : "false"}
+							title={demo.title}
+							data-switch-resources={previewUrl(demo)}
+							data-switch-still={demo.still}
+							data-switch-width={demo.width}
+							data-switch-height={demo.height}
+							data-switch-accent={demo.accent}
+							data-switch-title={demo.title}
+							data-switch-href={url(`gallery/${demo.id}/`, locale)}
+						>
+							{demo.id === "scanline-and-glow" && (
+								<svg class="tab-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+									<circle cx="8" cy="8" r="2.7" />
+									<path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M12.4 3.6l-1.2 1.2M4.8 11.2l-1.2 1.2" />
+								</svg>
+							)}
+							{demo.id === "ruby-sweep" && (
+								<svg class="tab-icon" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+									<path d="M4.5 3.5h7" />
+									<path d="M3 7.5h10M8 7.5v6M5.2 13.5h5.6" />
+								</svg>
+							)}
+							{demo.id === "sweep-particles" && (
+								<svg class="tab-icon" viewBox="0 0 16 16" width="13" height="13" fill="currentColor" aria-hidden="true">
+									<path d="M8 1.5 9.4 6l4.5 1.4-4.5 1.4L8 13.3 6.6 8.8 2.1 7.4 6.6 6 8 1.5Z" />
+									<circle cx="13" cy="3.2" r="1.1" />
+									<circle cx="3.3" cy="12.5" r="0.9" />
+								</svg>
+							)}
+							<span>{demo.shortTitle}</span>
+						</button>
+					))}
+				</div>
+			</figcaption>
+		</figure>
+	</div>
+</section>
+
+<script>
+	const monitor = document.querySelector<HTMLElement>(".stage-monitor");
+	const switcher = document.querySelector(".monitor-switcher");
+	const preview = document.getElementById("hero-stage-preview") as (HTMLElement & {
+		reloadDemo?: (opts: {
+			resources: string;
+			still: number;
+			width: number;
+			height: number;
+			accent: string;
+			title: string;
+		}) => void;
+	}) | null;
+	const nameEl = document.querySelector("[data-monitor-name]");
+	const linkEl = document.querySelector<HTMLAnchorElement>("[data-monitor-link]");
+
+	if (switcher && preview) {
+		const tabs = [...switcher.querySelectorAll<HTMLButtonElement>(".monitor-tab")];
+		switcher.addEventListener("click", (event) => {
+			const button = (event.target as Element)?.closest<HTMLButtonElement>(".monitor-tab");
+			if (!button || button.getAttribute("aria-pressed") === "true") return;
+			for (const tab of tabs) tab.setAttribute("aria-pressed", String(tab === button));
+			const width = Number(button.dataset.switchWidth);
+			const height = Number(button.dataset.switchHeight);
+			const title = button.dataset.switchTitle ?? "";
+			const accent = button.dataset.switchAccent ?? "#f5b95b";
+			if (nameEl) nameEl.textContent = title;
+			if (monitor) monitor.style.setProperty("--monitor-accent", accent);
+			if (linkEl && button.dataset.switchHref) linkEl.href = button.dataset.switchHref;
+			preview.reloadDemo?.({
+				resources: button.dataset.switchResources ?? "",
+				still: Number(button.dataset.switchStill ?? 0),
+				width,
+				height,
+				accent,
+				title,
+			});
+		});
+	}
+</script>

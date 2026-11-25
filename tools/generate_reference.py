@@ -33,31 +33,48 @@ import kara_templater as api
 ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = Path(api.__file__).resolve().parent
 PUBLIC = frozenset(api.__all__)
-GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
+GROUPS: dict[str, tuple[str, tuple[str, ...], str, str]] = {
     "documents": (
         "Documents and lyric input",
         ("ass", "document_text", "document_lyrics", "sources"),
-        "Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric timing spans and Track authoring use seconds. See [Documents](../guides/documents.md).",
-    ),
-    "scenes": (
-        "Scenes and compilation",
-        ("scene", "output.ass_export", "scene_evaluation"),
-        "Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile returns a new Document under explicit resource limits. See [objects](../guides/objects.md) and [compilation](../guides/compilation.md).",
-    ),
-    "animation": (
-        "Animation and timing",
-        ("scene_animation", "easing", "parameters"),
-        "Pure state/property animation and typed composition. Scene, semantic lyric rules, and animation sequences use seconds. See the [time-unit table](../guides/animation.md).",
+        "Records, decoded lyric text, input selection, and source mappings. Raw line clocks use milliseconds; lyric timing spans use seconds.",
+        "[Import timed lyrics](../guides/documents.md) · [Core concepts](../concepts.md)",
     ),
     "tracks": (
         "Track authoring",
         ("lyrics.tracks", "lyrics.placement", "lyric_line", "lyric_effects", "karaoke_effects"),
-        "Independent lyric streams, allocation and semantic bindings into one Scene. Timing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).",
+        "Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds.",
+        "[Lay out vocal tracks](../guides/tracks.md) · [Built-in karaoke effects](../guides/karaoke-effects.md)",
     ),
     "text": (
         "Text measurement and layout",
         ("fonts", "characters", "text.measurement", "text.layout", "lyrics.layout"),
-        "Font-dependent layout, source clusters, and editable body/ruby binding. Unicode code-point ranges must align with independently drawable clusters. See [text and cues](../guides/text-and-cues.md).",
+        "Font registration, shaped glyph metrics, source clusters, and body/ruby binding.",
+        "[Choose and register fonts](../guides/fonts.md) · [Ruby readings and cues](../guides/text-and-cues.md)",
+    ),
+    "scenes": (
+        "Scenes and compilation",
+        ("scene", "output.ass_export", "scene_evaluation"),
+        "Scene objects, world-space evaluation, Hook export, and budgeted ASS compilation. Lifetimes use seconds; geometry uses script pixels.",
+        "[Scene objects and groups](../guides/objects.md) · [Export standard ASS](../output/ass.md)",
+    ),
+    "animation": (
+        "Animation and timing",
+        ("scene_animation", "easing", "parameters"),
+        "Pure state and property animation, easing curves, and typed composition on second-based clocks.",
+        "[Animation and timing](../guides/animation.md) · [Core concepts](../concepts.md)",
+    ),
+    "paint": (
+        "Colors and appearance",
+        (
+            "colors",
+            "composition",
+            "appearance",
+            "paint_fields",
+            "lyrics.highlights",
+        ),
+        "RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles.",
+        "[Colour and materials](../guides/materials.md)",
     ),
     "geometry": (
         "Geometry and paths",
@@ -71,35 +88,27 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str]] = {
             "path_motion",
             "text_geometry",
         ),
-        "Script-space geometry, masks, deformation, path layout, and authored writing/morphing. Complexity bounds and topology requirements are explicit. See [geometry](../guides/geometry.md).",
-    ),
-    "paint": (
-        "Colors and appearance",
-        (
-            "colors",
-            "composition",
-            "appearance",
-            "paint_fields",
-            "lyrics.highlights",
-        ),
-        "RGB colors, typed appearance, spatial fields, and material animation. Pixel distances and opacity in 0..1 are authoring values; ASS encodings are output details. See [materials](../guides/materials.md).",
+        "Script-space vectors, clips, masks, path boolean operations, deformation, extrusion, and morphing.",
+        "[Shapes, clips and masks](../guides/geometry.md)",
     ),
     "cues": (
         "Lyric cues",
         ("cues", "karaoke_cues"),
-        "Typed content factories, reservations, independent placement, and body/ruby binding. Cue lifetimes and trigger values use seconds. See [text and cues](../guides/text-and-cues.md).",
+        "Count-ins, reservations, independent cue tracks, and inline lyric markers measured in seconds.",
+        "[Ruby readings and cues](../guides/text-and-cues.md)",
     ),
     "particles": (
         "Particles and references",
         ("particles", "object_references", "lyric_particles"),
-        "Deterministic emissions, delayed copies, and pure world-space dependencies. Time values use seconds. See [particles](../guides/particles.md).",
+        "Deterministic particle emitters, delayed copies, echoes, and world-space object references.",
+        "[Particles, copies and echoes](../guides/particles.md)",
     ),
     "native": (
         "Raster previews",
         ("_raster",),
         "Raster preview capability errors and display windows in absolute milliseconds.",
+        "[Play and render a Hook](../output/hook.md)",
     ),
-
 }
 
 
@@ -308,13 +317,29 @@ def members(value: type) -> list[tuple[str, object, bool]]:
     return results
 
 
+def class_kind(value: type) -> str:
+    if issubclass(value, Enum):
+        return "enum"
+    if is_typeddict(value):
+        return "TypedDict"
+    if getattr(value, "_is_protocol", False):
+        return "protocol"
+    if issubclass(value, BaseException):
+        return "exception"
+    if is_dataclass(value):
+        return "dataclass"
+    return "class"
+
+
 def describe_class(value: type, name: str, *, level: int = 2) -> list[str]:
+    link = source_link(value)
+    meta = f"*{class_kind(value)}*" + (f" · {link}" if link else "")
     lines: list[str] = [
         f"{'#' * level} {name}",
         "",
-        inspect.getdoc(value) or "",
+        meta,
         "",
-        source_link(value),
+        inspect.getdoc(value) or "",
         "",
     ]
     if issubclass(value, Enum):
@@ -421,7 +446,7 @@ def generate() -> dict[Path, str]:
     for name, module in modules.items():
         choices = [
             group
-            for group, (_, candidates, _) in GROUPS.items()
+            for group, (_, candidates, _, _) in GROUPS.items()
             if module in candidates
         ]
         if len(choices) != 1:
@@ -432,34 +457,55 @@ def generate() -> dict[Path, str]:
     index = [
         "# API reference",
         "",
-        "Generated from the final public exports, signatures, fields, and English docstrings.",
-        "Reference signatures describe contracts; use the [tutorials](../tutorials/custom-animation.md)",
-        "and [guides](../README.md) for complete workflows. Types remain importable from",
-        "`kara_templater`; grouping here does not change their import paths.",
+        "Complete signatures, fields, defaults, and docstrings for every public symbol exported by kara_templater.",
         "",
-        "Regenerate from a built checkout with `python -m tools.generate_reference`.",
-        "Use `--check` to verify that committed pages match the current public API.",
+        "Every symbol listed here is importable directly from `kara_templater`; topic pages group related types without changing their import path. For step-by-step workflows, start with [Core concepts](../concepts.md), the [tutorials](../tutorials/README.md), or the [authoring guides](../guides/README.md).",
+        "",
+        "> [!NOTE]",
+        "> This reference is generated from the package exports with `python -m tools.generate_reference`. Run with `--check` to verify committed pages match the current API.",
         "",
         "## Topics",
         "",
-        "| Topic | Symbols |",
-        "| --- | --- |",
+        "| Topic | Covers | Symbols |",
+        "| --- | --- | --- |",
     ]
-    for group, (title, _, introduction) in GROUPS.items():
+    for group, (title, _, introduction, related) in GROUPS.items():
         names = sorted(grouped[group])
-        index.append(f"| [{title}]({group}.md) | {len(names)} |")
+        index.append(f"| [{title}]({group}.md) | {cell(introduction)} | {len(names)} |")
+
+        classes = [n for n in names if inspect.isclass(getattr(api, n))]
+        functions = [n for n in names if inspect.isfunction(getattr(api, n))]
+        other = [n for n in names if n not in classes and n not in functions]
+
         lines: list[str] = [
             f"# {title}",
             "",
             introduction,
             "",
-            "[All public symbols](README.md#symbol-index)",
+            f"Related guides: {related} · [All public symbols](README.md#symbol-index)",
             "",
             "## Contents",
             "",
         ]
-        lines += [f"- [{name}](#{name.lower()})" for name in names]
-        lines.append("")
+        if classes:
+            lines.append(
+                "**Classes:** "
+                + " · ".join(f"[`{n}`](#{n.lower()})" for n in classes)
+            )
+            lines.append("")
+        if functions:
+            lines.append(
+                "**Functions:** "
+                + " · ".join(f"[`{n}`](#{n.lower()})" for n in functions)
+            )
+            lines.append("")
+        if other:
+            lines.append(
+                "**Types & constants:** "
+                + " · ".join(f"[`{n}`](#{n.lower()})" for n in other)
+            )
+            lines.append("")
+
         for name in names:
             value = getattr(api, name)
             if inspect.isclass(value):
@@ -472,14 +518,16 @@ def generate() -> dict[Path, str]:
                     raise ValueError(
                         f"public function {name} needs an English docstring"
                     )
-                lines += [f"## {name}", "", description, "", source_link(value), ""]
+                link = source_link(value)
+                meta = "*function*" + (f" · {link}" if link else "")
+                lines += [f"## {name}", "", meta, "", description, ""]
                 for overload in get_overloads(value) or (value,):
                     lines += ["```python", signature(overload, name), "```", ""]
             elif isinstance(value, TypeAliasType):
                 lines += [
                     f"## {name}",
                     "",
-                    "Public type alias:",
+                    "*type alias*",
                     "",
                     "```python",
                     f"type {name} = {annotation(value.__value__)}",
@@ -490,7 +538,7 @@ def generate() -> dict[Path, str]:
                 lines += [
                     f"## {name}",
                     "",
-                    "Public constant:",
+                    "*constant*",
                     "",
                     "```python",
                     name + " = " + stable(value),
@@ -500,11 +548,19 @@ def generate() -> dict[Path, str]:
         pages[ROOT / "docs/reference" / f"{group}.md"] = (
             "\n".join(lines).rstrip() + "\n"
         )
-    index += ["", "## Symbol index", "", f"{len(PUBLIC)} public exports.", ""]
-    index += [
-        f"- [{name}]({owners[name]}.md#{name.lower()})" for name in sorted(PUBLIC)
-    ]
-    pages[ROOT / "docs/reference/README.md"] = "\n".join(index) + "\n"
+
+    index += ["", "## Symbol index", "", f"{len(PUBLIC)} public exports grouped alphabetically.", ""]
+    by_letter: dict[str, list[str]] = {}
+    for name in sorted(PUBLIC, key=str.casefold):
+        by_letter.setdefault(name[0].upper(), []).append(name)
+    for letter, bucket in by_letter.items():
+        index.append(f"### {letter}")
+        index.append("")
+        index.append(
+            " · ".join(f"[`{name}`]({owners[name]}.md#{name.lower()})" for name in bucket)
+        )
+        index.append("")
+    pages[ROOT / "docs/reference/README.md"] = "\n".join(index).rstrip() + "\n"
     return pages
 
 

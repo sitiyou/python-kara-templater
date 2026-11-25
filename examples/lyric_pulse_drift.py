@@ -46,13 +46,13 @@ def build(*, custom: bool = False) -> LyricScene:
     document = Document.create(
         width=640,
         height=360,
-        styles=(Style(fontname="DejaVu Sans", fontsize=48, outline=2, shadow=0),),
+        styles=(Style(fontname="Noto Sans CJK JP", fontsize=62, bold=True, outline=2, shadow=0),),
     )
     document.records.append(
         Line(
             start_time=1000,
             end_time=4500,
-            text=r"{\k25}A{\k25}B{\k100}C{\k200}D",
+            text=r"{\k25}光{\k25}る{\k100}夜{\k200}空",
         )
     )
     exit_motion = (

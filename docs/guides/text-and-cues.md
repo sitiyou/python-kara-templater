@@ -1,213 +1,191 @@
-# Text, ruby, and lyric cues
+# Ruby readings and cues
 
-TextObject draws one string; layout_document_text and layout_document_lyrics
-bind Document text into measured, independently editable objects. Use the lyric
-binder for body/ruby projection and repeated timing intervals. These interfaces
-retain source ranges and timing separately from visual objects.
+Control how ruby readings align over body text, add animated count-ins before vocal entries, and map timed placeholder symbols to vector graphics. Covers built-in cues, BPM timing, custom cue factories, and low-level text layout.
 
-## Bind text and readings
+## Position and group ruby readings
 
-Find the desired Line's index in Document.records, then call the appropriate
-layout function with the Document and that record index. A LyricLayout exposes
-body, positioned ruby, timing units, and unit_group(index). A unit group combines
-its body and readings around the body's center, so a shared pulse moves them
-together. Multiline or bilingual content can be composed by binding separate
-source records and adding the groups to one Scene.
+On horizontal tracks, all ruby readings in a line share one baseline by default (`ruby_alignment="line"`). The lowest reading outline clears the tallest body outline by `ruby_gap` script pixels (default `6`).
 
-TextLayout.characters associates each object with its decoded source range,
-layout box, conservative ink bounds, and actual font faces. range_bounds and
-background measure author-selected ranges without implicit word segmentation.
-`background(..., follow=True)` follows the local animated text range and its
-breakpoints; put it in the same parent group to inherit group transforms. Use a
-world-space reference when following across parent groups.
+To place each reading group relative to its own body ink instead of the tallest glyph on the line, set `ruby_alignment="group"`:
 
-Shaping can combine several code points into one cluster. Color boundaries, cue
-anchors, and outline extraction must respect independent drawing boundaries.
-Missing glyphs and unsupported splitting produce errors with source context.
-Static color and style-reset scopes are preserved by the Document binder; the
-current binders do not evaluate every possible ASS override.
+```python
+from kara_templater import Track
 
-Independent layout considers Latin, Greek, Cyrillic, CJK, kana, modern Hangul,
-digits, punctuation, and guide dots, with combining marks kept with their base.
-Actual outlines still determine whether a candidate can be drawn independently.
-Joining scripts, bidi controls, emoji sequences, and archaic jamo are outside
-this independent-character backend. Whole TextObject rendering and independently
-editable glyph layout have different requirements.
+track = Track(id="main", ruby_alignment="group", ruby_gap=4)
+```
 
-## Vertical ruby spacing
+Smaller `ruby_gap` values bring readings closer to the body; negative values allow overlap. Clearance is measured from shaped ink plus static hard strokes (and any `reserved_border`) before animation—shadows, glow, and scale pulses can extend into the gap. Because `ruby_gap` uses `PlayRes` script pixels, it scales with the video.
 
-Horizontal readings in a lyric line share a baseline by default. The lowest
-reading outline clears the tallest body outline by six script pixels. Use
-`Track(id="main", ruby_alignment="group")` to set each reading group's height
-from its own body ink. `ruby_gap` controls the clearance in both modes. Smaller
-values bring the reading closer, and negative values allow overlap.
+Horizontal ruby follows Aegisub's grouping rules:
 
-The engine measures shaped ink before animation, including the static stroke
-and any reserved hard rim.
-Shadows, glow and pulse animations may extend into this space. The measurement
-uses the document's PlayRes; resizing the video scales the visible gap.
+- Adjacent annotated syllables join into one reading group.
+- Short readings center over their group at natural spacing. On italic faces, the optical center follows the slant of the ink, while outline clearance keeps neighboring readings from colliding.
+- Wide readings start at the group's left edge. Bare syllables absorb preceding overhang; if more room is needed, the next group shifts together with its body.
+- In code-authored documents (`Document.create`), `|!` starts a separate reading group and `|<` lets a wide reading spill equally left and right. See the [Aegisub furigana tutorial](https://aegisub.org/docs/latest/furigana_karaoke) for background on these rules.
 
-## Define and place cues
+## Add count-in cues to a Track
 
-CuePreset chooses a factory, lead, duration, steps, gap, position, and whether to
-keep reserved space. Choose a factory by its clock and appearance.
+Insert a cue marker in your timed line and register a matching `CuePreset` in `Track.cues`:
 
-Horizontal inline cues align to the visible center of the body glyph at their
-marker. `CueContent.from_line(line)` uses the visible center of the cue's own
-body. Custom drawings can pass `ink_center_y` in local coordinates to
-`CueContent`; by default the reserved height determines the drawing's center.
+```python
+from kara_templater import (
+    CueMarker,
+    CuePreset,
+    Document,
+    KaraokeEffects,
+    Line,
+    Style,
+    Track,
+    VolumeCue,
+    build_lyric_scene,
+)
+
+document = Document.create(
+    styles=(Style(fontname="DejaVu Sans", fontsize=56, shadow=0),)
+)
+document.records.append(
+    Line(
+        start_time=3000,
+        end_time=5500,
+        text=CueMarker("intro", "count").markup() + r"{\k120}Ready {\k130}now",
+    )
+)
+
+scene = build_lyric_scene(
+    document,
+    bpm=120,
+    tracks=(
+        Track(
+            id="main",
+            cues={"count": CuePreset(factory=VolumeCue())},
+            effects=(KaraokeEffects(),),
+        ),
+    ),
+)
+scene.export("count_in.hook")
+```
+
+Choose a built-in cue factory based on the visual style you want:
 
 | Factory | Before the lyric starts | At the cue end |
 | --- | --- | --- |
-| `VolumeCue` | All columns pulse together, then change to the highlight color left to right. Set `count` for the number of columns. | The entire signal clears. |
-| `SignalCue` | Circles, squares, rounded squares, stars, eighth notes, sixteenth notes, paired notes or a custom vector path extinguish in the configured order. Optional slide during the fade. | The last lamp clears. |
-| `BarsCue` | A descending bar countdown drops individual bars at the supplied steps. | The last bar clears. |
-| `TextCue` | Each step displays its configured label. | The last label clears. |
+| `VolumeCue` | Descending columns pulse together (`flashes=3`), then fill to the highlight color left to right (`count=4`). | All columns clear. |
+| `SignalCue` | A row of shapes (`circle`, `square`, `rounded`, `star`, `note8`, `note16`, `notepair`, or a unit-square `VectorPath`) extinguishes step by step. | The last lamp clears. |
+| `BarsCue` | A descending bar countdown drops one bar per step. | The last bar clears. |
+| `TextCue` | Each step displays its text label (default `("3", "2", "1")`). | The last label clears. |
 
-Volume columns and shape lamps default to half the authored font size at the marker. A size of 100 gives a 50 px lamp, and a size of 80 gives a 40 px lamp in any font family. Adjust `size_ratio` to choose another proportion. Bars and text countdowns follow the full authored size by default. Text countdowns draw their labels in their own font.
-For columns, `column_width_ratio` sets each column’s width as a fraction of the group height
-(default 0.25). `VolumeCue(align="bottom")` puts the shorter bars on the same baseline as the
-tallest one. Choose `"top"` or `"center"` (default) to align their tops or centers.
-Set `height` on `VolumeCue`
-or `size` on `SignalCue` for a fixed size in script pixels. Built-in lamps have a
-small reflection that fades with the lamp. Set `edge_brightness=0` to remove it.
+### Size, shape, and color inheritance
 
-Set a track's solid lyric colors once with `KaraokeEffects`. Lamps use the highlight
-fill and outline throughout the countdown. Each column switches from the base
-pair to the highlight pair as its turn arrives. With source styling alone, the first
-nonblank body run supplies ASS secondary, primary and outline colors. The marker anchors the cue to the lyric layout.
-For volume columns, `transition=0` makes each flash blink off for the middle half of its cycle.
-Higher values soften the fade. The default is `0.67`. Changing it keeps the final fill on beat.
-With `zoom_pulse` or `zoom_pulse_scanline`, each lamp grows during its own
-countdown step. Each column grows during its fill step and settles over 0.30 s,
-using the same curve level as the highlighted text.
+- **Default size**: `VolumeCue` and `SignalCue` default to half (`size_ratio=0.5`) the authored font size at the marker (for example, 40 px for an 80 px font). `BarsCue` and `TextCue` default to the full authored font size (48 px without a host; `BarsCue` width is 1.5× height). Set `height` on `VolumeCue`, `size` on `SignalCue`, or `font_size` on `TextCue` for fixed script pixels.
+- **Volume column shape**: `column_width_ratio` sets column width relative to height (default `0.25`); `align` aligns shorter columns to `"center"` (default), `"top"`, or `"bottom"`; `transition` controls flash softness from `0` (hard blink) to `1` (default `0.67`).
+- **Lamp details**: `SignalCue` includes a subtle edge highlight that fades with each lamp (`edge_brightness=0` turns it off). Set `spacing` for extra pixels between lamps and `slide=Vec2(...)` to shift each lamp as it fades.
+- **Colors and effects**: When your track uses `KaraokeEffects`, `SignalCue` lamps inherit the highlight fill, outline, `SecondaryOutline`, and `glow`. `VolumeCue` columns switch from base paint (`before_fill`, `before_outline`, `secondary_outline`, `base_glow`, `base_material`) to highlight paint (`after_fill`, `after_outline`, `after_secondary_outline`, `glow`, `material`) as each column fills. Leading inline volume columns share the first nonblank singer's horizontal `LyricGradient` ramp. With `zoom_pulse` or `zoom_pulse_scanline`, lamps and columns pulse with the same curve level.
+- **Fixed palette**: Pass `CuePreset(colors=PaintPair(...))` to override automatic palette inheritance across tracks.
 
-To reuse a fixed role palette across tracks, pass a `PaintPair` to
-`CuePreset(colors=...)`. The vector cues read its fill, primary outline, secondary outline, opacity
-and static glow. A `SecondaryOutline(color, width=6)` adds 6 script pixels
-outside the lyric’s primary outline. The cue scales this width to its own size.
-Use `after_secondary_outline` on the lyric recipe to change the outer ring
-as each column fills. Lamps inherit the highlight ring throughout the countdown.
-`base_glow` and `glow` independently supply the base and highlight halo.
-For a highlight gradient use `KaraokeEffects(material=LyricGradient(colors, axis="x"))`.
-Leading inline volume columns share the first nonblank singer’s horizontal ramp.
-When the line changes styles, the columns extend only to that singer’s last advance.
-Columns switch from `base_material` to `material` on their individual fill steps.
-Set `SignalCue(spacing=8)` for eight extra script pixels between adjacent lamps.
-A separate lamp row uses the highlight palette and spans all of its original slots, so the remaining lamps
-keep their colors during countdown. Explicit cue colors take precedence.
-Callback-generated decorations need a custom cue drawing.
+### Choose countdown direction
 
-### Sing an inline vector symbol
-
-For symbols that fill in time with the lyrics and stay visible after their beat,
-give each symbol an ordinary karaoke interval in the body, for example
-`{\k30}◆{\k30}◆{\k50}歌`. Map the marker to a drawing on the track:
-
-```python
-from kara_templater import KaraokeEffects, Track, Vec2, VectorGuide, VectorPath
-
-triangle = VectorPath.polygon(Vec2(0.1, -0.75), Vec2(0.7, -0.4), Vec2(0.1, -0.05))
-track = Track(
-    id="main",
-    guide_symbols={"◆": VectorGuide(triangle, advance=0.8)},
-    effects=(KaraokeEffects(highlight="utopia_scanline"),),
-)
-```
-
-The path coordinates and advance are multiples of the authored font size at the marker, or the guide’s explicit `size` in script pixels. Zero y is the
-baseline and negative y extends above it. The mapping applies to every matching
-body character on that track. Existing timed placeholder characters can use
-their original intervals. The column advance positions the next lyric, while
-the ink bounds set the sweep distance. Ruby and outline clearance use the
-replacement geometry. To anchor two symbols to the first timed character, give
-both symbols a `\k0` interval before it. With the built-in wipe they retain their
-waiting color on the onset frame and switch at the next ASS centisecond.
-Ordinary ASS and standalone hooks both draw the path.
-
-### Choose the countdown order
-
-The marker's `placement` sets where the cue appears. Its preset's factory
-sets what moves. For three inline lamps before a left-to-right lyric, choose
-which lamp should still be visible on the final beat:
+For `SignalCue`, choose which lamp stays lit on the final beat before singing begins:
 
 | Factory | All lit | After step 1 | After step 2 | Timing begins |
 | --- | --- | --- | --- | --- |
 | `SignalCue(direction="left_to_right")` | ● ● ● lyric | · ● ● lyric | · · ● lyric | · · · lyric |
 | `SignalCue()` (default `right_to_left`) | ● ● ● lyric | ● ● · lyric | ● · · lyric | · · · lyric |
 
-Here · denotes the space left by an extinguished lamp. Set `lead=duration`
-to finish at the first timed syllable. For example, register
-`CuePreset(factory=SignalCue(direction="left_to_right"), lead=5, duration=5)`
-under the input marker's preset key. `steps` always increases in time.
-`slide` moves each fading lamp by a pixel offset independently of the order.
+Here `·` marks the space left by an extinguished lamp. `slide` moves each fading lamp independently of the direction.
 
-For an early preview, `CuePreset(factory=SignalCue(countdown=2), lead=5, duration=5)` shows
-all lamps for three seconds, then runs the configured steps during the final two seconds.
+## Timing, BPM, and cue placement
 
-Pass a fixed song tempo with `build_lyric_scene(document, tracks=tracks, bpm=180)`,
-or pass `bpm` to `bind_cues` or `bind_lyric_cues`. A preset with automatic timing
-ends at the first timed syllable. A volume countdown reserves one beat for the final fill and `flash_ratio` beats per flash. With the default three flashes, the four stages last two seconds at 120 BPM. The column count divides the final beat. For other cues each step budgets four beats rounded to the
-nearest millisecond. At 1800 ms or longer the budget is halved (whole milliseconds).
-Three steps at 180 BPM span 3.999 seconds. Nonuniform `steps` divide the total in
-the declared proportions. With BPM, an explicit `duration` overrides that
-budget and an omitted `lead` follows the duration. Without BPM each omitted
-field independently defaults to one second. Use `preset.resolve_timing(bpm=bpm)`
-to check the required pre-roll before adding a marker.
+A cue finishes at its trigger time (by default, the first timed syllable of the line, after any leading empty `\k` rest). Override the trigger with `CuePreset(trigger=...)` in absolute seconds.
 
-A leading empty `\k` advances the timing cursor; the default cue trigger uses
-the first timed text. You can also supply an absolute trigger in seconds.
-Keep `keep_space=True` for an inline cue whose host text must stay still.
-See the [two-track example](../../examples/karaoke_signals.py).
+### Explicit timing vs. BPM
 
-A custom
-CueFactory receives CueContext and returns CueContent: local Scene objects plus
-explicit layout width and height. Content and display behavior can therefore be
-replaced independently of the input marker syntax.
+- **Explicit seconds**: Pass `lead` and `duration` on `CuePreset`. Setting `lead=duration` ends the cue right on the first syllable. To show all lamps or columns idle before the active countdown begins, set `countdown` in seconds on `SignalCue` or `VolumeCue`—for example, `CuePreset(factory=SignalCue(countdown=2), lead=5, duration=5)` holds all lamps lit for 3 seconds, then counts down over the final 2 seconds. `steps` always increases strictly from `0` to `1`.
+- **Automatic BPM timing**: Pass `bpm` to `build_lyric_scene(..., bpm=180)` (or `Document.create(..., bpm=...)`, `bind_cues`, `bind_lyric_cues`). Omitted `lead` follows `duration`:
+  - `VolumeCue` budgets 1 beat for the final fill plus `flash_ratio` beats per flash (2.0 s at 120 BPM with the default 3 flashes).
+  - Other cues budget 4 beats per step (rounded to milliseconds), halved whenever a step reaches 1800 ms or longer (so 3 steps at 180 BPM span 3.999 s). Nonuniform `steps` divide the total proportionally.
+- **Without BPM**: Omitted `lead` and `duration` each default to `1.0` s. Call `preset.resolve_timing(bpm=bpm)` to inspect the exact `(lead, duration)` pair before placing markers.
 
-Use bind_cues for plain TextLayout or bind_lyric_cues for LyricLayout, supplying
-a mapping of preset names to CuePreset values. Inline cues reserve body space;
-independent cues use their configured canvas position by default. To keep a
-separate guide clear of ruby on alternating rows, set the Track preset to
-`CuePreset(factory=BarsCue(), line_edge="above")`. The allocator
-receives the combined bounds of the measured lyric row and guide. Use
-`line_edge="below"` to place the guide beneath a top row.
-Ruby follows the same inline reservation/release rule as its associated body.
-The default cue trigger is the first relevant timing interval; a preset may
-specify an absolute trigger. No beat grid is inferred.
+### Inline vs. independent placement
 
-See [scene_lyric_cues.py](../../examples/scene_lyric_cues.py) and
-[scene_cue_follow.py](../../examples/scene_cue_follow.py) for complete custom
-factories, text content, timing, and following.
+- **Inline (`placement="inline"`, default)**: Centers on the visible ink of the body glyph at the marker (or the last glyph for an end marker), shifts ruby along with its body, and leaves an automatic `gap` of one eighth of the authored font size (override with `CuePreset(gap=...)`, including `0`). Keep `keep_space=True` (default) so the lyric text does not jump when the cue ends. On vertical tracks, an inline cue advances the column downward.
+- **Independent (`placement="independent"`)**: Uses `CuePreset(position=Vec2(...))` in canvas coordinates. On a `Track`, set `CuePreset(line_edge="above")` or `"below"` instead to place the cue cleanly above a bottom row (clearing ruby) or below a top row; row layout reserves the combined height automatically.
 
-## Input marker contract
+See [karaoke_signals.py](../../examples/karaoke_signals.py) for a side-by-side inline `VolumeCue` and independent `SignalCue` track setup.
 
-The input carrier is an ASS comment block:
+## Cue marker syntax
+
+Embed a cue marker inside an ASS line as a comment block with the `kara:v1` prefix:
 
 ```text
 {kara:v1 cue id=count-in preset=bars placement=inline}
 ```
 
-The exact `kara:` prefix follows the opening brace. Version `v1` supports cue
-markers with required nonempty id and preset keys and optional placement
-`inline` or `independent` (default inline). Unknown versions, kinds, keys,
-duplicate keys, malformed quotes, and invalid placements are rejected.
+- `id` and `preset` are required and must be nonempty; `id` must be unique within the line.
+- `placement` is optional: `inline` (default) or `independent`.
+- Values use POSIX `shlex` quoting, allowing Unicode, spaces, quotes, and `=` without braces, backslashes, or newlines. Use `CueMarker(id, preset, placement=...).markup()` to generate valid markup, or pass Python `CueMarker` objects directly to `bind_cues`/`bind_lyric_cues` without modifying the ASS text.
+- A marker's position in the decoded body text sets its anchor offset. Anchors must land inside body text on cluster boundaries—not inside ruby readings or `#` continuation syntax.
 
-Values use POSIX shlex quoting without shell execution or expression evaluation.
-Names may contain Unicode, spaces, quotes, and equals signs. Braces, backslashes,
-and newlines are not allowed within names. Use CueMarker.markup() to quote names
-correctly. It serializes the marker declaration, not its numeric offset: a
-serialized marker's location in the decoded body determines its offset.
+> [!NOTE]
+> Parse errors on cue markers report the `record_index` and raw character offset in the original ASS `Text` field (including preceding override tags), which differs from the decoded body offset.
 
-Marker IDs are unique within one source record. Explicit Python CueMarker values
-provide the same behavior without editing the ASS. Offsets must be inside the
-body and on cluster boundaries; invalid anchors inside ruby/continuation syntax
-are rejected during projection.
+## Sing an inline vector symbol
 
-Parser diagnostics identify a Document record index and a code-point offset in
-the original Text string, including preceding tags. This differs from the marker's
-decoded body offset. Compilation preserves the original as a source comment and
-consumes the marker; generated Dialogue uses standard ASS tags. Use standard ASS
-color/reset tags for input colors rather than inventing player-side extensions.
+When you want symbols that sweep in time with the lyrics and stay visible afterward (such as breath marks or vertical rhythm guides), give each symbol its own `\k` tag in the body—for example `{\k30}◆{\k30}◆{\k50}歌`—and map that character in `Track.guide_symbols`:
 
-An inline cue centers on the measured body cell at its marker. An end marker uses the last cell. The automatic guide gap is one eighth of the authored font size. Supply `CuePreset(gap=...)` to set a pixel distance, including zero. An inline cue in a vertical column advances the lyrics and readings by its measured height plus clearance. Independent cues with `line_edge` clear body cells, readings and other row cues that intersect their horizontal span.
+```python
+from kara_templater import (
+    Document,
+    KaraokeEffects,
+    Line,
+    Style,
+    Track,
+    Vec2,
+    VectorGuide,
+    VectorPath,
+    build_lyric_scene,
+)
+
+document = Document.create(
+    styles=(Style(fontname="DejaVu Sans", fontsize=56, shadow=0),)
+)
+document.records.append(
+    Line(start_time=1000, end_time=2500, text=r"{\k30}◆{\k30}◆{\k90}Sing")
+)
+
+triangle = VectorPath.polygon(Vec2(0.1, -0.75), Vec2(0.7, -0.4), Vec2(0.1, -0.05))
+scene = build_lyric_scene(
+    document,
+    tracks=(
+        Track(
+            id="main",
+            guide_symbols={"◆": VectorGuide(triangle, advance=0.8)},
+            effects=(KaraokeEffects(highlight="utopia_scanline"),),
+        ),
+    ),
+)
+scene.export("guide_symbols.hook")
+```
+
+Path coordinates and `advance` are multiples of the authored font size at the marker (or `VectorGuide(..., size=...)` in script pixels). `y=0` is the baseline and negative `y` rises above it. The replacement geometry participates in ruby alignment, outline clearance, and both horizontal and vertical sweeps.
+
+To anchor two symbols to the first timed note, give both symbols a `\k0` interval right before it; with the built-in wipe they stay in the waiting color on the onset frame and switch on the next centisecond.
+
+## Build custom cues and low-level text layouts
+
+Any callable matching `(context: CueContext) -> CueContent` works as a `CueFactory`. Return local scene objects along with reserved `width` and `height` (and optional `ink_center_y` for inline vertical alignment; use `CueContent.from_line(line)` to align a measured `LyricLine` automatically). See [scene_cues.py](../../examples/scene_cues.py), [scene_lyric_cues.py](../../examples/scene_lyric_cues.py), and [scene_cue_follow.py](../../examples/scene_cue_follow.py) for complete custom factories and moving anchors.
+
+If you are composing a `Scene` directly without `Track`, bind individual lines with the layout functions:
+
+- `layout_document_text(document, record_index, ...)` + `bind_cues(layout, presets)` for plain text with static inline colors and cues.
+- `layout_document_lyrics(document, record_index, ...)` + `bind_lyric_cues(layout, presets)` for body text, positioned ruby, and `#` repeats. `LyricLayout.unit_group(index)` groups a unit's body and readings around the body center so a scale pulse moves them together. See [scene_bilingual.py](../../examples/scene_bilingual.py).
+- `TextLayout.characters` gives each cluster's decoded source range, cell bounds, ink bounds, and resolved `FontFace` entries. `range_bounds(start, end)` measures a character span, and `background(start, end, ..., follow=True)` creates a box that follows local text animation (place it in the same parent group, or use a reference across groups).
+
+> [!WARNING]
+> Independent-character layout supports Latin, Greek, Cyrillic, CJK, kana, modern Hangul, digits, punctuation, and common lyric marks (keeping combining marks with their base). Joining scripts, bidirectional control characters, emoji sequences, and archaic Hangul jamo raise `LayoutCapabilityError`.
+
+## Next steps
+
+- [Lay out vocal tracks](tracks.md)
+- [Choose and register fonts](fonts.md)
+- [Built-in karaoke effects](karaoke-effects.md)
+- [Lyric cues API reference](../reference/cues.md)

@@ -1,39 +1,23 @@
 # Text measurement and layout
 
-Font-dependent layout, source clusters, and editable body/ruby binding. Unicode code-point ranges must align with independently drawable clusters. See [text and cues](../guides/text-and-cues.md).
+Font registration, shaped glyph metrics, source clusters, and body/ruby binding.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Choose and register fonts](../guides/fonts.md) · [Ruby readings and cues](../guides/text-and-cues.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [CharacterTarget](#charactertarget)
-- [DrawableCharacter](#drawablecharacter)
-- [FontFace](#fontface)
-- [LayoutCapabilityError](#layoutcapabilityerror)
-- [LoadedFont](#loadedfont)
-- [LyricLayout](#lyriclayout)
-- [PositionedRuby](#positionedruby)
-- [PositionedText](#positionedtext)
-- [StudioSpacing](#studiospacing)
-- [TextLayout](#textlayout)
-- [TextRange](#textrange)
-- [VectorGuide](#vectorguide)
-- [layout_characters](#layout_characters)
-- [layout_document_lyrics](#layout_document_lyrics)
-- [layout_document_text](#layout_document_text)
-- [layout_lyrics](#layout_lyrics)
-- [load_font](#load_font)
-- [select_characters](#select_characters)
-- [text_extents](#text_extents)
+**Classes:** [`CharacterTarget`](#charactertarget) · [`DrawableCharacter`](#drawablecharacter) · [`FontFace`](#fontface) · [`LayoutCapabilityError`](#layoutcapabilityerror) · [`LoadedFont`](#loadedfont) · [`LyricLayout`](#lyriclayout) · [`PositionedRuby`](#positionedruby) · [`PositionedText`](#positionedtext) · [`StudioSpacing`](#studiospacing) · [`TextLayout`](#textlayout) · [`TextRange`](#textrange) · [`VectorGuide`](#vectorguide)
+
+**Functions:** [`layout_characters`](#layout_characters) · [`layout_document_lyrics`](#layout_document_lyrics) · [`layout_document_text`](#layout_document_text) · [`layout_lyrics`](#layout_lyrics) · [`load_font`](#load_font) · [`select_characters`](#select_characters) · [`text_extents`](#text_extents)
 
 ## CharacterTarget
+
+*dataclass* · [Source](../../kara_templater/characters.py#L13)
 
 An independently drawable cluster supplied by layout, never a codepoint.
 
 A layout backend must establish that the cluster can be drawn independently.
 This model deliberately does not split text or claim shaping support.
-
-[Source](../../kara_templater/characters.py#L13)
 
 ```python
 CharacterTarget(
@@ -59,12 +43,12 @@ CharacterTarget(
 
 ## DrawableCharacter
 
+*dataclass* · [Source](../../kara_templater/characters.py#L76)
+
 An independently drawable shaped cluster with unit-local source range, advance/ink bounds, timing region, and actual font faces.
 
 A cluster can contain several Unicode code points. Add pen_offset to the
 allocated box origin to draw the cluster with ordinary ASS font metrics.
-
-[Source](../../kara_templater/characters.py#L76)
 
 ```python
 DrawableCharacter(
@@ -104,9 +88,9 @@ Type: `CharacterTarget`.
 
 ## FontFace
 
-Face names and em-to-ASS-size ratio from FreeType. Names determine equality.
+*dataclass* · [Source](../../kara_templater/characters.py#L67)
 
-[Source](../../kara_templater/characters.py#L67)
+Face names and em-to-ASS-size ratio from FreeType. Names determine equality.
 
 ```python
 FontFace(
@@ -126,20 +110,20 @@ FontFace(
 
 ## LayoutCapabilityError
 
-The available metrics cannot establish a safe independent drawing.
+*exception* · [Source](../../kara_templater/characters.py#L38)
 
-[Source](../../kara_templater/characters.py#L38)
+The available metrics cannot establish a safe independent drawing.
 
 Construction: `LayoutCapabilityError(*args)` using the inherited exception constructor.
 
 ## LoadedFont
 
+*dataclass* · [Source](../../kara_templater/fonts.py#L14)
+
 The registered metrics font family and SHA-256 digest of the loaded bytes.
 
 Registration does not configure a playback application or embed fonts into
 output.
-
-[Source](../../kara_templater/fonts.py#L14)
 
 ```python
 LoadedFont(
@@ -157,11 +141,11 @@ LoadedFont(
 
 ## LyricLayout
 
+*dataclass* · [Source](../../kara_templater/lyrics/layout.py#L95)
+
 Measured body and positioned readings for projected DocumentLyrics.
 
 unit_group builds editable body/ruby groups using the body center as pivot.
-
-[Source](../../kara_templater/lyrics/layout.py#L95)
 
 ```python
 LyricLayout(
@@ -206,11 +190,11 @@ LyricLayout.unit_group(
 
 ## PositionedRuby
 
+*dataclass* · [Source](../../kara_templater/lyrics/layout.py#L81)
+
 A reading layout associated with a source unit/segment and decoded body range.
 
 Its own text view retains source mappings and timing timing.
-
-[Source](../../kara_templater/lyrics/layout.py#L81)
 
 ```python
 PositionedRuby(
@@ -234,13 +218,13 @@ PositionedRuby(
 
 ## PositionedText
 
+*dataclass* · [Source](../../kara_templater/text/layout.py#L33)
+
 A drawable text cluster, decoded source range, measured advance/ink bounds, and selected font faces.
 
 bounds is the allocated cell. The pen origin is object.state.position.
 Layout scale is retained when used for range measurements. baseline is the
 local y coordinate of the font baseline measured during shaping.
-
-[Source](../../kara_templater/text/layout.py#L33)
 
 ```python
 PositionedText(
@@ -278,13 +262,13 @@ Type: `float`.
 
 ## StudioSpacing
 
+*dataclass* · [Source](../../kara_templater/lyrics/layout.py#L64)
+
 Studio lyric cell metrics for the body and its readings.
 
 space_width_percent sets an ASCII space's width as a percentage of the
 selected font em (10 to 100). allow_biting includes negative side bearings
 when measuring overhanging glyphs. Hard-outline clearance applies afterward.
-
-[Source](../../kara_templater/lyrics/layout.py#L64)
 
 ```python
 StudioSpacing(
@@ -303,11 +287,11 @@ StudioSpacing(
 
 ## TextLayout
 
+*dataclass* · [Source](../../kara_templater/text/layout.py#L75)
+
 Measured editable text objects with decoded source ranges, timing spans, bounds, and source-record identity.
 
 Range backgrounds can optionally follow local text animation.
-
-[Source](../../kara_templater/text/layout.py#L75)
 
 ```python
 TextLayout(
@@ -376,12 +360,12 @@ TextLayout.range_bounds(
 
 ## TextRange
 
+*dataclass* · [Source](../../kara_templater/characters.py#L42)
+
 Half-open Python string offsets in an immutable source unit.
 
 Offsets are source references, not drawable character indices. A range used
 for painting must end on the verified cluster boundaries.
-
-[Source](../../kara_templater/characters.py#L42)
 
 ```python
 TextRange(
@@ -401,12 +385,12 @@ TextRange(
 
 ## VectorGuide
 
+*dataclass* · [Source](../../kara_templater/lyrics/layout.py#L21)
+
 A timed lyric glyph with a baseline-relative path and horizontal advance in units of size.
 
 Positive y points down. One unit defaults to the authored font size at the marker; size overrides it in script pixels.
 Track.guide_symbols maps individual body characters to guide glyphs.
-
-[Source](../../kara_templater/lyrics/layout.py#L21)
 
 ```python
 VectorGuide(
@@ -426,12 +410,12 @@ VectorGuide(
 
 ## layout_characters
 
+*function* · [Source](../../kara_templater/characters.py#L223)
+
 Measure independently drawable clusters and source ranges in a text run.
 
 Origin is the top-left of the run in script pixels, with (0, 0) as the default. Ink bounds exclude
 decoration. Spaces retain their advance even when they have no outline.
-
-[Source](../../kara_templater/characters.py#L223)
 
 ```python
 layout_characters(
@@ -445,14 +429,14 @@ layout_characters(
 
 ## layout_document_lyrics
 
+*function* · [Source](../../kara_templater/lyrics/layout.py#L458)
+
 Bind body/ruby without changing original timing or decoded source ranges.
 
 Body text is shaped together before ruby spacing is applied. Unit boundaries
 crossing a shaping cluster are rejected when independent placement is needed.
 vertical stacks cells downward around x=0, with readings on the right.
 Joined ruby runs share a row; explicit break/spill markers start a new group.
-
-[Source](../../kara_templater/lyrics/layout.py#L458)
 
 ```python
 layout_document_lyrics(
@@ -475,9 +459,9 @@ layout_document_lyrics(
 
 ## layout_document_text
 
-Bind a plain line; use layout_document_lyrics for ruby/continuations.
+*function* · [Source](../../kara_templater/text/layout.py#L456)
 
-[Source](../../kara_templater/text/layout.py#L456)
+Bind a plain line; use layout_document_lyrics for ruby/continuations.
 
 ```python
 layout_document_text(
@@ -490,6 +474,8 @@ layout_document_text(
 ```
 
 ## layout_lyrics
+
+*function* · [Source](../../kara_templater/lyrics/layout.py#L502)
 
 Measure structured or parsed lyrics using Document styles and resolution.
 
@@ -505,8 +491,6 @@ vertical stacks glyphs in measured font cells. ruby_gap then separates the body
 and reading cells horizontally, in script pixels.
 No ASS event is required or synthesized. Timing intervals retain their full
 seconds precision; record indices, if present, are provenance only.
-
-[Source](../../kara_templater/lyrics/layout.py#L502)
 
 ```python
 layout_lyrics(
@@ -530,14 +514,14 @@ layout_lyrics(
 
 ## load_font
 
+*function* · [Source](../../kara_templater/fonts.py#L29)
+
 Make an extra font file available to this interpreter's metrics renderer.
 
 Each style still selects its font by family name via ``Style.fontname``.
 This does not set a global font or bind a style to a specific font file.
 Registration persists for this interpreter. Duplicate bytes are loaded once.
 ASS playback/rendering must be configured with the same font separately.
-
-[Source](../../kara_templater/fonts.py#L29)
 
 ```python
 load_font(
@@ -547,12 +531,12 @@ load_font(
 
 ## select_characters
 
+*function* · [Source](../../kara_templater/characters.py#L344)
+
 Select complete drawable clusters covered by a TextRange.
 
 Reject boundaries that cut a cluster instead of silently expanding or reshaping
 the selection.
-
-[Source](../../kara_templater/characters.py#L344)
 
 ```python
 select_characters(
@@ -563,6 +547,8 @@ select_characters(
 
 ## text_extents
 
+*function* · [Source](../../kara_templater/text/measurement.py#L7)
+
 Measure text using the native font/shaping environment and ASS style metrics.
 
 Return width, height, descent, and external leading in script pixels.
@@ -570,8 +556,6 @@ Each line with glyph ink reserves style.outline on each side of its
 typographic box. Blank lines retain their font metrics. The result uses
 the widest line, the sum of line heights and the largest padded descent.
 Set outline to zero to measure native advances. Shadows are excluded.
-
-[Source](../../kara_templater/text/measurement.py#L7)
 
 ```python
 text_extents(

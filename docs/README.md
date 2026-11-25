@@ -1,33 +1,57 @@
-# kara-templater documentation
+# Overview
 
-## Make your first karaoke export
+Turn timed karaoke lyrics into animated subtitles exported as a standalone GPU shader or a standard ASS file. Start here to learn how kara-templater works and where to go next.
 
-- [Apply a preset](getting-started.md#apply-a-preset)
-- [Write an effect](getting-started.md#write-an-effect)
-- [Preview the export](getting-started.md#preview-the-export)
-- [Choose between a subtitle file and a GPU hook](guides/choosing-output.md)
+## What kara-templater does
 
-## Build a reusable template
+`kara-templater` takes timed lyrics — typically an ASS file with `\k` syllable durations, optional ruby readings, and count-in markers — and turns them into animated karaoke overlays using Python. It measures actual font outlines with FreeType and HarfBuzz so wipes, ruby alignment, outlines, and decorations line up accurately with the rendered lettering.
 
-- [Lay out lead and harmony vocals](tutorials/karaoke-design.md)
-- [Find examples by visual goal](examples/README.md#find-an-example-by-its-visual-goal) or [look up a built-in animation](guides/karaoke-effects.md)
-- [Import timed lyrics](guides/documents.md) and [configure Tracks](guides/tracks.md)
-- [Place ruby readings and count-ins](guides/text-and-cues.md)
-- [Write a custom animation](tutorials/custom-animation.md), [animate timing highlights](tutorials/lyric-highlights.md), or [adapt a motion study](tutorials/lyric-studies.md)
-- [Follow the template authoring skill](../skills/kara-templater/SKILL.md) when building a template with a coding agent
+The primary output is a standalone libplacebo Hook (`.hook`) that plays directly in mpv or renders into video with FFmpeg. When you need playback in an ordinary subtitle player, the same `Scene` can also export standard ASS (`.ass`) for effects that ASS supports.
 
-## Render or troubleshoot an export
+## How a template fits together
 
-- [Render with FFmpeg or play a hook in mpv](guides/gpu-rendering.md)
-- [Compile standard ASS](guides/compilation.md) and [check player compatibility](ass-and-playback.md)
-- [Install fonts and verify glyph positions](guides/fonts-and-preview.md)
-- [Diagnose export and rendering errors](guides/troubleshooting.md)
+Every template follows four steps: `Document` → `Track` → `Scene` → Hook or ASS.
 
-## Look up the API
+| Stage | Primary API | Role |
+| --- | --- | --- |
+| Lyrics & canvas | `Document`, `Style`, `Line` | Stores script resolution (`PlayRes`), font styles, and timed lyric lines loaded from ASS or built in Python. |
+| Vocal streams | `Track`, `KaraokeRows`, `Layout`, `KaraokeEffects`, `LyricRule` | Selects lines for each vocal part, arranges rows or columns, schedules display padding, and attaches visual effects. |
+| Composition | `build_lyric_scene`, `Scene`, `TextObject`, `PathObject`, `ObjectGroup` | Holds the measured, positioned lyric lines alongside any custom shapes, backgrounds, or animations. |
+| Output | `Scene.export`, `Scene.ass.compile` | Writes a standalone libplacebo Hook for full shader effects, or compiles standard ASS for compatibility. |
 
-Use the [Python API reference](reference/README.md) for signatures and contracts.
-The guides explain how to combine [scene objects](guides/objects.md),
-[animation clocks](guides/animation.md), [geometry and masks](guides/geometry.md),
-[materials](guides/materials.md), and [particles](guides/particles.md).
+Read [Core concepts](concepts.md) for the exact time units, coordinate spaces, and lifetime rules shared across all four stages.
 
-[Contribute to the project](contributing/README.md)
+## Find the right guide
+
+### Start here
+
+- [Quickstart](getting-started.md) — Install `kara-templater`, run a preset, write your first Python template, and preview the Hook.
+- [Core concepts](concepts.md) — Learn the `Document` → `Track` → `Scene` model, time units, coordinates, lifetimes, and output choices.
+- [Example scripts](examples/README.md) — Browse runnable scripts and previews organized by visual goal.
+
+### Tutorials
+
+- [Tutorials overview](tutorials/README.md) — Pick a guided walkthrough from layout to custom motion.
+- [Design a song layout](tutorials/karaoke-design.md) — Style lead and harmony vocals, spacing, and whole-song palettes.
+- [Animate the highlight](tutorials/lyric-highlights.md) — React to measured syllable sweeps with arrival-triggered motion.
+- [Write a custom animation](tutorials/custom-animation.md) — Build reusable motion with `Transform`, timelines, and rules.
+- [Effect recipes](tutorials/effect-recipes.md) — Adapt self-contained entrance, typing, focus, and breakup recipes.
+- [Motion studies](tutorials/lyric-studies.md) — Compare eight timing, echo, particle, and ornament studies side by side.
+
+### Guides
+
+- **Lyrics and layout**: [Guides overview](guides/README.md) · [Import timed lyrics](guides/documents.md) · [Lay out vocal tracks](guides/tracks.md) · [Ruby readings and cues](guides/text-and-cues.md) · [Choose and register fonts](guides/fonts.md)
+- **Effects and scene authoring**: [Built-in karaoke effects](guides/karaoke-effects.md) · [Colour and materials](guides/materials.md) · [Animation and timing](guides/animation.md) · [Scene objects and groups](guides/objects.md) · [Shapes, clips and masks](guides/geometry.md) · [Particles, copies and echoes](guides/particles.md)
+- **Tools**: [Command line](guides/cli.md)
+
+### Output and reference
+
+- **Playback and export**: [Choose an output](output/README.md) · [Play and render a Hook](output/hook.md) · [Export standard ASS](output/ass.md) · [Troubleshooting](output/troubleshooting.md)
+- **Reference and development**: [API reference](reference/README.md) · [Contributing](contributing/README.md) · [Template authoring skill](../skills/kara-templater/SKILL.md)
+
+## Next steps
+
+- [Quickstart](getting-started.md) — Produce and preview your first Hook in a few minutes.
+- [Core concepts](concepts.md) — Understand time units, coordinates, and lifetimes before authoring custom templates.
+- [Example scripts](examples/README.md) — Find a runnable script close to the look you want.
+- [Design a song layout](tutorials/karaoke-design.md) — Build a complete multi-vocal karaoke template.

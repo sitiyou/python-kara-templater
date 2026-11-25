@@ -1,14 +1,10 @@
-# Add custom motion to lyric highlights
+# Animate the highlight
 
-`LyricHighlights.from_timing` and `KaraokeEffects` automatically tilt the
-sweep front for italic or oblique horizontal text. A timed vector guide in a
-cue factory follows the style assigned to the guide. Set `sweep_angle=0` for
-a vertical front or supply an angle in degrees. Positive angles lean the top
-of the front to the right.
+Trigger a character animation at the exact moment the karaoke highlight sweep reaches each glyph. Use this pattern when a jump, pulse, or accent must stay locked to the moving sweep front instead of starting on the whole syllable at once.
 
-This complete script binds a shared jump animation when each measured character
-is reached by the timing front. It uses only the installed library and writes
-`lyric-arc.hook`. Lyrics and ordinary objects use the same animation protocol.
+## Bind motion to the sweep front
+
+This complete script fades a line in and out while bouncing every character upward by 24 px as the cyan sweep passes through it. It uses only the installed library and writes `lyric-arc.hook`.
 
 ```python
 from kara_templater import (
@@ -90,18 +86,52 @@ scene = build_lyric_scene(
 scene.export("lyric-arc.hook", fps=60)
 ```
 
-The factory describes each syllable's measured region and original timing
-passes. HighlightArrival computes character crossing times from those passes;
-LyricRule binds Jump without a manual character loop or absolute animation times.
-It defaults to a character's full traversal duration. Set `duration` on the rule
-for a fixed length, or choose the center/complete threshold on HighlightArrival.
+## How arrival timing works
 
-Whole-line fades and character jumps compose through the visual hierarchy.
-Highlight paint copies follow their target's animation. Named highlight filters,
-repeat rounds and nonlinear curves are explicit; nonlinear arrival calculations
-require a declared inverse curve rather than an approximate search.
+The `highlights` factory turns each timed syllable into a `Highlight` made of one or more `HighlightPass` intervals over that syllable's measured horizontal `Region`.
 
-To supply a new motion, implement StateAnimation or use StateFunction, declaring
-its written channels. The same animation can be bound directly to a TextObject,
-a visual Group or a lyric rule. See [animation](../guides/animation.md) and
-[Tracks](../guides/tracks.md) for timing, grouping and allocation contracts.
+Passing `HighlightArrival(highlights=highlights)` as the anchor of `LyricRule` computes when the sweep crosses each measured character, without a manual character loop or hand-calculated timestamps. By default, each character's animation starts when the front enters it (`threshold="enter"`) and lasts for the full time the front takes to cross that glyph.
+
+Adjust how arrivals trigger with `HighlightArrival` and `LyricRule` options:
+
+| Option | Where to set it | What it changes |
+| --- | --- | --- |
+| `duration=0.25` | `LyricRule` | Uses a fixed animation length instead of the character's traversal duration |
+| `threshold="center"` or `"complete"` | `HighlightArrival` | Starts the motion when the sweep reaches the glyph's midpoint or right edge |
+| `selection="each"` | `HighlightArrival` | Triggers on every matching highlight rather than only the first per round |
+| `names=frozenset(...)` | `HighlightArrival` | Restricts triggers to specific named highlights |
+| `retrigger=False` | `HighlightArrival` | Fires only on the first crossing when a unit repeats |
+
+> [!NOTE]
+> If a `HighlightPass` uses a nonlinear `rate`, supply its matching `inverse_rate` as well. `HighlightArrival` computes exact crossing times from the inverse rather than approximating with a search.
+
+## Slant the sweep for italic text
+
+`LyricHighlights.from_timing` and `KaraokeEffects` automatically slant the sweep front on horizontal italic or oblique text, and a timed vector guide in a cue factory follows its own style.
+
+To override the angle, pass `sweep_angle` in degrees:
+
+- `sweep_angle=0` forces a vertical front even on italic text.
+- Positive angles lean the top of the front to the right; negative angles lean it to the left.
+
+```python
+from kara_templater import CYAN, LyricHighlights, StatePatch
+
+straight_sweep = LyricHighlights.from_timing(
+    StatePatch(fill=CYAN),
+    sweep_angle=0,
+)
+```
+
+## Combine with line motion and custom animations
+
+Whole-line animations and per-character highlight motion compose naturally through the scene hierarchy: the line's `FadeIn` and `FadeOut` apply on the parent group while `Jump` moves each character inside it. The highlight paint copy automatically follows its target glyph's motion.
+
+Lyrics and ordinary scene objects share the same animation protocol. To replace `Jump(24)` with your own motion, pass a `Transform`, a `StateFunction`, a `ShaderMotion`, or a custom `StateAnimation` that declares its written channels.
+
+## Next steps
+
+- [Write a custom animation](custom-animation.md) to build your own GPU-accelerated motion function.
+- [Animation and timing](../guides/animation.md) for built-in animations, easings, and `Timeline`.
+- [Lay out vocal tracks](../guides/tracks.md) for `LyricRule` anchors, roles, and track composition.
+- [API reference: Colors and appearance](../reference/paint.md) for `Highlight`, `HighlightPass`, `HighlightArrival`, and `LyricHighlights`.

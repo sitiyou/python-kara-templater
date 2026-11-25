@@ -1,10 +1,10 @@
-# Write a reusable custom animation
+# Write a custom animation
 
-Write a Python function that sends a row of sparks across the scene. The script
-uses the installed library and writes `sparks.hook` in the current directory.
-[Install the library](../getting-started.md#install-from-the-checkout)
+Create a reusable Python animation that sends a row of spinning sparks across a Hook scene. Use this approach when built-in animations do not express the curve you want and you need decorations with their own lifetimes.
 
-## Define the motion and object
+## Animate a row of sparks
+
+This complete script defines a sine-wave drift with rotation and fade-out, attaches it to four staggered pink circles, and writes `sparks.hook` in the current directory.
 
 ```python
 from dataclasses import replace
@@ -53,22 +53,35 @@ scene = Scene(Document.create(width=640, height=360)).add(
 scene.export("sparks.hook", fps=60)
 ```
 
-`spark` is an ordinary factory. Each call constructs an independently editable
-object with a unique identity, a world position, and an absolute lifetime.
-The clip starts at the object's birth and runs for two seconds.
+## How the motion and factory work
 
-`drift` receives the incoming state and normalized clip progress. It calculates
-the new state without remembering previous calls. Declaring its written channels
-allows the engine to detect animation conflicts and preserve unrelated changes.
+`spark` is an ordinary Python factory function. Each call builds an independent `PathObject` with a unique `id`, a starting position, and an absolute `Lifetime`. The `AnimationClip` starts at local time `0` (the spark's birth) and runs for `2` seconds.
 
-## Customize the result
+`drift` is a pure function of `(state, progress)` where `progress` runs from `0` to `1`. It computes the new `VisualState` directly from the incoming state without storing previous frames, so the scene can be evaluated at any timestamp in any order.
 
-Change the circle to another VectorPath, alter the curve in `drift`, or change
-the number and birth times of the objects. Keep the channel declaration aligned
-with the fields the callback writes. Use explicit breakpoints for discontinuities.
+`ShaderMotion` connects that pure Python function to Hook playback:
 
-For randomized particles, switch to [emit_particles](../guides/particles.md) and
-named random channels. For a lyric sweep, bind [Document text](../guides/text-and-cues.md)
-or prepare [Tracks](../guides/tracks.md), then add the same objects to that Scene.
+- **Declared `channels`** (`position`, `rotation`, `opacity`) tell the engine which fields this clip modifies so it can catch conflicting animations and preserve untouched channels.
+- **The GLSL body** runs on the GPU at each frame's normalized clip progress `p`, updating local shader variables (`pos`, `angle`, `alpha`).
+- **The Python callback** (`drift`) supplies exact state at clip boundaries and indexes object bounds on the output frame grid during Hook export.
 
-The hook runs the GLSL body at the current clip progress. The Python evaluator supplies state at clip boundaries.
+> [!IMPORTANT]
+> Keep the Python function, the declared `channels` set, and the GLSL body aligned. If the Python callback writes a channel that is missing from `channels`, conflict detection will miss it; if the Python curve and GLSL body diverge, clipping bounds and rendered positions will disagree.
+
+## Customize the animation
+
+You can reuse the same pattern while changing any part independently:
+
+- **Shape**: replace `VectorPath.circle(8)` with `VectorPath.polygon(...)` or any custom `VectorPath`.
+- **Path and easing**: change the wave amplitude, travel distance, or spin in both `drift` and the GLSL string.
+- **Schedule**: change the loop count, spacing, or `birth` offset to stagger more sparks.
+- **Discontinuities**: pass `breakpoints=(...)` to `AnimationClip` if your curve jumps abruptly at a specific local second.
+
+When you need many randomized shapes, switch to `emit_particles` so each particle gets deterministic named random channels. To combine custom animated decorations with timed lyrics, build your lyrics with `Track` and add your custom objects to the returned `Scene`.
+
+## Next steps
+
+- [Animation and timing](../guides/animation.md) for `Transform`, `StateFunction`, `ShaderMotion`, and `Timeline`.
+- [Particles, copies and echoes](../guides/particles.md) for `emit_particles` and `LyricParticles`.
+- [Play and render a Hook](../output/hook.md) to preview `sparks.hook` in mpv or FFmpeg.
+- [API reference: Animation and timing](../reference/animation.md) for all `ShaderMotion` GLSL variables and fields.

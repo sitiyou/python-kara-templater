@@ -1,49 +1,22 @@
 # Geometry and paths
 
-Script-space geometry, masks, deformation, path layout, and authored writing/morphing. Complexity bounds and topology requirements are explicit. See [geometry](../guides/geometry.md).
+Script-space vectors, clips, masks, path boolean operations, deformation, extrusion, and morphing.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Shapes, clips and masks](../guides/geometry.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [Affine2D](#affine2d)
-- [Box](#box)
-- [Contour](#contour)
-- [CubicSegment](#cubicsegment)
-- [GeometryAnimation](#geometryanimation)
-- [GeometryError](#geometryerror)
-- [LineSegment](#linesegment)
-- [MorphPath](#morphpath)
-- [MoveAlong](#movealong)
-- [PathBooleanOperation](#pathbooleanoperation)
-- [PathFunction](#pathfunction)
-- [PathItem](#pathitem)
-- [Polyline](#polyline)
-- [Region](#region)
-- [TextOutline](#textoutline)
-- [TrailPath](#trailpath)
-- [Vec2](#vec2)
-- [VectorPath](#vectorpath)
-- [WritePath](#writepath)
-- [WritingStroke](#writingstroke)
-- [flatten](#flatten)
-- [intersect_convex](#intersect_convex)
-- [layout_path](#layout_path)
-- [merge_geometry](#merge_geometry)
-- [morph](#morph)
-- [outline_text](#outline_text)
-- [path_boolean](#path_boolean)
-- [path_bounds](#path_bounds)
-- [resample_path](#resample_path)
-- [stroke](#stroke)
-- [text_to_path](#text_to_path)
-- [union_regions](#union_regions)
+**Classes:** [`Affine2D`](#affine2d) · [`Box`](#box) · [`Contour`](#contour) · [`CubicSegment`](#cubicsegment) · [`GeometryAnimation`](#geometryanimation) · [`GeometryError`](#geometryerror) · [`LineSegment`](#linesegment) · [`MorphPath`](#morphpath) · [`MoveAlong`](#movealong) · [`PathFunction`](#pathfunction) · [`PathItem`](#pathitem) · [`Polyline`](#polyline) · [`Region`](#region) · [`TextOutline`](#textoutline) · [`TrailPath`](#trailpath) · [`Vec2`](#vec2) · [`VectorPath`](#vectorpath) · [`WritePath`](#writepath) · [`WritingStroke`](#writingstroke)
+
+**Functions:** [`flatten`](#flatten) · [`intersect_convex`](#intersect_convex) · [`layout_path`](#layout_path) · [`merge_geometry`](#merge_geometry) · [`morph`](#morph) · [`outline_text`](#outline_text) · [`path_boolean`](#path_boolean) · [`path_bounds`](#path_bounds) · [`resample_path`](#resample_path) · [`stroke`](#stroke) · [`text_to_path`](#text_to_path) · [`union_regions`](#union_regions)
+
+**Types & constants:** [`PathBooleanOperation`](#pathbooleanoperation)
 
 ## Affine2D
 
-Screen-coordinate affine map; ``outer @ inner`` applies inner first.
+*dataclass* · [Source](../../kara_templater/geometry.py#L56)
 
-[Source](../../kara_templater/geometry.py#L56)
+Screen-coordinate affine map; ``outer @ inner`` applies inner first.
 
 ```python
 Affine2D(
@@ -79,11 +52,11 @@ Affine2D.apply(
 
 ## Box
 
+*dataclass* · [Source](../../kara_templater/geometry.py#L260)
+
 An axis-aligned layout rectangle in script pixels.
 
 right, center, and middle are derived from left, top, width, and height.
-
-[Source](../../kara_templater/geometry.py#L260)
 
 ```python
 Box(
@@ -123,12 +96,12 @@ Type: `float`.
 
 ## Contour
 
+*dataclass* · [Source](../../kara_templater/geometry.py#L127)
+
 An ordered contour of line/cubic segments with explicit closure.
 
 Geometry algorithms validate connectivity and require suitable topology for each
 operation.
-
-[Source](../../kara_templater/geometry.py#L127)
 
 ```python
 Contour(
@@ -158,11 +131,11 @@ Contour.point(
 
 ## CubicSegment
 
+*dataclass* · [Source](../../kara_templater/geometry.py#L102)
+
 A cubic Bezier segment defined by start, two control points, and end.
 
 Evaluation and splitting use normalized path progress.
-
-[Source](../../kara_templater/geometry.py#L102)
 
 ```python
 CubicSegment(
@@ -193,12 +166,12 @@ CubicSegment.point(
 
 ## GeometryAnimation
 
+*protocol* · [Source](../../kara_templater/path_animation.py#L15)
+
 Protocol for pure path deformation at local seconds.
 
 Declare breakpoints and max_points before evaluation for deterministic sampling
 and preflight.
-
-[Source](../../kara_templater/path_animation.py#L15)
 
 ### GeometryAnimation.breakpoints
 
@@ -225,19 +198,19 @@ GeometryAnimation.sample(
 
 ## GeometryError
 
-A geometric operation cannot satisfy its declared topology or budget.
+*exception* · [Source](../../kara_templater/path_geometry.py#L22)
 
-[Source](../../kara_templater/path_geometry.py#L22)
+A geometric operation cannot satisfy its declared topology or budget.
 
 Construction: `GeometryError(*args)` using the inherited exception constructor.
 
 ## LineSegment
 
+*dataclass* · [Source](../../kara_templater/geometry.py#L88)
+
 A straight path segment from start to end.
 
 Coordinates are in the containing path space.
-
-[Source](../../kara_templater/geometry.py#L88)
 
 ```python
 LineSegment(
@@ -264,11 +237,11 @@ LineSegment.point(
 
 ## MorphPath
 
+*dataclass* · [Source](../../kara_templater/path_animation.py#L61)
+
 Interpolate a path toward an explicitly corresponding target over local seconds.
 
 Contours and segment topology must match; shape correspondence is not inferred.
-
-[Source](../../kara_templater/path_animation.py#L61)
 
 ```python
 MorphPath(
@@ -313,12 +286,12 @@ MorphPath.sample(
 
 ## MoveAlong
 
+*dataclass* · [Source](../../kara_templater/path_motion.py#L12)
+
 Offset the captured position by a path; optionally follow its tangent.
 
 Contour uses its curve parameter. Polyline uses its approximate arc length.
 The rate function chooses progress, which is clamped to the path endpoints.
-
-[Source](../../kara_templater/path_motion.py#L12)
 
 ```python
 MoveAlong(
@@ -361,7 +334,7 @@ MoveAlong.sample(
 
 ## PathBooleanOperation
 
-Public type alias:
+*type alias*
 
 ```python
 type PathBooleanOperation = Literal['intersection', 'union', 'difference', 'xor']
@@ -369,12 +342,12 @@ type PathBooleanOperation = Literal['intersection', 'union', 'difference', 'xor'
 
 ## PathFunction
 
+*dataclass* · [Source](../../kara_templater/path_animation.py#L37)
+
 Author callback receives seconds relative to the clock origin; None is invisible.
 
 Breakpoints may be negative local seconds; the owning object validates their
 absolute times. This supports visibility extended before an existing clock.
-
-[Source](../../kara_templater/path_animation.py#L37)
 
 ```python
 PathFunction(
@@ -405,11 +378,11 @@ PathFunction.sample(
 
 ## PathItem
 
+*dataclass* · [Source](../../kara_templater/path_layout.py#L13)
+
 A Scene object with explicit layout advance and local anchor for placement along a path.
 
 Advance is in script pixels.
-
-[Source](../../kara_templater/path_layout.py#L13)
 
 ```python
 PathItem(
@@ -429,11 +402,11 @@ PathItem(
 
 ## Polyline
 
+*dataclass* · [Source](../../kara_templater/path_geometry.py#L31)
+
 A finite sequence of points supporting cumulative distance, interpolation, prefixes, and resampling.
 
 It is the explicit flattened representation used by path algorithms.
-
-[Source](../../kara_templater/path_geometry.py#L31)
 
 ```python
 Polyline(
@@ -511,9 +484,9 @@ Polyline.slice(
 
 ## Region
 
-A horizontal interval in script pixels; an empty interval is valid.
+*dataclass* · [Source](../../kara_templater/geometry.py#L299)
 
-[Source](../../kara_templater/geometry.py#L299)
+A horizontal interval in script pixels; an empty interval is valid.
 
 ```python
 Region(
@@ -553,11 +526,11 @@ Type: `float`.
 
 ## TextOutline
 
+*dataclass* · [Source](../../kara_templater/text_geometry.py#L20)
+
 Measured text geometry with layout bounds and actual font faces.
 
 path can be None for whitespace or empty ink; layout advance remains meaningful.
-
-[Source](../../kara_templater/text_geometry.py#L20)
 
 ```python
 TextOutline(
@@ -577,6 +550,8 @@ TextOutline(
 
 ## TrailPath
 
+*dataclass* · [Source](../../kara_templater/path_animation.py#L195)
+
 A stroked path extending at its head and retracting behind a delayed tail.
 
 duration is the head traversal time; lag is the tail delay, both in seconds.
@@ -586,8 +561,6 @@ endpoints. A nonmonotone rate may bring the tail ahead of the head, in which
 case the interval is empty. width/tolerance are local path units.
 This is ordinary GeometryAnimation; pass line to MoveAlong for matching
 arc-length motion. It does not record another object's motion history.
-
-[Source](../../kara_templater/path_animation.py#L195)
 
 ```python
 TrailPath(
@@ -656,11 +629,11 @@ TrailPath.tip(
 
 ## Vec2
 
+*dataclass* · [Source](../../kara_templater/geometry.py#L15)
+
 A finite two-dimensional vector used for script-space positions, offsets, and scales.
 
 Vector operations return new values.
-
-[Source](../../kara_templater/geometry.py#L15)
 
 ```python
 Vec2(
@@ -705,12 +678,12 @@ Vec2.rotated(
 
 ## VectorPath
 
+*dataclass* · [Source](../../kara_templater/geometry.py#L155)
+
 An immutable collection of contours for drawings, masks, glyph outlines, and motion paths.
 
 Shape factories and transformations retain explicit geometry rather than player-
 side callbacks.
-
-[Source](../../kara_templater/geometry.py#L155)
 
 ```python
 VectorPath(
@@ -781,9 +754,9 @@ VectorPath.rectangle(
 
 ## WritePath
 
-Ordered, author-supplied strokes. Font outlines do not imply writing order.
+*dataclass* · [Source](../../kara_templater/path_animation.py#L113)
 
-[Source](../../kara_templater/path_animation.py#L113)
+Ordered, author-supplied strokes. Font outlines do not imply writing order.
 
 ```python
 WritePath(
@@ -854,11 +827,11 @@ WritePath.tip(
 
 ## WritingStroke
 
+*dataclass* · [Source](../../kara_templater/path_animation.py#L94)
+
 An authored contour with local start and positive duration in seconds.
 
 WritePath uses these stroke clocks for progressive reveal and lift gaps.
-
-[Source](../../kara_templater/path_animation.py#L94)
 
 ```python
 WritingStroke(
@@ -878,12 +851,12 @@ WritingStroke(
 
 ## flatten
 
+*function* · [Source](../../kara_templater/path_geometry.py#L116)
+
 Adaptive de Casteljau subdivision; tolerance is in local path units.
 
 Flatness bounds the control polygon's distance to its chord. This is not
 an arc-length error bound, and later object scaling magnifies the distance.
-
-[Source](../../kara_templater/path_geometry.py#L116)
 
 ```python
 flatten(
@@ -896,12 +869,12 @@ flatten(
 
 ## intersect_convex
 
+*function* · [Source](../../kara_templater/path_geometry.py#L285)
+
 Intersect filled contours with a convex polygon, retaining hole winding.
 
 Curves are flattened explicitly. This is a bounded intersection operation,
 not a general union/difference engine for arbitrary self-intersecting paths.
-
-[Source](../../kara_templater/path_geometry.py#L285)
 
 ```python
 intersect_convex(
@@ -915,13 +888,13 @@ intersect_convex(
 
 ## layout_path
 
+*function* · [Source](../../kara_templater/path_layout.py#L30)
+
 Distribute advance centers over a curve interval, using local anchor groups.
 
 Children retain their original coordinates, identity, lifetime, sources and
 local animations. An annotation grouped with its base follows the same tangent
 and parent transforms. The caller chooses spacing and the measured advance.
-
-[Source](../../kara_templater/path_layout.py#L30)
 
 ```python
 layout_path(
@@ -939,14 +912,14 @@ layout_path(
 
 ## merge_geometry
 
+*function* · [Source](../../kara_templater/group_geometry.py#L17)
+
 Union child geometry, then paint one ordinary PathObject.
 
 Child colors, opacity, border, blur and layer order do not participate in
 this geometric operation. Root transforms, animations, opacity, clip and
 reference are retained. Descendant clips/references require explicit prior
 lowering and are rejected. This is not an offscreen alpha-composite group.
-
-[Source](../../kara_templater/group_geometry.py#L17)
 
 ```python
 merge_geometry(
@@ -961,12 +934,12 @@ merge_geometry(
 
 ## morph
 
+*function* · [Source](../../kara_templater/path_geometry.py#L252)
+
 Interpolate explicitly paired contours and vertices, including hole winding.
 
 This is not automatic glyph matching. Even valid endpoint correspondence can
 self-intersect between endpoints; authors must preview their chosen mapping.
-
-[Source](../../kara_templater/path_geometry.py#L252)
 
 ```python
 morph(
@@ -978,9 +951,9 @@ morph(
 
 ## outline_text
 
-Shape at the source font's nominal scale; object transforms stay independent.
+*function* · [Source](../../kara_templater/text_geometry.py#L39)
 
-[Source](../../kara_templater/text_geometry.py#L39)
+Shape at the source font's nominal scale; object transforms stay independent.
 
 ```python
 outline_text(
@@ -992,6 +965,8 @@ outline_text(
 
 ## path_boolean
 
+*function* · [Source](../../kara_templater/path_boolean.py#L143)
+
 Boolean closed filled paths under nonzero winding, including holes.
 
 Curves flatten with the declared local tolerance. Polygon crossings split
@@ -1001,8 +976,6 @@ exterior/hole contours, so stroking does not reveal internal sweep strips.
 max_points bounds combined flattened input and final output; scratch edges
 are limited to 8*max_points. max_work bounds pair tests and sweep work.
 None denotes empty area. Open contours are rejected.
-
-[Source](../../kara_templater/path_boolean.py#L143)
 
 ```python
 path_boolean(
@@ -1018,9 +991,9 @@ path_boolean(
 
 ## path_bounds
 
-Conservative control-point bounds, before appearance and transforms.
+*function* · [Source](../../kara_templater/path_geometry.py#L354)
 
-[Source](../../kara_templater/path_geometry.py#L354)
+Conservative control-point bounds, before appearance and transforms.
 
 ```python
 path_bounds(
@@ -1030,9 +1003,9 @@ path_bounds(
 
 ## resample_path
 
-Explicit correspondence preparation; contour order and winding are retained.
+*function* · [Source](../../kara_templater/path_geometry.py#L197)
 
-[Source](../../kara_templater/path_geometry.py#L197)
+Explicit correspondence preparation; contour order and winding are retained.
 
 ```python
 resample_path(
@@ -1046,9 +1019,9 @@ resample_path(
 
 ## stroke
 
-Fill an open polyline with bevel joins and butt caps; empty length is invisible.
+*function* · [Source](../../kara_templater/path_geometry.py#L169)
 
-[Source](../../kara_templater/path_geometry.py#L169)
+Fill an open polyline with bevel joins and butt caps; empty length is invisible.
 
 ```python
 stroke(
@@ -1061,12 +1034,12 @@ stroke(
 
 ## text_to_path
 
+*function* · [Source](../../kara_templater/text_geometry.py#L115)
+
 Use the shaped outline or a supplied path in the text object's local coordinates.
 
 Preserve visibility, animation and clip clocks, fill mode, and source identity.
 max_points limits native glyph extraction when path is omitted.
-
-[Source](../../kara_templater/text_geometry.py#L115)
 
 ```python
 text_to_path(
@@ -1080,9 +1053,9 @@ text_to_path(
 
 ## union_regions
 
-Merge coverage without filling gaps or painting overlaps twice.
+*function* · [Source](../../kara_templater/geometry.py#L328)
 
-[Source](../../kara_templater/geometry.py#L328)
+Merge coverage without filling gaps or painting overlaps twice.
 
 ```python
 union_regions(

@@ -1,0 +1,156 @@
+[[demo]]
+id = "scanline-and-glow"
+title = "Scanline & two-color glow"
+short = "Glow"
+category = "Timing"
+summary = "Soft scanline ribbon and blended two-color halo along the sweep front."
+details = "Watch the wipe front cross a held note. Cool and warm halos share one blurred silhouette, so their colors blend smoothly. Pause and adjust the scanline tint or strength to see what the ribbon adds."
+source = "gallery_lighting.py"
+guide = "guides/karaoke-effects/"
+accent = "#c5a2ff"
+duration = 4.2
+still = 2.8
+
+[demo.labels]
+scanline_strength = "Scanline strength"
+scanline_color = "Scanline color"
+
+[demo.zh-cn]
+title = "扫描线与双色辉光"
+short = "辉光"
+category = "计时"
+summary = "柔光扫描线与随走字过渡的双色辉光。"
+details = "观察走字前沿划过长音的过程：冷色与暖色辉光共用同一层模糊轮廓，色彩过渡自然平滑。暂停后调节扫描线的颜色或强度，即可直观看到这道光带的效果。"
+
+[demo.zh-cn.labels]
+scanline_strength = "扫描线强度"
+scanline_color = "扫描线颜色"
+
+[[demo]]
+id = "ruby-sweep"
+title = "Timed ruby readings"
+short = "Ruby"
+category = "Timing"
+summary = "Japanese lyrics and furigana sweeping on shared note boundaries."
+details = "Timed ASS lines use the body|reading syntax. Each note colors its measured character range, and the reading above follows the same timing. Swap the lyric text and durations to test your own line."
+source = "gallery_ruby.py"
+guide = "guides/text-and-cues/"
+accent = "#f3a7db"
+duration = 4.2
+still = 2.6
+
+[demo.zh-cn]
+title = "同步走字振假名"
+short = "振假名"
+category = "计时"
+summary = "日语正文与上方注音共享音节边界同步扫色。"
+details = "带时间轴的 ASS 文本使用 正文|读音 语法。每个音节按实测字符范围扫色，上方注音共用同一时间边界。替换示例中的歌词和时长，就能试跑自己的句子。"
+
+[[demo]]
+id = "sweep-particles"
+title = "Sweep-front sparkles"
+short = "Sparkles"
+category = "Ornaments"
+summary = "Emit deterministic sparkles along the advancing lyric wipe."
+details = "The emitter tracks the measured sweep front of every syllable. A fixed seed keeps trajectories repeatable across runs. Switch to the petal variant in the script for a softer falling motion."
+source = "lyric_particles.py"
+guide = "guides/particles/"
+accent = "#a4ecdf"
+duration = 5.3
+still = 3.5
+
+[demo.zh-cn]
+title = "走字前沿星光粒子"
+short = "粒子"
+category = "装饰"
+summary = "沿走字前沿实时发射星光粒子。"
+details = "粒子发射器会跟踪每个音节实测的走字前沿，固定随机种子可确保每次播放轨迹完全一致。切换脚本中的 petal 变体还能得到飘落花瓣效果。"
+
+[[demo]]
+id = "pulse-and-drift"
+title = "Note pulses & drift exit"
+short = "Pulse"
+category = "Motion"
+summary = "Scale each character on its note, then drift it away on release."
+details = "Two lyric rules bind motion directly to each character. The same normalized pulse fits both short notes and held notes, while a separate drift starts once each note ends."
+source = "lyric_pulse_drift.py"
+guide = "tutorials/custom-animation/"
+accent = "#aaa9ff"
+duration = 4.6
+still = 1.85
+
+[demo.zh-cn]
+title = "音节脉冲与漂移退场"
+short = "脉冲"
+category = "动态"
+summary = "字符随音节轻弹放大，收音后漂移淡出。"
+details = "两条歌词规则直接将动画绑定到每个字符：同一套归一化缩放脉冲同时适配短音与长音，独立的漂移退场则在每个音节结束后自动触发。"
+
+[[demo]]
+id = "count-in"
+title = "Inline & lamp count-ins"
+short = "Count-in"
+category = "Ornaments"
+summary = "Inline volume bars alongside independent star countdown lamps."
+details = "Both cues count down on the same three-second clock. The star lamps hold their own fixed position, while the bars sit ahead of the lead lyric and move with its layout."
+source = "karaoke_signals.py"
+guide = "guides/text-and-cues/"
+accent = "#ffc592"
+duration = 5.2
+still = 2.45
+
+[demo.zh-cn]
+title = "行内与独立倒数提示"
+short = "倒数"
+category = "装饰"
+summary = "行内音量条与独立星形指示灯同频倒数。"
+details = "两种提示共用同一个 3 秒倒数时钟：星形灯固定在独立位置逐个熄灭，音量条则嵌入主唱行首并随歌词排版一起移动。"
+
+[[demo]]
+id = "wgsl-ribbon"
+title = "WGSL ribbon material"
+short = "WGSL"
+category = "Materials"
+summary = "Animated WGSL color ribbon swept across glyph fills."
+details = "A custom WGSL shader reads glyph-local coordinates and elapsed seconds to compute the moving wave, blends the new tint into the fill, and keeps the original alpha. Adjust the two controls to update the named paint inputs live."
+source = "gallery_material.py"
+guide = "guides/materials/"
+accent = "#b6acff"
+duration = 3.5
+still = 0.9
+
+[demo.labels]
+ribbon_color = "Ribbon color"
+ribbon_strength = "Ribbon strength"
+
+[demo.zh-cn]
+title = "WGSL 彩带材质"
+short = "材质"
+category = "材质"
+summary = "自定义 WGSL 着色器让动态光带扫过文字填充。"
+details = "自定义 WGSL 着色器读取字形局部坐标与经过秒数来计算波纹，将新色调混入文字填充并保留原始透明度。拖动两个控件即可实时更新具名材质参数。"
+
+[demo.zh-cn.labels]
+ribbon_color = "彩带颜色"
+ribbon_strength = "彩带强度"
+
+[[demo]]
+id = "gradient-paint"
+title = "Local-space gradient"
+short = "Gradient"
+category = "Materials"
+summary = "Continuous vertical gradient locked to moving glyphs."
+details = "Both color stops live in the object's local coordinate space. Watch the pulse and drifting exit to see the gradient stay locked to the letters."
+source = "gpu_gradient.py"
+command = "python gpu_gradient.py"
+guide = "guides/materials/"
+accent = "#9fe5ff"
+duration = 3.0
+still = 1.2
+
+[demo.zh-cn]
+title = "局部空间渐变"
+short = "渐变"
+category = "材质"
+summary = "锁定在字形局部空间的平滑纵向渐变。"
+details = "两个色标均定义在对象的局部坐标空间中。观察缩放脉冲与漂移退场阶段，渐变始终紧贴文字本身，不会发生滑动偏移。"

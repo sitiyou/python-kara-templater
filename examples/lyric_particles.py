@@ -33,22 +33,22 @@ def build(kind: Literal["sparkle", "petal"] = "sparkle") -> LyricScene:
     doc = Document.create(
         width=1280,
         height=720,
-        styles=(Style(fontname="DejaVu Sans", fontsize=64, outline=2, shadow=0),),
+        styles=(Style(fontname="Noto Sans CJK JP", fontsize=84, bold=True, outline=3, shadow=0),),
     )
     doc.records.append(
         Line(
             start_time=1000,
             end_time=5000,
-            text=r"{\k25}We {\k25}can {\k50}make {\k100}each {\k200}note shine",
+            text=r"{\k30}星{\k30}の{\k55}海{\k95}を{\k190}駆け抜けて",
         )
     )
-    particle = Sparkle(size=4) if kind == "sparkle" else Petal(size=5)
+    particle = Sparkle(size=10) if kind == "sparkle" else Petal(size=9)
     return build_lyric_scene(
         doc,
         tracks=(
             Track(
                 id="main",
-                region=Box(80, 480, 1120, 180),
+                region=Box(80, 260, 1120, 200),
                 layout=Layout(alignment="center"),
                 effects=(
                     *(
@@ -67,7 +67,7 @@ def build(kind: Literal["sparkle", "petal"] = "sparkle") -> LyricScene:
                     LyricHighlights.from_timing(
                         StatePatch(fill=CYAN if kind == "sparkle" else PINK)
                     ),
-                    LyricParticles(factory=particle, rate=16, seed=42),
+                    LyricParticles(factory=particle, rate=24, seed=42),
                 ),
             ),
         ),

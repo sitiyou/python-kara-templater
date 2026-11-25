@@ -1,0 +1,15 @@
+{/* Dark-first stage screen default; runs inline to prevent theme flash. */}
+<script is:inline>
+	(() => {
+		const stored = typeof localStorage !== "undefined" && localStorage.getItem("starlight-theme");
+		const theme =
+			stored === "light" || stored === "dark"
+				? stored
+				: stored === "auto"
+					? window.matchMedia("(prefers-color-scheme: light)").matches
+						? "light"
+						: "dark"
+					: "dark";
+		document.documentElement.dataset.theme = theme;
+	})();
+</script>

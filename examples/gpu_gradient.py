@@ -1,7 +1,7 @@
 """One Scene, a continuous GPU gradient, and a small ordinary-ASS fallback.
 
 Run: python -m examples.gpu_gradient
-Render the .hook with the FFmpeg command in docs/guides/gpu-rendering.md.
+Render the .hook with the FFmpeg command in docs/output/hook.md.
 """
 
 from pathlib import Path
@@ -24,7 +24,9 @@ from kara_templater import (
 )
 
 
-def build(document: Document) -> Scene:
+def build(document: Document | None = None) -> Scene:
+    if document is None:
+        document = Document.create(width=640, height=360)
     word = TextObject(
         id="lyric",
         text="Sing in color",

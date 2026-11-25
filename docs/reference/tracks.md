@@ -1,46 +1,28 @@
 # Track authoring
 
-Independent lyric streams, allocation and semantic bindings into one Scene. Timing, display and animation clocks use seconds and stay separate. See [Tracks](../guides/tracks.md).
+Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Lay out vocal tracks](../guides/tracks.md) · [Built-in karaoke effects](../guides/karaoke-effects.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [KaraokeDecoration](#karaokedecoration)
-- [KaraokeEffects](#karaokeeffects)
-- [KaraokeEntry](#karaokeentry)
-- [KaraokeExit](#karaokeexit)
-- [KaraokeHighlight](#karaokehighlight)
-- [KaraokeRows](#karaokerows)
-- [Layout](#layout)
-- [LayoutContext](#layoutcontext)
-- [LineLayoutRequest](#linelayoutrequest)
-- [LyricAnchor](#lyricanchor)
-- [LyricAnimationContext](#lyricanimationcontext)
-- [LyricEcho](#lyricecho)
-- [LyricEffect](#lyriceffect)
-- [LyricLine](#lyricline)
-- [LyricLinePlan](#lyriclineplan)
-- [LyricRole](#lyricrole)
-- [LyricRule](#lyricrule)
-- [LyricScene](#lyricscene)
-- [LyricSource](#lyricsource)
-- [LyricTarget](#lyrictarget)
-- [Placement](#placement)
-- [ScatterOut](#scatterout)
-- [Track](#track)
-- [build_lyric_scene](#build_lyric_scene)
-- [lyric_effects](#lyric_effects)
+**Classes:** [`KaraokeEffects`](#karaokeeffects) · [`KaraokeRows`](#karaokerows) · [`Layout`](#layout) · [`LayoutContext`](#layoutcontext) · [`LineLayoutRequest`](#linelayoutrequest) · [`LyricAnimationContext`](#lyricanimationcontext) · [`LyricEcho`](#lyricecho) · [`LyricLine`](#lyricline) · [`LyricLinePlan`](#lyriclineplan) · [`LyricRule`](#lyricrule) · [`LyricScene`](#lyricscene) · [`LyricSource`](#lyricsource) · [`LyricTarget`](#lyrictarget) · [`Placement`](#placement) · [`ScatterOut`](#scatterout) · [`Track`](#track)
+
+**Functions:** [`build_lyric_scene`](#build_lyric_scene) · [`lyric_effects`](#lyric_effects)
+
+**Types & constants:** [`KaraokeDecoration`](#karaokedecoration) · [`KaraokeEntry`](#karaokeentry) · [`KaraokeExit`](#karaokeexit) · [`KaraokeHighlight`](#karaokehighlight) · [`LyricAnchor`](#lyricanchor) · [`LyricEffect`](#lyriceffect) · [`LyricRole`](#lyricrole)
 
 ## KaraokeDecoration
 
-Public type alias:
+*type alias*
 
 ```python
 type KaraokeDecoration = Literal['none', 'twinkle', 'twinkle_classic', 'note', 'ripple', 'petal', 'snow', 'snow_solid']
 ```
 
 ## KaraokeEffects
+
+*dataclass* · [Source](../../kara_templater/karaoke_effects.py#L992)
 
 Compose entry, timing, exit and ornaments as one Track.effects callable.
 
@@ -74,8 +56,6 @@ the same Scene; dynamic blur can require additional cached native coverage.
 Solid scanlines accept a named paint input for color or strength in Hook.
 Strength is a fraction in [0,1] and changes tint without changing coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
-
-[Source](../../kara_templater/karaoke_effects.py#L992)
 
 ```python
 KaraokeEffects(
@@ -213,7 +193,7 @@ KaraokeEffects.with_theme(
 
 ## KaraokeEntry
 
-Public type alias:
+*type alias*
 
 ```python
 type KaraokeEntry = Literal['none', 'fade', 'slide_in', 'rise', 'char_fade', 'char_drip', 'spin_flip', 'utopia', 'tilt_pop', 'tracking_in', 'wave_in', 'stretch_in', 'glow_in', 'assemble_in', 'sparkle', 'ripple', 'note', 'petal', 'snow', 'snow_solid']
@@ -221,7 +201,7 @@ type KaraokeEntry = Literal['none', 'fade', 'slide_in', 'rise', 'char_fade', 'ch
 
 ## KaraokeExit
 
-Public type alias:
+*type alias*
 
 ```python
 type KaraokeExit = Literal['none', 'fade', 'slide_out', 'rise', 'char_fade', 'char_drip', 'spin_flip', 'utopia', 'scatter_out', 'converge_out', 'stretch_out', 'glow_out', 'dissolve_out', 'sparkle', 'ripple', 'note', 'petal', 'snow', 'snow_solid']
@@ -229,13 +209,15 @@ type KaraokeExit = Literal['none', 'fade', 'slide_out', 'rise', 'char_fade', 'ch
 
 ## KaraokeHighlight
 
-Public type alias:
+*type alias*
 
 ```python
 type KaraokeHighlight = Literal['none', 'no_wipe', 'utopia', 'scanline', 'utopia_scanline', 'zoom_pulse', 'zoom_pulse_scanline']
 ```
 
 ## KaraokeRows
+
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L405)
 
 Studio row and vertical-column presets, scaled from 1080p to the script height.
 
@@ -256,8 +238,6 @@ splitting). lane_gap reserves seconds between occupants when available.
 sync_entry and sync_ending align the first and last pages respectively;
 sync_each_page applies enabled synchronization to every page. fill_section
 holds each row toward the next same-row preview and aligns final page tails.
-
-[Source](../../kara_templater/lyrics/placement.py#L405)
 
 ```python
 KaraokeRows(
@@ -317,6 +297,8 @@ KaraokeRows.break_before(
 
 ## Layout
 
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L233)
+
 Allocate any positive number of rows, or override allocate entirely.
 
 Strict rotation is the default. 'available' searches from the next row for
@@ -330,8 +312,6 @@ Alignment and offsets can be supplied per row.
 Alternating alignment places even rows on the left and odd rows on the right. Bounds already
 include ruby and inline cue reservations. Omit gap for measured row heights plus
 20% of the largest body font size. Set gap for a fixed distance between row origins.
-
-[Source](../../kara_templater/lyrics/placement.py#L233)
 
 ```python
 Layout(
@@ -395,12 +375,12 @@ Layout.row_offsets(
 
 ## LayoutContext
 
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L126)
+
 Read-only placement region and explicitly supplied cross-track references.
 
 Other tracks are information for overrides, never implicitly allocated by the
 built-in algorithm. Coordinates and measurements use script pixels.
-
-[Source](../../kara_templater/lyrics/placement.py#L126)
 
 ```python
 LayoutContext(
@@ -420,6 +400,8 @@ LayoutContext(
 
 ## LineLayoutRequest
 
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L26)
+
 Immutable measured input, with original timing and desired visibility.
 
 entrance/exit are requested animation durations in seconds, outside timing.
@@ -427,8 +409,6 @@ requested_display includes optional preview/tail and any explicitly reserved cue
 tags and cue markers carry source data; their layout meaning is user-defined.
 bounds includes body, ruby and reserved decorations in local pixels.
 body_bounds gives the measured body alone for ASS style alignment.
-
-[Source](../../kara_templater/lyrics/placement.py#L26)
 
 ```python
 LineLayoutRequest(
@@ -477,13 +457,15 @@ Type: `TimeSpan`.
 
 ## LyricAnchor
 
-Public type alias:
+*type alias*
 
 ```python
 type LyricAnchor = Literal['enter', 'exit', 'timing', 'after_timing']
 ```
 
 ## LyricAnimationContext
+
+*dataclass* · [Source](../../kara_templater/lyric_line.py#L91)
 
 Measured target and current timing request for an animation factory.
 
@@ -493,8 +475,6 @@ times depend on allocation. target retains all original timing spans.
 requested_duration is the rule's optional explicit override. Factories run
 once per resolved interval (once per target for display anchors), never per
 rendered frame. Return an ordinary StateAnimation or AnimationSequence.
-
-[Source](../../kara_templater/lyric_line.py#L91)
 
 ```python
 LyricAnimationContext(
@@ -538,6 +518,8 @@ LyricAnimationContext.resolve(
 
 ## LyricEcho
 
+*dataclass* · [Source](../../kara_templater/lyric_effects.py#L77)
+
 Emit offset, fading copies at each character/ruby timing onset.
 
 Copies use the selected glyph's prepared static appearance, optionally
@@ -554,8 +536,6 @@ The default is a linear fade, using native ASS where available. delay shifts
 all copy births relative to the onset; negative values allow approaching
 copies before timing, but no copy may precede Scene zero. Required display
 is extended without changing timing times.
-
-[Source](../../kara_templater/lyric_effects.py#L77)
 
 ```python
 LyricEcho(
@@ -604,13 +584,15 @@ LyricEcho.__call__(
 
 ## LyricEffect
 
-Public type alias:
+*type alias*
 
 ```python
 type LyricEffect = LyricRule | Callable[[LyricLine], LyricLine]
 ```
 
 ## LyricLine
+
+*dataclass* · [Source](../../kara_templater/lyric_line.py#L286)
 
 An editable lyric line, with the same animate method as any visual node.
 
@@ -620,8 +602,6 @@ timing order within the selected track, starting at zero. query is a logical sel
 it never reparents objects. The original measured layout remains available.
 required_display declares absolute-seconds visual intervals for allocation;
 it does not move the original timing clocks or create animation events.
-
-[Source](../../kara_templater/lyric_line.py#L286)
 
 ```python
 LyricLine(
@@ -805,9 +785,9 @@ LyricLine.with_display(
 
 ## LyricLinePlan
 
-Inspectable source/view association and final layout/animation binding.
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L214)
 
-[Source](../../kara_templater/lyrics/tracks.py#L214)
+Inspectable source/view association and final layout/animation binding.
 
 ```python
 LyricLinePlan(
@@ -831,13 +811,15 @@ LyricLinePlan(
 
 ## LyricRole
 
-Public type alias:
+*type alias*
 
 ```python
 type LyricRole = Literal['line', 'syllable', 'segment', 'character', 'ruby', 'cue']
 ```
 
 ## LyricRule
+
+*dataclass* · [Source](../../kara_templater/lyric_line.py#L133)
 
 Bind a common animation to selected lyric nodes at a semantic anchor.
 
@@ -868,8 +850,6 @@ target accepts a role, a queried semantic target, or a tuple of targets.
 Explicit targets must belong to the receiving line; current aliases are
 resolved at binding. Duplicate selections and selected descendants are
 suppressed. Role/tag queries and empty tuples may select nothing.
-
-[Source](../../kara_templater/lyric_line.py#L133)
 
 ```python
 LyricRule(
@@ -913,9 +893,9 @@ LyricRule.timing_intervals(
 
 ## LyricScene
 
-A normal Scene with immutable lyric arrangement snapshots for inspection.
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L225)
 
-[Source](../../kara_templater/lyrics/tracks.py#L225)
+A normal Scene with immutable lyric arrangement snapshots for inspection.
 
 ```python
 LyricScene(
@@ -1026,14 +1006,14 @@ LyricScene.replace_source(
 
 ## LyricSource
 
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L69)
+
 An immutable source view used by Track predicates and metadata functions.
 
 id identifies source content independently of its track/view. Original
 timing intervals remain in lyrics; display is the original ASS visibility.
 An optional chapter groups consecutive sources. The first selected line of a
 chapter starts a fresh row rotation by default, even without a visible cue.
-
-[Source](../../kara_templater/lyrics/tracks.py#L69)
 
 ```python
 LyricSource(
@@ -1098,6 +1078,8 @@ Type: `str`.
 
 ## LyricTarget
 
+*dataclass* · [Source](../../kara_templater/lyric_line.py#L52)
+
 Stable semantic identity referring to an existing visual node.
 
 Several repeated timing segments may refer to the same body node. Selecting
@@ -1107,8 +1089,6 @@ center is the undecorated measured center in the node's local coordinates.
 Line/syllable centers use body text, so ruby/glow do not shift the pivot.
 source_style is the body cluster's active ASS style, inherited by its readings.
 A factory changing a target's local coordinate origin must update center too.
-
-[Source](../../kara_templater/lyric_line.py#L52)
 
 ```python
 LyricTarget(
@@ -1146,12 +1126,12 @@ LyricTarget(
 
 ## Placement
 
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L148)
+
 A visual origin and absolute display interval for one stable line id.
 
 row is optional metadata; free-form layouts do not need numbered slots.
 adjustments explains deliberate changes to desired visibility.
-
-[Source](../../kara_templater/lyrics/placement.py#L148)
 
 ```python
 Placement(
@@ -1175,14 +1155,14 @@ Placement(
 
 ## ScatterOut
 
+*dataclass* · [Source](../../kara_templater/lyric_effects.py#L42)
+
 A seeded lyric animation factory for rotating, drifting glyph exits.
 
 Pass to LyricRule.animation with an exit/after_timing anchor. spread is the
 horizontal displacement range, rise the upward displacement, rotation the
 maximum added angle; units are script pixels/degrees. No timing is hidden in
 this factory: duration, pause and stagger belong to the rule.
-
-[Source](../../kara_templater/lyric_effects.py#L42)
 
 ```python
 ScatterOut(
@@ -1217,6 +1197,8 @@ ScatterOut.__call__(
 
 ## Track
 
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L144)
+
 An independent lyric stream with selection, placement and composable effects.
 
 With layout omitted, two bottom rows alternate left and right in the region.
@@ -1245,8 +1227,6 @@ right_to_left places shaped lyric cells from right to left, including readings.
 reverse_timing assigns the first authored window to the last timed lyric unit
 and reverses the built-in wipe. A predicate selects individual source lines.
 All animation evaluation and output belong to Scene.
-
-[Source](../../kara_templater/lyrics/tracks.py#L144)
 
 ```python
 Track(
@@ -1307,6 +1287,8 @@ Track(
 
 ## build_lyric_scene
 
+*function* · [Source](../../kara_templater/lyrics/tracks.py#L529)
+
 Measure, allocate and bind independent tracks into one ordinary Scene.
 
 Same-source views are allowed and have distinct visual identities. Original
@@ -1323,8 +1305,6 @@ cues visible in this half-open interval of absolute seconds. Strict rows with bo
 and overlapping rows. Other allocators use the full batch. Omit it when later template code needs off-window objects
 or references them from visible objects.
 
-[Source](../../kara_templater/lyrics/tracks.py#L529)
-
 ```python
 build_lyric_scene(
     document: Document,
@@ -1340,12 +1320,12 @@ build_lyric_scene(
 
 ## lyric_effects
 
+*function* · [Source](../../kara_templater/lyric_effects.py#L23)
+
 Compose built-in or custom lyric factories in the supplied order.
 
 Pass the result as an entry in Track.effects. Each factory runs once on the prepared
 line; it must retain its identity. Timing/animation evaluation stays in Scene.
-
-[Source](../../kara_templater/lyric_effects.py#L23)
 
 ```python
 lyric_effects(

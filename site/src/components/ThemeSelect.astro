@@ -1,0 +1,84 @@
+---
+import {Icon} from "@astrojs/starlight/components";
+import Select from "@astrojs/starlight/components/Select.astro";
+---
+
+<starlight-theme-select>
+	<Select
+		label={Astro.locals.t("themeSelect.accessibleLabel")}
+		options={[
+			{label: Astro.locals.t("themeSelect.dark"), selected: true, value: "dark"},
+			{label: Astro.locals.t("themeSelect.light"), selected: false, value: "light"},
+			{label: Astro.locals.t("themeSelect.auto"), selected: false, value: "auto"},
+		]}
+		width="6.25em"
+	>
+		<Fragment slot="icon">
+			<Icon name="moon" class="sl-theme-icon-dark" />
+			<Icon name="sun" class="sl-theme-icon-light" />
+			<Icon name="laptop" class="sl-theme-icon-auto" />
+		</Fragment>
+	</Select>
+</starlight-theme-select>
+
+<script
+	is:inline
+	set:html={`(() => {
+		const stored = typeof localStorage !== "undefined" && localStorage.getItem("starlight-theme");
+		const value = stored === "light" || stored === "dark" || stored === "auto" ? stored : "dark";
+		document.querySelectorAll("starlight-theme-select select").forEach((s) => { s.value = value; });
+	})();`}
+></script>
+
+<style>
+	@layer starlight.components {
+		starlight-theme-select:has([value="dark"]:not(:checked)) :global(.sl-theme-icon-dark),
+		starlight-theme-select:has([value="light"]:not(:checked)) :global(.sl-theme-icon-light),
+		starlight-theme-select:has([value="auto"]:not(:checked)) :global(.sl-theme-icon-auto) {
+			display: none;
+		}
+	}
+</style>
+
+<script>
+	type Theme = "auto" | "dark" | "light";
+	const storageKey = "starlight-theme";
+
+	const parseTheme = (theme: unknown): Theme =>
+		theme === "auto" || theme === "dark" || theme === "light" ? theme : "dark";
+
+	const loadTheme = (): Theme =>
+		parseTheme(typeof localStorage !== "undefined" && localStorage.getItem(storageKey));
+
+	const getSystemTheme = (): "light" | "dark" =>
+		matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+
+	function applyTheme(theme: Theme, persist: boolean): void {
+		document
+			.querySelectorAll<HTMLSelectElement>("starlight-theme-select select")
+			.forEach((select) => {
+				select.value = theme;
+			});
+		document.documentElement.dataset.theme = theme === "auto" ? getSystemTheme() : theme;
+		if (persist && typeof localStorage !== "undefined") {
+			localStorage.setItem(storageKey, theme);
+		}
+	}
+
+	matchMedia("(prefers-color-scheme: light)").addEventListener("change", () => {
+		if (loadTheme() === "auto") applyTheme("auto", false);
+	});
+
+	class StarlightThemeSelect extends HTMLElement {
+		constructor() {
+			super();
+			applyTheme(loadTheme(), false);
+			this.querySelector("select")?.addEventListener("change", (event) => {
+				if (event.currentTarget instanceof HTMLSelectElement) {
+					applyTheme(parseTheme(event.currentTarget.value), true);
+				}
+			});
+		}
+	}
+	customElements.define("starlight-theme-select", StarlightThemeSelect);
+</script>

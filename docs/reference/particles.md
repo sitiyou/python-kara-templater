@@ -1,33 +1,24 @@
 # Particles and references
 
-Deterministic emissions, delayed copies, and pure world-space dependencies. Time values use seconds. See [particles](../guides/particles.md).
+Deterministic particle emitters, delayed copies, echoes, and world-space object references.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Particles, copies and echoes](../guides/particles.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [Emission](#emission)
-- [FollowObject](#followobject)
-- [LyricParticles](#lyricparticles)
-- [ParticleContext](#particlecontext)
-- [ParticleFactory](#particlefactory)
-- [Petal](#petal)
-- [ReferenceFunction](#referencefunction)
-- [Ribbon](#ribbon)
-- [Sparkle](#sparkle)
-- [StateLookup](#statelookup)
-- [StateReference](#statereference)
-- [echoes](#echoes)
-- [emit_particles](#emit_particles)
-- [split_path](#split_path)
+**Classes:** [`Emission`](#emission) · [`FollowObject`](#followobject) · [`LyricParticles`](#lyricparticles) · [`ParticleContext`](#particlecontext) · [`ParticleFactory`](#particlefactory) · [`Petal`](#petal) · [`ReferenceFunction`](#referencefunction) · [`Ribbon`](#ribbon) · [`Sparkle`](#sparkle) · [`StateReference`](#statereference)
+
+**Functions:** [`echoes`](#echoes) · [`emit_particles`](#emit_particles) · [`split_path`](#split_path)
+
+**Types & constants:** [`StateLookup`](#statelookup)
 
 ## Emission
+
+*dataclass* · [Source](../../kara_templater/particles.py#L30)
 
 A stable particle emission ID and nonnegative absolute birth time in seconds.
 
 Reordering a schedule does not change keyed random values for an existing ID.
-
-[Source](../../kara_templater/particles.py#L30)
 
 ```python
 Emission(
@@ -45,12 +36,12 @@ Emission(
 
 ## FollowObject
 
+*dataclass* · [Source](../../kara_templater/object_references.py#L58)
+
 Replace selected world channels with a target's state at time-delay.
 
 offset is a screen-space position offset, independent of target rotation.
 The target state clamps to its own lifetime at the evaluator boundary.
-
-[Source](../../kara_templater/object_references.py#L58)
 
 ```python
 FollowObject(
@@ -129,6 +120,8 @@ FollowObject.translated(
 
 ## LyricParticles
 
+*dataclass* · [Source](../../kara_templater/lyric_particles.py#L156)
+
 Emit particles at the timing front or throughout the measured lyric line.
 
 placement="front" uses each timing segment. placement="line" scatters
@@ -147,8 +140,6 @@ timing clocks are unchanged. Position is captured in line-local layout coordinat
 line transforms apply to particles, independent character motion does not
 retarget already emitted particles. Use a custom factory for different paths,
 shapes, animation and lifetimes through the existing ParticleContext protocol.
-
-[Source](../../kara_templater/lyric_particles.py#L156)
 
 ```python
 LyricParticles(
@@ -187,12 +178,12 @@ LyricParticles.__call__(
 
 ## ParticleContext
 
+*dataclass* · [Source](../../kara_templater/particles.py#L46)
+
 Particle factory input with birth, seed, source position, optional origin, and named random channels.
 
 position_at samples an emitter explicitly; it does not imply continuous
 following. color is the optional captured lyric ink for a particle factory.
-
-[Source](../../kara_templater/particles.py#L46)
 
 ```python
 ParticleContext(
@@ -253,11 +244,11 @@ ParticleContext.uniform(
 
 ## ParticleFactory
 
+*protocol* · [Source](../../kara_templater/particles.py#L87)
+
 A callable producing a normal Scene object or group from ParticleContext.
 
 The factory controls its own geometry, animation, and lifetime.
-
-[Source](../../kara_templater/particles.py#L87)
 
 ### ParticleFactory.__call__
 
@@ -272,12 +263,12 @@ ParticleFactory.__call__(
 
 ## Petal
 
+*dataclass* · [Source](../../kara_templater/lyric_particles.py#L65)
+
 A seeded falling petal with curved drift, rotation and projected flutter.
 
 size/fall are script pixels, duration is seconds. Unlike Sparkle this uses
 a custom Transform for flutter and requires hook export.
-
-[Source](../../kara_templater/lyric_particles.py#L65)
 
 ```python
 Petal(
@@ -310,11 +301,11 @@ Petal.__call__(
 
 ## ReferenceFunction
 
+*dataclass* · [Source](../../kara_templater/object_references.py#L127)
+
 A pure world-state callback with explicit dependency IDs, written channels, and second-based breakpoints.
 
 Retargeting and clock translation support copied groups.
-
-[Source](../../kara_templater/object_references.py#L127)
 
 ```python
 ReferenceFunction(
@@ -379,14 +370,14 @@ ReferenceFunction.translated(
 
 ## Ribbon
 
+*dataclass* · [Source](../../kara_templater/lyric_particles.py#L116)
+
 A curved luminous strand whose tail follows its head along one path.
 
 duration is head travel time and lag is tail delay in seconds. width, travel
 and bend use local script pixels. Keyed variation changes travel/bend once
 at birth; geometry then uses the same TrailPath available to custom authors.
 ASS export does not support changing path geometry.
-
-[Source](../../kara_templater/lyric_particles.py#L116)
 
 ```python
 Ribbon(
@@ -423,13 +414,13 @@ Ribbon.__call__(
 
 ## Sparkle
 
+*dataclass* · [Source](../../kara_templater/lyric_particles.py#L25)
+
 A small four-point sparkle drifting upward while fading.
 
 A ParticleFactory usable with LyricParticles or emit_particles. size and
 travel are script pixels, duration is seconds; variation uses keyed seed
 channels. The ordinary linear Tween can compile to one ASS event per spark.
-
-[Source](../../kara_templater/lyric_particles.py#L25)
 
 ```python
 Sparkle(
@@ -462,7 +453,7 @@ Sparkle.__call__(
 
 ## StateLookup
 
-Public type alias:
+*type alias*
 
 ```python
 type StateLookup = Callable[[str, float], VisualState]
@@ -470,12 +461,12 @@ type StateLookup = Callable[[str, float], VisualState]
 
 ## StateReference
 
+*protocol* · [Source](../../kara_templater/object_references.py#L15)
+
 Protocol for seekable state relationships evaluated through a world-state lookup.
 
 Declare dependencies and channels so references can be ordered and checked for
 cycles.
-
-[Source](../../kara_templater/object_references.py#L15)
 
 ### StateReference.breakpoints
 
@@ -540,12 +531,12 @@ StateReference.translated(
 
 ## echoes
 
+*function* · [Source](../../kara_templater/particles.py#L163)
+
 Historical copies of complete animation/geometry, each with independent life.
 
 Group copies delay their descendants and parent transforms together. Opacity
 remains the library's per-child inherited opacity, not offscreen compositing.
-
-[Source](../../kara_templater/particles.py#L163)
 
 ```python
 echoes(
@@ -562,13 +553,13 @@ echoes(
 
 ## emit_particles
 
+*function* · [Source](../../kara_templater/particles.py#L108)
+
 Validate the finite schedule before calling factories or the emitter.
 
 A stable emission id owns its random stream. Reordering or adding unrelated
 emissions doesn't change existing particles. Each factory controls geometry,
 state, animation and lifespan through the same normal scene object interface.
-
-[Source](../../kara_templater/particles.py#L108)
 
 ```python
 emit_particles(
@@ -585,6 +576,8 @@ emit_particles(
 
 ## split_path
 
+*function* · [Source](../../kara_templater/particles.py#L293)
+
 Cut static filled geometry into local cells, retaining object origin.
 
 Give both grid dimensions or supply convex polygons in source-local
@@ -594,8 +587,6 @@ are skipped and custom piece IDs retain the original cell index.
 Pieces move with their own geometry, not fixed screen-space clips. Appearance
 is preserved, so borders will also outline newly cut edges. Separate raster
 edges can show seams; use the uncut object for the final assembled hold.
-
-[Source](../../kara_templater/particles.py#L293)
 
 ```python
 split_path(

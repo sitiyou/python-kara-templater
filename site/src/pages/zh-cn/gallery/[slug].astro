@@ -1,0 +1,11 @@
+---
+import GalleryDetailPage from "../../../components/GalleryDetailPage.astro";
+import {demos, type Demo} from "../../../lib/gallery";
+
+export function getStaticPaths() {
+	return demos.map((demo) => ({params: {slug: demo.id}, props: {demo}}));
+}
+
+const {demo} = Astro.props as {demo: Demo};
+---
+<GalleryDetailPage demo={demo} locale="zh-cn" />

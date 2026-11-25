@@ -1,5 +1,7 @@
 """Inline volume bars and a separate row of lamps on the same timing clock."""
 
+import argparse
+from pathlib import Path
 
 from kara_templater import (
     Color,
@@ -24,18 +26,19 @@ def build() -> LyricScene:
     styles = tuple(
         Style(
             name=name,
-            fontname="DejaVu Sans",
+            fontname="Noto Sans CJK JP",
             fontsize=size,
             bold=True,
             outline=2,
             shadow=0,
         )
-        for name, size in (("Main", 48), ("Harmony", 31))
+        for name, size in (("Main", 52), ("Harmony", 34))
     )
+
     doc = Document.create(width=640, height=360, styles=styles)
     for style, word, placement in (
-        ("Main", "Into the light", "inline"),
-        ("Harmony", "Sing with me", "independent"),
+        ("Main", "光の中へ", "inline"),
+        ("Harmony", "声を重ねて", "independent"),
     ):
         marker = CueMarker("intro", "count", placement=placement)
         doc.records.append(
@@ -90,3 +93,13 @@ def build() -> LyricScene:
             ),
         ),
     )
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("output", type=Path)
+    build().export(parser.parse_args().output, fps=30)
+
+
+if __name__ == "__main__":
+    main()

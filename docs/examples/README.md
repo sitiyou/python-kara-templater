@@ -1,29 +1,29 @@
-# Effect gallery
+# Example scripts
 
-Pick an effect by its preview, then run its example from a source checkout.
-Use the fonts in the example to match the lyric layout, and choose an export
-format that supports the effect. [Get started](../getting-started.md) · [Output formats](../guides/choosing-output.md)
+Browse runnable karaoke examples by visual goal, inspect their previews, and run them directly from a source checkout. Use this page when you want working code to adapt for your own song.
+
+Run all commands below from the repository root. Create `build/` first (`mkdir -p build`) so generated files stay inside the ignored build directory. Install the fonts referenced by an example to match its preview layout — see [Choose and register fonts](../guides/fonts.md).
 
 ## Find an example by its visual goal
 
-Choose the row that best matches what you want to change. For a list of every built-in
-entry, timing, exit and ornament, start with [the effect catalog](../guides/karaoke-effects.md).
+Pick the row that matches what you want to build. For the complete catalog of built-in entrances, highlights, exits, and ornaments, see [Built-in karaoke effects](../guides/karaoke-effects.md).
 
 | Visual goal | What the example shows | Where to start |
 | --- | --- | --- |
-| Set a typeface and keep lyrics clear as footage changes | A dark keyline, a colored rim and a soft halo around the same lettering | [Layered main vocal](../guides/karaoke-effects.md#recommended-main-vocal) · [Typeface and reading choices](../guides/fonts-and-preview.md#choose-a-typeface-for-lyrics) |
-| Compare whole-song motion | Combine different entrances, note highlights and exits around the same lyrics | [Built-in combinations](#start-with-a-whole-song) · [Eight motion studies side by side](../tutorials/lyric-studies.md#what-differs) |
-| Place alternating rows or overlapping voices | Independent lead and harmony Tracks with layout, palettes and a common recording clock | [Row allocation example](../../examples/lyric_orchestration.py) · [Track palettes and cues](../../examples/karaoke_designs.py) |
-| Indicate a note attack or release | A moving marker cues the attack, a short pulse accents it, and the whole glyph changes color at release | [Karaoke without a color wipe](#karaoke-without-a-color-wipe) |
-| Give the entrance a distinctive silhouette | Characters slide through invisible cuts, keeping the reading with its character | [Fixed-cut lyric reveal](#fixed-cut-lyric-reveal) |
-| Bring text into focus, type it in, or break it apart | Separate entry and exit mechanisms with guidance on preserving readability while the line is active | [Focus and pixelation](../tutorials/karaoke-design.md#bring-fixed-lyrics-in-and-out-of-focus) · [Typing and erasing](../tutorials/karaoke-design.md#type-the-lyric-in-and-erase-it-after-timing) · [End-glyph breakup](../tutorials/karaoke-design.md#break-only-the-last-glyph-after-the-release) |
-| Design a count-in that matches the song | Flashing columns, independently clearing shapes and a vector motif that pulses on each beat | [Karaoke count-ins](#karaoke-count-ins) · [Custom paw cue](#paw-countdown-and-character-flips) |
-| Add color or motion alongside the text | Gradient paint, glyph copies, and ornaments with their own lifetimes | [GPU gradient](#gpu-gradient) · [Copies and reveals](../tutorials/lyric-studies.md#copies-exits-and-reveal) · [Independent ornament and text clocks](../tutorials/lyric-studies.md#independent-ornament-and-text-clocks) |
+| Keep lyrics legible over changing footage | A dark keyline, a colored outer rim, and a soft halo around the same lettering | [Built-in karaoke effects](../guides/karaoke-effects.md) · [Choose and register fonts](../guides/fonts.md) |
+| Compare whole-song motion styles | Mix entrances, note highlights, exits, and ornaments on the same timed lyrics | [Whole-song templates](#whole-song-templates) · [Motion studies](../tutorials/lyric-studies.md) |
+| Place alternating rows or multiple vocals | Independent lead and harmony `Track` streams with row rotation, palettes, and cues | [lyric_orchestration.py](../../examples/lyric_orchestration.py) · [karaoke_designs.py](../../examples/karaoke_designs.py) |
+| Mark note attacks without a color wipe | A hopping diamond cues each attack, the glyph pulses, and the whole character recolors at release | [Karaoke without a color wipe](#karaoke-without-a-color-wipe) |
+| Give the entrance a crisp masked reveal | Characters slide out of invisible vertical cuts while keeping readings attached | [Fixed-cut lyric reveal](#fixed-cut-lyric-reveal) |
+| Focus, type in, or break apart letters | Separate entrance and exit recipes that keep active lyrics clean and readable | [Effect recipes](../tutorials/effect-recipes.md) |
+| Add a count-in that fits the song | Flashing inline volume bars, independent star lamps, and a custom paw-print cue | [Count-ins and cues](#count-ins-and-cues) |
+| Paint with gradients, sparkles, echoes, or WGSL | Continuous shader gradients, sweep-front particles, onset echoes, and custom WGSL materials | [Drawings, gradients, and custom shaders](#drawings-gradients-and-custom-shaders) · [lyric_particles.py](../../examples/lyric_particles.py) · [lyric_echo.py](../../examples/lyric_echo.py) |
 
-## Start with a whole song
+## Whole-song templates
 
-**Built-in karaoke effects.** Mix an entrance, a timing treatment, and an exit
-with `KaraokeEffects`. The preview shows four combinations using Sarasa UI J.
+### Built-in karaoke combinations
+
+Combine an entrance, a timing highlight, an exit, and optional ornaments with `KaraokeEffects`. The preview shows four combinations rendered with Sarasa UI J.
 
 ![Four combinations of lyric entrances, timing highlights, and exits](assets/karaoke-builtins.gif)
 
@@ -31,80 +31,104 @@ with `KaraokeEffects`. The preview shows four combinations using Sarasa UI J.
 python -m examples.karaoke_catalog build/studio.hook --entry glow_in --exit dissolve_out
 ```
 
-[Catalog source](../../examples/karaoke_catalog.py) · [Choose effects](../guides/karaoke-effects.md)
+[karaoke_catalog.py](../../examples/karaoke_catalog.py) · [Built-in karaoke effects](../guides/karaoke-effects.md)
 
-**Lead and harmony.** See how independent Tracks share a song clock, rotate
-rows, and use different colors. [Row allocation](../../examples/lyric_orchestration.py) · [Track palettes](../../examples/karaoke_designs.py)
+### Lead and harmony tracks
 
-## Animate the lyric
+See how independent `Track` streams share one song timeline, rotate rows, reserve space for cues, and assign per-vocal palettes:
+
+- [lyric_orchestration.py](../../examples/lyric_orchestration.py) — Lead and harmony tracks with an overridable row layout.
+- [karaoke_designs.py](../../examples/karaoke_designs.py) — Multiple song-level presets on one shared lyric fixture.
+- [track_colors.py](../../examples/track_colors.py) — Alternating per-syllable colors usable directly with `kara-templater --effect`.
+
+## Custom lyric entrances and timing
 
 ### Fixed-cut lyric reveal
 
-![Japanese lyrics slide through invisible cuts from right to left](assets/slit-reveal.gif)
+Each character slides out of an invisible fixed cut before its first note, then sweeps from off-white to amber. The preview uses Sarasa UI J.
 
-Each character slides into place before its first note. The default style puts
-Sarasa UI J directly over the footage, then sweeps from off-white to amber.
+![Japanese lyrics slide through invisible cuts from right to left](assets/slit-reveal.gif)
 
 ```sh
 python -m examples.slit_reveal build/slit-reveal.hook
 ```
 
-[Source](../../examples/slit_reveal.py) · [Adapt the entrance to longer lyrics](../tutorials/karaoke-design.md#reveal-a-phrase-from-narrow-openings)
+[slit_reveal.py](../../examples/slit_reveal.py) · [Effect recipes](../tutorials/effect-recipes.md)
 
 ### Karaoke without a color wipe
 
-![A small amber diamond hops between Chinese lyrics over a night street](assets/lyric-no-sweep.gif)
+An amber diamond hops from syllable to syllable on each attack while the active glyph briefly pulses, then turns amber on release. The preview uses Sarasa UI SC.
 
-The diamond lands on the note attack and the glyph briefly grows. The whole
-glyph turns amber at release. The preview uses Sarasa UI SC over a night street.
+![A small amber diamond hops between Chinese lyrics over a night street](assets/lyric-no-sweep.gif)
 
 ```sh
 python -m examples.lyric_no_sweep build/lyric-no-sweep.hook
 ```
 
-[Source](../../examples/lyric_no_sweep.py) · [Align motion with the notes](../tutorials/karaoke-design.md#mark-timing-without-a-color-wipe)
+[lyric_no_sweep.py](../../examples/lyric_no_sweep.py) · [Effect recipes](../tutorials/effect-recipes.md)
 
-For more custom motion, see the [lyric studies](../tutorials/lyric-studies.md) on
-timed copies, particle reveals, and curved trails.
+### More timing and motion scripts
 
-## Karaoke count-ins
+- [lyric_pulse_drift.py](../../examples/lyric_pulse_drift.py) — Duration-aware `ScalePulse` and `DriftOut` exits with a vertical fill gradient.
+- [lyric_particles.py](../../examples/lyric_particles.py) — Sweep-front sparkles (`--kind sparkle`) or drifting petals (`--kind petal`).
+- [lyric_studies.py](../../examples/lyric_studies.py) — Eight motion studies (echoes, particles, trails, and reveals) on identical lyric timing. See [Motion studies](../tutorials/lyric-studies.md).
+- [lyric_ornament.py](../../examples/lyric_ornament.py) — Stationary arch ornaments with an exit clock independent of the text.
+
+## Count-ins and cues
+
+### Inline bars and independent star lamps
+
+Inline volume columns sit beside the lyric and flash together, while star lamps occupy their own track position and clear one by one before the pickup.
 
 ![An inline signal and separate star lamps count down to the lyrics](assets/karaoke-signals.gif)
 
-The inline columns flash together. The stars clear one at a time above the
-line. Both signals clear by the pickup. [Signal source](../../examples/karaoke_signals.py) · [Cue setup](../guides/text-and-cues.md)
+```sh
+python -m examples.karaoke_signals build/signals.hook
+```
 
-### Paw countdown and character flips
+[karaoke_signals.py](../../examples/karaoke_signals.py) · [Ruby readings and cues](../guides/text-and-cues.md)
 
-Use `paw_countdown(step_seconds=...)` as a Track cue preset for four prints that
-squash and vanish in step with the music. Use the built-in `spin_flip` exit with
-`exit_unit="character"` to flip glyphs and their readings around their own pivots.
-[Paw cue source](../../examples/paw_countdown.py) · [Entry and exit options](../guides/karaoke-effects.md#entry-and-exit)
+### Custom paw-print countdown
 
-## Add drawing and color
+Import `paw_countdown(step_seconds=...)` from [paw_countdown.py](../../examples/paw_countdown.py) as a `Track` cue preset for four vector paw prints that squash and vanish in step with the beat. Pair it with `KaraokeEffects(exit="spin_flip", exit_unit="character")` to flip each glyph and its reading around its own center.
+
+## Drawings, gradients, and custom shaders
 
 ### Word backgrounds and decorations
 
-![Measured lyric ranges with colored backgrounds, cue bars, and sparkles](assets/word-backgrounds.gif)
+Measure lyric ranges to place colored word backgrounds, inline cue bars, and vector sparkles, then export standard ASS.
 
-Draw backgrounds, cue bars, and sparkles against measured lyric ranges. Edit
-the range, cue factory, or lifetime to attach the drawing to a different phrase.
+![Measured lyric ranges with colored backgrounds, cue bars, and sparkles](assets/word-backgrounds.gif)
 
 ```sh
 python -m examples.scene_cues build/word-backgrounds.ass
 ```
 
-[Source](../../examples/scene_cues.py)
+[scene_cues.py](../../examples/scene_cues.py) · [Export standard ASS](../output/ass.md)
 
-### GPU gradient
+### Continuous GPU gradient
+
+Paint a `TextObject` with a local-space `LinearGradient` that scales and drifts with the lettering. Running the module writes both `build/gpu-gradient.hook` and a plain ASS fallback (`build/gpu-gradient.ass`).
 
 ![A pink-to-cyan gradient fills the moving lyric](assets/gpu-gradient.gif)
-
-Export continuous shader color as `build/gpu-gradient.hook` alongside a plain
-ASS version of the lyric.
 
 ```sh
 python -m examples.gpu_gradient
 ```
 
-[Source](../../examples/gpu_gradient.py) · [Render the hook](../guides/gpu-rendering.md)
+[gpu_gradient.py](../../examples/gpu_gradient.py) · [Colour and materials](../guides/materials.md) · [Play and render a Hook](../output/hook.md)
+
+### Interactive gallery demos
+
+These focused scripts power the live browser previews in the gallery and run from the command line as well:
+
+- [gallery_lighting.py](../../examples/gallery_lighting.py) — Feathered wipe, soft scanline, and blended two-color glow with tunable `PaintInput` controls.
+- [gallery_ruby.py](../../examples/gallery_ruby.py) — Timed Japanese lyrics with ruby readings synchronized to the same note boundaries.
+- [gallery_material.py](../../examples/gallery_material.py) — Custom WGSL `MaterialEffect` sweeping a colored ribbon across text fill.
+
+## Next steps
+
+- [Quickstart](../getting-started.md) — Preview any exported `.hook` in mpv or FFmpeg.
+- [Built-in karaoke effects](../guides/karaoke-effects.md) — Browse every built-in entrance, highlight, exit, and ornament option.
+- [Design a song layout](../tutorials/karaoke-design.md) — Turn a single-line example into a multi-track song template.
+- [Choose an output](../output/README.md) — Check which effects require Hook export vs standard ASS.

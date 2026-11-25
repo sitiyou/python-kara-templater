@@ -1,0 +1,103 @@
+---
+import {Code} from "@astrojs/starlight/components";
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import {getUi, type Locale, url} from "../lib/i18n";
+
+interface Props {
+	locale: Locale;
+}
+
+const {locale} = Astro.props;
+const ui = getUi(locale);
+
+const sampleCode = `from kara_templater import (
+    Color, Document, KaraokeEffects, Layout, Line, Style, Track, Vec2, build_lyric_scene,
+)
+
+song = Document.create(
+    width=640, height=360,
+    styles=(Style(fontsize=72, bold=True, outline=3, shadow=0),),
+)
+song.records.append(
+    Line(start_time=0, end_time=3000, text=r"{\\k90}星|ほし{\\k45}に{\\k165}届け|とどけ")
+)
+gold = KaraokeEffects.duotone(
+    before_fill=Color.hex("#281C26"), after_fill=Color.hex("#FFE09A"),
+)
+vocal = Track(id="vocal", layout=Layout(position=Vec2(80, 180)), effects=(gold,))
+build_lyric_scene(song, tracks=(vocal,)).export("chorus.hook", fps=30)`;
+---
+
+<StarlightPage
+	frontmatter={{
+		title: "kara-templater",
+		description: ui.hero.tagline,
+		template: "splash",
+		hero: {
+			title: ui.hero.titleSweep,
+			tagline: ui.hero.tagline,
+		},
+	}}
+>
+	<div class="home-sections">
+		<section class="home-section" aria-labelledby="pipeline-heading">
+			<div class="section-header">
+				<p class="section-eyebrow">{ui.home.pipelineEyebrow}</p>
+				<h2 id="pipeline-heading">{ui.home.pipelineTitle}</h2>
+			</div>
+			<ol class="pipeline-grid">
+				{ui.home.pipelineSteps.map((item) => (
+					<li>
+						<a class="pipeline-card" href={item.href}>
+							<div class="pipeline-top">
+								<span class="pipeline-step">{item.step}</span>
+								<code class="pipeline-symbol">{item.symbol}</code>
+							</div>
+							<h3>{item.title}</h3>
+							<p>{item.body}</p>
+						</a>
+					</li>
+				))}
+			</ol>
+		</section>
+
+		<section class="home-section home-code-band" aria-labelledby="code-heading">
+			<div class="code-pitch">
+				<p class="section-eyebrow">{ui.home.codeEyebrow}</p>
+				<h2 id="code-heading">{ui.home.codeTitle}</h2>
+				<p class="code-body">{ui.home.codeBody}</p>
+				<ul class="code-features">
+					{ui.home.codeFeatures.map((feature) => (
+						<li>
+							<strong>{feature.label}</strong>
+							<span>{feature.detail}</span>
+						</li>
+					))}
+				</ul>
+				<a class="inline-action" href={url("getting-started/", locale)}>
+					{ui.home.codeAction} <span aria-hidden="true">→</span>
+				</a>
+			</div>
+			<div class="code-window">
+				<Code lang="python" code={sampleCode} title="chorus.py" />
+			</div>
+		</section>
+
+		<section class="home-section" aria-labelledby="paths-heading">
+			<div class="section-header">
+				<p class="section-eyebrow">{ui.home.pathsEyebrow}</p>
+				<h2 id="paths-heading">{ui.home.pathsTitle}</h2>
+			</div>
+			<nav class="home-paths" aria-label={ui.home.pathsTitle}>
+				{ui.home.paths.map((item) => (
+					<a class="path-card" href={item.href}>
+						<span class="path-badge">{item.badge}</span>
+						<strong>{item.title}</strong>
+						<p>{item.body}</p>
+						<span class="path-arrow" aria-hidden="true">→</span>
+					</a>
+				))}
+			</nav>
+		</section>
+	</div>
+</StarlightPage>

@@ -1,0 +1,74 @@
+name: Documentation site
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: read
+    env:
+      ASTRO_TELEMETRY_DISABLED: "1"
+      DOCS_SOURCE_REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/configure-pages@v5
+        id: pages
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Install native dependencies and fonts
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libfreetype-dev libharfbuzz-dev \
+            libfribidi-dev libfontconfig-dev libpng-dev fonts-dejavu-core fonts-noto-cjk
+          rustup default 1.87.0
+      - name: Build library and install site dependencies
+        run: |
+          uv sync --locked --group checks --python 3.12
+          npm ci --prefix site
+      - name: Build HTML and verify links and previews
+        env:
+          DOCS_BASE: ${{ steps.pages.outcome == 'success' && format('{0}/', steps.pages.outputs.base_path) || format('/{0}/', github.event.repository.name) }}
+          DOCS_SITE: ${{ steps.pages.outputs.origin }}
+        run: |
+          uv run --no-sync python -m tools.check_docs
+          npm run build --prefix site
+          uv run --no-sync python -m tools.check_docs_site
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        with:
+          path: build/docs-site/dist
+
+  publish:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/deploy-pages@v4
+        id: deployment

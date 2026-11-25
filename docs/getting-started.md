@@ -1,50 +1,48 @@
-# Export your first karaoke subtitles
+# Quickstart
 
-Both examples export a libplacebo Hook. You need Python 3.12 or newer and a
-source checkout. To render a preview, use FFmpeg with libplacebo, libx264, and
-a working Vulkan driver.
-[Font setup](guides/fonts-and-preview.md) · [GPU setup](guides/gpu-rendering.md)
+Install kara-templater, export your first animated karaoke Hook from timed lyrics, and preview it with mpv or FFmpeg. Start here to get a working render in a few minutes.
 
-## Install from the checkout
+## Install
 
-1. Install the native build prerequisites for your platform.
-   [Linux setup](contributing/setup.md#linux) · [Windows setup](contributing/setup.md#windows)
-2. From the repository root, create a virtual environment.
+You need Python 3.12 or newer. Building from a source checkout also requires a C/C++ compiler, Cargo and Rust 1.87+, and development headers for FreeType, HarfBuzz, FriBidi, Fontconfig, and libpng. See [Development setup](contributing/setup.md) for Linux and Windows package commands.
 
-   ```sh
-   python -m venv .venv
-   ```
+From the repository root, create and activate a virtual environment, then install the package:
 
-3. Activate it with `source .venv/bin/activate` on Linux or
-   `.\.venv\Scripts\Activate.ps1` in PowerShell. Install the checkout.
+```sh
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install .
+```
 
-   ```sh
-   python -m pip install .
-   ```
+On Windows PowerShell, activate the environment with `.\.venv\Scripts\Activate.ps1`.
 
-These commands use the 1.1.0 exporter in this checkout. If you installed the 1.0.1 release from PyPI, use its versioned instructions. [Version 1.0.1 README](https://github.com/sitiyou/python-kara-templater/blob/v1.0.1/README.md)
+## Export with a preset
 
-## Apply a preset
-
-From the repository root, apply the default preset to the included timed lyrics.
-This sample uses DejaVu Sans.
+From the repository root, run the default preset against the bundled timed ASS sample:
 
 ```sh
 kara-templater examples/karaoke.ass karaoke.hook
 ```
 
-[Preset options and effect files](guides/cli.md)
+The sample uses a 1280 × 720 canvas with DejaVu Sans and four timed syllables with ruby readings. The command writes a 60 fps Hook (`karaoke.hook`) with a color wipe driven by the `\k` tags.
 
-## Write an effect
+To customize wipe colors, fades, or syllable pulses from the command line, see [Command line](guides/cli.md).
 
-Save the script as `chorus.py` and run `python chorus.py`. ASS record times
-use milliseconds. Inline `\k` values mark syllable lengths in centiseconds,
-and `|` attaches a ruby reading. Use a font with Japanese glyphs. To select a
-particular family, set `Style.fontname`.
+## Write your first Python template
+
+Save the following script as `chorus.py` and run `python chorus.py`. It creates a timed Japanese line with ruby readings and exports `chorus.hook`, sweeping each syllable from dark plum to warm gold.
 
 ```python
 from kara_templater import (
-    Color, Document, KaraokeEffects, Layout, Line, Style, Track, Vec2, build_lyric_scene,
+    Color,
+    Document,
+    KaraokeEffects,
+    Layout,
+    Line,
+    Style,
+    Track,
+    Vec2,
+    build_lyric_scene,
 )
 
 song = Document.create(
@@ -55,30 +53,60 @@ song = Document.create(
 song.records.append(
     Line(start_time=0, end_time=3000, text=r"{\k90}星|ほし{\k45}に{\k165}届け|とどけ")
 )
-gold = KaraokeEffects.duotone(before_fill=Color.hex("#281C26"), after_fill=Color.hex("#FFE09A"))
+gold = KaraokeEffects.duotone(
+    before_fill=Color.hex("#281C26"),
+    after_fill=Color.hex("#FFE09A"),
+)
 vocal = Track(id="vocal", layout=Layout(position=Vec2(80, 180)), effects=(gold,))
 scene = build_lyric_scene(song, tracks=(vocal,))
 scene.export("chorus.hook", fps=30)
 ```
 
-## Preview the export
+Here is how the pieces connect:
 
-Render a four-second clip on a solid background. For `chorus.hook`, use
-640 × 360 at 30 fps.
+- `Document.create(...)` creates a 640 × 360 canvas with one style (`shadow=0` disables the default drop shadow).
+- `Line(...)` defines a lyric line from 0 ms to 3000 ms. Inside `text`, `\k90` gives the first syllable 90 centiseconds (0.9 s), and `星|ほし` attaches the reading `ほし` to `星`.
+- `KaraokeEffects.duotone(...)` creates a two-color feathered wipe between `before_fill` and `after_fill`.
+- `Track(...)` places the line at `(80, 180)` and applies the effect.
+- `build_lyric_scene(...)` measures the glyphs and builds a `Scene`, and `scene.export("chorus.hook", fps=30)` writes the Hook at 30 fps for a quick preview (the default is 60 fps).
+
+Try changing `before_fill` or `after_fill` to match your footage, or swap `gold` for `KaraokeEffects(entry="rise", exit="fade")` to add line transitions.
+
+> [!NOTE]
+> This script uses Japanese characters. Install a font with Japanese glyphs (such as Noto Sans CJK JP or Sarasa UI J) if characters render as missing-glyph boxes. See [Choose and register fonts](guides/fonts.md).
+
+## Preview the Hook
+
+Play the Hook directly over a matching-aspect video in mpv:
 
 ```sh
-ffmpeg -init_hw_device vulkan=vk -f lavfi -i "color=c=0x181B24:s=640x360:r=30:d=4" -vf "libplacebo=custom_shader_path=chorus.hook" -c:v libx264 -pix_fmt yuv420p preview.mp4
+mpv --vo=gpu-next --sub-auto=no --glsl-shader=chorus.hook video.mp4
 ```
 
-For `karaoke.hook`, use `s=1280x720`, `r=60` and
-`custom_shader_path=karaoke.hook` in the same command.
-[Render over footage or play in mpv](guides/gpu-rendering.md)
+To inspect the result on a plain background without video footage, render four seconds with FFmpeg using the `libplacebo` filter and Vulkan. Match the canvas size (`640x360`) and frame rate (`30`) to the export:
 
-## Export your own lyrics
+```sh
+ffmpeg -init_hw_device vulkan=vk \
+  -f lavfi -i "color=c=0x181B24:s=640x360:r=30:d=4" \
+  -vf "libplacebo=custom_shader_path=chorus.hook" \
+  -c:v libx264 -pix_fmt yuv420p preview.mp4
+```
 
-Use your timed ASS file in the preset command, or load it with
-`Document.load("song.ass")` in the effect script in place of creating a document
-and adding the sample line. Both read the file's lyrics, timing and ruby.
-Match the preview canvas and frame rate to your export.
+To preview `karaoke.hook` from the CLI preset step, use `s=1280x720`, `r=60`, `d=5`, and `custom_shader_path=karaoke.hook`. See [Play and render a Hook](output/hook.md) for burning into real footage and exporting time windows.
 
-[Supported lyric input](guides/documents.md#choose-the-lyric-frontend) · [Lay out lead and harmony vocals](tutorials/karaoke-design.md) · [Compare output formats](guides/choosing-output.md)
+## Use your own timed ASS file
+
+Pass your own `.ass` file to the `kara-templater` command, or replace `Document.create(...)` and `song.records.append(...)` in `chorus.py` with:
+
+```python
+song = Document.load("song.ass")
+```
+
+Both read the file's `PlayRes`, timing tags, and ruby readings. Match your FFmpeg preview resolution and frame rate to the loaded file and `scene.export(..., fps=...)`.
+
+## Next steps
+
+- [Core concepts](concepts.md) — Learn how time units, coordinates, lifetimes, and outputs fit together.
+- [Design a song layout](tutorials/karaoke-design.md) — Lay out lead and harmony vocals with automatic row rotation.
+- [Import timed lyrics](guides/documents.md) — Check all supported `\k` timing, ruby, and continuation syntax.
+- [Choose an output](output/README.md) — Compare Hook playback with standard ASS export.

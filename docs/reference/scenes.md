@@ -1,33 +1,18 @@
 # Scenes and compilation
 
-Scene lifetimes and evaluation use seconds; geometry uses script pixels. Compile returns a new Document under explicit resource limits. See [objects](../guides/objects.md) and [compilation](../guides/compilation.md).
+Scene objects, world-space evaluation, Hook export, and budgeted ASS compilation. Lifetimes use seconds; geometry uses script pixels.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Scene objects and groups](../guides/objects.md) · [Export standard ASS](../output/ass.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [AssBudget](#assbudget)
-- [AssDialogue](#assdialogue)
-- [AssEstimate](#assestimate)
-- [AssObjectReport](#assobjectreport)
-- [AssResult](#assresult)
-- [Lifetime](#lifetime)
-- [ObjectGroup](#objectgroup)
-- [PathObject](#pathobject)
-- [PreparedHook](#preparedhook)
-- [RectangleClip](#rectangleclip)
-- [RectangleFunction](#rectanglefunction)
-- [RectangleKeyframes](#rectanglekeyframes)
-- [Scene](#scene)
-- [SceneCompileError](#scenecompileerror)
-- [SceneEvaluator](#sceneevaluator)
-- [SceneObject](#sceneobject)
-- [SceneReferenceError](#scenereferenceerror)
-- [TextObject](#textobject)
-- [VectorClip](#vectorclip)
-- [VisualNode](#visualnode)
+**Classes:** [`AssBudget`](#assbudget) · [`AssDialogue`](#assdialogue) · [`AssEstimate`](#assestimate) · [`AssObjectReport`](#assobjectreport) · [`AssResult`](#assresult) · [`Lifetime`](#lifetime) · [`ObjectGroup`](#objectgroup) · [`PathObject`](#pathobject) · [`PreparedHook`](#preparedhook) · [`RectangleClip`](#rectangleclip) · [`RectangleFunction`](#rectanglefunction) · [`RectangleKeyframes`](#rectanglekeyframes) · [`Scene`](#scene) · [`SceneCompileError`](#scenecompileerror) · [`SceneEvaluator`](#sceneevaluator) · [`SceneReferenceError`](#scenereferenceerror) · [`TextObject`](#textobject) · [`VectorClip`](#vectorclip) · [`VisualNode`](#visualnode)
+
+**Types & constants:** [`SceneObject`](#sceneobject)
 
 ## AssBudget
+
+*dataclass* · [Source](../../kara_templater/output/ass_export.py#L61)
 
 Positive whole-scene ASS resource limits.
 
@@ -35,8 +20,6 @@ ASS compilation enforces limits on events, bytes, active drawings, geometry
 and boolean work. It does not sample at fps or generate paint bands.
 clip_error_px bounds known native rectangle-edge interpolation in screen
 pixels, including endpoint rounding, before renderer pixel quantization.
-
-[Source](../../kara_templater/output/ass_export.py#L61)
 
 ```python
 AssBudget(
@@ -63,12 +46,12 @@ AssBudget(
 
 ## AssDialogue
 
+*dataclass* · [Source](../../kara_templater/scene.py#L558)
+
 Already-lowered Dialogue, including historical empty/negative intervals.
 
 Native timing follows Document serialization (negative times clamp to zero),
 rather than the positive display lifetime required by new visual objects.
-
-[Source](../../kara_templater/scene.py#L558)
 
 ```python
 AssDialogue(
@@ -88,9 +71,9 @@ AssDialogue(
 
 ## AssEstimate
 
-Estimated ASS event count before emission.
+*dataclass* · [Source](../../kara_templater/output/ass_export.py#L93)
 
-[Source](../../kara_templater/output/ass_export.py#L93)
+Estimated ASS event count before emission.
 
 ```python
 AssEstimate(
@@ -106,9 +89,9 @@ AssEstimate(
 
 ## AssObjectReport
 
-ASS lowering strategy, source origin, event count and observed geometry costs.
+*dataclass* · [Source](../../kara_templater/output/ass_export.py#L100)
 
-[Source](../../kara_templater/output/ass_export.py#L100)
+ASS lowering strategy, source origin, event count and observed geometry costs.
 
 ```python
 AssObjectReport(
@@ -134,11 +117,11 @@ AssObjectReport(
 
 ## AssResult
 
+*dataclass* · [Source](../../kara_templater/output/ass_export.py#L112)
+
 A newly compiled ASS Document with object reports, final cost metrics, diagnostics, and actual generated-event origins.
 
 Caller-owned input objects remain unchanged.
-
-[Source](../../kara_templater/output/ass_export.py#L112)
 
 ```python
 AssResult(
@@ -170,12 +153,12 @@ AssResult(
 
 ## Lifetime
 
+*dataclass* · [Source](../../kara_templater/scene.py#L57)
+
 An absolute half-open seconds interval with 0 <= start < end.
 
 Parent lifetimes further restrict child visibility without changing local
 animation clocks.
-
-[Source](../../kara_templater/scene.py#L57)
 
 ```python
 Lifetime(
@@ -203,6 +186,8 @@ Lifetime.contains(
 
 ## ObjectGroup
 
+*dataclass* · [Source](../../kara_templater/scene.py#L471)
+
 Local child coordinates; absolute lifetimes intersect parent lifetimes.
 
 Opacity is inherited per child, not offscreen compositing of the group.
@@ -210,8 +195,6 @@ Group paint is not inherited; use explicit child appearances instead.
 Hook output supports normal screen-space rectangle clips with static
 bounds or RectangleKeyframes evaluated on the group's clock. A parent
 rectangle intersects child clips without replacing their local clocks.
-
-[Source](../../kara_templater/scene.py#L471)
 
 ```python
 ObjectGroup(
@@ -298,13 +281,13 @@ Type: `float`.
 
 ## PathObject
 
+*dataclass* · [Source](../../kara_templater/scene.py#L429)
+
 A visual VectorPath drawing with state, lifetime, and optional geometry deformation.
 
 Coordinates are local to its local origin and parent transforms. Set filled=False
 for an outline-only drawing. The border radius uses script pixels by default.
 With scale_border=True the radius is measured in local path coordinates.
-
-[Source](../../kara_templater/scene.py#L429)
 
 ```python
 PathObject(
@@ -413,12 +396,12 @@ Type: `float`.
 
 ## PreparedHook
 
+*class* · [Source](../../kara_templater/scene.py#L644)
+
 Reusable snapshot for sequential exports at arbitrary positions and frame rates.
 
 Prepare a new snapshot after changing the scene. Window exports share measured
 masks and the resolved object hierarchy. Each output has its own playback clock.
-
-[Source](../../kara_templater/scene.py#L644)
 
 ```python
 PreparedHook(
@@ -478,11 +461,11 @@ PreparedHook.material_inputs() -> dict[str, PaintValue]
 
 ## RectangleClip
 
+*dataclass* · [Source](../../kara_templater/scene.py#L175)
+
 A positive-area normal or inverse rectangle in screen or object-local space.
 
 Optional deformation evaluates local seconds and can produce an empty mask.
-
-[Source](../../kara_templater/scene.py#L175)
 
 ```python
 RectangleClip(
@@ -510,11 +493,11 @@ RectangleClip(
 
 ## RectangleFunction
 
+*dataclass* · [Source](../../kara_templater/scene.py#L78)
+
 Pure signed-local-seconds rectangle bounds; None denotes an empty mask.
 
 The owning object validates breakpoint times against its absolute clock.
-
-[Source](../../kara_templater/scene.py#L78)
 
 ```python
 RectangleFunction(
@@ -542,6 +525,8 @@ RectangleFunction.sample(
 
 ## RectangleKeyframes
 
+*dataclass* · [Source](../../kara_templater/scene.py#L105)
+
 Known piecewise-linear rectangle bounds in signed local seconds.
 
 Each keyframe is (time, (left, top, right, bottom)). End values hold outside
@@ -549,8 +534,6 @@ the key range. Two keys at the same time encode an instantaneous reset:
 the first is the left limit and the second takes effect at that time.
 Zero width or height is an empty mask, with its coordinates retained for
 interpolation. The owning object validates absolute breakpoint times.
-
-[Source](../../kara_templater/scene.py#L105)
 
 ```python
 RectangleKeyframes(
@@ -594,12 +577,12 @@ RectangleKeyframes.sample(
 
 ## Scene
 
+*dataclass* · [Source](../../kara_templater/scene.py#L576)
+
 A Document-backed composition of visual objects and already-lowered ASS dialogues.
 
 add and source replacement configure generation; compile returns a new standard
 ASS Document and reports.
-
-[Source](../../kara_templater/scene.py#L576)
 
 ```python
 Scene(
@@ -702,11 +685,11 @@ Scene.replace_source(
 
 ## SceneCompileError
 
+*exception* · [Source](../../kara_templater/scene.py#L41)
+
 An invalid scene or exceeded compilation limit with object_id and optional source origin.
 
 Callback causes remain available for diagnosis.
-
-[Source](../../kara_templater/scene.py#L41)
 
 ```python
 SceneCompileError(
@@ -719,9 +702,9 @@ SceneCompileError(
 
 ## SceneEvaluator
 
-Immutable object snapshot; no previous-frame state or cross-call cache.
+*class* · [Source](../../kara_templater/scene_evaluation.py#L76)
 
-[Source](../../kara_templater/scene_evaluation.py#L76)
+Immutable object snapshot; no previous-frame state or cross-call cache.
 
 ```python
 SceneEvaluator(
@@ -762,7 +745,7 @@ SceneEvaluator.referenced(
 
 ## SceneObject
 
-Public type alias:
+*type alias*
 
 ```python
 type SceneObject = TextObject | PathObject | ObjectGroup
@@ -770,11 +753,11 @@ type SceneObject = TextObject | PathObject | ObjectGroup
 
 ## SceneReferenceError
 
+*exception* · [Source](../../kara_templater/scene_evaluation.py#L13)
+
 An invalid dependency, reference cycle, or failed world-state evaluation.
 
 object_id and optional origin locate the affected Scene object.
-
-[Source](../../kara_templater/scene_evaluation.py#L13)
 
 ```python
 SceneReferenceError(
@@ -787,6 +770,8 @@ SceneReferenceError(
 
 ## TextObject
 
+*dataclass* · [Source](../../kara_templater/scene.py#L384)
+
 A text drawing with family name, pixel font size, shaping style, alignment, and inherited visual state.
 
 Unsupported affine combinations can lower to glyph geometry with explicit
@@ -797,8 +782,6 @@ axis with the text. The default ASS outline radius uses script pixels.
 Set filled=False for outline-only text.
 For affine paths baked into screen coordinates, ASS approximates a sheared
 or tilted elliptical outline using its horizontal and vertical radii.
-
-[Source](../../kara_templater/scene.py#L384)
 
 ```python
 TextObject(
@@ -909,12 +892,12 @@ Type: `float`.
 
 ## VectorClip
 
+*dataclass* · [Source](../../kara_templater/scene.py#L224)
+
 A filled mask; deform uses object-local seconds. None is an empty region.
 
 Empty normal masks hide the object; empty inverse masks reveal it entirely.
 Local coordinates are relative to the object's alignment anchor.
-
-[Source](../../kara_templater/scene.py#L224)
 
 ```python
 VectorClip(
@@ -936,6 +919,8 @@ VectorClip(
 
 ## VisualNode
 
+*dataclass* · [Source](../../kara_templater/scene.py#L246)
+
 Common state, lifetime, animation, clip, material, reference, and source metadata for Scene visuals.
 
 lifetime controls visibility. clock_start optionally preserves an absolute
@@ -944,8 +929,6 @@ lifetime.start. Earlier visibility gives callbacks negative local seconds;
 scheduled animations remain unstarted until their clip start.
 Copies shift both visibility and an explicit clock origin.
 Local evaluation is distinct from world-space SceneEvaluator queries.
-
-[Source](../../kara_templater/scene.py#L246)
 
 ```python
 VisualNode(

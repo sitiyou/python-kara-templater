@@ -1,41 +1,23 @@
 # Documents and lyric input
 
-Records, decoded text, input selection, and source mappings. Raw Line clocks use milliseconds; Document lyric timing spans and Track authoring use seconds. See [Documents](../guides/documents.md).
+Records, decoded lyric text, input selection, and source mappings. Raw line clocks use milliseconds; lyric timing spans use seconds.
 
-[All public symbols](README.md#symbol-index)
+Related guides: [Import timed lyrics](../guides/documents.md) · [Core concepts](../concepts.md) · [All public symbols](README.md#symbol-index)
 
 ## Contents
 
-- [CueMarker](#cuemarker)
-- [Document](#document)
-- [DocumentLyrics](#documentlyrics)
-- [DocumentText](#documenttext)
-- [EventOrigin](#eventorigin)
-- [Line](#line)
-- [LyricMapping](#lyricmapping)
-- [LyricSegment](#lyricsegment)
-- [LyricUnit](#lyricunit)
-- [Record](#record)
-- [RubyText](#rubytext)
-- [SourceRef](#sourceref)
-- [Style](#style)
-- [TextAppearance](#textappearance)
-- [TextIssue](#textissue)
-- [TextRun](#textrun)
-- [TextToken](#texttoken)
-- [TimedTextSpan](#timedtextspan)
-- [TimingTag](#timingtag)
-- [parse_document_lyrics](#parse_document_lyrics)
-- [read_document_text](#read_document_text)
+**Classes:** [`CueMarker`](#cuemarker) · [`Document`](#document) · [`DocumentLyrics`](#documentlyrics) · [`DocumentText`](#documenttext) · [`EventOrigin`](#eventorigin) · [`Line`](#line) · [`LyricMapping`](#lyricmapping) · [`LyricSegment`](#lyricsegment) · [`LyricUnit`](#lyricunit) · [`Record`](#record) · [`RubyText`](#rubytext) · [`SourceRef`](#sourceref) · [`Style`](#style) · [`TextAppearance`](#textappearance) · [`TextIssue`](#textissue) · [`TextRun`](#textrun) · [`TextToken`](#texttoken) · [`TimedTextSpan`](#timedtextspan) · [`TimingTag`](#timingtag)
+
+**Functions:** [`parse_document_lyrics`](#parse_document_lyrics) · [`read_document_text`](#read_document_text)
 
 ## CueMarker
+
+*dataclass* · [Source](../../kara_templater/document_text.py#L73)
 
 A non-executable cue anchor with ID, preset key, decoded body offset, and inline/independent placement.
 
 markup quotes the declaration; its insertion point carries the serialized
 offset.
-
-[Source](../../kara_templater/document_text.py#L73)
 
 ```python
 CueMarker(
@@ -65,12 +47,12 @@ CueMarker.markup() -> str
 
 ## Document
 
+*dataclass* · [Source](../../kara_templater/ass.py#L207)
+
 An ordered ASS record collection with optional structured lyric sources.
 
 Load/parse preserve source content without executing code; create builds a new
 script, and save/dumps serialize standard ASS.
-
-[Source](../../kara_templater/ass.py#L207)
 
 ```python
 Document(
@@ -181,11 +163,11 @@ Document.text_at(
 
 ## DocumentLyrics
 
+*dataclass* · [Source](../../kara_templater/document_lyrics.py#L96)
+
 A decoded body/ruby projection with source mappings and ordered lyric units.
 
 Original DocumentText remains available for diagnostics and round trips.
-
-[Source](../../kara_templater/document_lyrics.py#L96)
 
 ```python
 DocumentLyrics(
@@ -207,11 +189,11 @@ DocumentLyrics(
 
 ## DocumentText
 
+*dataclass* · [Source](../../kara_templater/document_text.py#L118)
+
 A source-preserving decoded ASS text view with tokens, appearance runs, karaoke tags, cues, and issues.
 
 Offsets count Unicode code points rather than bytes or shaped glyphs.
-
-[Source](../../kara_templater/document_text.py#L118)
 
 ```python
 DocumentText(
@@ -259,12 +241,12 @@ Type: `str`.
 
 ## EventOrigin
 
+*dataclass* · [Source](../../kara_templater/sources.py#L25)
+
 Source dependencies, not a claim that one segment owns an event's time.
 
 A body glyph can depend on every segment in its unit. Explicit tracks are
 independent of source segments; their IDs are recorded separately.
-
-[Source](../../kara_templater/sources.py#L25)
 
 ```python
 EventOrigin(
@@ -284,12 +266,12 @@ EventOrigin(
 
 ## Line
 
+*dataclass* · [Source](../../kara_templater/ass.py#L139)
+
 An ASS Dialogue or Comment event with millisecond start/end times and preserved extra fields.
 
 Actor, effect, margins, layer, and source style remain distinct event
 attributes.
-
-[Source](../../kara_templater/ass.py#L139)
 
 ```python
 Line(
@@ -335,9 +317,9 @@ Line.serialize() -> str
 
 ## LyricMapping
 
-One unchanged text slice from the original decoded text into a component.
+*dataclass* · [Source](../../kara_templater/document_lyrics.py#L9)
 
-[Source](../../kara_templater/document_lyrics.py#L9)
+One unchanged text slice from the original decoded text into a component.
 
 ```python
 LyricMapping(
@@ -359,11 +341,11 @@ LyricMapping(
 
 ## LyricSegment
 
+*dataclass* · [Source](../../kara_templater/document_lyrics.py#L31)
+
 One absolute-seconds timing interval and its optional RubyText, retaining source text bounds.
 
 Repeated timing adds segments without duplicating the body.
-
-[Source](../../kara_templater/document_lyrics.py#L31)
 
 ```python
 LyricSegment(
@@ -385,13 +367,13 @@ LyricSegment(
 
 ## LyricUnit
 
+*dataclass* · [Source](../../kara_templater/document_lyrics.py#L44)
+
 A decoded body range and its ordered timing segments.
 
 Ranges count Unicode code points and must later respect shaped cluster
 boundaries. Timed ruby segments describe successive parts of one reading.
 Set repeat=True when each segment times the entire body again.
-
-[Source](../../kara_templater/document_lyrics.py#L44)
 
 ```python
 LyricUnit(
@@ -413,9 +395,9 @@ LyricUnit(
 
 ## Record
 
-Script metadata with attribute access to keys such as res_x and res_y.
+*class* · [Source](../../kara_templater/ass.py#L14)
 
-[Source](../../kara_templater/ass.py#L14)
+Script metadata with attribute access to keys such as res_x and res_y.
 
 Supports standard dict construction and attribute access to stored keys.
 
@@ -430,11 +412,11 @@ Example: `Record(res_x=1280, res_y=720)`.
 
 ## RubyText
 
+*dataclass* · [Source](../../kara_templater/document_lyrics.py#L19)
+
 A reading text view with mappings back to source text and join/break/spill mode.
 
 Its source indices are local to the reading view.
-
-[Source](../../kara_templater/document_lyrics.py#L19)
 
 ```python
 RubyText(
@@ -454,12 +436,12 @@ RubyText(
 
 ## SourceRef
 
+*dataclass* · [Source](../../kara_templater/sources.py#L48)
+
 Address within a lyric source, stable while its structure is unchanged.
 
 Source order, layout and effects do not affect addresses. Editing/reordering
 units or segments creates a new source structure; indices are not edit IDs.
-
-[Source](../../kara_templater/sources.py#L48)
 
 ```python
 SourceRef(
@@ -479,12 +461,12 @@ SourceRef(
 
 ## Style
 
+*dataclass* · [Source](../../kara_templater/ass.py#L70)
+
 An ASS style with typed font/layout fields and preserved raw style columns.
 
 Font scales are percentages, alignment uses ASS 1 through 9, and sizes/margins
 use script pixels.
-
-[Source](../../kara_templater/ass.py#L70)
 
 ```python
 Style(
@@ -538,11 +520,11 @@ Style.serialize() -> str
 
 ## TextAppearance
 
+*dataclass* · [Source](../../kara_templater/document_text.py#L33)
+
 The active style and resolved RGB channel colors for a text run.
 
 inline_colors records channels explicitly supplied by override tags.
-
-[Source](../../kara_templater/document_text.py#L33)
 
 ```python
 TextAppearance(
@@ -568,11 +550,11 @@ TextAppearance(
 
 ## TextIssue
 
+*dataclass* · [Source](../../kara_templater/document_text.py#L105)
+
 A source offset and diagnostic message for text semantics a binder may reject.
 
 Parsing retains the original tokens for unsupported overrides.
-
-[Source](../../kara_templater/document_text.py#L105)
 
 ```python
 TextIssue(
@@ -594,11 +576,11 @@ TextIssue(
 
 ## TextRun
 
+*dataclass* · [Source](../../kara_templater/document_text.py#L48)
+
 A half-open decoded text range with its resolved appearance.
 
 It preserves color/reset scopes independently of later glyph shaping.
-
-[Source](../../kara_templater/document_text.py#L48)
 
 ```python
 TextRun(
@@ -620,11 +602,11 @@ TextRun(
 
 ## TextToken
 
+*dataclass* · [Source](../../kara_templater/document_text.py#L21)
+
 An original literal or override token with its source Text-string offset.
 
 Raw text is retained even if a particular effect cannot interpret it.
-
-[Source](../../kara_templater/document_text.py#L21)
 
 ```python
 TextToken(
@@ -644,9 +626,9 @@ TextToken(
 
 ## TimedTextSpan
 
-Source text offsets and absolute timing intervals, including zero duration.
+*dataclass* · [Source](../../kara_templater/document_text.py#L375)
 
-[Source](../../kara_templater/document_text.py#L375)
+Source text offsets and absolute timing intervals, including zero duration.
 
 ```python
 TimedTextSpan(
@@ -670,11 +652,11 @@ TimedTextSpan(
 
 ## TimingTag
 
+*dataclass* · [Source](../../kara_templater/document_text.py#L61)
+
 A decoded karaoke timing tag at a text offset.
 
 Its seconds value is a duration for k/K/kf/ko.
-
-[Source](../../kara_templater/document_text.py#L61)
 
 ```python
 TimingTag(
@@ -694,13 +676,13 @@ TimingTag(
 
 ## parse_document_lyrics
 
+*function* · [Source](../../kara_templater/document_lyrics.py#L144)
+
 Project text|ruby and # continuations; all timing times remain absolute.
 
 Syntax is recognized within each explicit karaoke interval. Untimed text is
 preserved, but ruby/continuation syntax requires a karaoke time tag. Body
 and ruby views retain the original tokens for provenance, not serialization.
-
-[Source](../../kara_templater/document_lyrics.py#L144)
 
 ```python
 parse_document_lyrics(
@@ -713,14 +695,14 @@ parse_document_lyrics(
 
 ## read_document_text
 
+*function* · [Source](../../kara_templater/document_text.py#L229)
+
 Bind one event's text while preserving every original byte of its text.
 
 Standard inline colors override the current style. An empty color tag resets
 that channel to the current style; r resets all channels to the named style
 or the event style. Unhandled tags are retained and explicitly diagnosed.
 Cue presets are resolved later by the effect registry, never executed here.
-
-[Source](../../kara_templater/document_text.py#L229)
 
 ```python
 read_document_text(

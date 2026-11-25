@@ -1,0 +1,96 @@
+---
+import type {LocalizedDemo} from "../lib/gallery";
+import {previewUrl} from "../lib/gallery";
+import {getUi, type Locale} from "../lib/i18n";
+
+interface Props {
+	demo: LocalizedDemo;
+	locale?: Locale;
+	compact?: boolean;
+	id?: string;
+}
+
+const {demo, locale = "en", compact = false, id} = Astro.props;
+const ui = getUi(locale);
+---
+
+<kara-preview
+	id={id}
+	class:list={["preview", {compact}]}
+	data-resources={previewUrl(demo)}
+	data-still={demo.still}
+	data-labels={JSON.stringify(demo.labels ?? {})}
+	data-play={ui.preview.play}
+	data-pause={ui.preview.pause}
+	data-unavailable={ui.preview.unavailable}
+	data-seconds={ui.preview.secondsUnit}
+	data-reset={ui.preview.reset}
+	style={`--sample-accent:${demo.accent}`}
+>
+	<div class="preview-screen">
+		<canvas
+			width={demo.width}
+			height={demo.height}
+			role="img"
+			aria-label={`${demo.title}`}
+		></canvas>
+	</div>
+	<div class="preview-controls" hidden>
+		<button
+			class="preview-play"
+			type="button"
+			aria-pressed="false"
+			aria-label={ui.preview.play}
+			title={ui.preview.play}
+		>
+			<svg class="icon-play" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+				<path fill="currentColor" d="M4.2 2.6a.9.9 0 0 1 1.35-.78l8.1 4.9a.9.9 0 0 1 0 1.56l-8.1 4.9A.9.9 0 0 1 4.2 12.4V2.6Z" />
+			</svg>
+			<svg class="icon-pause" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+				<rect x="3.5" y="2.5" width="3.2" height="11" rx="0.9" fill="currentColor" />
+				<rect x="9.3" y="2.5" width="3.2" height="11" rx="0.9" fill="currentColor" />
+			</svg>
+		</button>
+		<input
+			class="preview-time"
+			type="range"
+			min="0"
+			max="0"
+			value="0"
+			aria-label={ui.preview.seekLabel}
+		/>
+		<output class="preview-position"></output>
+	</div>
+	<p class="preview-status" role="status" hidden>{ui.preview.loading}</p>
+	<noscript><p class="preview-status">{ui.preview.noscript}</p></noscript>
+	{!compact && (
+		<div class="preview-parameters" hidden>
+			<div class="preview-parameters-head">
+				<h2 class="preview-parameters-title">
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+						<path d="M2.5 4.5h11M2.5 11.5h11" />
+						<circle cx="6" cy="4.5" r="1.7" fill="var(--kara-surface)" />
+						<circle cx="10.5" cy="11.5" r="1.7" fill="var(--kara-surface)" />
+					</svg>
+					<span>{ui.preview.adjustTitle}</span>
+				</h2>
+				<button
+					class="preview-reset"
+					type="button"
+					aria-label={ui.preview.reset}
+					title={ui.preview.reset}
+					hidden
+				>
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M3.2 7.5A4.8 4.8 0 1 1 4.6 11" />
+						<path d="M3 4.2v3.4h3.4" />
+					</svg>
+				</button>
+			</div>
+			<div class="preview-fields"></div>
+		</div>
+	)}
+</kara-preview>
+<script>
+	import "../lib/live-preview";
+</script>

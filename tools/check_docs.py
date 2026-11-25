@@ -1,4 +1,4 @@
-"""Check user-document links, snippet syntax, and generated public API reference.
+"""Check user-document links, bilingual parity, snippet syntax, and API reference.
 
 python -m tools.check_docs
 Works in a checkout or the installed-package verification directory.
@@ -14,7 +14,7 @@ from tools.generate_reference import PACKAGE, ROOT, generate
 
 
 def anchors(path: Path) -> set[str]:
-    """Approximate GitHub heading IDs for this project's ordinary Markdown."""
+    """Approximate GitHub/Starlight heading IDs for Markdown including CJK."""
     counts: Counter[str] = Counter()
     result: set[str] = set()
     fenced = False
@@ -33,10 +33,34 @@ def anchors(path: Path) -> set[str]:
     return result
 
 
-def check() -> tuple[int, list[str]]:
-    pages = [ROOT / "README.md", ROOT / "skills/kara-templater/SKILL.md",
-             *sorted((ROOT / "docs").rglob("*.md"))]
+def check_bilingual_parity(docs_root: Path) -> list[str]:
+    zh_root = docs_root / "zh-cn"
+    if not zh_root.is_dir():
+        return ["docs/zh-cn: missing Chinese documentation directory"]
+    en_pages = {
+        path.relative_to(docs_root)
+        for path in docs_root.rglob("*.md")
+        if path.relative_to(docs_root).parts[0] not in {"zh-cn", "reference"}
+    }
+    zh_pages = {path.relative_to(zh_root) for path in zh_root.rglob("*.md")}
     errors: list[str] = []
+    for missing in sorted(en_pages - zh_pages):
+        errors.append(f"docs/zh-cn/{missing.as_posix()}: missing Chinese translation")
+    for extra in sorted(zh_pages - en_pages):
+        errors.append(
+            f"docs/zh-cn/{extra.as_posix()}: no matching English page at docs/{extra.as_posix()}"
+        )
+    return errors
+
+
+def check() -> tuple[int, list[str]]:
+    docs_root = ROOT / "docs"
+    pages = [
+        ROOT / "README.md",
+        ROOT / "skills/kara-templater/SKILL.md",
+        *sorted(docs_root.rglob("*.md")),
+    ]
+    errors: list[str] = check_bilingual_parity(docs_root)
     for page in pages:
         content = page.read_text(encoding="utf-8")
         if content.count("```") % 2:
@@ -84,7 +108,7 @@ def main() -> None:
     if errors:
         raise SystemExit("\n".join(errors))
     print(
-        f"{count} Markdown pages: links, headings, snippets, and API reference checked"
+        f"{count} Markdown pages: bilingual parity, links, headings, snippets, and API reference checked"
     )
 
 

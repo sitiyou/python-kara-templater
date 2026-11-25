@@ -1,0 +1,17 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import {url} from "../lib/i18n";
+---
+<StarlightPage frontmatter={{title: "404 · Page not found", template: "splash", pagefind: false}}>
+	<div class="not-found">
+		<p class="gallery-lede">
+			The page you requested may have moved. / 你访问的页面可能已经移动或更名。
+		</p>
+		<div class="not-found-links">
+			<a class="cta-primary" href={url("getting-started/", "en")}>Quickstart</a>
+			<a class="cta-secondary" href={url("gallery/", "en")}>Effect gallery</a>
+			<a class="cta-secondary" href={url("", "zh-cn")}>中文首页</a>
+			<a class="cta-secondary" href={url("gallery/", "zh-cn")}>特效画廊</a>
+		</div>
+	</div>
+</StarlightPage>

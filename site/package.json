@@ -1,0 +1,22 @@
+{
+  "name": "kara-templater-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "astro build",
+    "dev": "astro dev",
+    "preview": "astro preview",
+    "prebuild": "cd .. && uv run --no-sync python -m tools.build_docs_site",
+    "predev": "cd .. && uv run --no-sync python -m tools.build_docs_site"
+  },
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.43.1",
+    "@fontsource-variable/jetbrains-mono": "^5.3.0",
+    "@fontsource-variable/plus-jakarta-sans": "^5.3.0",
+    "@fontsource-variable/space-grotesk": "^5.3.0",
+    "astro": "7.4.13"
+  }
+}

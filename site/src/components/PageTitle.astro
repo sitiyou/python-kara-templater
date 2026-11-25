@@ -1,0 +1,69 @@
+---
+import {detectLocale, sectionEyebrow} from "../lib/i18n";
+
+const route = Astro.locals.starlightRoute;
+const {entry, id} = route;
+const isSplash = entry.data.template === "splash";
+const locale = detectLocale(route.locale);
+const eyebrow = !isSplash ? sectionEyebrow(id, locale) : "";
+const lede = !isSplash ? entry.data.description : "";
+---
+
+<div class:list={["page-head", {"page-head-doc": !isSplash}]}>
+	{eyebrow && (
+		<p class="page-eyebrow">
+			<span class="eyebrow-dot" aria-hidden="true"></span>
+			{eyebrow}
+		</p>
+	)}
+	<h1 id="_top">{entry.data.title}</h1>
+	{lede && <p class="page-lede">{lede}</p>}
+</div>
+
+<style>
+	.page-head {
+		display: grid;
+		gap: 0.6rem;
+	}
+
+	.page-eyebrow {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin: 0;
+		font-family: var(--sl-font-mono);
+		font-size: 0.75rem;
+		font-weight: 600;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--sl-color-accent-high);
+	}
+
+	.eyebrow-dot {
+		width: 0.42rem;
+		height: 0.42rem;
+		border-radius: 999px;
+		background: linear-gradient(135deg, var(--kara-gold), var(--kara-cyan));
+		box-shadow: 0 0 10px color-mix(in srgb, var(--kara-gold) 70%, transparent);
+	}
+
+	h1 {
+		margin: 0;
+		font-family: var(--kara-font-display);
+		font-size: var(--sl-text-h1);
+		line-height: 1.12;
+		letter-spacing: -0.03em;
+		font-weight: 700;
+		color: var(--sl-color-white);
+		text-wrap: balance;
+	}
+
+	.page-lede {
+		margin: 0.2rem 0 0;
+		max-width: 62ch;
+		font-size: clamp(1.02rem, 1.4vw, 1.15rem);
+		line-height: 1.62;
+		color: var(--sl-color-gray-2);
+		text-wrap: pretty;
+	}
+</style>

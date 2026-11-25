@@ -1,0 +1,107 @@
+---
+import {Code} from "@astrojs/starlight/components";
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import LivePreview from "./LivePreview.astro";
+import {demos, localizeDemo, previewUrl, type Demo} from "../lib/gallery";
+import {getUi, type Locale, url} from "../lib/i18n";
+
+interface Props {
+	demo: Demo;
+	locale: Locale;
+}
+
+const {demo: rawDemo, locale} = Astro.props;
+const demo = localizeDemo(rawDemo, locale);
+const ui = getUi(locale);
+
+const currentIndex = demos.findIndex((item) => item.id === demo.id);
+const related = [
+	demos[(currentIndex + 1) % demos.length],
+	demos[(currentIndex + 2) % demos.length],
+	demos[(currentIndex + 3) % demos.length],
+]
+	.filter((item) => item && item.id !== demo.id)
+	.map((item) => localizeDemo(item, locale));
+---
+
+<StarlightPage
+	frontmatter={{
+		title: demo.title,
+		description: demo.summary,
+		template: "splash",
+	}}
+>
+	<article class="example-page">
+		<div class="example-header">
+			<p class="example-path">
+				<a href={url("gallery/", locale)}>{ui.gallery.breadcrumbHome}</a>
+				<span aria-hidden="true">/</span>
+				<span>{demo.category}</span>
+				<span class="example-spec">{demo.width}×{demo.height} · 30 fps</span>
+			</p>
+		</div>
+
+		<div class="example-stage">
+			<LivePreview demo={demo} locale={locale} />
+		</div>
+
+		<div class="example-cards">
+			<section class="example-panel" aria-labelledby="how-it-works">
+				<h2 id="how-it-works">{ui.gallery.howItWorks}</h2>
+				<p>{demo.details}</p>
+				<div class="example-links">
+					<a class="inline-action" href={url(demo.guide, locale)}>
+						<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M2.5 3.5h4.2a2 2 0 0 1 1.3.5v8.5a2 2 0 0 0-1.3-.5H2.5v-8.5Zm11 0H9.3a2 2 0 0 0-1.3.5v8.5a2 2 0 0 1 1.3-.5h4.2v-8.5Z" />
+						</svg>
+						{ui.gallery.readGuide}
+					</a>
+					<a class="inline-action subtle" href="#source">
+						<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+							<path d="M5.5 4.5 2 8l3.5 3.5M10.5 4.5 14 8l-3.5 3.5" />
+						</svg>
+						{ui.gallery.viewSource}
+					</a>
+				</div>
+			</section>
+
+			<section class="example-panel" aria-labelledby="run-locally">
+				<h2 id="run-locally">{ui.gallery.runTitle}</h2>
+				<p>{ui.gallery.runIntro}</p>
+				<Code lang="sh" code={demo.command} />
+				<a
+					class="cta-secondary example-download"
+					href={`${previewUrl(demo)}${demo.source}`}
+					download
+				>
+					<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+						<path d="M8 2.5v8M4.8 7.5 8 10.7l3.2-3.2M2.8 13h10.4" />
+					</svg>
+					{demo.source}
+				</a>
+			</section>
+		</div>
+
+		<section class="example-source" aria-labelledby="source">
+			<h2 id="source">{ui.gallery.sourceTitle}</h2>
+			<Code lang="python" code={demo.code} title={demo.source} />
+		</section>
+
+		<section class="example-related" aria-labelledby="related-heading">
+			<h2 id="related-heading">{ui.gallery.relatedTitle}</h2>
+			<div class="related-grid">
+				{related.map((item) => (
+					<a
+						class="related-card"
+						href={url(`gallery/${item.id}/`, locale)}
+						style={`--sample-accent:${item.accent}`}
+					>
+						<span class="gallery-category">{item.category}</span>
+						<strong>{item.title}</strong>
+						<p>{item.summary}</p>
+					</a>
+				))}
+			</div>
+		</section>
+	</article>
+</StarlightPage>

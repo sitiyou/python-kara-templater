@@ -1,36 +1,34 @@
-# Command-line interface
+# Command line
 
-The CLI loads input ASS into a Document and exports a standalone libplacebo hook. Use a
-Python Scene script for unrestricted authoring, or Track configuration for
-applying reusable styling to imported lyrics.
+Export a timed ASS file directly to a standalone Hook or standard ASS subtitle from the terminal. Use built-in preset flags for quick styling, or pass a Python effect file for reusable tracks and custom scenes.
 
-## Preset styling
+## Export with preset options
+
+Run `kara-templater` with an input `.ass` file and an output path. If the command is not on your `PATH`, run `python -m kara_templater` instead.
 
 ```sh
 kara-templater input.ass output.hook --after '#33ddff'
 ```
 
-Use `--before` and `--after` to set the fills on either side of the wipe.
-The preset provides its own colors. `--pulse` accepts none, char, chars, or syllable. Character
-arrival, simultaneous characters, and a shared syllable pulse have different
-clocks and pivots. --fade-in-ms/--fade-out-ms control fades;
---lead-ms/--tail-ms extend the display window without altering lyric timing.
-Fades apply to the entire line, including its drop shadow.
-Omit --tail-ms for the automatic one-second tail including the fade, with
-200 ms of preferred hold when room permits. Pass --tail-ms 0 to request just the required animation time.
-Repeat --style to restrict imported styles. --owner selects a stable generation
-owner for replacement on subsequent runs.
+The built-in preset supplies its own default font, colors, alignment, and margins rather than copying source ASS styling. You can customize colors, timing windows, and motion with flags:
 
-The preset uses its own alignment and margins. See [the lyric input subset](documents.md#choose-the-lyric-frontend)
-for supported timing and ruby syntax. Whole-scene budgets apply to the generated events.
-Fade durations reserve time outside the timed intervals; insufficient time before zero is
-an error rather than a silently shortened animation.
+| Flag | Default | Effect |
+| --- | --- | --- |
+| `--before '#RRGGBB'` | preset color | Fill color before the karaoke wipe. |
+| `--after '#RRGGBB'` | preset color | Fill color after the karaoke wipe. |
+| `--pulse MODE` | `none` | Scale pulse mode: `none`, `char` (pulse each character as the wipe reaches it), `chars` (pulse characters together on individual pivots), or `syllable` (pulse the whole syllable). |
+| `--fade-in-ms MS` | `0` | Fade-in duration in milliseconds for the whole line, including its shadow. |
+| `--fade-out-ms MS` | `0` | Fade-out duration in milliseconds for the whole line, including its shadow. |
+| `--lead-ms MS` | `0` | Extend display before each timed line without shifting lyric timing. |
+| `--tail-ms MS` | automatic | Override display time after timing ends. Omit for the automatic 1 s tail (including fade-out, preferring 200 ms of hold); pass `0` for only the required animation time. |
+| `--style NAME` | all styles | Import only lines matching this source style. Repeat to select multiple styles. |
+| `--owner NAME` | `default` | Stable tag used when replacing previously generated ASS events on re-runs. |
 
-Add `--ass` to invoke the [standard ASS compiler](compilation.md). Hook export defaults to 60 fps. Set `--fps` to the delivery frame rate.
+Fade durations reserve time outside the timed lyric span. If a fade-in needs room before time zero, the CLI stops with an error rather than silently shortening the animation. See [Import timed lyrics](documents.md) for supported `\k` timing and ruby syntax.
 
-## Track configurations
+## Reuse Track configurations
 
-An effect file may export a sequence named tracks:
+For projects that need custom layout, multiple vocal streams, or richer effects, save a `tracks` tuple in a Python file and pass it with `--effect`.
 
 ```python
 from kara_templater import CYAN, FadeIn, LyricHighlights, LyricRule, StatePatch, Track
@@ -46,24 +44,55 @@ tracks = (
 )
 ```
 
-Run `kara-templater input.ass output.hook --effect my_tracks.py`.
-Configure selection, layout, preview/tail, colors and animations in the Track
-declarations. Each Track is an independent lyric stream, with layout expressed
-by its allocator. The CLI binds these declarations into one Scene and invokes
-the same compiler as the builder entry point.
+```sh
+kara-templater input.ass output.hook --effect my_tracks.py
+```
 
-## Scene builders
+The CLI builds one `Scene` from those `Track` declarations using the same pipeline as `build_lyric_scene`. Configure source selection, display timing, colors, and animations inside `tracks`; the CLI rejects preset and import flags (`--before`, `--after`, `--pulse`, `--fade-in-ms`, `--fade-out-ms`, `--lead-ms`, `--tail-ms`, and `--style`) when combined with `--effect`. You can still pass `--owner`.
 
-Alternatively, export `build(document) -> Scene` from the effect file. It receives
-the parsed Document and can bind input records, prepare Tracks, and add custom
-objects. Return the complete Scene to compile. Export either build or tracks,
-not both. Input selection, display timing, and material choices for a builder
-belong in that function; the CLI rejects conflicting import/raster flags.
-Scene builders also choose their owner inside the function; --owner applies to
-preset and Track inputs.
+## Build a custom Scene
 
-`--max-bytes` limits the complete Hook file or the generated ASS event bytes.
-With `--ass`, `--max-events` also limits the number of generated events and
-`--max-active` limits how many can overlap. A budget error leaves the output
-path untouched.
-Use `python -m kara_templater` when the console entry point is not on PATH.
+When you need full `Scene` control—such as custom background shapes, extra layers, or direct record handling—export a `build(document) -> Scene` function from your effect file instead of `tracks`.
+
+```python
+from kara_templater import Document, KaraokeEffects, Scene, Track, build_lyric_scene
+
+
+def build(document: Document) -> Scene:
+    lead = Track(id="lead", effects=(KaraokeEffects(),))
+    return build_lyric_scene(document, tracks=(lead,), owner="custom")
+```
+
+```sh
+kara-templater input.ass output.hook --effect my_scene.py
+```
+
+Export either `tracks` or `build`, not both. Because `build` controls input selection, timing, styling, and `owner`, the CLI also rejects `--owner` alongside the preset flags.
+
+## Choose output format and budgets
+
+By default, the CLI writes a standalone Hook at 60 fps. Pass `--fps` (`1`–`240`) to match your delivery frame rate, or pass `--ass` to compile standard ASS instead.
+
+```sh
+kara-templater input.ass output.hook --fps 30
+kara-templater input.ass output.ass --ass
+```
+
+With `--ass`, the CLI prints the generated event count, peak overlapping events, output size in bytes, and any compiler diagnostics.
+
+| Flag | Applies to | Default | Purpose |
+| --- | --- | --- | --- |
+| `--fps N` | Hook | `60` | Output frame rate (`1`–`240`). |
+| `--max-bytes N` | Hook and `--ass` | unlimited (Hook) / 10 MiB (ASS) | Limit the complete Hook file or compiled ASS output in bytes. |
+| `--max-events N` | `--ass` only | `10,000` | Limit generated ASS events. |
+| `--max-active N` | `--ass` only | `1,000` | Limit simultaneously active ASS events. |
+
+> [!NOTE]
+> The CLI defaults `--max-events` to `10,000`, whereas Python `AssBudget` defaults to `25,000`. Passing `--max-events` or `--max-active` without `--ass` raises an error. Whenever a budget check fails, the existing output file is left untouched.
+
+## Next steps
+
+- [Choose an output](../output/README.md)
+- [Play and render a Hook](../output/hook.md)
+- [Export standard ASS](../output/ass.md)
+- [Lay out vocal tracks](tracks.md)
