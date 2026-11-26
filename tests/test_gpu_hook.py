@@ -156,7 +156,7 @@ def _render_hook(scene, directory, *, fps=2, background="black", duration=1):
         [
             "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi",
             "-i", f"color={background}:s=160x120:r={fps}:d={duration}", "-vf",
-            "libplacebo=custom_shader_path=test.hook:format=rgb24",
+            "libplacebo=dithering=none:custom_shader_path=test.hook:format=rgb24",
             "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
         ],
         cwd=directory,
@@ -835,7 +835,7 @@ def test_shader_wipe_matches_split_draws_in_playback(
         scene.export(tmp_path / name, fps=10, start=0.2, duration=1.3)
         return subprocess.check_output([
             "ffmpeg", "-v", "error", "-init_hw_device", "vulkan=vk", "-f", "lavfi", "-i",
-            "color=c=black:s=160x96:r=10", "-vf", f"libplacebo=custom_shader_path={name}:format=rgb24",
+            "color=c=black:s=160x96:r=10", "-vf", f"libplacebo=dithering=none:custom_shader_path={name}:format=rgb24",
             "-frames:v", "13", "-threads", "1", "-pix_fmt", "rgb24", "-f", "rawvideo", "-",
         ], cwd=tmp_path)
 
