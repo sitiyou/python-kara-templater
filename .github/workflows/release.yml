@@ -186,6 +186,8 @@ jobs:
         shell: bash
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: gcc
+          # aggdraw only rasterizes paths here. Avoid picking up the runner's JDK FreeType DLL.
+          CIBW_TEST_ENVIRONMENT: 'AGGDRAW_FREETYPE_ROOT=""'
           CIBW_TEST_COMMAND: >-
             python -m pytest tests/test_wgsl_material.py -q &&
             python -m kara_templater examples/karaoke.ass output.hook
