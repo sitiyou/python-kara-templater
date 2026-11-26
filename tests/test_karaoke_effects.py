@@ -569,8 +569,9 @@ def _material_front(node, time):
         effect = clip.effect
         if not isinstance(effect, _ScanlineTint) or not effect.front.keys[0][0] <= local_time < effect.front.keys[-1][0]:
             continue
+        width = effect.width.value if isinstance(effect.width, PaintInput) else effect.width
         curve = RectangleKeyframes(tuple(
-            (t, (x - scale * effect.half_width, effect.rows.x, x + scale * effect.half_width, effect.rows.y))
+            (t, (x - scale * width / 2, effect.rows.x, x + scale * width / 2, effect.rows.y))
             for (t, x), (_, scale) in zip(effect.front.keys, effect.inverse_scale.keys, strict=True)
         ))
         result.append(curve.bounds_at(local_time))

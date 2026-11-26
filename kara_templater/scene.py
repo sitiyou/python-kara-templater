@@ -679,16 +679,20 @@ class PreparedHook:
         Preview hosts can discover editable inputs before exporting a window.
         The uniforms in each exported window depend on its visible materials.
         """
-        values: dict[str, PaintValue] = {}
+        return {name: entry.value for name, entry in self.paint_inputs().items()}
+
+    def paint_inputs(self) -> dict[str, PaintInput]:
+        """Return named defaults and control declarations for the whole scene."""
+        values: dict[str, PaintInput] = {}
         for leaf in self._frames.leaves:
             for clip in leaf.node.material_effects:
                 for argument in clip.effect._arguments():
                     if not isinstance(argument, PaintInput):
                         continue
-                    default = values.setdefault(argument.name, argument.value)
-                    if default != argument.value:
+                    default = values.setdefault(argument.name, argument)
+                    if default != argument:
                         raise SceneCompileError(
-                            f"paint input {argument.name!r} has conflicting values", object_id=leaf.node.id,
+                            f"paint input {argument.name!r} has conflicting values or controls", object_id=leaf.node.id,
                         )
         return values
 

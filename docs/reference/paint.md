@@ -6,7 +6,7 @@ Related guides: [Colour and materials](../guides/materials.md) · [All public sy
 
 ## Contents
 
-**Classes:** [`Color`](#color) · [`ColorRamp`](#colorramp) · [`ColorStop`](#colorstop) · [`Extrusion`](#extrusion) · [`Glow`](#glow) · [`Highlight`](#highlight) · [`HighlightArrival`](#highlightarrival) · [`HighlightPass`](#highlightpass) · [`KaraokeTheme`](#karaoketheme) · [`LinearGradient`](#lineargradient) · [`LyricGradient`](#lyricgradient) · [`LyricHighlights`](#lyrichighlights) · [`MaterialClip`](#materialclip) · [`MaterialEffect`](#materialeffect) · [`Paint`](#paint) · [`PaintInput`](#paintinput) · [`PaintPair`](#paintpair) · [`SecondaryOutline`](#secondaryoutline) · [`ShaderPaint`](#shaderpaint)
+**Classes:** [`Color`](#color) · [`ColorRamp`](#colorramp) · [`ColorStop`](#colorstop) · [`Extrusion`](#extrusion) · [`Glow`](#glow) · [`Highlight`](#highlight) · [`HighlightArrival`](#highlightarrival) · [`HighlightPass`](#highlightpass) · [`KaraokeTheme`](#karaoketheme) · [`LinearGradient`](#lineargradient) · [`LyricGradient`](#lyricgradient) · [`LyricHighlights`](#lyrichighlights) · [`MaterialClip`](#materialclip) · [`MaterialEffect`](#materialeffect) · [`Paint`](#paint) · [`PaintControl`](#paintcontrol) · [`PaintInput`](#paintinput) · [`PaintPair`](#paintpair) · [`SecondaryOutline`](#secondaryoutline) · [`ShaderPaint`](#shaderpaint)
 
 **Functions:** [`paint_pair_from_style`](#paint_pair_from_style)
 
@@ -73,7 +73,7 @@ Color.hex(
 
 ## ColorRamp
 
-*dataclass* · [Source](../../kara_templater/paint_fields.py#L137)
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L184)
 
 Piecewise linear colors at absolute script coordinates; ends clamp.
 
@@ -101,7 +101,7 @@ ColorRamp.at(
 
 ## ColorStop
 
-*dataclass* · [Source](../../kara_templater/paint_fields.py#L123)
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L170)
 
 An RGB color at a finite script-space position along a paint field axis.
 
@@ -405,7 +405,7 @@ KaraokeTheme.overlay(
 
 ## LinearGradient
 
-*dataclass* · [Source](../../kara_templater/paint_fields.py#L163)
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L210)
 
 An x/y gradient for fill, outline, or both; screen coordinates by default.
 
@@ -613,7 +613,7 @@ MAGENTA = Color(red=255, green=0, blue=255)
 
 ## MaterialClip
 
-*dataclass* · [Source](../../kara_templater/paint_fields.py#L100)
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L147)
 
 Apply a WGSL effect to one or all coverage planes over a local interval.
 
@@ -641,7 +641,7 @@ MaterialClip(
 
 ## MaterialEffect
 
-*class* · [Source](../../kara_templater/paint_fields.py#L77)
+*class* · [Source](../../kara_templater/paint_fields.py#L124)
 
 A reusable WGSL function evaluated after sampling a coverage plane.
 
@@ -726,16 +726,53 @@ Paint(
 | `glow` | `Glow \| None` | `None` |
 | `secondary_outline` | `SecondaryOutline \| None` | `None` |
 
-## PaintInput
+## PaintControl
 
 *dataclass* · [Source](../../kara_templater/paint_fields.py#L65)
 
+Describe a browser control for a named paint input.
+
+Bounds are inclusive and apply to a scalar or to both vector axes.
+Step is the suggested increment for a preview control. Labels, units,
+and group names are display text. Order sorts controls within a group.
+
+```python
+PaintControl(
+    bounds: tuple[float, float] | None = None,
+    step: float | None = None,
+    unit: str = '',
+    label: str = '',
+    group: str = '',
+    order: int = 0,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `bounds` | `tuple[float, float] \| None` | `None` |
+| `step` | `float \| None` | `None` |
+| `unit` | `str` | `''` |
+| `label` | `str` | `''` |
+| `group` | `str` | `''` |
+| `order` | `int` | `0` |
+
+## PaintInput
+
+*dataclass* · [Source](../../kara_templater/paint_fields.py#L92)
+
 A named material value that a preview host may update while playing.
+
+Uses of the same name share one value and must have matching defaults
+and control declarations. An omitted control keeps the host's existing
+presentation for unbounded inputs.
 
 ```python
 PaintInput(
     name: str,
     value: PaintValue,
+    control: PaintControl | None = None,
 )
 ```
 
@@ -745,6 +782,7 @@ PaintInput(
 | --- | --- | --- |
 | `name` | `str` | `required` |
 | `value` | `PaintValue` | `required` |
+| `control` | `PaintControl \| None` | `None` |
 
 ## PaintPair
 

@@ -11,6 +11,12 @@ from kara_templater import VisualNode
 from tools.docs_preview_media import render_card
 
 
+class LiveComponent(TypedDict):
+    width: int
+    height: int
+    still: float
+
+
 class Component(TypedDict):
     id: str
     group: str
@@ -26,6 +32,7 @@ class Component(TypedDict):
     start: NotRequired[float]
     end: NotRequired[float]
     still: NotRequired[float]
+    live: NotRequired[LiveComponent]
 
 
 PRESET_WINDOWS = {
@@ -43,6 +50,7 @@ NONE_LABELS = {
     "highlight": ("Steady colour wipe", "匀速走字"),
     "decoration": ("Plain wipe", "走字无装饰"),
 }
+LIVE_SWEEP_CARDS = {"sweep-color", "sweep-width", "sweep-softness", "sweep-strength"}
 
 
 def preset_cards(labels: dict[str, tuple[str, str]]) -> list[Component]:
@@ -104,14 +112,22 @@ def stage_components(stage: Path, manifest: Path, gallery_ids: set[str]) -> None
             default=0,
         )
         end = round(entry.get("end", scene_end) * FPS) / FPS
+        folder = stage / "public" / "component-previews" / slug
+        width, height = scene.document.meta.res_x, scene.document.meta.res_y
+        still = entry.get("still", 1.75)
+        if slug in LIVE_SWEEP_CARDS:
+            folder.mkdir(parents=True, exist_ok=True)
+            prepared = scene.prepare_hook()
+            prepared.export_resources(folder / "live", fps=FPS, start=start, duration=end - start)
+            entry["live"] = {"width": width, "height": height, "still": still - start}
         render_card(
             scene.ass.compile().document if entry.get("ass") else scene.prepare_hook(),
-            stage / "public" / "component-previews" / slug,
-            resolution=(scene.document.meta.res_x, scene.document.meta.res_y),
+            folder,
+            resolution=(width, height),
             fps=FPS,
             start=start,
             duration=end - start,
-            still=entry.get("still", 1.75),
+            still=still,
             animated=entry["group"] != "typography",
         )
 

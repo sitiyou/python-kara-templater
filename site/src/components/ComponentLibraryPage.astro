@@ -5,6 +5,7 @@ import {assetUrl, getUi, type Locale, url} from "../lib/i18n";
 import CardPreview from "./CardPreview.astro";
 import ComponentCategoryIcon from "./ComponentCategoryIcon.astro";
 import ComponentCategoryPicker from "./ComponentCategoryPicker.astro";
+import LivePreview from "./LivePreview.astro";
 import PreviewGrid from "./PreviewGrid.astro";
 
 interface Props {
@@ -23,11 +24,20 @@ interface Component {
 	gallery?: string;
 	sampled?: boolean;
 	ass?: boolean;
+	live?: {width: number; height: number; still: number};
 }
 
 const {locale} = Astro.props;
 const ui = getUi(locale);
 const copy = ui.components;
+const trial = locale === "zh-cn" ? "实时试调" : "Try live controls";
+const close = locale === "zh-cn" ? "关闭预览" : "Close preview";
+const liveLabels = locale === "zh-cn" ? {
+	scanline_color: "线条颜色",
+	scanline_strength: "着色强度",
+	scanline_width: "宽度",
+	scanline_softness: "柔边",
+} : {};
 const components: Component[] = entries;
 const groups = Object.entries(copy.groups).map(([id, label]) => ({
 	id,
@@ -93,6 +103,9 @@ function folder(entry: Component): string {
 										</a>
 										{details && <p class="component-detail">{details}</p>}
 										{item.gallery && <a class="component-example" href={url(`gallery/${item.gallery}/`, locale)}>{copy.galleryExample}</a>}
+										{item.live && <button type="button" class="component-trial" data-trial={item.id} data-title={title}>
+											{trial}
+										</button>}
 										{item.ass ? <p class="component-note">{copy.assPreview}</p> :
 											item.sampled && <p class="component-note">{copy.sampled}</p>}
 									</div>
@@ -103,5 +116,50 @@ function folder(entry: Component): string {
 				</section>
 			))}
 		</PreviewGrid>
+		<dialog class="component-live-dialog" aria-labelledby="component-live-title">
+			<div class="component-live-heading">
+				<h2 id="component-live-title"></h2>
+				<form method="dialog"><button type="submit" aria-label={close} autofocus>×</button></form>
+			</div>
+			<div data-live-player></div>
+		</dialog>
+		{components.filter((entry) => entry.live).map((item) => item.live && (
+			<template id={`live-${item.id}`}>
+				<LivePreview locale={locale} resources={folder(item) + "live/"} demo={{
+					id: item.id,
+					title: locale === "zh-cn" ? item.zh : item.title,
+					accent: "#71e5f4",
+					...item.live,
+					labels: liveLabels,
+				}} />
+			</template>
+		))}
 	</div>
 </StarlightPage>
+<script>
+	function bindComponentTrial() {
+		const gallery = document.querySelector(".component-library");
+		const dialog = gallery?.querySelector<HTMLDialogElement>("dialog.component-live-dialog");
+		const target = dialog?.querySelector("[data-live-player]");
+		const heading = dialog?.querySelector("h2");
+		if (!gallery || !dialog || !target || !heading || dialog.dataset.connected) return;
+		dialog.dataset.connected = "true";
+		let opener: HTMLButtonElement | undefined;
+		gallery.addEventListener("click", (event) => {
+			if (!(event.target instanceof Element)) return;
+			const button = event.target.closest<HTMLButtonElement>("button[data-trial]");
+			const template = button && document.getElementById("live-" + button.dataset.trial);
+			if (!button || !(template instanceof HTMLTemplateElement)) return;
+			opener = button;
+			heading.textContent = button.dataset.title ?? "";
+			dialog.showModal();
+			target.replaceChildren(template.content.cloneNode(true));
+		});
+		dialog.addEventListener("close", () => {
+			target.replaceChildren();
+			opener?.focus();
+		});
+	}
+	bindComponentTrial();
+	document.addEventListener("astro:page-load", bindComponentTrial);
+</script>

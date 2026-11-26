@@ -58,7 +58,7 @@ harmony_track = Track(
 )
 ```
 
-`KaraokeTheme` 包含五个 RGB 角色：`before_fill`、`after_fill`、`before_outline`、`after_outline` 以及 `shine`（用于扫光条、描边闪光、残影和星芒）。普通 `KaraokeEffects()` 在未提供描边角色前会保留源描边；`duotone()` 会为唱前和唱后两端自动推导对比描边。
+`KaraokeTheme` 包含五个 RGB 角色：`before_fill`、`after_fill`、`before_outline`、`after_outline` 以及 `shine`（用于扫描线、描边闪光、残影和星芒）。普通 `KaraokeEffects()` 在未提供描边角色前会保留源描边；`duotone()` 会为唱前和唱后两端自动推导对比描边。
 
 未添加预设目录特效的 `Track` 会保留源 ASS 着色；一旦加入 `KaraokeEffects`，它会接管变色前后的全部颜色（包括含行内 ASS 颜色标签的文本）。如果要按词指定配色，请使用 `LyricHighlights.from_timing` 的 `segment_colors` 或自定义材质，详见[颜色与材质](materials.md)。
 
@@ -81,10 +81,10 @@ harmony_track = Track(
 | `none` | 平稳的定时走字，不带缩放脉冲 |
 | `no_wipe` | 计时单元结束时整体切换颜色（包含零时长单元） |
 | `utopia` | 默认。走字配合快速放大至 1.15 倍（占音符前四分之一时长，上限 100 ms），随后线性回落 |
-| `scanline` | 普通走字配合明亮的前沿扫光条 |
-| `utopia_scanline` | `utopia` 脉冲叠加前沿扫光条 |
+| `scanline` | 普通走字配合明亮的前沿扫描线 |
+| `utopia_scanline` | `utopia` 脉冲叠加前沿扫描线 |
 | `zoom_pulse` | 在整个计时区间内持续放大至 1.10 倍，结束后在 0.30 s 内回落 |
-| `zoom_pulse_scanline` | `zoom_pulse` 持续放大叠加前沿扫光条 |
+| `zoom_pulse_scanline` | `zoom_pulse` 持续放大叠加前沿扫描线 |
 
 > [!TIP]
 > 检查模板时，暂停在一个长音的中途：走字模式下文字会同时呈现唱前和唱后两种颜色，而 `no_wipe` 会一直保持唱前颜色直到该音结束。
@@ -92,11 +92,11 @@ harmony_track = Track(
 使用以下参数微调 `KaraokeEffects` 的高亮前沿：
 
 - **走字柔边**：设置 `hook_feather`（脚本像素或 `Glyph.font_size` 表达式）在走字边缘后方平滑混合填充与描边；传入 `front_color` 可单独为移动边缘染色。只要 `base_glow` 与 `glow` 的 `border`、`blur`、`opacity` 相同，辉光也会沿同一前沿平滑过渡。
-- **扫光条样式**：通过 `scanline_width`（1080p 下默认 16 px，按画布高度缩放）和 `scanline_softness`（1080p 下默认 8 px，`0` 为硬边）控制带宽与柔边，两者均支持 `Canvas.height` 或 `Glyph.font_size` 表达式。`scanline_mode` 可选 `"color"`（默认）、`"brighten"`（按 `scanline_brightness` 提亮 HSV 亮度，默认 `0.60`）、`"follow_before"` 或 `"follow_after"`。在 `"color"` 模式下，可设置 `scanline_color`（Hook 中支持 `PaintInput`）、`scanline_strength`（`0..1`，支持 `PaintInput`）或 `scanline_material`（如 `LyricGradient`）。
+- **扫描线样式**：通过 `scanline_width`（1080p 下默认 16 px，按画布高度缩放）和 `scanline_softness`（1080p 下默认 8 px，`0` 为硬边）控制带宽与柔边，两者均支持 `Canvas.height` 或 `Glyph.font_size` 表达式。`scanline_mode` 可选 `"color"`（默认）、`"brighten"`（按 `scanline_brightness` 提亮 HSV 亮度，默认 `0.60`）、`"follow_before"` 或 `"follow_after"`。在 `"color"` 模式下，可设置 `scanline_color`（Hook 中支持 `PaintInput`）、`scanline_strength`（`0..1`，支持 `PaintInput`）或 `scanline_material`（如 `LyricGradient`）。
 - **描边闪光**：设置 `stroke_flash=True`，在每个正文音符起音时沿正文描边触发 0.24 s 的 `shine` 闪光，注音节点不会重复触发。
 - **缩放曲线**：`zoom_pulse_curve_level` 取值 `0`–`5`。`0` 和 `1`（默认）为线性，`2`–`5` 在接近峰值时放缓、离开时加速。
 - **走字方向与倾斜角**：`reverse_wipe=True` 让每个计时单元从右向左扫色，同时保留原词序。水平歌词使用斜体字时，前沿默认向右倾斜 19°；传入 `sweep_angle=0` 可强制竖直前沿，或指定任意角度。需要整行从右向左排布或反向计时，请在 `Track` 上设置 `right_to_left=True` 或 `reverse_timing=True`（参见[布置声部轨道](tracks.md)）。
-- **注音走字**：默认（`ruby_scanline="both"`）正文和注音均带有扫光条；设为 `"reading"` 则对完整注音单元仅在假名上显示扫光条。连续注音节点默认按节点数均分正文走字距离；设为 `ruby_reading_units=True` 则按可见假名字符均分，空读音 `#|` 会让正文走字原地停顿。
+- **注音走字**：默认（`ruby_scanline="both"`）正文和注音均带有扫描线；设为 `"reading"` 则对完整注音单元仅在假名上显示扫描线。连续注音节点默认按节点数均分正文走字距离；设为 `ruby_reading_units=True` 则按可见假名字符均分，空读音 `#|` 会让正文走字原地停顿。
 
 重复计时区间会重新触发脉冲，若下一个区间来得更早，上一次回落会自动缩短。多字符计时单元共用一条前沿，辉光和外描边不会占用走字时间。
 
@@ -170,13 +170,36 @@ uv run python -m examples.karaoke_catalog build/petals.hook --entry wave_in --ex
 > [!NOTE]
 > 内置预设目录独立实现了常见卡拉 OK 动画菜单中的视觉家族（入场、退场、高亮、装饰和描边闪光），它不是外部编辑器的工程导入器，也不追求与特定渲染器逐像素一致。
 
-浏览器预览与着色器播放支持预设目录中的全部效果，包括羽化走字、倾斜前沿、渐变、柔和扫光条和粒子过渡。让模板返回一个 `LyricScene`，再调用 `scene.preview()` 查看效果。
+浏览器预览与着色器播放支持预设目录中的全部效果，包括羽化走字、倾斜前沿、渐变、柔和扫描线和粒子过渡。让模板返回一个 `LyricScene`，再调用 `scene.preview()` 查看效果。
 
-标准 ASS 导出（`scene.ass.compile().document.save("song.ass")`）仅支持硬边走字（`hook_feather=0`）、原生淡入淡出和受支持的变换；渐变、羽化走字、柔和扫光条和复杂粒子轨迹会触发 `SceneCompileError`。详见[预览与导出](../output/README.md)与[导出标准 ASS](../output/ass.md)。
+标准 ASS 导出（`scene.ass.compile().document.save("song.ass")`）仅支持硬边走字（`hook_feather=0`）、原生淡入淡出和受支持的变换；渐变、羽化走字、柔和扫描线和复杂粒子轨迹会触发 `SceneCompileError`。详见[预览与导出](../output/README.md)与[导出标准 ASS](../output/ass.md)。
+
+## 组合可编辑特效
+
+`effect_components()` 列出各组件的槽位、作用对象和参数。传入 `script_height=...` 可按脚本高度计算几何参数的默认值和范围，省略时采用 1080 像素。用 `compose_track()` 把选定的组件应用到 `Track`。同一个单选槽位内，如果两项的作用对象有重叠，构建器会报错。回声和粒子等组件可以叠加。
+
+```python
+from kara_templater import ComponentSelection, Track, compose_track
+
+track = compose_track(
+    Track(id="lead"),
+    (
+        ComponentSelection("entrance", "entry-fade"),
+        ComponentSelection(
+            "band", "highlight-scanline",
+            values={"scanline_width": 18},
+            bindings={"scanline_width": "lead_scan_width"},
+        ),
+    ),
+    script_height=720,
+)
+```
+
+示例中的 `scanline_width` 已绑定，可以实时调节。修改入场时长后，需要按新时长重建场景。编辑文字样式时，在轨道中提供 `Style`，并将 `target` 设为 `"body"`（正文）或 `"ruby"`（注音）。每个声部可用一条轨道，分别应用组件。[组件覆盖表](../examples/component-coverage.md) · [可调材质参数](materials.md#使用-paintinput-暴露可调参数)
 
 ## 下一步
 
 - 用渐变、辉光和 WGSL 着色器定制色彩，见[颜色与材质](materials.md)。
 - 编写自定义运动规则和缓动曲线，见[动画与时间控制](animation.md)。
-- 构建自定义粒子发射器和起音残影，见[粒子、副本与残影](particles.md)。
+- 构建自定义粒子发射器和起音回声，见[粒子、副本与残影](particles.md)。
 - 查看预览与交付方式，见[预览与导出](../output/README.md)。

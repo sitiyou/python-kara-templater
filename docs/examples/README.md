@@ -2,6 +2,8 @@
 
 Browse runnable karaoke examples by visual goal, inspect their previews, and run them directly from a source checkout. Use this page when you want working code to adapt for your own song.
 
+The [component coverage index](component-coverage.md) maps every component library card to an editable control or to the source inputs needed to reproduce the effect.
+
 Run all commands below from the repository root. Create `build/` first (`mkdir -p build`) so generated files stay inside the ignored build directory. Install the fonts referenced by an example to match its preview layout — see [Choose and register fonts](../guides/fonts.md).
 
 ## Find an example by its visual goal

@@ -1,23 +1,24 @@
 ---
-import type {LocalizedDemo} from "../lib/gallery";
+import type {Demo} from "../lib/gallery";
 import {previewUrl} from "../lib/gallery";
 import {getUi, type Locale} from "../lib/i18n";
 
 interface Props {
-	demo: LocalizedDemo;
+	demo: Pick<Demo, "id" | "title" | "width" | "height" | "still" | "accent" | "labels">;
 	locale?: Locale;
 	compact?: boolean;
 	id?: string;
+	resources?: string;
 }
 
-const {demo, locale = "en", compact = false, id} = Astro.props;
+const {demo, locale = "en", compact = false, id, resources} = Astro.props;
 const ui = getUi(locale);
 ---
 
 <kara-preview
 	id={id}
 	class:list={["preview", {compact}]}
-	data-resources={previewUrl(demo)}
+	data-resources={resources ?? previewUrl(demo)}
 	data-still={demo.still}
 	data-labels={JSON.stringify(demo.labels ?? {})}
 	data-play={ui.preview.play}

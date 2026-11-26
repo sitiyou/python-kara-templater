@@ -6,11 +6,135 @@ Related guides: [Lay out vocal tracks](../guides/tracks.md) · [Built-in karaoke
 
 ## Contents
 
-**Classes:** [`KaraokeEffects`](#karaokeeffects) · [`KaraokeRows`](#karaokerows) · [`Layout`](#layout) · [`LayoutContext`](#layoutcontext) · [`LineLayoutRequest`](#linelayoutrequest) · [`LyricAnimationContext`](#lyricanimationcontext) · [`LyricEcho`](#lyricecho) · [`LyricLine`](#lyricline) · [`LyricLinePlan`](#lyriclineplan) · [`LyricRule`](#lyricrule) · [`LyricScene`](#lyricscene) · [`LyricSource`](#lyricsource) · [`LyricTarget`](#lyrictarget) · [`Placement`](#placement) · [`ScatterOut`](#scatterout) · [`Track`](#track)
+**Classes:** [`ComponentParameter`](#componentparameter) · [`ComponentSelection`](#componentselection) · [`EffectComponent`](#effectcomponent) · [`KaraokeEffects`](#karaokeeffects) · [`KaraokeRows`](#karaokerows) · [`Layout`](#layout) · [`LayoutContext`](#layoutcontext) · [`LineLayoutRequest`](#linelayoutrequest) · [`LyricAnimationContext`](#lyricanimationcontext) · [`LyricEcho`](#lyricecho) · [`LyricLine`](#lyricline) · [`LyricLinePlan`](#lyriclineplan) · [`LyricRule`](#lyricrule) · [`LyricScene`](#lyricscene) · [`LyricSource`](#lyricsource) · [`LyricTarget`](#lyrictarget) · [`Placement`](#placement) · [`ScatterOut`](#scatterout) · [`Track`](#track)
 
-**Functions:** [`build_lyric_scene`](#build_lyric_scene) · [`lyric_effects`](#lyric_effects)
+**Functions:** [`build_lyric_scene`](#build_lyric_scene) · [`compose_track`](#compose_track) · [`effect_components`](#effect_components) · [`lyric_effects`](#lyric_effects)
 
-**Types & constants:** [`KaraokeDecoration`](#karaokedecoration) · [`KaraokeEntry`](#karaokeentry) · [`KaraokeExit`](#karaokeexit) · [`KaraokeHighlight`](#karaokehighlight) · [`LyricAnchor`](#lyricanchor) · [`LyricEffect`](#lyriceffect) · [`LyricRole`](#lyricrole)
+**Types & constants:** [`ComponentTarget`](#componenttarget) · [`ComponentValue`](#componentvalue) · [`KaraokeDecoration`](#karaokedecoration) · [`KaraokeEntry`](#karaokeentry) · [`KaraokeExit`](#karaokeexit) · [`KaraokeHighlight`](#karaokehighlight) · [`LyricAnchor`](#lyricanchor) · [`LyricEffect`](#lyriceffect) · [`LyricRole`](#lyricrole)
+
+## ComponentParameter
+
+*dataclass* · [Source](../../kara_templater/components.py#L43)
+
+Control declaration with an optional scalar range and GPU update support.
+
+Colors are six hexadecimal digits. Numeric limits are inclusive.
+Real-time controls are opt-in bindings on component instances.
+
+```python
+ComponentParameter(
+    label: str,
+    kind: Literal['number', 'integer', 'color', 'boolean', 'text', 'choice'],
+    default: ComponentValue,
+    bounds: tuple[float, float] | None = None,
+    step: float | None = None,
+    unit: str = '',
+    choices: tuple[str, ...] = (),
+    live: bool = False,
+    advanced: bool = False,
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `label` | `str` | `required` |
+| `kind` | `Literal['number', 'integer', 'color', 'boolean', 'text', 'choice']` | `required` |
+| `default` | `ComponentValue` | `required` |
+| `bounds` | `tuple[float, float] \| None` | `None` |
+| `step` | `float \| None` | `None` |
+| `unit` | `str` | `''` |
+| `choices` | `tuple[str, ...]` | `()` |
+| `live` | `bool` | `False` |
+| `advanced` | `bool` | `False` |
+
+### ComponentParameter.resolve
+
+Validate and normalize a submitted value against the declaration.
+
+```python
+ComponentParameter.resolve(
+    value: ComponentValue,
+) -> ComponentValue
+```
+
+## ComponentSelection
+
+*dataclass* · [Source](../../kara_templater/components.py#L102)
+
+A component configured on one track, with explicit optional input names.
+
+Parameters omitted by the caller use the component defaults. Controls can
+narrow and label named inputs. Reusing a name links inputs that have the
+same type, value and declaration.
+
+```python
+ComponentSelection(
+    id: str,
+    component: str,
+    target: ComponentTarget = 'track',
+    values: Mapping[str, ComponentValue] = _HAS_DEFAULT_FACTORY_CLASS(),
+    bindings: Mapping[str, str] = _HAS_DEFAULT_FACTORY_CLASS(),
+    controls: Mapping[str, PaintControl] = _HAS_DEFAULT_FACTORY_CLASS(),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required` |
+| `component` | `str` | `required` |
+| `target` | `ComponentTarget` | `'track'` |
+| `values` | `Mapping[str, ComponentValue]` | `dict()` |
+| `bindings` | `Mapping[str, str]` | `dict()` |
+| `controls` | `Mapping[str, PaintControl]` | `dict()` |
+
+## ComponentTarget
+
+*type alias*
+
+```python
+type ComponentTarget = Literal['track', 'body', 'ruby']
+```
+
+## ComponentValue
+
+*type alias*
+
+```python
+type ComponentValue = str | bool | float
+```
+
+## EffectComponent
+
+*dataclass* · [Source](../../kara_templater/components.py#L87)
+
+An editable component's slot, permitted targets and parameter controls.
+
+When repeatable is false, one selection occupies the slot per target.
+A track-wide selection occupies its slot for both body and readings.
+
+```python
+EffectComponent(
+    label: str,
+    slot: str,
+    targets: tuple[ComponentTarget, ...] = ('track',),
+    repeatable: bool = False,
+    parameters: Mapping[str, ComponentParameter] = _HAS_DEFAULT_FACTORY_CLASS(),
+)
+```
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `label` | `str` | `required` |
+| `slot` | `str` | `required` |
+| `targets` | `tuple[ComponentTarget, ...]` | `('track',)` |
+| `repeatable` | `bool` | `False` |
+| `parameters` | `Mapping[str, ComponentParameter]` | `dict()` |
 
 ## KaraokeDecoration
 
@@ -53,7 +177,9 @@ a second hard rim is a separate drawing of the same moving particle.
 ASS supports native clips and eligible transforms. Complex motion, gradients
 and soft fronts raise SceneCompileError on ASS export. Hook export uses
 the same Scene; dynamic blur can require additional cached native coverage.
-Solid scanlines accept a named paint input for color or strength in Hook.
+Solid scanlines accept named paint inputs for color, strength, width and
+softness in Hook. Named geometry uses bounded script-pixel values so the
+full declared width can be covered during live preview.
 Strength is a fraction in [0,1] and changes tint without changing coverage.
 No dependency on Manim, Qt, or the reference application is introduced.
 
@@ -87,8 +213,8 @@ KaraokeEffects(
     max_particles: int = 512,
     seed: int = 0,
     zoom_pulse_curve_level: int = 1,
-    scanline_width: float | LengthExpr | None = None,
-    scanline_softness: float | LengthExpr | None = None,
+    scanline_width: float | LengthExpr | PaintInput | None = None,
+    scanline_softness: float | LengthExpr | PaintInput | None = None,
     scanline_mode: Literal['color', 'brighten', 'follow_before', 'follow_after'] = 'color',
     ruby_reading_units: bool = False,
     ruby_scanline: Literal['reading', 'both'] = 'both',
@@ -138,8 +264,8 @@ KaraokeEffects(
 | `max_particles` | `int` | `512` |
 | `seed` | `int` | `0` |
 | `zoom_pulse_curve_level` | `int` | `1` |
-| `scanline_width` | `float \| LengthExpr \| None` | `None` |
-| `scanline_softness` | `float \| LengthExpr \| None` | `None` |
+| `scanline_width` | `float \| LengthExpr \| PaintInput \| None` | `None` |
+| `scanline_softness` | `float \| LengthExpr \| PaintInput \| None` | `None` |
 | `scanline_mode` | `Literal['color', 'brighten', 'follow_before', 'follow_after']` | `'color'` |
 | `ruby_reading_units` | `bool` | `False` |
 | `ruby_scanline` | `Literal['reading', 'both']` | `'both'` |
@@ -785,7 +911,7 @@ LyricLine.with_display(
 
 ## LyricLinePlan
 
-*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L214)
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L220)
 
 Inspectable source/view association and final layout/animation binding.
 
@@ -893,9 +1019,12 @@ LyricRule.timing_intervals(
 
 ## LyricScene
 
-*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L225)
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L231)
 
-A normal Scene with immutable lyric arrangement snapshots for inspection.
+A Scene with lyric arrangement snapshots and resolved track settings.
+
+Track settings include the effective theme on built-in effects. Plans describe
+the visible source lines when the scene was built for an interval.
 
 ```python
 LyricScene(
@@ -904,6 +1033,7 @@ LyricScene(
     replace_records: set[int] = _HAS_DEFAULT_FACTORY_CLASS(),
     owner: str = 'scene',
     plans: tuple[tracks.LyricLinePlan, ...] = (),
+    track_settings: tuple[tracks.Track, ...] = (),
 )
 ```
 
@@ -916,6 +1046,7 @@ LyricScene(
 | `replace_records` | `set[int]` | `set()` |
 | `owner` | `str` | `'scene'` |
 | `plans` | `tuple[tracks.LyricLinePlan, ...]` | `()` |
+| `track_settings` | `tuple[tracks.Track, ...]` | `()` |
 
 ### LyricScene.add
 
@@ -1242,6 +1373,9 @@ Layout uses native advances. Horizontal palt selects the font’s proportional
 alternate widths for body and ruby and uses native advances by default. reserved_border declares the outer hard radius
 of custom or shared visual layers. Glow and motion do not reserve space.
 ruby_alignment shares a horizontal baseline across the line by default.
+chapter_cue names a Track.cues preset to show before the first line of
+each chapter if that line has no authored cues. An unchaptered track
+gets one cue at its first line.
 Use "group" to apply ruby_gap separately to each reading group. ruby_gap
 sets hard-outline clearance in script pixels. Negative values allow overlap.
 vertical stacks cells downward with right-side readings. With no layout override,
@@ -1277,6 +1411,7 @@ Track(
     reverse_timing: bool | Callable[[tracks.LyricSource], bool] = False,
     palt: bool = False,
     extrusion: Extrusion | None = None,
+    chapter_cue: str | None = None,
 )
 ```
 
@@ -1307,10 +1442,11 @@ Track(
 | `reverse_timing` | `bool \| Callable[[tracks.LyricSource], bool]` | `False` |
 | `palt` | `bool` | `False` |
 | `extrusion` | `Extrusion \| None` | `None` |
+| `chapter_cue` | `str \| None` | `None` |
 
 ## build_lyric_scene
 
-*function* · [Source](../../kara_templater/lyrics/tracks.py#L529)
+*function* · [Source](../../kara_templater/lyrics/tracks.py#L540)
 
 Measure, allocate and bind independent tracks into one ordinary Scene.
 
@@ -1339,6 +1475,40 @@ build_lyric_scene(
     bpm: float | None = None,
     preview_interval: tuple[float, float] | None = None,
 ) -> tracks.LyricScene
+```
+
+## compose_track
+
+*function* · [Source](../../kara_templater/components.py#L352)
+
+Apply editable components to a Track using normal lyric and scene builders.
+
+An existing KaraokeEffects provides defaults for its slots. Otherwise the
+track starts with a steady wipe. Additional lyric rules are applied after
+the built-in recipe in declared order and follow its animation constraints.
+Track styles, including explicitly defined reading styles, remain the basis
+of typography customization.
+
+```python
+compose_track(
+    track: tracks.Track,
+    selections: tuple[ComponentSelection, ...],
+    *,
+    script_height: int = 1080,
+) -> tracks.Track
+```
+
+## effect_components
+
+*function* · [Source](../../kara_templater/components.py#L132)
+
+Return the built-in effect catalog with defaults for the script resolution.
+
+```python
+effect_components(
+    *,
+    script_height: int = 1080,
+) -> dict[str, EffectComponent]
 ```
 
 ## lyric_effects

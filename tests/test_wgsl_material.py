@@ -8,12 +8,14 @@ import pytest
 
 from kara_templater import (
     Color,
+    ComponentSelection,
     Document,
     KaraokeEffects,
     Lifetime,
     Line,
     MaterialClip,
     MaterialEffect,
+    PaintControl,
     PaintInput,
     PathObject,
     Scene,
@@ -23,6 +25,7 @@ from kara_templater import (
     Track,
     VectorPath,
     build_lyric_scene,
+    compose_track,
     text_to_path,
 )
 
@@ -109,6 +112,78 @@ def test_scanline_strength_and_color_keep_the_prepared_coverage(
     assert {name: slot["default"] for name, slot in slots.items()} == {
         "shine": [0, 1, 0], "strength": [0.35],
     }
+
+
+@pytest.mark.parametrize("highlight", ["scanline", "zoom_pulse_scanline"])
+def test_live_scanline_geometry_reserves_its_declared_range(tmp_path, highlight):
+    doc = Document.create(width=640, height=360, styles=(Style(fontsize=40),))
+    doc.records.append(Line(
+        start_time=1000, end_time=3000,
+        text=r"{\k50}AB|ab{\k50} C{\k70}D{\k30}E",
+    ))
+    control = PaintControl((1, 42), 0.1, "px", "Width", "Scanline")
+    feather = PaintControl((0, 42), 0.1, "px", "Softness", "Scanline", 1)
+
+    def export(name, width, softness):
+        effect = KaraokeEffects(
+            entry="none", exit="none", highlight=highlight, reverse_wipe=True,
+            scanline_width=PaintInput("width", width, control),
+            scanline_softness=PaintInput("soft", softness, feather),
+        )
+        scene = build_lyric_scene(doc, tracks=(Track(id="main", effects=(effect,)),))
+        parts = tmp_path / name
+        prepared = scene.prepare_hook()
+        assert prepared.paint_inputs()["width"].control == control
+        prepared.export_resources(parts, fps=30)
+        prepared.export(tmp_path / f"{name}.hook", fps=30)
+        return parts
+
+    hard = export("hard", 1, 0)
+    wide = export("wide", 42, 42)
+    for name in ("KARAMASK.bin", "KARADATA.bin", "scene.frag"):
+        assert (hard / name).read_bytes() == (wide / name).read_bytes()
+    slots = json.loads((wide / "textures.json").read_text())["parameters"]
+    assert slots["width"]["default"] == [42]
+    assert slots["width"]["control"]["bounds"] == [1, 42]
+    assert slots["soft"]["control"]["unit"] == "px"
+    with pytest.raises(ValueError, match="outside the control bounds"):
+        PaintInput("soft", -1, feather)
+    with pytest.raises(ValueError, match="bounded scalar script pixels"):
+        KaraokeEffects(scanline_width=PaintInput("width", 12))
+
+
+def test_component_inputs_link_vocal_tracks_and_typography_targets(tmp_path):
+    body = Style(fontname="DejaVu Sans", fontsize=40)
+    reading = Style(name="Default-furigana", fontname=body.fontname, fontsize=20)
+    harmony = Style(name="Harmony", fontname=body.fontname, fontsize=36)
+    doc = Document.create(width=640, height=360, styles=(body, reading, harmony))
+    doc.records.extend((
+        Line(start_time=1000, end_time=2000, text=r"{\k50}AB|ab{\k50}C"),
+        Line(style="Harmony", start_time=1000, end_time=2000, text=r"{\k50}DE{\k50}F"),
+    ))
+    scanline = ComponentSelection(
+        "band", "highlight-scanline", values={"scanline_width": 8},
+        bindings={"scanline_width": "shared_width"},
+        controls={"scanline_width": PaintControl((4, 26), 0.2)},
+    )
+    lead_track = Track(id="lead", source=lambda source: source.style == "Default", styles=(body, reading))
+    lead = compose_track(lead_track, (
+        scanline,
+        ComponentSelection("reading", "typography", "ruby", {"fontname": body.fontname, "italic": True}),
+    ), script_height=360)
+    backing = compose_track(
+        Track(id="backing", source=lambda source: source.style == "Harmony"),
+        (scanline,), script_height=360,
+    )
+    assert lead.styles[0] == body
+    assert lead.styles[1].italic and not lead_track.styles[1].italic
+    scene = build_lyric_scene(doc, tracks=(lead, backing))
+    assert {plan.track_id for plan in scene.plans} == {"lead", "backing"}
+    assert scene.prepare_hook().material_inputs() == {"shared_width": 8}
+    directory = tmp_path / "parts"
+    scene.export_resources(directory, fps=30, start=1, duration=0.5)
+    manifest = json.loads((directory / "textures.json").read_text())
+    assert len(manifest["parameters"]) == 1
 
 
 def test_material_is_preserved_by_copy_and_conversion_and_rejected_by_ass() -> None:

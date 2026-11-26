@@ -1020,7 +1020,9 @@ class KaraokeEffects:
     ASS supports native clips and eligible transforms. Complex motion, gradients
     and soft fronts raise SceneCompileError on ASS export. Hook export uses
     the same Scene; dynamic blur can require additional cached native coverage.
-    Solid scanlines accept a named paint input for color or strength in Hook.
+    Solid scanlines accept named paint inputs for color, strength, width and
+    softness in Hook. Named geometry uses bounded script-pixel values so the
+    full declared width can be covered during live preview.
     Strength is a fraction in [0,1] and changes tint without changing coverage.
     No dependency on Manim, Qt, or the reference application is introduced.
     """
@@ -1052,8 +1054,8 @@ class KaraokeEffects:
     max_particles: int = 512
     seed: int = 0
     zoom_pulse_curve_level: int = 1
-    scanline_width: float | LengthExpr | None = None
-    scanline_softness: float | LengthExpr | None = None
+    scanline_width: float | LengthExpr | PaintInput | None = None
+    scanline_softness: float | LengthExpr | PaintInput | None = None
     scanline_mode: Literal[
         "color", "brighten", "follow_before", "follow_after"
     ] = "color"
@@ -1081,8 +1083,12 @@ class KaraokeEffects:
         return max(_hard_glow_border(self.base_glow), _hard_glow_border(self.glow))
 
     @property
+    def _adjustable_scanline_geometry(self) -> bool:
+        return isinstance(self.scanline_width, PaintInput) or isinstance(self.scanline_softness, PaintInput)
+
+    @property
     def _shader_scanline(self) -> bool:
-        return isinstance(self.scanline_color, PaintInput) or self.scanline_strength != 1
+        return self._adjustable_scanline_geometry or isinstance(self.scanline_color, PaintInput) or self.scanline_strength != 1
 
     @classmethod
     def duotone(
@@ -1118,7 +1124,18 @@ class KaraokeEffects:
             or not 0 <= self.zoom_pulse_curve_level <= 5
         ):
             raise ValueError("zoom pulse curve level must be an integer in [0,5]")
-        width = 16 if self.scanline_width is None or isinstance(self.scanline_width, LengthExpr) else self.scanline_width
+        for name, value in (("width", self.scanline_width), ("softness", self.scanline_softness)):
+            if isinstance(value, PaintInput):
+                bounds = value.control.bounds if value.control else None
+                if (
+                    not isinstance(value.value, (float, int))
+                    or isinstance(value.value, bool)
+                    or bounds is None
+                    or bounds[0] < 0
+                    or (name == "width" and bounds[0] == 0)
+                ):
+                    raise ValueError(f"named scanline {name} requires bounded scalar script pixels")
+        width = self.scanline_width if isinstance(self.scanline_width, (float, int)) else 16
         if any(unit not in {"preset", "character"} for unit in (self.entry_unit, self.exit_unit)):
             raise ValueError("transition unit must be preset or character")
         if self.ruby_scanline not in {"reading", "both"}:
@@ -1133,7 +1150,7 @@ class KaraokeEffects:
             raise ValueError("unknown scanline mode")
         if not 0 <= self.scanline_brightness <= 1:
             raise ValueError("scanline brightness must be in [0,1]")
-        if self.scanline_softness is not None and not isinstance(self.scanline_softness, LengthExpr):
+        if isinstance(self.scanline_softness, (float, int)):
             finite(self.scanline_softness)
             if self.scanline_softness < 0:
                 raise ValueError("scanline softness must be nonnegative")
@@ -1144,11 +1161,14 @@ class KaraokeEffects:
             raise TypeError("scanline_color must be a Color or a named Color input")
         strength = self.scanline_strength
         if isinstance(strength, PaintInput):
+            bounds = strength.control.bounds if strength.control else None
+            if bounds and (bounds[0] < 0 or bounds[1] > 1):
+                raise ValueError("scanline strength control must stay in [0,1]")
             strength = strength.value
         if isinstance(strength, bool) or not isinstance(strength, (int, float)) or not 0 <= strength <= 1:
             raise ValueError("scanline strength must be in [0,1]")
         if self._shader_scanline and (self.scanline_mode != "color" or self.scanline_material is not None):
-            raise ValueError("named color and adjustable strength require a solid color scanline")
+            raise ValueError("named scanline inputs and adjustable strength require a solid color scanline")
         rate = 1 if self.particle_rate is None else self.particle_rate
         finite(
             self.entry_duration,
@@ -1983,8 +2003,16 @@ class KaraokeEffects:
                     if isinstance(field, LinearGradient):
                         material = _brighten_gradient(field, self.scanline_brightness)
             if "scanline" in self.highlight:
-                width = _width(band_width, node.font_size, line.layout.script_height, f"{node.id}: scanline_width")
-                softness = _width(band_softness, node.font_size, line.layout.script_height, f"{node.id}: scanline_softness")
+                if isinstance(band_width, PaintInput):
+                    assert band_width.control is not None and band_width.control.bounds is not None
+                    width = band_width.control.bounds[1]
+                else:
+                    width = _width(band_width, node.font_size, line.layout.script_height, f"{node.id}: scanline_width")
+                if isinstance(band_softness, PaintInput):
+                    assert band_softness.control is not None and band_softness.control.bounds is not None
+                    softness = band_softness.control.bounds[1]
+                else:
+                    softness = _width(band_softness, node.font_size, line.layout.script_height, f"{node.id}: scanline_softness")
                 if width == 0:
                     raise ValueError(f"{node.id}: scanline_width must be positive")
                 assert glyph.layout_scale is not None
@@ -2092,6 +2120,7 @@ class KaraokeEffects:
                         strip_top, strip_bottom = -65536, 65536
                     tint_sides = bool(
                         layer.sides and (softness > 0 or not transformed_band)
+                        and not self._adjustable_scanline_geometry
                         and self.scanline_mode == "color"
                         and layer.highlight_brush is None and layer.waiting_brush is None
                     )
@@ -2105,7 +2134,9 @@ class KaraokeEffects:
                                 _PaintTrack(tuple((t, x) for t, x, _ in path)),
                                 _PaintTrack(tuple((t, per_px) for t, _, per_px in path)),
                                 Vec2(1, slope), slope * pivot_y, self.scanline_color,
-                                width / 2, min(softness, width / 2), Vec2(strip_top, strip_bottom),
+                                band_width if isinstance(band_width, PaintInput) else width,
+                                band_softness if isinstance(band_softness, PaintInput) else softness,
+                                Vec2(strip_top, strip_bottom),
                                 self.scanline_strength, float(not tint_sides),
                             )
                             if tint_sides:

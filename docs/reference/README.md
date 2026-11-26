@@ -12,11 +12,11 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 | Topic | Covers | Symbols |
 | --- | --- | --- |
 | [Documents and lyric input](documents.md) | Records, decoded lyric text, input selection, and source mappings. Raw line clocks use milliseconds; lyric timing spans use seconds. | 21 |
-| [Track authoring](tracks.md) | Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds. | 25 |
+| [Track authoring](tracks.md) | Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds. | 32 |
 | [Text measurement and layout](text.md) | Font registration, shaped glyph metrics, source clusters, and body/ruby binding. | 19 |
 | [Scenes and compilation](scenes.md) | Scene objects, world-space evaluation, real-time browser preview, and shader and ASS export. Lifetimes use seconds. Geometry uses script pixels. | 20 |
 | [Animation and timing](animation.md) | Pure state and property animation, easing curves, and typed composition on second-based clocks. | 35 |
-| [Colors and appearance](paint.md) | RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles. | 34 |
+| [Colors and appearance](paint.md) | RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles. | 35 |
 | [Geometry and paths](geometry.md) | Script-space vectors, clips, masks, path boolean operations, deformation, extrusion, and morphing. | 32 |
 | [Lyric cues](cues.md) | Count-ins, reservations, independent cue tracks, and inline lyric markers measured in seconds. | 13 |
 | [Particles and references](particles.md) | Deterministic particle emitters, delayed copies, echoes, and world-space object references. | 14 |
@@ -24,7 +24,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ## Symbol index
 
-215 public exports grouped alphabetically.
+223 public exports grouped alphabetically.
 
 ### A
 
@@ -36,7 +36,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ### C
 
-[`Canvas`](animation.md#canvas) · [`Channel`](animation.md#channel) · [`CharacterTarget`](text.md#charactertarget) · [`Color`](paint.md#color) · [`ColorRamp`](paint.md#colorramp) · [`ColorStop`](paint.md#colorstop) · [`Contour`](geometry.md#contour) · [`CubicSegment`](geometry.md#cubicsegment) · [`CueContent`](cues.md#cuecontent) · [`CueContext`](cues.md#cuecontext) · [`CuedLayout`](cues.md#cuedlayout) · [`CuedLyrics`](cues.md#cuedlyrics) · [`CueFactory`](cues.md#cuefactory) · [`CueMarker`](documents.md#cuemarker) · [`CuePlacement`](cues.md#cueplacement) · [`CuePreset`](cues.md#cuepreset) · [`CurveIn`](animation.md#curvein) · [`CYAN`](paint.md#cyan)
+[`Canvas`](animation.md#canvas) · [`Channel`](animation.md#channel) · [`CharacterTarget`](text.md#charactertarget) · [`Color`](paint.md#color) · [`ColorRamp`](paint.md#colorramp) · [`ColorStop`](paint.md#colorstop) · [`ComponentParameter`](tracks.md#componentparameter) · [`ComponentSelection`](tracks.md#componentselection) · [`ComponentTarget`](tracks.md#componenttarget) · [`ComponentValue`](tracks.md#componentvalue) · [`compose_track`](tracks.md#compose_track) · [`Contour`](geometry.md#contour) · [`CubicSegment`](geometry.md#cubicsegment) · [`CueContent`](cues.md#cuecontent) · [`CueContext`](cues.md#cuecontext) · [`CuedLayout`](cues.md#cuedlayout) · [`CuedLyrics`](cues.md#cuedlyrics) · [`CueFactory`](cues.md#cuefactory) · [`CueMarker`](documents.md#cuemarker) · [`CuePlacement`](cues.md#cueplacement) · [`CuePreset`](cues.md#cuepreset) · [`CurveIn`](animation.md#curvein) · [`CYAN`](paint.md#cyan)
 
 ### D
 
@@ -44,7 +44,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ### E
 
-[`ease_in`](animation.md#ease_in) · [`ease_in_out`](animation.md#ease_in_out) · [`ease_out`](animation.md#ease_out) · [`echoes`](particles.md#echoes) · [`Emission`](particles.md#emission) · [`emit_particles`](particles.md#emit_particles) · [`EventOrigin`](documents.md#eventorigin) · [`Extrusion`](paint.md#extrusion)
+[`ease_in`](animation.md#ease_in) · [`ease_in_out`](animation.md#ease_in_out) · [`ease_out`](animation.md#ease_out) · [`echoes`](particles.md#echoes) · [`effect_components`](tracks.md#effect_components) · [`EffectComponent`](tracks.md#effectcomponent) · [`Emission`](particles.md#emission) · [`emit_particles`](particles.md#emit_particles) · [`EventOrigin`](documents.md#eventorigin) · [`Extrusion`](paint.md#extrusion)
 
 ### F
 
@@ -88,7 +88,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ### P
 
-[`Paint`](paint.md#paint) · [`paint_pair_from_style`](paint.md#paint_pair_from_style) · [`PaintInput`](paint.md#paintinput) · [`PaintPair`](paint.md#paintpair) · [`PaintValue`](paint.md#paintvalue) · [`parse_document_lyrics`](documents.md#parse_document_lyrics) · [`ParticleContext`](particles.md#particlecontext) · [`ParticleFactory`](particles.md#particlefactory) · [`path_boolean`](geometry.md#path_boolean) · [`path_bounds`](geometry.md#path_bounds) · [`PathBooleanOperation`](geometry.md#pathbooleanoperation) · [`PathFunction`](geometry.md#pathfunction) · [`PathItem`](geometry.md#pathitem) · [`PathObject`](scenes.md#pathobject) · [`Petal`](particles.md#petal) · [`PINK`](paint.md#pink) · [`Placement`](tracks.md#placement) · [`Polyline`](geometry.md#polyline) · [`PositionedRuby`](text.md#positionedruby) · [`PositionedText`](text.md#positionedtext) · [`PreparedHook`](scenes.md#preparedhook) · [`ProgressCurve`](animation.md#progresscurve) · [`PURPLE`](paint.md#purple)
+[`Paint`](paint.md#paint) · [`paint_pair_from_style`](paint.md#paint_pair_from_style) · [`PaintControl`](paint.md#paintcontrol) · [`PaintInput`](paint.md#paintinput) · [`PaintPair`](paint.md#paintpair) · [`PaintValue`](paint.md#paintvalue) · [`parse_document_lyrics`](documents.md#parse_document_lyrics) · [`ParticleContext`](particles.md#particlecontext) · [`ParticleFactory`](particles.md#particlefactory) · [`path_boolean`](geometry.md#path_boolean) · [`path_bounds`](geometry.md#path_bounds) · [`PathBooleanOperation`](geometry.md#pathbooleanoperation) · [`PathFunction`](geometry.md#pathfunction) · [`PathItem`](geometry.md#pathitem) · [`PathObject`](scenes.md#pathobject) · [`Petal`](particles.md#petal) · [`PINK`](paint.md#pink) · [`Placement`](tracks.md#placement) · [`Polyline`](geometry.md#polyline) · [`PositionedRuby`](text.md#positionedruby) · [`PositionedText`](text.md#positionedtext) · [`PreparedHook`](scenes.md#preparedhook) · [`ProgressCurve`](animation.md#progresscurve) · [`PURPLE`](paint.md#purple)
 
 ### R
 

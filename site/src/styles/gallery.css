@@ -795,3 +795,57 @@ kara-preview [hidden] {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+.component-trial {
+  justify-self: start;
+  padding: .24rem .6rem;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: .4rem;
+  background: var(--kara-surface);
+  color: var(--sl-color-accent-high);
+  cursor: pointer;
+}
+.component-trial:hover {
+  border-color: var(--sl-color-accent);
+}
+.component-live-dialog {
+  width: min(49rem, calc(100% - 2rem));
+  max-width: none;
+  max-height: calc(100dvh - 2rem);
+  margin: auto;
+  padding: clamp(.7rem, 3vw, 1.4rem);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: .85rem;
+  background: var(--sl-color-bg);
+  color: var(--sl-color-text);
+}
+.component-live-dialog::backdrop {
+  background: rgb(4 7 14 / .7);
+}
+.component-live-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: .8rem;
+}
+.component-live-heading h2 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+.component-live-heading form {
+  margin: 0;
+}
+.component-live-heading button {
+  min-width: 2.1rem;
+  min-height: 2.1rem;
+  color: inherit;
+  background: var(--kara-surface);
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: .4rem;
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+.preview-field-group {
+  grid-column: 1 / -1;
+}

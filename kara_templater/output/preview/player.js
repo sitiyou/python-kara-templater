@@ -142,6 +142,7 @@ function createPreview(gl, data, frag, mask, table) {
       name,
       kind: slot.kind,
       defaults: slot.default,
+      control: slot.control ?? {},
       locations: slot.uniforms.map((symbol) => gl.getUniformLocation(program, symbol)),
     }));
     function setParameter(slot, values) {
@@ -332,8 +333,21 @@ class LivePreview extends HTMLElement {
         const labels = JSON.parse(this.dataset.labels || "{}");
         const updaters = [];
 
-        for (const slot of scene.parameters) {
-          const label = Object.hasOwn(labels, slot.name) ? labels[slot.name] : slot.name;
+        const slots = [...scene.parameters].sort((a, b) =>
+          (a.control.group || "").localeCompare(b.control.group || "")
+          || (a.control.order ?? 0) - (b.control.order ?? 0));
+        let currentGroup;
+        for (const slot of slots) {
+          if (slot.control.group && slot.control.group !== currentGroup) {
+            currentGroup = slot.control.group;
+            const heading = document.createElement("h3");
+            heading.className = "preview-field-group";
+            heading.textContent = currentGroup;
+            fields.append(heading);
+          }
+          const label = labels[slot.name] ?? (slot.control.label || slot.name);
+          const {bounds, step, unit} = slot.control;
+          const readNumber = (value) => `${Number(value.toFixed(4))}${unit ? ` ${unit}` : ""}`;
           if (slot.kind === "vec2") {
             const field = document.createElement("fieldset");
             field.className = "preview-field";
@@ -345,7 +359,8 @@ class LivePreview extends HTMLElement {
               axisLabel.textContent = axis;
               const input = document.createElement("input");
               input.type = "number";
-              input.step = "any";
+              input.step = String(step ?? "any");
+              if (bounds) [input.min, input.max] = bounds.map(String);
               input.setAttribute("aria-label", `${label} ${axis}`);
               axisLabel.append(input);
               field.append(axisLabel);
@@ -357,8 +372,8 @@ class LivePreview extends HTMLElement {
             };
             setDefault();
             field.addEventListener("input", () => {
-              const values = inputs.map((input) => Math.fround(input.valueAsNumber));
-              if (!values.every(Number.isFinite)) return;
+              const values = inputs.map((input) => input.valueAsNumber);
+              if (inputs.some((input) => !input.validity.valid) || !values.every(Number.isFinite)) return;
               scene.setParameter(slot, values);
               draw(frame);
               if (resetButton) resetButton.hidden = false;
@@ -387,7 +402,7 @@ class LivePreview extends HTMLElement {
               readout.textContent = hex.toUpperCase();
             } else {
               input.value = String(slot.defaults[0]);
-              readout.textContent = Number(slot.defaults[0]).toFixed(2);
+              readout.textContent = readNumber(slot.defaults[0]);
             }
             scene.setParameter(slot, slot.defaults);
           };
@@ -396,9 +411,9 @@ class LivePreview extends HTMLElement {
             input.type = "color";
           } else {
             input.type = "range";
-            input.min = String(Math.min(0, slot.defaults[0]));
-            input.max = String(Math.max(1, slot.defaults[0]));
-            input.step = "0.01";
+            input.min = String(bounds?.[0] ?? Math.min(0, slot.defaults[0]));
+            input.max = String(bounds?.[1] ?? Math.max(1, slot.defaults[0]));
+            input.step = String(step ?? "0.01");
           }
           setDefault();
 
@@ -410,7 +425,7 @@ class LivePreview extends HTMLElement {
               readout.textContent =
                 slot.kind === "color"
                   ? input.value.toUpperCase()
-                  : input.valueAsNumber.toFixed(2);
+                  : readNumber(input.valueAsNumber);
               scene.setParameter(slot, value);
               draw(frame);
               if (resetButton) resetButton.hidden = false;

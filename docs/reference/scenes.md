@@ -460,6 +460,14 @@ The uniforms in each exported window depend on its visible materials.
 PreparedHook.material_inputs() -> dict[str, PaintValue]
 ```
 
+### PreparedHook.paint_inputs
+
+Return named defaults and control declarations for the whole scene.
+
+```python
+PreparedHook.paint_inputs() -> dict[str, PaintInput]
+```
+
 ## RectangleClip
 
 *dataclass* · [Source](../../kara_templater/scene.py#L175)

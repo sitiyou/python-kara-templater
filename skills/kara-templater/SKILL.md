@@ -24,6 +24,8 @@ When exploring a design, start with the [example index by visual goal](../../doc
 | Custom motion or particles | [Motion studies](../../docs/tutorials/lyric-studies.md) and [effect gallery](../../docs/examples/README.md) |
 | Renderer constraints | [Preview and export](../../docs/output/README.md) and [troubleshooting](../../docs/output/troubleshooting.md) |
 
+For configurable glyph styles, lyric layout and built-in effects, query `effect_components(script_height=...)` and apply ordered `ComponentSelection` entries with `compose_track()`. Set the base styles and layout on the `Track`, then use selections for specific overrides and effects. Reuse a binding name to link controls with matching types, defaults, and settings. Keep numeric overrides inside the declared range. For custom WGSL, declare inputs with `PaintInput` and provide bounds or units with `PaintControl`. Use `scene.preview()` to try values offline and reset them. Rebuild the `Scene` with your chosen values before exporting a Hook. [Component coverage](../../docs/examples/component-coverage.md) · [Live material inputs](../../docs/guides/materials.md#live-parameters-with-paintinput)
+
 ## Verify on representative lyrics
 
 Use a passage with a held vowel, a quick row change and ruby when present. Include overlapping voices for multi-voice songs. Check layout, timing and font coverage in a browser preview. Use the intended footage when verifying the exported playback shader.

@@ -42,7 +42,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str, str]] = {
     ),
     "tracks": (
         "Track authoring",
-        ("lyrics.tracks", "lyrics.placement", "lyric_line", "lyric_effects", "karaoke_effects"),
+        ("lyrics.tracks", "lyrics.placement", "lyric_line", "lyric_effects", "karaoke_effects", "components"),
         "Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds.",
         "[Lay out vocal tracks](../guides/tracks.md) · [Built-in karaoke effects](../guides/karaoke-effects.md)",
     ),

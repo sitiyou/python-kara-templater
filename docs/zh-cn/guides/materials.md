@@ -175,14 +175,27 @@ Python 参数会自动映射为 WGSL 类型：`float` 转为 `f32`，`Color` 转
 
 ## 使用 PaintInput 暴露可调参数
 
-在 `MaterialEffect.parameters()` 中用 `PaintInput("name", default_value)` 包装 `float`、`Color` 或 `Vec2`，或在 `KaraokeEffects` 的 `scanline_color`、`scanline_strength` 中直接传入 `PaintInput`（参见[光效示例](../../../examples/gallery_lighting.py)）。
+在 `MaterialEffect.parameters()` 中，用 `PaintInput("name", default_value)` 包装 `float`、`Color` 或 `Vec2`。使用 `KaraokeEffects` 的实色扫描线时，颜色、强度、宽度和柔边也可以绑定。
 
-预览宿主可以依据 `scene.export_resources(...)` 生成的 `textures.json` 元数据，在播放期间实时修改这些命名 Uniform，复用已有着色器、字形图集与瓦片数据，无需重新构建场景。
+用 `PaintControl` 指定控件的标签、单位、范围和步长。宽度与柔边必须给出以脚本像素计的范围，编译器会按最大宽度预留覆盖。强度取 0 到 1。绘制时，柔边最多占当前宽度的一半。
 
-> [!NOTE]
-> 多个材质只要类型和默认值一致，就可以共享同一个 `PaintInput` 名称。涉及排版、时间轴、遮罩覆盖或特效切换的改动仍需重建场景。独立导出的 `.hook` 文件会直接固化默认值。
+```python
+from kara_templater import KaraokeEffects, PaintControl, PaintInput
 
-调用 `scene.preview()` 可在浏览器里调整具名材质参数。接入自己的播放器、反复导出不同时间窗口时，先调用 `prepared = scene.prepare_hook()`，通过 `prepared.material_inputs()` 获取全部可调参数默认值，再调用 `prepared.export_resources(...)` 按窗口导出。完整的预览与导出流程见[播放与渲染 Hook](../output/hook.md)。
+scanline = KaraokeEffects(
+    highlight="scanline",
+    scanline_width=PaintInput(
+        "band_width", 16, PaintControl(bounds=(2, 40), step=0.5, unit="px", label="宽度")
+    ),
+    scanline_softness=PaintInput(
+        "band_softness", 5, PaintControl(bounds=(0, 20), step=0.5, unit="px", label="柔边")
+    ),
+)
+```
+
+类型、默认值和控件设置一致的输入可共用名称，实现联动。使用不同名称可单独调节。排版、时间轴和预计算遮罩变更后需要重建场景。要把离线试调的选值带入独立 Hook，先用这些值重建 `Scene`，再导出。
+
+调用 `scene.preview()` 可以离线试调并恢复默认值，改动只保存在当前浏览器标签页。接入自己的播放器时，用 `scene.prepare_hook().paint_inputs()` 获取整个场景的输入。每个编译窗口的 `textures.json` 只包含该窗口所用的 uniform 和可选的 `control` 设置。切换窗口时保留当前选值，再写入新窗口实际使用的 uniform。[播放与渲染 Hook](../output/hook.md)
 
 ## 下一步
 

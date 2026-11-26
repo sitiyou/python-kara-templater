@@ -175,14 +175,27 @@ During preview or shader export, Naga validates WGSL and translates the material
 
 ## Live parameters with PaintInput
 
-Wrap any `float`, `Color` or `Vec2` in `PaintInput("name", default_value)` inside `MaterialEffect.parameters()`, or pass it to `scanline_color` or `scanline_strength` on `KaraokeEffects` (see [the lighting example](../../examples/gallery_lighting.py)).
+Wrap a `float`, `Color`, or `Vec2` in `PaintInput("name", default_value)` inside `MaterialEffect.parameters()`. On a solid-colour `KaraokeEffects` scanline, you can bind the colour, strength, width, and softness.
 
-A preview host can update those named uniforms live using the metadata written to `textures.json` by `scene.export_resources(...)`, reusing the same shader, glyph atlas and tile data without rebuilding the scene.
+Add a `PaintControl` to give the browser a label, unit, bounds, or slider step. Width and softness need explicit bounds in script pixels because the compiler uses the largest allowed width to reserve coverage. Strength stays between zero and one. At draw time, softness is limited to half the current width.
 
-> [!NOTE]
-> Several materials may share one `PaintInput` name as long as their types and default values match. Changes that affect layout, timing, mask coverage or effect selection still require rebuilding the scene. Standalone `.hook` files bake in the default values.
+```python
+from kara_templater import KaraokeEffects, PaintControl, PaintInput
 
-Call `scene.preview()` to adjust named inputs in a browser. To integrate your own player and export repeated time windows, call `prepared = scene.prepare_hook()`, inspect `prepared.material_inputs()`, and export windows with `prepared.export_resources(...)`. See [Play and render a Hook](../output/hook.md) for the full preview and export workflow.
+scanline = KaraokeEffects(
+    highlight="scanline",
+    scanline_width=PaintInput(
+        "band_width", 16, PaintControl(bounds=(2, 40), step=0.5, unit="px", label="Width")
+    ),
+    scanline_softness=PaintInput(
+        "band_softness", 5, PaintControl(bounds=(0, 20), step=0.5, unit="px", label="Softness")
+    ),
+)
+```
+
+Reuse a name to link controls with matching types, defaults, and metadata. Give independent controls different names. Layout, timing, and effects that change precomputed masks still require a rebuild. Rebuild the `Scene` with your chosen values to carry them from an offline trial into an exported Hook.
+
+Call `scene.preview()` to try the controls and restore their defaults offline. The player keeps edits in the current browser tab. To build a player, use `scene.prepare_hook().paint_inputs()` to discover inputs across the scene. Each window's `textures.json` lists the uniforms it actually uses and their optional `control` metadata. Keep the current values between windows and apply them to the uniforms present in each new window. [Play and render a Hook](../output/hook.md)
 
 ## Next steps
 

@@ -26,6 +26,15 @@ from .colors import (
     WHITE,
     YELLOW,
 )
+from .components import (
+    ComponentParameter,
+    ComponentSelection,
+    ComponentTarget,
+    ComponentValue,
+    EffectComponent,
+    compose_track,
+    effect_components,
+)
 from .composition import (
     Color,
     Glow,
@@ -153,6 +162,7 @@ from .paint_fields import (
     LinearGradient,
     MaterialClip,
     MaterialEffect,
+    PaintControl,
     PaintInput,
     PaintValue,
     ShaderPaint,
@@ -239,6 +249,13 @@ from .text.measurement import text_extents
 from .text_geometry import TextOutline, outline_text, text_to_path
 
 __all__ = [
+    "ComponentParameter",
+    "ComponentSelection",
+    "ComponentTarget",
+    "ComponentValue",
+    "EffectComponent",
+    "compose_track",
+    "effect_components",
     "Animation", "Canvas", "Glyph", "LengthExpr", "Note", "TimeExpr",
     "KaraokeTheme", "KaraokeEffects", "KaraokeEntry", "KaraokeExit", "KaraokeHighlight", "KaraokeDecoration",
     "BackRate",
@@ -345,6 +362,7 @@ __all__ = [
     "PINK",
     "PURPLE",
     "Paint",
+    "PaintControl",
     "PaintInput",
     "PaintPair",
     "PaintValue",

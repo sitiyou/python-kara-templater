@@ -15,6 +15,7 @@ from kara_templater import (
     BarsCue,
     Box,
     Color,
+    ComponentSelection,
     Contour,
     CubicSegment,
     CueFactory,
@@ -88,6 +89,7 @@ from kara_templater import (
     WritePath,
     WritingStroke,
     build_lyric_scene,
+    compose_track,
     echoes,
 )
 
@@ -269,17 +271,24 @@ def sweep_comparison(name: str) -> Scene:
         scanline_softness=0,
     )
     wipe = replace(band, highlight="none")
+    if name in {"color", "width", "softness", "strength"}:
+        parameters = {
+            "scanline_color": "97F3FF",
+            "scanline_width": 26,
+            "scanline_softness": 13 if name == "softness" else 0,
+            "scanline_strength": 0.35 if name == "strength" else 1,
+        }
+        track = compose_track(Track(id="preview", effects=(band,)), (
+            ComponentSelection("band", "highlight-scanline", values=parameters,
+                               bindings={field: field for field in parameters}),
+        ), script_height=360)
+        variant = track.effects[0]
+        assert isinstance(variant, KaraokeEffects)
+        reference = wipe if name == "color" else replace(band, scanline_width=9) if name == "width" else band
+        return sweep_pair(reference, variant)
     match name:
-        case "color":
-            return sweep_pair(wipe, band)
         case "brighten" | "follow_before" | "follow_after":
             return sweep_pair(band, replace(band, scanline_mode=name))
-        case "width":
-            return sweep_pair(replace(band, scanline_width=9), band)
-        case "softness":
-            return sweep_pair(band, replace(band, scanline_softness=13))
-        case "strength":
-            return sweep_pair(band, replace(band, scanline_strength=0.35))
         case "gradient":
             material = LyricGradient((CYAN, PINK, Color.hex("#FDE18D")))
             return sweep_pair(band, replace(band, scanline_material=material))

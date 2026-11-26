@@ -68,21 +68,22 @@ class _ScanlineTint(MaterialEffect):
     axis: Vec2
     origin: float
     color: Color | PaintInput
-    half_width: float
-    softness: float
+    width: float | PaintInput
+    softness: float | PaintInput
     rows: Vec2
     strength: float | PaintInput
     overlay: float
 
     wgsl = """
 fn shade(ink: vec4<f32>, ctx: KaraPaintContext, front: f32, inverse_scale: f32,
-         axis: vec2<f32>, origin: f32, color: vec3<f32>, half_width: f32,
+         axis: vec2<f32>, origin: f32, color: vec3<f32>, width: f32,
          softness: f32, rows: vec2<f32>, strength: f32, overlay: f32) -> vec4<f32> {
     var weight = 0.0;
     let distance = abs(dot(ctx.local, axis) - origin - front);
+    let half_width = width * 0.5;
     let room = half_width * inverse_scale - distance;
     if ctx.component <= 1 && ctx.local.y >= rows.x && ctx.local.y < rows.y && room > 0.0 {
-        let transition = softness * inverse_scale;
+        let transition = min(softness, half_width) * inverse_scale;
         weight = strength * smoothstep(0.0, max(transition, 0.000001), room);
     }
     if overlay > 0.0 { return vec4<f32>(color, ink.a * weight); }
@@ -93,5 +94,5 @@ fn shade(ink: vec4<f32>, ctx: KaraPaintContext, front: f32, inverse_scale: f32,
     def _arguments(self) -> tuple[PaintValue | PaintInput | _PaintTrack, ...]:
         return (
             self.front, self.inverse_scale, self.axis, self.origin, self.color,
-            self.half_width, self.softness, self.rows, self.strength, self.overlay,
+            self.width, self.softness, self.rows, self.strength, self.overlay,
         )

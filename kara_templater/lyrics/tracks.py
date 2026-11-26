@@ -32,7 +32,7 @@ from ..cues import (
     bind_lyric_cues,
 )
 from ..document_lyrics import DocumentLyrics, parse_document_lyrics
-from ..document_text import DocumentText, _read_document_text, _soft_break
+from ..document_text import CueMarker, DocumentText, _read_document_text, _soft_break
 from ..geometry import Box, Vec2, finite
 from ..karaoke_effects import KaraokeEffects
 from ..lyric_line import LyricLine, LyricRule, _LyricBinding
@@ -163,6 +163,9 @@ class Track:
     alternate widths for body and ruby and uses native advances by default. reserved_border declares the outer hard radius
     of custom or shared visual layers. Glow and motion do not reserve space.
     ruby_alignment shares a horizontal baseline across the line by default.
+    chapter_cue names a Track.cues preset to show before the first line of
+    each chapter if that line has no authored cues. An unchaptered track
+    gets one cue at its first line.
     Use "group" to apply ruby_gap separately to each reading group. ruby_gap
     sets hard-outline clearance in script pixels. Negative values allow overlap.
     vertical stacks cells downward with right-side readings. With no layout override,
@@ -196,10 +199,13 @@ class Track:
     reverse_timing: bool | Callable[[LyricSource], bool] = False
     palt: bool = False
     extrusion: Extrusion | None = None
+    chapter_cue: str | None = None
 
     def __post_init__(self) -> None:
         if self.ruby_alignment not in ("line", "group"):
             raise ValueError("ruby_alignment must be line or group")
+        if self.chapter_cue is not None and self.chapter_cue not in self.cues:
+            raise ValueError("chapter_cue must name a Track.cues preset")
         finite(self.preview, self.tail or 0, self.reserved_border, self.min_outline_gap or 0, self.ruby_gap)
         if self.reserved_border < 0 or (
             self.min_outline_gap is not None and self.min_outline_gap < 0
@@ -224,9 +230,14 @@ class LyricLinePlan:
 
 @dataclass
 class LyricScene(Scene):
-    """A normal Scene with immutable lyric arrangement snapshots for inspection."""
+    """A Scene with lyric arrangement snapshots and resolved track settings.
+
+    Track settings include the effective theme on built-in effects. Plans describe
+    the visible source lines when the scene was built for an interval.
+    """
 
     plans: tuple[LyricLinePlan, ...] = ()
+    track_settings: tuple[Track, ...] = field(default=(), repr=False, compare=False)
 
     @property
     def lines(self) -> tuple[LyricLine, ...]:
@@ -593,6 +604,7 @@ def _build_lyric_scene(
     scene = LyricScene(source_document, owner=owner)
     plans: list[LyricLinePlan] = []
     source_styles = tuple(source_document._lyric_styles().values())
+    track_settings: list[Track] = []
     for declaration in tracks:
         track = deepcopy(declaration)
         palette = theme.overlay(track.theme)
@@ -600,6 +612,7 @@ def _build_lyric_scene(
             effect.with_theme(palette) if isinstance(effect, KaraokeEffects) else effect
             for effect in track.effects
         ))
+        track_settings.append(track)
         layout = KaraokeRows() if track.layout is None else track.layout
         horizontal_rtl = track.right_to_left and not track.vertical
         studio_spacing = (isinstance(layout, KaraokeRows) and not track.palt if track.studio_spacing is None
@@ -644,6 +657,12 @@ def _build_lyric_scene(
             identity = f"track:{quote(track.id, safe='')}/{source.id}"
             reverse = track.reverse_timing(source) if callable(track.reverse_timing) else track.reverse_timing
             lyrics = source.lyrics._reverse_timing() if reverse else source.lyrics
+            chapter_start = track_index == 0 or source.chapter != original[track_index - 1].chapter
+            if track.chapter_cue and chapter_start and not lyrics.body.cues:
+                preset = track.cues[track.chapter_cue]
+                if source.display.start >= preset.resolve_timing(bpm=bpm)[0]:
+                    marker = CueMarker("chapter", track.chapter_cue, placement="independent")
+                    lyrics = replace(lyrics, body=replace(lyrics.body, cues=(marker,)))
             spans = tuple(
                 segment.timing
                 for unit in lyrics.units
@@ -845,12 +864,8 @@ def _build_lyric_scene(
                     exit=exit,
                     sources=(SourceRef(source.id),),
                     tags=tags,
-                    cues=source.lyrics.body.cues,
-                    lead=bool(source.lyrics.body.cues) or (
-                        source.chapter is not None and (
-                            track_index == 0 or source.chapter != original[track_index - 1].chapter
-                        )
-                    ),
+                    cues=lyrics.body.cues,
+                    lead=bool(lyrics.body.cues) or (source.chapter is not None and chapter_start),
                     reserved=reserved,
                 )
             )
@@ -954,4 +969,5 @@ def _build_lyric_scene(
                 record, comment=False, effect=source.effect
             )
     scene.plans = tuple(plans)
+    scene.track_settings = tuple(track_settings)
     return scene

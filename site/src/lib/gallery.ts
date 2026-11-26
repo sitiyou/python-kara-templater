@@ -52,7 +52,7 @@ export function localizeDemo(demo: Demo, locale: Locale): LocalizedDemo {
   };
 }
 
-export function previewUrl(demo: Demo): string {
+export function previewUrl(demo: Pick<Demo, "id">): string {
   return assetUrl(`previews/${demo.id}/`);
 }
 

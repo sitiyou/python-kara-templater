@@ -174,6 +174,29 @@ Browser preview and playback shader export support the full catalog, including f
 
 Standard ASS export (`scene.ass.compile().document.save("song.ass")`) supports hard-edged wipes (`hook_feather=0`), native fades and eligible transforms; gradients, feathered wipes, soft scanlines and complex particle trajectories raise `SceneCompileError`. See [Preview and export](../output/README.md) and [Export standard ASS](../output/ass.md) for format trade-offs.
 
+## Compose editable effects
+
+`effect_components()` describes each component's slot, supported targets, and controls. Pass `script_height=...` to get defaults and bounds for the script resolution. The default height is 1080 pixels. Apply selections to a `Track` with `compose_track()`. It raises an error if selections share a single-selection slot and overlap on the same target. Echoes and particles can appear more than once.
+
+```python
+from kara_templater import ComponentSelection, Track, compose_track
+
+track = compose_track(
+    Track(id="lead"),
+    (
+        ComponentSelection("entrance", "entry-fade"),
+        ComponentSelection(
+            "band", "highlight-scanline",
+            values={"scanline_width": 18},
+            bindings={"scanline_width": "lead_scan_width"},
+        ),
+    ),
+    script_height=720,
+)
+```
+
+The bound `scanline_width` updates live. Changing entry duration requires rebuilding the scene with the new timing. For typography, supply the track's `Style` records and set `target` to `"body"` or `"ruby"`. Use one track per vocal stream and apply its own selections. [Component coverage index](../examples/component-coverage.md) · [Live material inputs](materials.md#live-parameters-with-paintinput)
+
 ## Next steps
 
 - Style wipes with gradients, glows and WGSL shaders in [Colour and materials](materials.md).

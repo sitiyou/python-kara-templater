@@ -63,15 +63,62 @@ class _PaintTrack:
 
 
 @dataclass(frozen=True)
+class PaintControl:
+    """Describe a browser control for a named paint input.
+
+    Bounds are inclusive and apply to a scalar or to both vector axes.
+    Step is the suggested increment for a preview control. Labels, units,
+    and group names are display text. Order sorts controls within a group.
+    """
+
+    bounds: tuple[float, float] | None = None
+    step: float | None = None
+    unit: str = ""
+    label: str = ""
+    group: str = ""
+    order: int = 0
+
+    def __post_init__(self) -> None:
+        if self.bounds is not None:
+            finite(*self.bounds)
+            if self.bounds[0] >= self.bounds[1] or max(map(abs, self.bounds)) > 3.4028234663852886e38:
+                raise ValueError("paint control bounds must be increasing and fit in f32")
+        if self.step is not None:
+            finite(self.step)
+            if self.step <= 0:
+                raise ValueError("paint control step must be positive")
+
+
+@dataclass(frozen=True)
 class PaintInput:
-    """A named material value that a preview host may update while playing."""
+    """A named material value that a preview host may update while playing.
+
+    Uses of the same name share one value and must have matching defaults
+    and control declarations. An omitted control keeps the host's existing
+    presentation for unbounded inputs.
+    """
 
     name: str
     value: PaintValue
+    control: PaintControl | None = None
 
     def __post_init__(self) -> None:
         if not self.name or not self.name.isascii() or not self.name.isidentifier():
             raise ValueError("paint input requires an ASCII identifier")
+        if self.control is None:
+            return
+        if isinstance(self.value, Color):
+            if self.control.bounds is not None or self.control.step is not None:
+                raise ValueError("color inputs do not support numeric bounds or steps")
+            return
+        values = (self.value.x, self.value.y) if isinstance(self.value, Vec2) else (self.value,)
+        if any(isinstance(value, bool) for value in values):
+            raise TypeError("paint inputs require numeric values, colors or vectors")
+        finite(*values)
+        if self.control.bounds is not None:
+            lower, upper = self.control.bounds
+            if not all(lower <= value <= upper for value in values):
+                raise ValueError("paint input default falls outside the control bounds")
 
 
 class MaterialEffect:

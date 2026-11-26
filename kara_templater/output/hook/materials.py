@@ -1,7 +1,7 @@
 """Compile WGSL paint functions and serialize their per-plane invocations."""
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from functools import lru_cache
 from hashlib import sha256
 from math import ceil
@@ -12,7 +12,7 @@ from sys import platform
 from ...composition import Color
 from ...geometry import Vec2, finite
 from ...lyrics.materials import _SweepBlend
-from ...paint_fields import PaintInput, PaintValue, _PaintTrack
+from ...paint_fields import PaintControl, PaintInput, PaintValue, _PaintTrack
 from .draws import DrawCommand
 
 _CONTEXT = """struct KaraPaintContext {
@@ -109,6 +109,7 @@ class _Input:
     kind: str
     symbols: tuple[str, ...]
     values: tuple[float, ...]
+    control: PaintControl | None
 
 
 class MaterialPrograms:
@@ -161,9 +162,9 @@ vec3 paintSweep(vec3 ink,vec3 waiting,float phase,int core) {{
                 if named:
                     prefix = "kara_input_" + sha256(argument.name.encode()).hexdigest()[:24]
                     symbols = tuple(f"{prefix}_{i}" for i in range(len(numbers)))
-                    slot = _Input(kind, symbols, numbers)
+                    slot = _Input(kind, symbols, numbers, argument.control)
                     if self._inputs.setdefault(argument.name, slot) != slot:
-                        raise ValueError(f"paint input {argument.name!r} has conflicting types or values")
+                        raise ValueError(f"paint input {argument.name!r} has conflicting types, values or controls")
                     parts = symbols
                 else:
                     parts = tuple(f"item(data+{len(values) + i})" for i in range(len(numbers)))
@@ -189,9 +190,14 @@ vec3 paintSweep(vec3 ink,vec3 waiting,float phase,int core) {{
         cases = "\n".join(f"            case {index}: {code} break;" for code, index in self._cases.items())
         return "\n".join((*self._functions.values(), _TRACK if self._tracks else "", _APPLY.replace("MATERIAL_CASES", cases)))
 
-    def parameters(self) -> dict[str, dict[str, str | tuple[str, ...] | tuple[float, ...]]]:
-        return {name: {"kind": slot.kind, "uniforms": slot.symbols, "default": slot.values}
-                for name, slot in self._inputs.items()}
+    def parameters(self) -> dict[str, dict[str, object]]:
+        parameters: dict[str, dict[str, object]] = {}
+        for name, slot in self._inputs.items():
+            entry: dict[str, object] = {"kind": slot.kind, "uniforms": slot.symbols, "default": slot.values}
+            if slot.control is not None:
+                entry["control"] = asdict(slot.control)
+            parameters[name] = entry
+        return parameters
 
     def hook_parameters(self) -> str:
         return "".join(
