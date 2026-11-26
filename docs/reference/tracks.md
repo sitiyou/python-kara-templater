@@ -6,11 +6,56 @@ Related guides: [Lay out vocal tracks](../guides/tracks.md) · [Built-in karaoke
 
 ## Contents
 
-**Classes:** [`ComponentParameter`](#componentparameter) · [`ComponentSelection`](#componentselection) · [`EffectComponent`](#effectcomponent) · [`KaraokeEffects`](#karaokeeffects) · [`KaraokeRows`](#karaokerows) · [`Layout`](#layout) · [`LayoutContext`](#layoutcontext) · [`LineLayoutRequest`](#linelayoutrequest) · [`LyricAnimationContext`](#lyricanimationcontext) · [`LyricEcho`](#lyricecho) · [`LyricLine`](#lyricline) · [`LyricLinePlan`](#lyriclineplan) · [`LyricRule`](#lyricrule) · [`LyricScene`](#lyricscene) · [`LyricSource`](#lyricsource) · [`LyricTarget`](#lyrictarget) · [`Placement`](#placement) · [`ScatterOut`](#scatterout) · [`Track`](#track)
+**Classes:** [`ComponentCardData`](#componentcarddata) · [`ComponentCatalog`](#componentcatalog) · [`ComponentParameter`](#componentparameter) · [`ComponentParameterData`](#componentparameterdata) · [`ComponentSelection`](#componentselection) · [`EffectComponent`](#effectcomponent) · [`EffectComponentData`](#effectcomponentdata) · [`KaraokeEffects`](#karaokeeffects) · [`KaraokeRows`](#karaokerows) · [`Layout`](#layout) · [`LayoutContext`](#layoutcontext) · [`LineLayoutRequest`](#linelayoutrequest) · [`LyricAnimationContext`](#lyricanimationcontext) · [`LyricEcho`](#lyricecho) · [`LyricLine`](#lyricline) · [`LyricLinePlan`](#lyriclineplan) · [`LyricRule`](#lyricrule) · [`LyricScene`](#lyricscene) · [`LyricSource`](#lyricsource) · [`LyricTarget`](#lyrictarget) · [`Placement`](#placement) · [`ScatterOut`](#scatterout) · [`Track`](#track)
 
-**Functions:** [`build_lyric_scene`](#build_lyric_scene) · [`compose_track`](#compose_track) · [`effect_components`](#effect_components) · [`lyric_effects`](#lyric_effects)
+**Functions:** [`build_lyric_scene`](#build_lyric_scene) · [`component_catalog`](#component_catalog) · [`component_preview_resource`](#component_preview_resource) · [`compose_track`](#compose_track) · [`effect_components`](#effect_components) · [`lyric_effects`](#lyric_effects)
 
 **Types & constants:** [`ComponentTarget`](#componenttarget) · [`ComponentValue`](#componentvalue) · [`KaraokeDecoration`](#karaokedecoration) · [`KaraokeEntry`](#karaokeentry) · [`KaraokeExit`](#karaokeexit) · [`KaraokeHighlight`](#karaokehighlight) · [`LyricAnchor`](#lyricanchor) · [`LyricEffect`](#lyriceffect) · [`LyricRole`](#lyricrole)
+
+## ComponentCardData
+
+*TypedDict* · [Source](../../kara_templater/_component_catalog.py#L42)
+
+Preview card metadata with portable media names and a time in seconds.
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `id` | `str` | `required key` |
+| `group` | `str` | `required key` |
+| `api` | `str` | `required key` |
+| `reference` | `str` | `required key` |
+| `title` | `str` | `required key` |
+| `zh` | `str` | `required key` |
+| `details` | `str` | `optional key` |
+| `zh_details` | `str` | `optional key` |
+| `gallery` | `str` | `optional key` |
+| `sampled` | `bool` | `optional key` |
+| `ass` | `bool` | `optional key` |
+| `start` | `float` | `optional key` |
+| `end` | `float` | `optional key` |
+| `still` | `float` | `optional key` |
+| `live` | `Mapping[str, float]` | `optional key` |
+| `poster` | `str` | `optional key` |
+| `video` | `str` | `optional key` |
+| `start_at` | `float` | `optional key` |
+
+## ComponentCatalog
+
+*TypedDict* · [Source](../../kara_templater/_component_catalog.py#L65)
+
+Versioned JSON catalog of components and preview cards.
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `schema_version` | `int` | `required key` |
+| `script_height` | `int` | `required key` |
+| `components` | `dict[str, EffectComponentData]` | `required key` |
+| `cards` | `dict[str, ComponentCardData]` | `required key` |
+| `preferred_cards` | `dict[str, str]` | `required key` |
 
 ## ComponentParameter
 
@@ -58,6 +103,26 @@ ComponentParameter.resolve(
     value: ComponentValue,
 ) -> ComponentValue
 ```
+
+## ComponentParameterData
+
+*TypedDict* · [Source](../../kara_templater/_component_catalog.py#L18)
+
+JSON representation of an editable parameter declaration.
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `label` | `str` | `required key` |
+| `kind` | `str` | `required key` |
+| `default` | `ComponentValue` | `required key` |
+| `bounds` | `list[float] \| None` | `required key` |
+| `step` | `float \| None` | `required key` |
+| `unit` | `str` | `required key` |
+| `choices` | `list[str]` | `required key` |
+| `live` | `bool` | `required key` |
+| `advanced` | `bool` | `required key` |
 
 ## ComponentSelection
 
@@ -135,6 +200,22 @@ EffectComponent(
 | `targets` | `tuple[ComponentTarget, ...]` | `('track',)` |
 | `repeatable` | `bool` | `False` |
 | `parameters` | `Mapping[str, ComponentParameter]` | `dict()` |
+
+## EffectComponentData
+
+*TypedDict* · [Source](../../kara_templater/_component_catalog.py#L32)
+
+JSON representation of one editable effect component.
+
+### Fields
+
+| Name | Type | Default |
+| --- | --- | --- |
+| `label` | `str` | `required key` |
+| `slot` | `str` | `required key` |
+| `targets` | `list[ComponentTarget]` | `required key` |
+| `repeatable` | `bool` | `required key` |
+| `parameters` | `dict[str, ComponentParameterData]` | `required key` |
 
 ## KaraokeDecoration
 
@@ -1475,6 +1556,47 @@ build_lyric_scene(
     bpm: float | None = None,
     preview_interval: tuple[float, float] | None = None,
 ) -> tracks.LyricScene
+```
+
+## component_catalog
+
+*function* · [Source](../../kara_templater/_component_catalog.py#L112)
+
+Return JSON-ready effect declarations and available preview cards.
+
+Parameter defaults and ranges use script pixels at the given height.
+Card examples use their own fixed script resolution. Card IDs are separate
+from editable component IDs, with preferred_cards linking the two.
+A source checkout without generated media still returns component declarations.
+The explicit preview directory accepts a generated components.json and its
+media. An incompatible manifest version raises ValueError. This call only
+reads metadata and never renders media.
+
+```python
+component_catalog(
+    *,
+    script_height: int = 1080,
+    preview_directory: str | pathlib.Path | None = None,
+) -> ComponentCatalog
+```
+
+## component_preview_resource
+
+*function* · [Source](../../kara_templater/_component_catalog.py#L79)
+
+Locate a JPG or MP4 named in the component catalog.
+
+Names are relative POSIX paths. Use the returned resource's
+`open("rb")` or `read_bytes()` to access the packaged file. An explicit
+preview directory selects a locally generated catalog and its media.
+Invalid names raise ValueError. Opening missing media raises FileNotFoundError.
+
+```python
+component_preview_resource(
+    name: str,
+    *,
+    preview_directory: str | pathlib.Path | None = None,
+) -> importlib.resources.abc.Traversable
 ```
 
 ## compose_track

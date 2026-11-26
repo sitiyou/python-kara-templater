@@ -107,6 +107,10 @@ scene.export("duet.hook")
 
 Each track keeps its own row rotation and page clock. Two tracks can intentionally select the same source line—each creates an independent visual view. To supply structured lyrics directly from Python without ASS dialogue records, pass `LyricSource.from_lyrics(..., chapter=...)` through `build_lyric_scene(..., inputs=...)`.
 
+## Read the editable component catalog
+
+Use [`component_catalog()`](../reference/tracks.md#component_catalog) to get JSON-ready declarations for a component picker. Pass the script height to obtain the same defaults and bounds as `compose_track()`. The catalog links editable components to their preferred preview cards when media is available. Open a card's relative media name with [`component_preview_resource()`](../reference/tracks.md#component_preview_resource). Reading the catalog does not render media.
+
 ## Row presets and page timing
 
 Use `KaraokeRows` for standard 1-to-8-row karaoke layouts, or `Layout` when you want fixed coordinates, custom alignments, or your own row-assignment rule.

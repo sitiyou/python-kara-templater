@@ -143,6 +143,14 @@ strength = "特效强度"
 uv run python -m examples.component_previews entry-wave-in build/wave.hook
 ```
 
+要在本地导出卡片素材，可在仓库根目录直接运行同一个构建工具：
+
+```sh
+uv run --no-sync python -m tools.build_component_library --card entry-wave-in
+```
+
+省略 `--card` 可构建完整目录，传入 `--editable` 则只构建可编辑组件引用的卡片。默认导出到 `build/component-catalog/previews/`，其中包含 `components.json` 及其引用的 JPG 和 MP4。文档构建共用 `build/component-catalog/cache/` 中的卡片渲染缓存。
+
 ## 部署到 GitHub Pages
 
 在仓库的 **Settings → Pages** 中将构建与部署来源设为 **GitHub Actions**。`.github/workflows/docs.yml` 工作流会在每次拉取请求时运行 `tools.check_docs`、构建站点并执行 `tools.check_docs_site`，并在推送到 `main` 分支后自动发布 `build/docs-site/dist/`。

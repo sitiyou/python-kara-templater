@@ -13,8 +13,7 @@ from typing import NotRequired, TypedDict, cast
 from urllib.parse import quote, unquote, urlsplit
 
 from kara_templater import Scene, load_font
-from tools.build_component_library import stage_components
-from tools.docs_preview_media import render_card
+from tools.docs_preview_media import MEDIA_CACHE, render_card
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
@@ -225,7 +224,9 @@ def stage_docs(stage: Path, base: str, source_ref: str) -> None:
     shutil.copyfile(ROOT / "site" / "favicon.png", stage / "public/favicon.png")
 
 
-def stage_gallery(stage: Path) -> set[str]:
+def stage_gallery(stage: Path, *, only: set[str] | None = None) -> set[str]:
+    if only is not None and not only:
+        return set()
     with (DOCS / "examples" / "gallery.toml").open("rb") as stream:
         raw_demos = cast("list[dict[str, object]]", tomllib.load(stream)["demo"])
     load_font(ROOT / "tests/fonts/DejaVuSans.ttf")
@@ -233,6 +234,8 @@ def stage_gallery(stage: Path) -> set[str]:
     for raw in raw_demos:
         demo = cast("Demo", raw)
         slug = demo["id"]
+        if only is not None and slug not in only:
+            continue
         if not re.fullmatch(r"[a-z]+(?:-[a-z]+)*", slug):
             raise ValueError(f"Invalid gallery slug {slug!r}")
         source = ROOT / "examples" / demo["source"]
@@ -247,11 +250,15 @@ def stage_gallery(stage: Path) -> set[str]:
         if count < 1 or not 0 <= demo["still"] < count / FPS:
             raise ValueError(f"Invalid gallery sample time for {slug}")
         hook = scene.prepare_hook()
-        hook.export_resources(folder, fps=FPS, duration=count / FPS)
+        if only is None:
+            hook.export_resources(folder, fps=FPS, duration=count / FPS)
         render_card(
             hook, folder, fps=FPS, duration=count / FPS, still=demo["still"],
             resolution=(scene.document.meta.res_x, scene.document.meta.res_y),
+            cache_directory=MEDIA_CACHE,
         )
+        if only is not None:
+            continue
         shutil.copyfile(source, folder / source.name)
         entry: dict[str, object] = {
             **{key: value for key, value in raw.items() if key != "zh-cn"},
@@ -265,13 +272,17 @@ def stage_gallery(stage: Path) -> set[str]:
         entries.append(entry)
         size = sum(path.stat().st_size for path in folder.iterdir())
         print(f"{slug}: {count} frames, {size / 1024:.0f} KiB")
-    (stage / "gallery.json").write_text(
-        json.dumps(entries, ensure_ascii=False), encoding="utf-8"
-    )
-    return {demo["id"] for demo in cast("list[Demo]", raw_demos)}
+    if only is None:
+        (stage / "gallery.json").write_text(
+            json.dumps(entries, ensure_ascii=False), encoding="utf-8"
+        )
+    available = {demo["id"] for demo in cast("list[Demo]", raw_demos)}
+    return available if only is None else available & only
 
 
 def main() -> None:
+    from tools.build_component_library import stage_components
+
     base = os.environ.get("DOCS_BASE", "").strip("/")
     prefix = f"/{base}" if base else ""
     source_ref = quote(os.environ.get("DOCS_SOURCE_REF", "main"), safe="")
@@ -280,7 +291,7 @@ def main() -> None:
         stage = Path(directory) / "docs-site"
         stage_docs(stage, prefix, source_ref)
         gallery_ids = stage_gallery(stage)
-        stage_components(stage, DOCS / "examples/components.toml", gallery_ids)
+        stage_components(stage, gallery_ids)
         if BUILD.exists():
             shutil.rmtree(BUILD)
         stage.rename(BUILD)

@@ -36,6 +36,7 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+      - uses: astral-sh/setup-uv@v7
       - name: Install build tools
         run: python -m pip install build twine
       - name: Check release version
@@ -50,18 +51,24 @@ jobs:
           if tag != f"v{version}":
               raise SystemExit(f"Tag {tag!r} does not match package version {version!r}")
           PY
-      - name: Build source distribution
-        run: python -m build --sdist
-      - name: Check metadata
-        run: python -m twine check --strict dist/*
-      - name: Install native dependencies
+      - name: Install native and preview build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y pkg-config \
             libfreetype-dev libharfbuzz-dev libfribidi-dev libfontconfig-dev \
-            libpng-dev fonts-dejavu-core fonts-noto-cjk
-      - name: Install Rust for WGSL compilation
-        run: rustup default 1.87.0
+            libpng-dev fonts-dejavu-core fonts-dejavu-extra fonts-noto-cjk \
+            ffmpeg mesa-vulkan-drivers
+          rustup default 1.87.0
+      - name: Build component previews and source distribution
+        run: |
+          uv sync --locked --python 3.12
+          mkdir -p build/release-source
+          git archive HEAD | tar -x -C build/release-source
+          uv run --no-sync python -m tools.build_component_library --editable \
+            --output build/release-source/kara_templater/_component_previews
+          python -m build --sdist --outdir dist build/release-source
+      - name: Check metadata
+        run: python -m twine check --strict dist/*
       - name: Install and test source distribution
         run: |
           python -m pip install --group checks dist/*.tar.gz
@@ -86,6 +93,12 @@ jobs:
               for name in ("setup.py", "README.md", "LICENSE", "THIRD_PARTY.md", "pyproject.toml"):
                   shutil.copy2(package / name, check / name)
               # No kara_templater source directory is copied into the test cwd.
+              subprocess.run([sys.executable, "-I", "-c",
+                  "from kara_templater import component_catalog, component_preview_resource; "
+                  "catalog = component_catalog(); "
+                  "card = catalog['cards'][catalog['preferred_cards']['entry-fade']]; "
+                  "assert all(component_preview_resource(card[name]).read_bytes() "
+                  "for name in ('poster', 'video'))"], cwd=check, check=True)
               subprocess.run([sys.executable, "-m", "pytest", "tests", "-v"], cwd=check, check=True)
               subprocess.run(["kara-templater", "examples/karaoke.ass", "output.hook"], cwd=check, check=True)
           PY
@@ -191,6 +204,7 @@ jobs:
                   files = archive.namelist()
                   assert f'kara_templater/_text_native.{abi}-win_amd64.pyd' in files, wheel
                   assert 'kara_templater/_kara_wgsl.exe' in files, wheel
+                  assert 'kara_templater/_component_previews/components.json' in files, wheel
                   assert any(f.lower().endswith('/libharfbuzz-0.dll') for f in files), wheel
           PY
       - name: Check wheel metadata

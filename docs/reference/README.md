@@ -12,7 +12,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 | Topic | Covers | Symbols |
 | --- | --- | --- |
 | [Documents and lyric input](documents.md) | Records, decoded lyric text, input selection, and source mappings. Raw line clocks use milliseconds; lyric timing spans use seconds. | 21 |
-| [Track authoring](tracks.md) | Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds. | 32 |
+| [Track authoring](tracks.md) | Independent vocal streams, row layout, and built-in karaoke effects assembled into a Scene. Timing, display, and animation clocks use seconds. | 38 |
 | [Text measurement and layout](text.md) | Font registration, shaped glyph metrics, source clusters, and body/ruby binding. | 19 |
 | [Scenes and compilation](scenes.md) | Scene objects, world-space evaluation, real-time browser preview, and shader and ASS export. Lifetimes use seconds. Geometry uses script pixels. | 20 |
 | [Animation and timing](animation.md) | Pure state and property animation, easing curves, and typed composition on second-based clocks. | 35 |
@@ -24,7 +24,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ## Symbol index
 
-223 public exports grouped alphabetically.
+229 public exports grouped alphabetically.
 
 ### A
 
@@ -36,7 +36,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ### C
 
-[`Canvas`](animation.md#canvas) · [`Channel`](animation.md#channel) · [`CharacterTarget`](text.md#charactertarget) · [`Color`](paint.md#color) · [`ColorRamp`](paint.md#colorramp) · [`ColorStop`](paint.md#colorstop) · [`ComponentParameter`](tracks.md#componentparameter) · [`ComponentSelection`](tracks.md#componentselection) · [`ComponentTarget`](tracks.md#componenttarget) · [`ComponentValue`](tracks.md#componentvalue) · [`compose_track`](tracks.md#compose_track) · [`Contour`](geometry.md#contour) · [`CubicSegment`](geometry.md#cubicsegment) · [`CueContent`](cues.md#cuecontent) · [`CueContext`](cues.md#cuecontext) · [`CuedLayout`](cues.md#cuedlayout) · [`CuedLyrics`](cues.md#cuedlyrics) · [`CueFactory`](cues.md#cuefactory) · [`CueMarker`](documents.md#cuemarker) · [`CuePlacement`](cues.md#cueplacement) · [`CuePreset`](cues.md#cuepreset) · [`CurveIn`](animation.md#curvein) · [`CYAN`](paint.md#cyan)
+[`Canvas`](animation.md#canvas) · [`Channel`](animation.md#channel) · [`CharacterTarget`](text.md#charactertarget) · [`Color`](paint.md#color) · [`ColorRamp`](paint.md#colorramp) · [`ColorStop`](paint.md#colorstop) · [`component_catalog`](tracks.md#component_catalog) · [`component_preview_resource`](tracks.md#component_preview_resource) · [`ComponentCardData`](tracks.md#componentcarddata) · [`ComponentCatalog`](tracks.md#componentcatalog) · [`ComponentParameter`](tracks.md#componentparameter) · [`ComponentParameterData`](tracks.md#componentparameterdata) · [`ComponentSelection`](tracks.md#componentselection) · [`ComponentTarget`](tracks.md#componenttarget) · [`ComponentValue`](tracks.md#componentvalue) · [`compose_track`](tracks.md#compose_track) · [`Contour`](geometry.md#contour) · [`CubicSegment`](geometry.md#cubicsegment) · [`CueContent`](cues.md#cuecontent) · [`CueContext`](cues.md#cuecontext) · [`CuedLayout`](cues.md#cuedlayout) · [`CuedLyrics`](cues.md#cuedlyrics) · [`CueFactory`](cues.md#cuefactory) · [`CueMarker`](documents.md#cuemarker) · [`CuePlacement`](cues.md#cueplacement) · [`CuePreset`](cues.md#cuepreset) · [`CurveIn`](animation.md#curvein) · [`CYAN`](paint.md#cyan)
 
 ### D
 
@@ -44,7 +44,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ### E
 
-[`ease_in`](animation.md#ease_in) · [`ease_in_out`](animation.md#ease_in_out) · [`ease_out`](animation.md#ease_out) · [`echoes`](particles.md#echoes) · [`effect_components`](tracks.md#effect_components) · [`EffectComponent`](tracks.md#effectcomponent) · [`Emission`](particles.md#emission) · [`emit_particles`](particles.md#emit_particles) · [`EventOrigin`](documents.md#eventorigin) · [`Extrusion`](paint.md#extrusion)
+[`ease_in`](animation.md#ease_in) · [`ease_in_out`](animation.md#ease_in_out) · [`ease_out`](animation.md#ease_out) · [`echoes`](particles.md#echoes) · [`effect_components`](tracks.md#effect_components) · [`EffectComponent`](tracks.md#effectcomponent) · [`EffectComponentData`](tracks.md#effectcomponentdata) · [`Emission`](particles.md#emission) · [`emit_particles`](particles.md#emit_particles) · [`EventOrigin`](documents.md#eventorigin) · [`Extrusion`](paint.md#extrusion)
 
 ### F
 

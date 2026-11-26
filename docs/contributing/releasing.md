@@ -11,6 +11,8 @@ The workflow in `.github/workflows/release.yml` runs four jobs:
 3. **`wheels`**: builds repaired CPython 3.12–3.15 wheels for Linux x86-64 (`manylinux_2_28`) and Windows AMD64 with `cibuildwheel`, tests them, and checks wheel metadata.
 4. **`publish`**: uploads artifacts to PyPI using Trusted Publishing, restricted to `v*` version tags.
 
+The release job renders editable component cards once before building the source archive. All platform wheels reuse its catalog, JPGs, and MP4s. Reading installed previews requires no local rendering tools.
+
 A local tag or `pyproject.toml` version edit alone does not publish a release.
 
 ## Build locally and update notices

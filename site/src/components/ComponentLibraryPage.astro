@@ -1,6 +1,6 @@
 ---
 import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
-import entries from "../../../build/docs-site/components.json";
+import catalog from "../../../build/docs-site/components.json";
 import {assetUrl, getUi, type Locale, url} from "../lib/i18n";
 import CardPreview from "./CardPreview.astro";
 import ComponentCategoryIcon from "./ComponentCategoryIcon.astro";
@@ -25,6 +25,7 @@ interface Component {
 	sampled?: boolean;
 	ass?: boolean;
 	live?: {width: number; height: number; still: number};
+	poster: string;
 }
 
 const {locale} = Astro.props;
@@ -38,7 +39,7 @@ const liveLabels = locale === "zh-cn" ? {
 	scanline_width: "宽度",
 	scanline_softness: "柔边",
 } : {};
-const components: Component[] = entries;
+const components: Component[] = Object.values(catalog.cards);
 const groups = Object.entries(copy.groups).map(([id, label]) => ({
 	id,
 	label,
@@ -50,7 +51,7 @@ const unknownGroup = components.find((entry) => !(entry.group in copy.groups));
 if (unknownGroup) throw new Error(`Unknown component group: ${unknownGroup.group}`);
 
 function folder(entry: Component): string {
-	return assetUrl(entry.gallery ? `previews/${entry.gallery}/` : `component-previews/${entry.id}/`);
+	return assetUrl(entry.poster.slice(0, entry.poster.lastIndexOf("/") + 1));
 }
 ---
 

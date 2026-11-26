@@ -1,3 +1,12 @@
+[preferred_cards]
+band-brighten = "sweep-brighten"
+band-follow-before = "sweep-follow-before"
+band-follow-after = "sweep-follow-after"
+band-gradient = "sweep-gradient"
+transition-stagger = "entry-char-fade"
+tween-scale = "tween"
+echo = "lyric-echo"
+
 # Keep these labels aligned with the public KaraokeEffects preset values.
 [presets]
 none = ["Cut", "直接切换"]

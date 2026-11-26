@@ -119,6 +119,22 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
             if source_without_dll_bootstrap(name, built.read(name), windows)
             != (package / name).read_bytes()
         ]
+        preview_root = package / "kara_templater" / "_component_previews"
+        preview_manifest = preview_root / "components.json"
+        if preview_manifest.is_file():
+            catalog = json.loads(preview_manifest.read_text(encoding="utf-8"))
+            if not catalog["preferred_cards"]:
+                raise AssertionError("packaged component previews have no editable cards")
+            media = {
+                card[field] for card in catalog["cards"].values()
+                for field in ("poster", "video") if field in card
+            }
+            if not media:
+                raise AssertionError("packaged component previews have no media")
+            for name in {"components.json", *media}:
+                path = preview_root / name
+                if built.read(path.relative_to(package).as_posix()) != path.read_bytes():
+                    raise AssertionError(f"wheel preview differs from source archive: {name}")
     if mismatched:
         raise AssertionError(f"wheel modules differ from source archive: {mismatched}")
     extensions = [name for name in files if name.startswith("kara_templater/")
@@ -187,6 +203,20 @@ def validate(archive: Path, wheel: Path, output: Path, interpreter: str) -> None
     if not Path(installed["package"]).is_relative_to(venv):
         raise AssertionError(
             "test import did not come from the isolated wheel installation"
+        )
+    if preview_manifest.is_file():
+        run(
+            [
+                str(python), "-I", "-c",
+                "from kara_templater import component_catalog, component_preview_resource\n"
+                "catalog = component_catalog(script_height=720)\n"
+                "for component in ('entry-fade', 'echo'):\n"
+                "    card = catalog['cards'][catalog['preferred_cards'][component]]\n"
+                "    for field in ('poster', 'video'):\n"
+                "        assert component_preview_resource(card[field]).read_bytes()\n",
+            ],
+            "component-previews",
+            check,
         )
     seconds = run([str(python), "-m", "pytest", "tests", "-q"], "pytest", check)
     print("isolated installed-wheel tests passed", flush=True)

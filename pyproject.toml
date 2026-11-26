@@ -19,7 +19,7 @@ kara-templater = "kara_templater.__main__:main"
 include = ["kara_templater", "kara_templater.*"]
 
 [tool.setuptools.package-data]
-kara_templater = ["py.typed", "*.pyi", "output/preview/index.html", "output/preview/player.js"]
+kara_templater = ["py.typed", "*.pyi", "output/preview/index.html", "output/preview/player.js", "_component_previews/*.json", "_component_previews/*.jpg", "_component_previews/*.mp4"]
 
 [tool.pytest.ini_options]
 # Plain pytest exercises the authoring and delivery pipeline. Pass tests/ for all regressions.

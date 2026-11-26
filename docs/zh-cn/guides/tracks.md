@@ -107,6 +107,10 @@ scene.export("duet.hook")
 
 每条轨道维护独立的行轮转和分页时钟。两条轨道也可以刻意选中同一行源码，各自渲染出独立的视觉层。如果歌词来自 Python 结构化对象而非 ASS 对白，可通过 `build_lyric_scene(..., inputs=...)` 传入 `LyricSource.from_lyrics(..., chapter=...)`。
 
+## 读取可编辑组件目录
+
+通过 [`component_catalog()`](../../reference/tracks.md#component_catalog) 获取可序列化为 JSON 的组件声明，用于构建组件选择器。传入脚本高度即可得到与 `compose_track()` 相同的默认值和范围。素材可用时，目录会为可编辑组件提供首选预览卡片。通过 [`component_preview_resource()`](../../reference/tracks.md#component_preview_resource) 打开卡片记录的相对素材名。读取目录不会渲染素材。
+
 ## 行预设与分页时机
 
 常见 1 至 8 行卡拉 OK 排版可以直接使用 `KaraokeRows`；需要固定坐标、逐行自定义对齐或自写分行策略时，改用 `Layout`。

@@ -150,7 +150,8 @@ def check_previews(dist: Path) -> int:
 
 
 def check_components(dist: Path) -> int:
-    entries = json.loads((BUILD / "components.json").read_text(encoding="utf-8"))
+    catalog = json.loads((BUILD / "components.json").read_text(encoding="utf-8"))
+    entries = catalog["cards"].values()
     if not entries:
         raise ValueError("The component library has no entries")
     for locale in (Path(), Path("zh-cn")):
@@ -159,11 +160,10 @@ def check_components(dist: Path) -> int:
             if entry["id"] not in page.ids:
                 raise ValueError(f"{locale / 'components'}: missing #{entry['id']}")
     for entry in entries:
-        if not entry.get("gallery"):
-            check_card(
-                dist / "component-previews" / entry["id"],
-                animated=entry["group"] != "typography",
-            )
+        check_card(
+            (dist / entry["poster"]).parent,
+            animated="video" in entry,
+        )
     return len(entries)
 
 

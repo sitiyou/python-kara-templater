@@ -1,5 +1,13 @@
 """Typed karaoke authoring and animation for standard ASS and libplacebo."""
 
+from ._component_catalog import (
+    ComponentCardData,
+    ComponentCatalog,
+    ComponentParameterData,
+    EffectComponentData,
+    component_catalog,
+    component_preview_resource,
+)
 from ._raster import DisplayWindow, OutputCapabilityError
 from .appearance import KaraokeTheme, PaintPair, paint_pair_from_style
 from .ass import Document, Line, Record, Style
@@ -249,11 +257,17 @@ from .text.measurement import text_extents
 from .text_geometry import TextOutline, outline_text, text_to_path
 
 __all__ = [
+    "ComponentCardData",
+    "ComponentCatalog",
     "ComponentParameter",
+    "ComponentParameterData",
     "ComponentSelection",
     "ComponentTarget",
     "ComponentValue",
     "EffectComponent",
+    "EffectComponentData",
+    "component_catalog",
+    "component_preview_resource",
     "compose_track",
     "effect_components",
     "Animation", "Canvas", "Glyph", "LengthExpr", "Note", "TimeExpr",

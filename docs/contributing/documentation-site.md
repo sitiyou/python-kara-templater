@@ -143,6 +143,14 @@ For a reusable visual component, add an entry with an ID, a category, English an
 uv run python -m examples.component_previews entry-wave-in build/wave.hook
 ```
 
+For a local media export, run the same card builder directly from the checkout:
+
+```sh
+uv run --no-sync python -m tools.build_component_library --card entry-wave-in
+```
+
+Omit `--card` for the full catalog or pass `--editable` for cards linked from editable components. The export defaults to `build/component-catalog/previews/`. It contains `components.json` and its referenced JPG/MP4 files. The document build shares the card render cache in `build/component-catalog/cache/`.
+
 ## Deploy to GitHub Pages
 
 In the repository's **Settings → Pages**, set the build and deployment source to **GitHub Actions**. The workflow in `.github/workflows/docs.yml` runs `tools.check_docs`, builds the site, and runs `tools.check_docs_site` on every pull request, then publishes `build/docs-site/dist/` on pushes to `main`.
