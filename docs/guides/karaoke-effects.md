@@ -74,12 +74,12 @@ For example, combining a 2 px dark primary outline, a 3 px lavender `SecondaryOu
 
 Watch the final held note in these three synchronised renders. Only the `highlight` option changes.
 
-![Three synchronized rows show the default wipe with a pulse, a steady wipe, and a color change when the same long note ends.](../examples/assets/highlight-motion.gif)
+![Three synchronized rows show the default wipe with a pulse, a steady wipe, and a whole-syllable color change at note onset.](../examples/assets/highlight-motion.gif)
 
 | `highlight` | Behaviour |
 | --- | --- |
 | `none` | Steady timed colour wipe with no scale pulse |
-| `no_wipe` | Switches the entire timed unit at the end of its interval, including zero-length units |
+| `no_wipe` | Switches the entire timed unit at its onset, including zero-length units |
 | `utopia` | Default. Wipe plus a quick rise to 1.15× over the first quarter of the note (up to 100 ms), then linear release |
 | `scanline` | Ordinary wipe with a bright leading band |
 | `utopia_scanline` | `utopia` pulse plus leading band |
@@ -87,7 +87,7 @@ Watch the final held note in these three synchronised renders. Only the `highlig
 | `zoom_pulse_scanline` | `zoom_pulse` growth plus leading band |
 
 > [!TIP]
-> To verify a template, pause halfway through a long note. A wipe shows both colours across the word, while `no_wipe` holds the before-fill until the note ends.
+> Use `no_wipe` to cue when to start singing a whole syllable. Pause halfway through a long note to check that the entire syllable is already in the sung color.
 
 Fine-tune the highlight front with these options on `KaraokeEffects`:
 

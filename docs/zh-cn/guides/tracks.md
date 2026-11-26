@@ -324,7 +324,7 @@ scene.export("vertical.hook")
 
 - 省略 `layout` 时默认两列从右向左轮转；传入 `KaraokeRows(rows=1)` 或 `rows=3` 可切换为单列或三列。`anchor` 控制整列在纵向的对齐位置，不满一页时始终从最右侧起排。`break_before` 与分页时间设置与横排一致。
 - 长音符（`ー`）与括号会自动绕字格中心旋转。注音排在正文右侧，间距由 `ruby_gap`（脚本像素）控制。
-- `highlight="no_wipe"` 会在每个音节结束时整字变色，不做向下走字。
+- `highlight="no_wipe"` 会在起音时将整个计时单元切换为唱后色。
 - 整列过渡（`fade`、`rise`、`slide_in`、`slide_out`）会连同注音一起动画化。逐字过渡、计时粒子与描边闪烁在竖排模式下不生效，但自定义 `LyricRule` 动画依然可用。
 - 内置 `SignalCue` 信号灯与 `VolumeCue` 音量条仅支持横排。竖排需要节奏引导符号时，请为占位字符加上 `\k` 计时并通过 `Track.guide_symbols` 映射矢量图形，详见[编排注音与倒数提示](text-and-cues.md#用矢量图形替换行内计时符号)。
 

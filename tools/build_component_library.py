@@ -34,6 +34,7 @@ PRESET_WINDOWS = {
 PRESET_POSTERS = {
     "entry-stretch-in": 0.63,
     "exit-stretch-out": 4.10,
+    "highlight-no-wipe": 2.20,
     "decoration-twinkle": 1.72,
 }
 NONE_LABELS = {

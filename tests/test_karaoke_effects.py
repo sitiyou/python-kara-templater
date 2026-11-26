@@ -685,9 +685,9 @@ def test_invalid_parameters_and_zero_duration_disable_motion():
     assert not any(n.animations for n in _walk(scene.lines[0]))
 
 
-def test_no_wipe_is_instant_including_zero_length_notes():
+def test_no_wipe_switches_all_glyphs_at_onset_including_zero_length_notes():
     scene = subject(
-        text=r"{\k0}A{\k100}B",
+        text=r"{\k0}A{\k30}B{\k70}CD",
         end=2000,
         entry="none",
         exit="none",
@@ -695,18 +695,13 @@ def test_no_wipe_is_instant_including_zero_length_notes():
         before_fill=Color(100, 100, 100),
     )
     assert scene.ass.compile(native_tweens=True).event_count > 0
-    target = scene.lines[0].query("character")[0]
     nodes = {n.id: n for n in _walk(scene.lines[0])}
-    before = nodes[target.node_id]
-    assert before.state.fill == Color(100, 100, 100)
-    after = nodes[target.aliases[0]]
-    assert isinstance(after.clip, RectangleClip) and after.clip.deform is not None
-    assert after.clip.deform.sample(1.01 - after.time_origin) is not None
-    second = scene.lines[0].query("character")[1]
-    mask = nodes[second.aliases[0]].clip
-    assert isinstance(mask, RectangleClip) and mask.deform is not None
-    assert mask.deform.sample(1.99 - after.time_origin) is None
-    assert mask.deform.sample(2.00 - after.time_origin) is not None
+    for target, onset in zip(scene.lines[0].query("character"), (1.0, 1.0, 1.3, 1.3), strict=True):
+        assert nodes[target.node_id].state.fill == Color(100, 100, 100)
+        after = nodes[target.aliases[0]]
+        assert isinstance(after.clip, RectangleClip) and after.clip.deform is not None
+        assert after.clip.deform.sample(onset - 0.01 - after.time_origin) is None
+        assert after.clip.deform.sample(onset - after.time_origin) is not None
 
 
 def test_utopia_pulse_fixes_the_measured_cell_edge_for_body_and_reading():
@@ -1272,11 +1267,11 @@ def test_zero_length_reading_colors_its_share_at_the_checkpoint(tmp_path, text, 
     assert red_pixels(script, jump_ms) - red_pixels(script, jump_ms - 10) > 100
 
 
-@pytest.mark.parametrize(("mode", "ticks", "expected"), [
-    ("none", 0, (False, True, True)),
-    ("no_wipe", 10, (False, False, True)),
+@pytest.mark.parametrize(("mode", "ticks", "times", "expected"), [
+    ("none", 0, (1000, 1010, 1500), (False, True, True)),
+    ("no_wipe", 10, (990, 1000, 1500), (False, True, True)),
 ])
-def test_ruby_color_switch_at_the_annotation_boundary(tmp_path, mode, ticks, expected):
+def test_ruby_color_switch_at_the_annotation_boundary(mode, ticks, times, expected):
     from kara_templater._raster import rasterize
 
     scene = subject(text=rf"{{\k{ticks}}}空|そ{{\k{50-ticks}}}#|ら",
@@ -1289,7 +1284,6 @@ def test_ruby_color_switch_at_the_annotation_boundary(tmp_path, mode, ticks, exp
         return any(ruby[i] > 180 and ruby[i + 1] < 60 and ruby[i + 3] > 128
                    for i in range(0, len(ruby), 4))
 
-    times = (1000, 1200 if ticks else 1010, 1500)
     script = scene.ass.compile().document.dumps()
     assert tuple(ruby_has_red(script, ms) for ms in times) == expected
 

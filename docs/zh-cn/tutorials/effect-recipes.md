@@ -38,7 +38,7 @@ sakura = KaraokeEffects(
 
 ## 不用走字扫色也能标示节奏
 
-取消字符内部的走字扫色，改为让一枚小标记在起唱瞬间跳到当前音节上方，同时让音节短暂放大脉冲，并在松口结束时整字切换为高亮色。
+要用换色提示何时开唱，就让整个音节在起音时切换到高亮色。小标记同时落到音节上方，文字随即轻弹一下。
 
 ![琥珀色小菱形在夜街画面上的中文歌词间按节拍跳跃](../../examples/assets/lyric-no-sweep.gif)
 
@@ -63,12 +63,12 @@ from kara_templater import (
 )
 
 WAITING = Color.hex("#EFEDE3")
-COMPLETED = Color.hex("#F4BB73")
+HIGHLIGHT = Color.hex("#F4BB73")
 EDGE = Color.hex("#192027")
 
 effects = (
     LyricHighlights.from_timing(
-        StatePatch(fill=COMPLETED, outline=EDGE),
+        StatePatch(fill=HIGHLIGHT, outline=EDGE),
         wipe=False,
         base_paint=StatePatch(fill=WAITING, outline=EDGE),
     ),

@@ -324,7 +324,7 @@ Key vertical layout details:
 
 - Omitting `layout` alternates two columns right to left. Pass `KaraokeRows(rows=1)` for one column or `rows=3` for three. `anchor` aligns each column vertically; partial pages start on the right. `break_before` and page timing options work the same as for horizontal tracks.
 - Long vowel marks (`ー`) and brackets rotate around their cell center. Ruby sits to the right of its body cells, separated by `ruby_gap` script pixels.
-- `highlight="no_wipe"` switches color at the end of each interval instead of wiping downward.
+- `highlight="no_wipe"` switches the whole timed unit to the sung color at its onset.
 - Whole-column transitions (`fade`, `rise`, `slide_in`, `slide_out`) animate the column including ruby. Character transitions, timing particles, and stroke flashes have no effect in vertical mode, though custom `LyricRule` animations still apply.
 - Built-in `SignalCue` lamps and `VolumeCue` columns are horizontal-only. For vertical guide markers, map timed placeholder characters through `Track.guide_symbols`; see [Ruby readings and cues](text-and-cues.md#sing-an-inline-vector-symbol).
 

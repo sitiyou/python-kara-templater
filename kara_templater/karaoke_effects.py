@@ -996,7 +996,7 @@ class KaraokeEffects:
     All durations are seconds, widths are script pixels; particle_size is a
     fraction of the shaped font’s em size. Entry/exit duration includes the
     full stagger span. Zero disables that transition. `none` timing retains
-    ordinary wipe; `no_wipe` recolors the whole timed unit at completion. Utopia pulses
+    ordinary wipe; `no_wipe` recolors the whole timed unit at its onset. Utopia pulses
     within each note; zoom_pulse grows throughout the note and releases over .30 s.
     Ornament tails request display time and follow the host on a dense automatic track.
     material/glow/base_glow use the same factories as LyricHighlights.

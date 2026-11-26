@@ -15,7 +15,7 @@ Pick the row that matches what you want to build. For the complete catalog of bu
 | Keep lyrics legible over changing footage | A dark keyline, a colored outer rim, and a soft halo around the same lettering | [Built-in karaoke effects](../guides/karaoke-effects.md) · [Choose and register fonts](../guides/fonts.md) |
 | Compare whole-song motion styles | Mix entrances, note highlights, exits, and ornaments on the same timed lyrics | [Whole-song templates](#whole-song-templates) · [Motion studies](../tutorials/lyric-studies.md) |
 | Place alternating rows or multiple vocals | Independent lead and harmony `Track` streams with row rotation, palettes, and cues | [lyric_orchestration.py](../../examples/lyric_orchestration.py) · [karaoke_designs.py](../../examples/karaoke_designs.py) |
-| Mark note attacks without a color wipe | A hopping diamond cues each attack, the glyph pulses, and the whole character recolors at release | [Karaoke without a color wipe](#karaoke-without-a-color-wipe) |
+| Mark note attacks without a color wipe | At each attack, a diamond lands above the syllable, the whole syllable turns amber, and the text begins a brief pulse | [Karaoke without a color wipe](#karaoke-without-a-color-wipe) |
 | Give the entrance a crisp masked reveal | Characters slide out of invisible vertical cuts while keeping readings attached | [Fixed-cut lyric reveal](#fixed-cut-lyric-reveal) |
 | Focus, type in, or break apart letters | Separate entrance and exit recipes that keep active lyrics clean and readable | [Effect recipes](../tutorials/effect-recipes.md) |
 | Add a count-in that fits the song | Flashing inline volume bars, independent star lamps, and a custom paw-print cue | [Count-ins and cues](#count-ins-and-cues) |
@@ -59,7 +59,7 @@ python -m examples.slit_reveal build/slit-reveal.hook
 
 ### Karaoke without a color wipe
 
-An amber diamond hops from syllable to syllable on each attack while the active glyph briefly pulses, then turns amber on release. The preview uses Sarasa UI SC.
+At each note onset, an amber diamond lands above the syllable and the whole syllable turns amber. The text briefly scales up and settles back. The preview uses Sarasa UI SC.
 
 ![A small amber diamond hops between Chinese lyrics over a night street](assets/lyric-no-sweep.gif)
 

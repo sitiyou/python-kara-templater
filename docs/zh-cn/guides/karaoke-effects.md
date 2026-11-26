@@ -74,12 +74,12 @@ harmony_track = Track(
 
 观察下方三行同步渲染中结尾的长音，它们仅改变了 `highlight` 参数。
 
-![三行同步预览对比了带脉冲的默认走字、平稳走字，以及长音结束时整体变色的效果。](../../examples/assets/highlight-motion.gif)
+![三行同步预览对比了带脉冲的默认走字、平稳走字，以及起音时整个音节一起变色的效果。](../../examples/assets/highlight-motion.gif)
 
 | `highlight` | 表现 |
 | --- | --- |
 | `none` | 平稳的定时走字，不带缩放脉冲 |
-| `no_wipe` | 计时单元结束时整体切换颜色（包含零时长单元） |
+| `no_wipe` | 计时单元起音时整体换色，零时长单元也适用 |
 | `utopia` | 默认。走字配合快速放大至 1.15 倍（占音符前四分之一时长，上限 100 ms），随后线性回落 |
 | `scanline` | 普通走字配合明亮的前沿扫描线 |
 | `utopia_scanline` | `utopia` 脉冲叠加前沿扫描线 |
@@ -87,7 +87,7 @@ harmony_track = Track(
 | `zoom_pulse_scanline` | `zoom_pulse` 持续放大叠加前沿扫描线 |
 
 > [!TIP]
-> 检查模板时，暂停在一个长音的中途：走字模式下文字会同时呈现唱前和唱后两种颜色，而 `no_wipe` 会一直保持唱前颜色直到该音结束。
+> 想用整音节换色提示何时开唱，可以用 `no_wipe`。暂停在长音中途，确认整个音节已经切换为唱后色。
 
 使用以下参数微调 `KaraokeEffects` 的高亮前沿：
 

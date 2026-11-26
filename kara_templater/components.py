@@ -170,7 +170,10 @@ def effect_components(*, script_height: int = 1080) -> dict[str, EffectComponent
             if slot == "decoration" and name != "none":
                 params = ornaments
             kind = f"{slot}-{name.replace('_', '-')}"
-            label = "Steady wipe" if kind == "highlight-none" else name.replace("_", " ").capitalize()
+            label = {
+                "highlight-none": "Steady wipe",
+                "highlight-no-wipe": "Change color at note onset",
+            }.get(kind, name.replace("_", " ").capitalize())
             result[kind] = EffectComponent(label, slot, parameters=params)
 
     band_geometry = {

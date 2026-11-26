@@ -38,7 +38,7 @@ sakura = KaraokeEffects(
 
 ## Mark timing without a color wipe
 
-Instead of wiping across each character, hop a small marker from syllable to syllable on the note attack, pulse the active syllable briefly, and flip the entire glyph to the highlight color on release.
+To cue when to sing, switch the whole syllable to the highlight color at note onset. Land the marker above the syllable and start a brief scale pulse at the same time.
 
 ![A small amber diamond hops between Chinese lyrics over a night street](../examples/assets/lyric-no-sweep.gif)
 
@@ -63,12 +63,12 @@ from kara_templater import (
 )
 
 WAITING = Color.hex("#EFEDE3")
-COMPLETED = Color.hex("#F4BB73")
+HIGHLIGHT = Color.hex("#F4BB73")
 EDGE = Color.hex("#192027")
 
 effects = (
     LyricHighlights.from_timing(
-        StatePatch(fill=COMPLETED, outline=EDGE),
+        StatePatch(fill=HIGHLIGHT, outline=EDGE),
         wipe=False,
         base_paint=StatePatch(fill=WAITING, outline=EDGE),
     ),

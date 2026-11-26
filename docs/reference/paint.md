@@ -552,7 +552,7 @@ Sweep source timing across body/ruby without authoring clip geometry.
 secondary_outline surrounds both states. after_secondary_outline sets the rim after the transition.
 Both can be combined with glow.
 With reverse=True, each timed unit fills from its right edge.
-With wipe=False, each timed unit switches paint at completion.
+With wipe=False, each timed unit switches paint at its onset.
 Horizontal sweeps follow the font style by default: italic or oblique
 text uses a slanted front. Set sweep_angle to override its angle in
 degrees, or use 0 for a straight front. Positive angles tilt its top

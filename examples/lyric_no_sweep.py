@@ -1,4 +1,4 @@
-"""Mark note attacks with a geometric cue and recolor whole glyphs at release."""
+"""Mark note attacks with a geometric cue and whole-syllable color changes."""
 
 import argparse
 from dataclasses import dataclass
@@ -33,7 +33,7 @@ from kara_templater import (
 
 FPS = 30
 WAITING = Color.hex("#EFEDE3")
-COMPLETED = Color.hex("#F4BB73")
+HIGHLIGHT = Color.hex("#F4BB73")
 EDGE = Color.hex("#192027")
 MARKER = Color.hex("#FFC67F")
 
@@ -137,7 +137,7 @@ def build() -> Scene:
                 tail=0.22,
                 effects=(
                     LyricHighlights.from_timing(
-                        StatePatch(fill=COMPLETED, outline=EDGE),
+                        StatePatch(fill=HIGHLIGHT, outline=EDGE),
                         wipe=False,
                         base_paint=StatePatch(fill=WAITING, outline=EDGE),
                     ),
