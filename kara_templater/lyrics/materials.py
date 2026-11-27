@@ -62,6 +62,27 @@ fn shade(ink: vec4<f32>, ctx: KaraPaintContext, waiting: vec3<f32>,
 
 
 @dataclass(frozen=True)
+class _WipeTint(MaterialEffect):
+    front: _PaintTrack
+    axis: Vec2
+    waiting: Color
+    feather: float
+
+    wgsl = """
+fn shade(ink: vec4<f32>, ctx: KaraPaintContext, front: f32,
+         axis: vec2<f32>, waiting: vec3<f32>, feather: f32) -> vec4<f32> {
+    let distance = front - dot(ctx.local, axis);
+    let half_width = max(feather * 0.5, 0.000001);
+    let weight = select(step(0.0, distance), smoothstep(-half_width, half_width, distance), feather > 0.0);
+    return vec4<f32>(mix(waiting, ink.rgb, weight), ink.a);
+}
+"""
+
+    def _arguments(self) -> tuple[PaintValue | _PaintTrack, ...]:
+        return self.front, self.axis, self.waiting, self.feather
+
+
+@dataclass(frozen=True)
 class _ScanlineTint(MaterialEffect):
     front: _PaintTrack
     inverse_scale: _PaintTrack

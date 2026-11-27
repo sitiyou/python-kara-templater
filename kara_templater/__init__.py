@@ -143,6 +143,7 @@ from .lyrics.placement import (
     LineLayoutRequest,
     Placement,
 )
+from .lyrics.sweep import LyricSweep
 from .lyrics.tracks import (
     LyricEffect,
     LyricLinePlan,
@@ -283,6 +284,7 @@ __all__ = [
     "LyricSource",
     "LyricGlow",
     "LyricHighlights",
+    "LyricSweep",
     "LyricEcho",
     "ScatterOut",
     "CurveIn",

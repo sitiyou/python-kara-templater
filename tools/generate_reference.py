@@ -72,6 +72,7 @@ GROUPS: dict[str, tuple[str, tuple[str, ...], str, str]] = {
             "appearance",
             "paint_fields",
             "lyrics.highlights",
+            "lyrics.sweep",
         ),
         "RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles.",
         "[Colour and materials](../guides/materials.md)",

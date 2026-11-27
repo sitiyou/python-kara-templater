@@ -16,7 +16,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 | [Text measurement and layout](text.md) | Font registration, shaped glyph metrics, source clusters, and body/ruby binding. | 19 |
 | [Scenes and compilation](scenes.md) | Scene objects, world-space evaluation, real-time browser preview, and shader and ASS export. Lifetimes use seconds. Geometry uses script pixels. | 20 |
 | [Animation and timing](animation.md) | Pure state and property animation, easing curves, and typed composition on second-based clocks. | 35 |
-| [Colors and appearance](paint.md) | RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles. | 35 |
+| [Colors and appearance](paint.md) | RGB colors, fills, outlines, spatial paint fields, WGSL materials, and lyric highlight styles. | 36 |
 | [Geometry and paths](geometry.md) | Script-space vectors, clips, masks, path boolean operations, deformation, extrusion, and morphing. | 32 |
 | [Lyric cues](cues.md) | Count-ins, reservations, independent cue tracks, and inline lyric markers measured in seconds. | 13 |
 | [Particles and references](particles.md) | Deterministic particle emitters, delayed copies, echoes, and world-space object references. | 14 |
@@ -24,7 +24,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ## Symbol index
 
-229 public exports grouped alphabetically.
+230 public exports grouped alphabetically.
 
 ### A
 
@@ -72,7 +72,7 @@ Every symbol listed here is importable directly from `kara_templater`; topic pag
 
 ### L
 
-[`Layout`](tracks.md#layout) · [`layout_characters`](text.md#layout_characters) · [`layout_document_lyrics`](text.md#layout_document_lyrics) · [`layout_document_text`](text.md#layout_document_text) · [`layout_lyrics`](text.md#layout_lyrics) · [`layout_path`](geometry.md#layout_path) · [`LayoutCapabilityError`](text.md#layoutcapabilityerror) · [`LayoutContext`](tracks.md#layoutcontext) · [`LengthExpr`](animation.md#lengthexpr) · [`Lifetime`](scenes.md#lifetime) · [`Line`](documents.md#line) · [`linear_rate`](animation.md#linear_rate) · [`LinearGradient`](paint.md#lineargradient) · [`LineLayoutRequest`](tracks.md#linelayoutrequest) · [`LineSegment`](geometry.md#linesegment) · [`load_font`](text.md#load_font) · [`LoadedFont`](text.md#loadedfont) · [`lyric_effects`](tracks.md#lyric_effects) · [`LyricAnchor`](tracks.md#lyricanchor) · [`LyricAnimationContext`](tracks.md#lyricanimationcontext) · [`LyricEcho`](tracks.md#lyricecho) · [`LyricEffect`](tracks.md#lyriceffect) · [`LyricGlow`](paint.md#lyricglow) · [`LyricGradient`](paint.md#lyricgradient) · [`LyricHighlights`](paint.md#lyrichighlights) · [`LyricLayout`](text.md#lyriclayout) · [`LyricLine`](tracks.md#lyricline) · [`LyricLinePlan`](tracks.md#lyriclineplan) · [`LyricMapping`](documents.md#lyricmapping) · [`LyricParticles`](particles.md#lyricparticles) · [`LyricRole`](tracks.md#lyricrole) · [`LyricRule`](tracks.md#lyricrule) · [`LyricScene`](tracks.md#lyricscene) · [`LyricSegment`](documents.md#lyricsegment) · [`LyricSource`](tracks.md#lyricsource) · [`LyricTarget`](tracks.md#lyrictarget) · [`LyricUnit`](documents.md#lyricunit)
+[`Layout`](tracks.md#layout) · [`layout_characters`](text.md#layout_characters) · [`layout_document_lyrics`](text.md#layout_document_lyrics) · [`layout_document_text`](text.md#layout_document_text) · [`layout_lyrics`](text.md#layout_lyrics) · [`layout_path`](geometry.md#layout_path) · [`LayoutCapabilityError`](text.md#layoutcapabilityerror) · [`LayoutContext`](tracks.md#layoutcontext) · [`LengthExpr`](animation.md#lengthexpr) · [`Lifetime`](scenes.md#lifetime) · [`Line`](documents.md#line) · [`linear_rate`](animation.md#linear_rate) · [`LinearGradient`](paint.md#lineargradient) · [`LineLayoutRequest`](tracks.md#linelayoutrequest) · [`LineSegment`](geometry.md#linesegment) · [`load_font`](text.md#load_font) · [`LoadedFont`](text.md#loadedfont) · [`lyric_effects`](tracks.md#lyric_effects) · [`LyricAnchor`](tracks.md#lyricanchor) · [`LyricAnimationContext`](tracks.md#lyricanimationcontext) · [`LyricEcho`](tracks.md#lyricecho) · [`LyricEffect`](tracks.md#lyriceffect) · [`LyricGlow`](paint.md#lyricglow) · [`LyricGradient`](paint.md#lyricgradient) · [`LyricHighlights`](paint.md#lyrichighlights) · [`LyricLayout`](text.md#lyriclayout) · [`LyricLine`](tracks.md#lyricline) · [`LyricLinePlan`](tracks.md#lyriclineplan) · [`LyricMapping`](documents.md#lyricmapping) · [`LyricParticles`](particles.md#lyricparticles) · [`LyricRole`](tracks.md#lyricrole) · [`LyricRule`](tracks.md#lyricrule) · [`LyricScene`](tracks.md#lyricscene) · [`LyricSegment`](documents.md#lyricsegment) · [`LyricSource`](tracks.md#lyricsource) · [`LyricSweep`](paint.md#lyricsweep) · [`LyricTarget`](tracks.md#lyrictarget) · [`LyricUnit`](documents.md#lyricunit)
 
 ### M
 

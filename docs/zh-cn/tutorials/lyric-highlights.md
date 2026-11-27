@@ -129,6 +129,19 @@ straight_sweep = LyricHighlights.from_timing(
 
 歌词节点与普通场景对象遵循同一套动画协议。若想把 `Jump(24)` 替换成自己的动效，直接传入 `Transform`、`StateFunction`、`ShaderMotion`，或实现声明了写入通道的自定义 `StateAnimation` 即可。
 
+## 换字时接续扫色
+
+当有时间映射的词组需要换字时，可以用 [`KaraokeEffects.sweep()`](../../reference/tracks.md#karaokeeffectssweep) 选中同一个横排歌词单元内的正文范围。范围两端必须落在排版后字形簇的边界上。把得到的 [`LyricSweep`](../../reference/paint.md#lyricsweep) 应用到换字前后的两套字形。
+
+```python
+sweep = effects.sweep(line, start, end)
+outgoing = sweep.paint(original_clusters)
+incoming = sweep.paint(replacement_layout.characters)
+swap_time = sweep.interval.start + 0.05
+```
+
+把返回的对象放入两个组，各自指定显示时间和变换。新字形出现时沿用原有扫色时钟。前沿根据各组字形的实测墨迹宽度投影，遇到休止也会按原时序停住。接口为浏览器和 Hook 输出应用纯色待唱、已唱和可选的单色亮带。描边、字形位置及换字动作由模板决定。
+
 ## 下一步
 
 - [编写自定义动画](custom-animation.md)：编写可直接在 GPU Hook 中执行的自定义运动函数。

@@ -53,6 +53,7 @@ from .lyrics.highlights import (
     _tilted_sweep_bounds,
 )
 from .lyrics.materials import _ScanlineTint
+from .lyrics.sweep import LyricSweep, _sweep_points
 from .paint_fields import (
     ColorRamp,
     ColorStop,
@@ -1250,6 +1251,58 @@ class KaraokeEffects:
         """Prepare appearance and defer text motion through the common lyric rules."""
         return self.with_theme()._decorate(line)
 
+    def sweep(self, line: LyricLine, start: int, end: int) -> LyricSweep:
+        """Bind the body sweep of a shaped text range to replacement glyphs.
+
+        Use decoded body offsets within one timed horizontal lyric unit. The
+        sweep follows the same timing passes as the built-in highlighter,
+        including direction, checkpoints, gaps and repeats. The returned paint
+        uses solid fill roles and, when selected, the solid-color scanline.
+        For themed tracks use the resolved effect from the scene's track settings.
+        A scanline that uses a gradient or follows another brush is unsupported.
+        """
+        effect = self.with_theme()
+        assert effect.before_fill is not None and effect.after_fill is not None
+        points, reverse = _sweep_points(effect._highlighter(), line, start, end)
+        scanline = "scanline" in effect.highlight
+        if scanline and (effect.scanline_mode != "color" or effect.scanline_material is not None):
+            raise ValueError("replacement sweep requires a solid-color scanline")
+        height = line.layout.script_height
+        width, softness = effect._scanline_dimensions(height)
+        return LyricSweep(
+            _points=points, _reverse=reverse, _angle=effect.sweep_angle,
+            _script_height=height, _before=effect.before_fill, _after=effect.after_fill,
+            _feather=effect.hook_feather,
+            _scanline_color=effect.scanline_color if scanline else None,
+            _scanline_width=width, _scanline_softness=softness,
+            _scanline_strength=effect.scanline_strength,
+        )
+
+    def _highlighter(self) -> LyricHighlights:
+        return LyricHighlights.from_timing(
+            StatePatch(fill=self.after_fill, outline=self.after_outline),
+            wipe=self.highlight != "no_wipe",
+            reverse=self.reverse_wipe,
+            sweep_angle=self.sweep_angle,
+            ruby_reading_units=self.ruby_reading_units,
+            base_paint=StatePatch(fill=self.before_fill, outline=self.before_outline),
+            material=self.material,
+            base_material=self.base_material,
+            glow=self.glow,
+            base_glow=self.base_glow,
+            secondary_outline=self.secondary_outline, after_secondary_outline=self.after_secondary_outline,
+            hook_feather=self.hook_feather,
+            front_color=self.front_color,
+        )
+
+    def _scanline_dimensions(
+        self, height: int,
+    ) -> tuple[float | LengthExpr | PaintInput, float | LengthExpr | PaintInput]:
+        ratio = height / 1080
+        width = max(1, round(16 * ratio)) if self.scanline_width is None else self.scanline_width
+        softness = round(8 * ratio) if self.scanline_softness is None else self.scanline_softness
+        return width, softness
+
     def _decorate(self, line: LyricLine) -> LyricLine:
         if line.layout._vertical:
             # Studio draws the entire column through its line animator. Glyph
@@ -1294,21 +1347,7 @@ class KaraokeEffects:
             raise ValueError(
                 "KaraokeEffects must precede other highlight/material factories"
             )
-        highlighter = LyricHighlights.from_timing(
-            StatePatch(fill=self.after_fill, outline=self.after_outline),
-            wipe=self.highlight != "no_wipe",
-            reverse=self.reverse_wipe,
-            sweep_angle=self.sweep_angle,
-            ruby_reading_units=self.ruby_reading_units,
-            base_paint=StatePatch(fill=self.before_fill, outline=self.before_outline),
-            material=self.material,
-            base_material=self.base_material,
-            glow=self.glow,
-            base_glow=self.base_glow,
-            secondary_outline=self.secondary_outline, after_secondary_outline=self.after_secondary_outline,
-            hook_feather=self.hook_feather,
-            front_color=self.front_color,
-        )
+        highlighter = self._highlighter()
         widths = highlighter._widths(line)
         line, paint = highlighter._bind(line, widths)
         if line._fit_display:
@@ -1967,9 +2006,7 @@ class KaraokeEffects:
                 sweeps[target.node_id] = () if body and unit in reading_only_units else passes
                 first, _ = track.get(slot, (passes, passes))
                 track[slot] = first, passes
-        ratio = line.layout.script_height / 1080
-        band_width = max(1, round(16 * ratio)) if self.scanline_width is None else self.scanline_width
-        band_softness = round(8 * ratio) if self.scanline_softness is None else self.scanline_softness
+        band_width, band_softness = self._scanline_dimensions(line.layout.script_height)
         reading_hosts = _character_hosts(line) if reading_slots and "scanline" in self.highlight else {}
         run_spans = _scanline_run_spans(line) if "scanline" in self.highlight else {}
         for target, glyph, unit, _ in glyphs:

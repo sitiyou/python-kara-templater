@@ -227,7 +227,7 @@ type KaraokeDecoration = Literal['none', 'twinkle', 'twinkle_classic', 'note', '
 
 ## KaraokeEffects
 
-*dataclass* · [Source](../../kara_templater/karaoke_effects.py#L992)
+*dataclass* · [Source](../../kara_templater/karaoke_effects.py#L993)
 
 Compose entry, timing, exit and ornaments as one Track.effects callable.
 
@@ -386,6 +386,25 @@ KaraokeEffects.duotone(
     after_outline: Color | None = None,
     feather: float | LengthExpr = Glyph.font_size / 6,
 ) -> KaraokeEffects
+```
+
+### KaraokeEffects.sweep
+
+Bind the body sweep of a shaped text range to replacement glyphs.
+
+Use decoded body offsets within one timed horizontal lyric unit. The
+sweep follows the same timing passes as the built-in highlighter,
+including direction, checkpoints, gaps and repeats. The returned paint
+uses solid fill roles and, when selected, the solid-color scanline.
+For themed tracks use the resolved effect from the scene's track settings.
+A scanline that uses a gradient or follows another brush is unsupported.
+
+```python
+KaraokeEffects.sweep(
+    line: LyricLine,
+    start: int,
+    end: int,
+) -> sweep.LyricSweep
 ```
 
 ### KaraokeEffects.with_theme

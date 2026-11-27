@@ -129,6 +129,19 @@ Whole-line animations and per-character highlight motion compose naturally throu
 
 Lyrics and ordinary scene objects share the same animation protocol. To replace `Jump(24)` with your own motion, pass a `Transform`, a `StateFunction`, a `ShaderMotion`, or a custom `StateAnimation` that declares its written channels.
 
+## Continue a sweep through a glyph replacement
+
+Use [`KaraokeEffects.sweep()`](../reference/tracks.md#karaokeeffectssweep) when a timed fragment changes its displayed text. Select a range of decoded body offsets within one timed horizontal lyric unit. The offsets must fall on shaped cluster boundaries. Reuse the resulting [`LyricSweep`](../reference/paint.md#lyricsweep) for each visual version.
+
+```python
+sweep = effects.sweep(line, start, end)
+outgoing = sweep.paint(original_clusters)
+incoming = sweep.paint(replacement_layout.characters)
+swap_time = sweep.interval.start + 0.05
+```
+
+Put the returned objects into the outgoing and incoming groups and give each group its own lifetime and transform. The shared sweep continues on its original clock when the new glyphs appear. The front is projected onto the measured ink of each run and holds its position during rests. This API paints the solid fill roles and optional solid-color scanline for browser and Hook output. The template controls the outline, positioning, and how the old and new glyphs move.
+
 ## Next steps
 
 - [Write a custom animation](custom-animation.md) to build your own GPU-accelerated motion function.

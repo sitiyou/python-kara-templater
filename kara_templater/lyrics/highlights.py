@@ -1127,6 +1127,83 @@ class LyricHighlights:
         ), paint
 
 
+def _arrival_region(
+    line: LyricLine, target: LyricTarget, *, automatic: bool,
+) -> tuple[int, PositionedText, Region] | None:
+    if target.role not in ("character", "ruby"):
+        raise ValueError("highlight arrival requires a character or ruby target")
+    # Semantic targets and measured glyphs retain their order across visual copies.
+    if target.role == "character":
+        pairs = tuple(
+            zip(line.query("character"), line.layout.body.characters, strict=True)
+        )
+        character = next(c for t, c in pairs if t.id == target.id)
+        unit_index = next(
+            i
+            for i, unit in enumerate(line.layout.lyrics.units)
+            if unit.start <= character.start and character.end <= unit.end
+        )
+        unit = line.layout.lyrics.units[unit_index]
+        box = line.layout.body.range_bounds(unit.start, unit.end)
+        siblings = tuple(
+            c
+            for c in line.layout.body.characters
+            if unit.start <= c.start and c.end <= unit.end
+        )
+        parent = line.layout.body
+        drawing = box
+    else:
+        readings = tuple(
+            (c, ruby) for ruby in line.layout.ruby for c in ruby.layout.characters
+        )
+        character, ruby = next(
+            pair
+            for t, pair in zip(line.query("ruby"), readings, strict=True)
+            if t.id == target.id
+        )
+        unit_index = ruby.unit_index
+        unit = line.layout.lyrics.units[unit_index]
+        box = line.layout.body.range_bounds(unit.start, unit.end)
+        siblings = (character,) if automatic else ruby.layout.characters
+        parent = ruby.layout
+        drawing = ruby.layout.bounds
+    if not drawing.width or not box.width:
+        return None
+    start_offset, end_offset = siblings[0].start, siblings[-1].end
+    if parent._right_to_left:
+        siblings = tuple(reversed(siblings))
+    index = siblings.index(character)
+    left = drawing.left if index == 0 else character.bounds.left
+    right = (
+        siblings[index + 1].bounds.left
+        if index + 1 < len(siblings)
+        else drawing.right
+    )
+    if automatic:
+        drawing = parent._sweep_bounds(
+            start_offset, end_offset, character
+        )
+        right = (
+            siblings[index + 1].bounds.left
+            - siblings[index + 1]._gap_shift
+            + character._gap_shift
+            if index + 1 < len(siblings)
+            else drawing.right
+        )
+        if not drawing.width:
+            return None
+        left = min(drawing.right, max(drawing.left, left))
+        right = min(drawing.right, max(drawing.left, right))
+    if right < left:
+        raise ValueError("non-monotone character positions cannot define arrival")
+    # Preserve exact endpoints when a reading's width is projected onto its host.
+    region = Region(
+        box.left if left == drawing.left else box.left + (left - drawing.left) * box.width / drawing.width,
+        box.right if right == drawing.right else box.left + (right - drawing.left) * box.width / drawing.width,
+    )
+    return unit_index, character, region
+
+
 @dataclass(frozen=True, kw_only=True)
 class HighlightArrival:
     """Bind common animations to measured character crossings before allocation.
@@ -1158,77 +1235,12 @@ class HighlightArrival:
 
     def __call__(self, line: LyricLine, target: LyricTarget) -> tuple[TimeSpan, ...]:
         """Resolve this target's selected crossings and durations in absolute seconds."""
-        if target.role not in ("character", "ruby"):
-            raise ValueError("highlight arrival requires a character or ruby target")
-        # Semantic targets and measured glyphs retain their order across visual copies.
-        if target.role == "character":
-            pairs = tuple(
-                zip(line.query("character"), line.layout.body.characters, strict=True)
-            )
-            character = next(c for t, c in pairs if t.id == target.id)
-            unit_index = next(
-                i
-                for i, unit in enumerate(line.layout.lyrics.units)
-                if unit.start <= character.start and character.end <= unit.end
-            )
-            unit = line.layout.lyrics.units[unit_index]
-            box = line.layout.body.range_bounds(unit.start, unit.end)
-            siblings = tuple(
-                c
-                for c in line.layout.body.characters
-                if unit.start <= c.start and c.end <= unit.end
-            )
-            parent = line.layout.body
-            drawing = box
-        else:
-            readings = tuple(
-                (c, ruby) for ruby in line.layout.ruby for c in ruby.layout.characters
-            )
-            character, ruby = next(
-                pair
-                for t, pair in zip(line.query("ruby"), readings, strict=True)
-                if t.id == target.id
-            )
-            unit_index = ruby.unit_index
-            unit = line.layout.lyrics.units[unit_index]
-            box = line.layout.body.range_bounds(unit.start, unit.end)
-            siblings = (character,) if isinstance(self.highlights, _TimingHighlights) else ruby.layout.characters
-            parent = ruby.layout
-            drawing = ruby.layout.bounds
-        if not drawing.width or not box.width:
+        geometry = _arrival_region(
+            line, target, automatic=isinstance(self.highlights, _TimingHighlights),
+        )
+        if geometry is None:
             return ()
-        start_offset, end_offset = siblings[0].start, siblings[-1].end
-        if parent._right_to_left:
-            siblings = tuple(reversed(siblings))
-        index = siblings.index(character)
-        left = drawing.left if index == 0 else character.bounds.left
-        right = (
-            siblings[index + 1].bounds.left
-            if index + 1 < len(siblings)
-            else drawing.right
-        )
-        if isinstance(self.highlights, _TimingHighlights):
-            drawing = parent._sweep_bounds(
-                start_offset, end_offset, character
-            )
-            right = (
-                siblings[index + 1].bounds.left
-                - siblings[index + 1]._gap_shift
-                + character._gap_shift
-                if index + 1 < len(siblings)
-                else drawing.right
-            )
-            if not drawing.width:
-                return ()
-            left = min(drawing.right, max(drawing.left, left))
-            right = min(drawing.right, max(drawing.left, right))
-        if right < left:
-            raise ValueError("non-monotone character positions cannot define arrival")
-        # Preserve exact endpoints when a reading's width is projected onto its host.
-        region = Region(
-            box.left if left == drawing.left else box.left + (left - drawing.left) * box.width / drawing.width,
-            box.right if right == drawing.right else box.left + (right - drawing.left) * box.width / drawing.width,
-        )
+        unit_index, character, region = geometry
         highlights = (
             self.highlights
             if isinstance(self.highlights, tuple)

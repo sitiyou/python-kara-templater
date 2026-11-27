@@ -6,7 +6,7 @@ Related guides: [Colour and materials](../guides/materials.md) · [All public sy
 
 ## Contents
 
-**Classes:** [`Color`](#color) · [`ColorRamp`](#colorramp) · [`ColorStop`](#colorstop) · [`Extrusion`](#extrusion) · [`Glow`](#glow) · [`Highlight`](#highlight) · [`HighlightArrival`](#highlightarrival) · [`HighlightPass`](#highlightpass) · [`KaraokeTheme`](#karaoketheme) · [`LinearGradient`](#lineargradient) · [`LyricGradient`](#lyricgradient) · [`LyricHighlights`](#lyrichighlights) · [`MaterialClip`](#materialclip) · [`MaterialEffect`](#materialeffect) · [`Paint`](#paint) · [`PaintControl`](#paintcontrol) · [`PaintInput`](#paintinput) · [`PaintPair`](#paintpair) · [`SecondaryOutline`](#secondaryoutline) · [`ShaderPaint`](#shaderpaint)
+**Classes:** [`Color`](#color) · [`ColorRamp`](#colorramp) · [`ColorStop`](#colorstop) · [`Extrusion`](#extrusion) · [`Glow`](#glow) · [`Highlight`](#highlight) · [`HighlightArrival`](#highlightarrival) · [`HighlightPass`](#highlightpass) · [`KaraokeTheme`](#karaoketheme) · [`LinearGradient`](#lineargradient) · [`LyricGradient`](#lyricgradient) · [`LyricHighlights`](#lyrichighlights) · [`LyricSweep`](#lyricsweep) · [`MaterialClip`](#materialclip) · [`MaterialEffect`](#materialeffect) · [`Paint`](#paint) · [`PaintControl`](#paintcontrol) · [`PaintInput`](#paintinput) · [`PaintPair`](#paintpair) · [`SecondaryOutline`](#secondaryoutline) · [`ShaderPaint`](#shaderpaint)
 
 **Functions:** [`paint_pair_from_style`](#paint_pair_from_style)
 
@@ -256,7 +256,7 @@ Highlight.regions(
 
 ## HighlightArrival
 
-*dataclass* · [Source](../../kara_templater/lyrics/highlights.py#L1130)
+*dataclass* · [Source](../../kara_templater/lyrics/highlights.py#L1207)
 
 Bind common animations to measured character crossings before allocation.
 
@@ -601,6 +601,43 @@ LyricHighlights.from_timing(
     front_color: Color | None = None,
     sweep_angle: float | None = None,
 ) -> highlights.LyricHighlights
+```
+
+## LyricSweep
+
+*dataclass* · [Source](../../kara_templater/lyrics/sweep.py#L91)
+
+A measured lyric sweep that can paint either version of a glyph run.
+
+Get it from `KaraokeEffects.sweep()`. Its absolute clock includes note
+checkpoints and rests. Apply it independently to the old and new layouts,
+then animate those drawings under ordinary scene groups.
+
+```python
+LyricSweep()
+```
+
+### LyricSweep.interval
+
+The first entrance and last completion in absolute scene seconds.
+
+Type: `TimeSpan`.
+
+### LyricSweep.paint
+
+Return the measured drawings with the shared sweep on their fill.
+
+Supply clusters from one measured horizontal run in their original
+coordinate space. The ink bounds define the new sweep extent and the
+run's first glyph size resolves relative brush widths. After binding,
+drawings can use different lifetimes and parent transforms. Their
+explicit clock origins preserve the sweep on a late-appearing drawing.
+The material is supported by browser and Hook output.
+
+```python
+LyricSweep.paint(
+    glyphs: tuple[layout.PositionedText, ...],
+) -> tuple[TextObject, ...]
 ```
 
 ## MAGENTA
