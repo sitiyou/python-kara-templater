@@ -443,7 +443,7 @@ type KaraokeHighlight = Literal['none', 'no_wipe', 'utopia', 'scanline', 'utopia
 
 ## KaraokeRows
 
-*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L405)
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L441)
 
 Studio row and vertical-column presets, scaled from 1080p to the script height.
 
@@ -523,7 +523,7 @@ KaraokeRows.break_before(
 
 ## Layout
 
-*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L233)
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L269)
 
 Allocate any positive number of rows, or override allocate entirely.
 
@@ -601,7 +601,7 @@ Layout.row_offsets(
 
 ## LayoutContext
 
-*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L126)
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L162)
 
 Read-only placement region and explicitly supplied cross-track references.
 
@@ -1011,7 +1011,7 @@ LyricLine.with_display(
 
 ## LyricLinePlan
 
-*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L220)
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L222)
 
 Inspectable source/view association and final layout/animation binding.
 
@@ -1119,7 +1119,7 @@ LyricRule.timing_intervals(
 
 ## LyricScene
 
-*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L231)
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L233)
 
 A Scene with lyric arrangement snapshots and resolved track settings.
 
@@ -1260,7 +1260,7 @@ LyricScene.replace_source(
 
 ## LyricSource
 
-*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L69)
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L71)
 
 An immutable source view used by Track predicates and metadata functions.
 
@@ -1380,7 +1380,7 @@ LyricTarget(
 
 ## Placement
 
-*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L148)
+*dataclass* · [Source](../../kara_templater/lyrics/placement.py#L184)
 
 A visual origin and absolute display interval for one stable line id.
 
@@ -1451,7 +1451,7 @@ ScatterOut.__call__(
 
 ## Track
 
-*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L144)
+*dataclass* · [Source](../../kara_templater/lyrics/tracks.py#L146)
 
 An independent lyric stream with selection, placement and composable effects.
 
@@ -1546,13 +1546,17 @@ Track(
 
 ## build_lyric_scene
 
-*function* · [Source](../../kara_templater/lyrics/tracks.py#L540)
+*function* · [Source](../../kara_templater/lyrics/tracks.py#L642)
 
 Measure, allocate and bind independent tracks into one ordinary Scene.
 
 Same-source views are allowed and have distinct visual identities. Original
 records are retained once as owner-marked comments. Re-preparing owned output
 removes only that owner's generated events and regenerates from its sources.
+When distinct tracks place different sources into overlapping screen boxes at
+overlapping times, optional preview/tail padding is shortened across tracks
+(scaling adaptive transitions when allowed), and a UserWarning is emitted if
+required timing or animation windows still collide.
 theme supplies shared catalog and cue colors. Track roles override only their
 declared channels, and explicit effect colors take precedence.
 bpm overrides the document tempo for automatic cue timing.

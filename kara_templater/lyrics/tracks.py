@@ -9,6 +9,7 @@ from functools import cache, cached_property
 from hashlib import sha256
 from typing import Literal
 from urllib.parse import quote
+from warnings import warn
 
 from .._karaoke_motion import RowSlide
 from .._source_records import (
@@ -61,6 +62,7 @@ from .placement import (
     LayoutContext,
     LineLayoutRequest,
     Placement,
+    _cross_track_handoff,
     _RowMetrics,
     validate_placements,
 )
@@ -537,6 +539,106 @@ def _preview_slice(
     return slice(first, max(neighbors) + 1)
 
 
+@dataclass
+class _PreparedTrack:
+    track: Track
+    layout: Layout | KaraokeRows
+    selected: list[LyricSource]
+    batch: tuple[LineLayoutRequest, ...]
+    placements: list[Placement]
+    unplaced_lines: dict[str, LyricLine]
+    row_cue_offsets: dict[str, Vec2]
+    bindings_by_line: dict[str, tuple[_LyricBinding, ...]]
+
+
+def _boxes_overlap(a: Box, b: Box) -> bool:
+    return (
+        a.left < b.right
+        and b.left < a.right
+        and a.top < b.top + b.height
+        and b.top < a.top + a.height
+    )
+
+
+def _placed_box(request: LineLayoutRequest, placement: Placement) -> Box:
+    return Box(
+        placement.position.x + request.bounds.left,
+        placement.position.y + request.bounds.top,
+        request.bounds.width,
+        request.bounds.height,
+    )
+
+
+def _resolve_cross_track_overlaps(prepared: list[_PreparedTrack]) -> None:
+    """Resolve temporal collisions between distinct tracks whose placed boxes intersect.
+
+    Same-source layered views are left untouched. When optional preview or tail
+    padding causes two tracks to occupy overlapping pixels at the same time,
+    shorten optional padding (and scale adaptive transitions when allowed) using
+    the same handoff rules as a shared row. Emit a UserWarning if required
+    timing or animation windows still overlap.
+    """
+    if len(prepared) < 2:
+        return
+
+    entries: list[tuple[int, int, str, LineLayoutRequest, Box, float]] = []
+    for track_idx, item in enumerate(prepared):
+        lane_gap = item.layout.lane_gap if isinstance(item.layout, KaraokeRows) else 0.0
+        for line_idx, (source, req, placement) in enumerate(
+            zip(item.selected, item.batch, item.placements, strict=True)
+        ):
+            entries.append((track_idx, line_idx, source.id, req, _placed_box(req, placement), lane_gap))
+
+    entries.sort(key=lambda entry: (entry[3].timing.start, entry[3].timing.end, entry[0], entry[1]))
+    warned: set[tuple[str, str]] = set()
+
+    for k, (t_new, i_new, s_new, req_new, box_new, gap_new) in enumerate(entries):
+        for j in range(k):
+            t_old, i_old, s_old, req_old, box_old, gap_old = entries[j]
+            if t_old == t_new or s_old == s_new:
+                continue
+            if not _boxes_overlap(box_old, box_new):
+                continue
+            p_old = prepared[t_old].placements[i_old]
+            p_new = prepared[t_new].placements[i_new]
+            before, after = p_old.display, p_new.display
+            gap = max(gap_old, gap_new)
+            if before.end + gap <= after.start or after.end <= before.start:
+                continue
+            left, right = req_old.required_display.end, req_new.required_display.start
+            if left > right:
+                pair_key = (req_old.id, req_new.id)
+                if pair_key not in warned:
+                    warned.add(pair_key)
+                    overlap_start = max(before.start, after.start)
+                    overlap_end = min(before.end, after.end)
+                    warn(
+                        f"Cross-track lyric overlap between {req_old.id} and {req_new.id} "
+                        f"from {overlap_start:.3f}s to {overlap_end:.3f}s "
+                        f"(required windows {left:.3f}s > {right:.3f}s); "
+                        "separate track regions or anchors to avoid overlapping subtitles.",
+                        UserWarning,
+                        stacklevel=4,
+                    )
+                continue
+            new_before, new_after = _cross_track_handoff(req_old, before, req_new, after, gap)
+            if new_before != before:
+                prepared[t_old].placements[i_old] = replace(
+                    p_old,
+                    display=new_before,
+                    adjustments=(*p_old.adjustments, f"tail shortened for {req_new.id}"),
+                )
+            if new_after != after:
+                prepared[t_new].placements[i_new] = replace(
+                    p_new,
+                    display=new_after,
+                    adjustments=(*p_new.adjustments, f"preview shortened after {req_old.id}"),
+                )
+
+    for item in prepared:
+        validate_placements(item.batch, tuple(item.placements))
+
+
 def build_lyric_scene(
     document: Document,
     *,
@@ -552,6 +654,10 @@ def build_lyric_scene(
     Same-source views are allowed and have distinct visual identities. Original
     records are retained once as owner-marked comments. Re-preparing owned output
     removes only that owner's generated events and regenerates from its sources.
+    When distinct tracks place different sources into overlapping screen boxes at
+    overlapping times, optional preview/tail padding is shortened across tracks
+    (scaling adaptive transitions when allowed), and a UserWarning is emitted if
+    required timing or animation windows still collide.
     theme supplies shared catalog and cue colors. Track roles override only their
     declared channels, and explicit effect colors take precedence.
     bpm overrides the document tempo for automatic cue timing.
@@ -605,6 +711,14 @@ def _build_lyric_scene(
     plans: list[LyricLinePlan] = []
     source_styles = tuple(source_document._lyric_styles().values())
     track_settings: list[Track] = []
+    canvas_region = Box(0, 0, source_document.meta.res_x, source_document.meta.res_y)
+    track_regions = [declaration.region or canvas_region for declaration in tracks]
+    has_overlapping_regions = any(
+        _boxes_overlap(track_regions[a], track_regions[b])
+        for a in range(len(track_regions))
+        for b in range(a + 1, len(track_regions))
+    )
+    prepared: list[_PreparedTrack] = []
     for declaration in tracks:
         track = deepcopy(declaration)
         palette = theme.overlay(track.theme)
@@ -634,7 +748,11 @@ def _build_lyric_scene(
                 default=source.display.start,
             ),
         )
-        selection = _preview_slice(selected, track, layout, window) if window else slice(0, None)
+        selection = (
+            _preview_slice(selected, track, layout, window)
+            if window and not has_overlapping_regions
+            else slice(0, None)
+        )
         original = selected
         selected = selected[selection]
         track_document = Document([*source_styles, *track.styles], source_document.meta)
@@ -877,10 +995,27 @@ def _build_lyric_scene(
             batch, LayoutContext(region, track.references, source_document.meta.res_y)
         )
         validate_placements(batch, placements)
-        by_id = {placement.id: placement for placement in placements}
-        for source, layout_request in zip(selected, batch, strict=True):
+        prepared.append(
+            _PreparedTrack(
+                track=track,
+                layout=layout,
+                selected=selected,
+                batch=batch,
+                placements=list(placements),
+                unplaced_lines=unplaced_lines,
+                row_cue_offsets=row_cue_offsets,
+                bindings_by_line=bindings_by_line,
+            )
+        )
+
+    _resolve_cross_track_overlaps(prepared)
+
+    for item in prepared:
+        track = item.track
+        by_id = {placement.id: placement for placement in item.placements}
+        for source, layout_request in zip(item.selected, item.batch, strict=True):
             placement = by_id[layout_request.id]
-            line = unplaced_lines[layout_request.id]
+            line = item.unplaced_lines[layout_request.id]
             if source.record_index is not None:
                 scene.replace_source(source.record_index)
                 record = source_document.records[source.record_index]
@@ -920,8 +1055,8 @@ def _build_lyric_scene(
             assert isinstance(stamped, LyricLine)
             independent = tuple(
                 _stamp(
-                    replace(cue, state=replace(cue.state, position=row_cue_offsets[cue.id] + line.state.position))
-                    if cue.id in row_cue_offsets else cue, source.id, track.id,
+                    replace(cue, state=replace(cue.state, position=item.row_cue_offsets[cue.id] + line.state.position))
+                    if cue.id in item.row_cue_offsets else cue, source.id, track.id,
                 )
                 for cue in line.independent
             )
@@ -933,7 +1068,7 @@ def _build_lyric_scene(
             )
             targets_by_id = {target.id: target for target in line.targets}
             fitted_bindings = []
-            for binding in bindings_by_line[layout_request.id]:
+            for binding in item.bindings_by_line[layout_request.id]:
                 scale = 1.0
                 if binding.target.role != "cue":
                     if binding.at == "enter":

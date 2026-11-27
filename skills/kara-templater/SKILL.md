@@ -9,6 +9,10 @@ Read the lyric phrasing and mood, listen for rhythmic accents and section change
 
 Use the default two-row karaoke layout that alternates left and right. Change the layout only when the user explicitly asks for it. Inherit library defaults and pass optional arguments only for deliberate design choices. Preserve the supplied lyric text, readings and timing.
 
+**Optical font size varies across typefaces.** Identical nominal `fontsize` values do not guarantee matching visual ink height across different font families or scripts (for instance, playful display faces can appear 20–30% smaller than bold pop or gothic faces at the same `fontsize`, especially between Latin and CJK/kana). When pairing multiple fonts (such as distinct fonts per vocal track), calibrate each font's `fontsize` independently against rendered ink height and verify them side-by-side rather than sharing a single size value. When multiple tracks share a screen region, watch for cross-track overlap warnings from `build_lyric_scene` and inspect track handoffs directly.
+
+**Optical font size varies across typefaces.** Identical nominal `fontsize` values do not guarantee matching visual ink height across different font families or scripts (for instance, playful display faces can appear 20–30% smaller than bold pop or gothic faces at the same `fontsize`, especially between Latin and CJK/kana). When pairing multiple fonts (such as distinct fonts per vocal track), calibrate each font's `fontsize` independently against rendered ink height and verify them side-by-side rather than sharing a single size value. When multiple tracks share a screen region, watch for cross-track overlap warnings from `build_lyric_scene` and inspect track handoffs directly.
+
 The CLI applies presets or effect files to timed ASS. Scripts and applications can build a scene, preview it in a browser with `scene.preview()`, and export for the target player. [CLI guide](../../docs/guides/cli.md) · [Preview and export](../../docs/output/README.md)
 
 ## Read the guide for the change

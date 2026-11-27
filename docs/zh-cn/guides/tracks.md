@@ -105,7 +105,7 @@ scene = build_lyric_scene(
 scene.export("duet.hook")
 ```
 
-每条轨道维护独立的行轮转和分页时钟。两条轨道也可以刻意选中同一行源码，各自渲染出独立的视觉层。如果歌词来自 Python 结构化对象而非 ASS 对白，可通过 `build_lyric_scene(..., inputs=...)` 传入 `LyricSource.from_lyrics(..., chapter=...)`。
+每条轨道维护独立的行轮转和分页时钟。两条轨道也可以刻意选中同一行源码，各自渲染出独立的视觉层。当不同轨道把不同歌词行排进画面上相交的区域且显示时间重叠时（例如不同角色声部共用底部双行区域），`build_lyric_scene` 会自动压缩多余的提前显示与尾留时间（在允许自适应交接时同步按比例加快进退场动画）以实现跨轨道无重叠切换；如果两句必须占用的演唱或固定动画区间依然冲突，则会发出 `UserWarning` 指出冲突的轨道与歌词行，提醒你拆分 `region` 或 `anchor`。如果歌词来自 Python 结构化对象而非 ASS 对白，可通过 `build_lyric_scene(..., inputs=...)` 传入 `LyricSource.from_lyrics(..., chapter=...)`。
 
 ## 读取可编辑组件目录
 

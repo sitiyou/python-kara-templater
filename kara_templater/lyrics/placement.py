@@ -123,6 +123,42 @@ def _adaptive_windows(
     return Lifetime(before.start, end), Lifetime(start, after.end)
 
 
+def _cross_track_handoff(
+    old: LineLayoutRequest,
+    before: Lifetime,
+    new: LineLayoutRequest,
+    after: Lifetime,
+    lane_gap: float = 0,
+) -> tuple[Lifetime, Lifetime]:
+    """Shorten optional display padding between two spatially overlapping tracks."""
+    left, right = old.required_display.end, new.required_display.start
+    if left > right:
+        return before, after
+    if before.end + lane_gap <= after.start:
+        return before, after
+    if old._adaptive_handoff or new._adaptive_handoff:
+        available = new.timing.start - old.timing.end
+        motion = old.exit + new.entrance
+        if available < motion and motion > 0:
+            desired = old.timing.end + available * old.exit / motion
+            boundary = max(left, min(right, desired))
+            end = min(before.end, boundary)
+            start = max(after.start, boundary)
+            return Lifetime(before.start, end), Lifetime(start, after.end)
+        old_exit_end = max(left, old.timing.end + old.exit)
+        new_entry_start = min(right, new.timing.start - new.entrance)
+        if new_entry_start >= old_exit_end:
+            gap = min(lane_gap, new_entry_start - old_exit_end)
+            end = max(old_exit_end, min(before.end, new_entry_start - gap))
+            start = max(after.start, min(right, new_entry_start, end + gap))
+            return Lifetime(before.start, end), Lifetime(start, after.end)
+        return _adaptive_windows(old, before, new, after, lane_gap)
+    gap = min(lane_gap, right - left)
+    end = max(left, min(before.end, after.start - gap))
+    start = max(after.start, min(right, end + gap))
+    return Lifetime(before.start, end), Lifetime(start, after.end)
+
+
 @dataclass(frozen=True)
 class LayoutContext:
     """Read-only placement region and explicitly supplied cross-track references.

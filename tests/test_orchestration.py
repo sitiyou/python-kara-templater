@@ -669,3 +669,98 @@ def test_preview_interval_preserves_row_handoffs_and_source_ownership():
     assert [plan.placement for plan in preview.plans] == [plan.placement for plan in expected]
     assert [obj.id for obj in preview.objects] == [obj.id for plan in expected for obj in plan.line.objects]
     assert preview.replace_records == whole.replace_records
+
+
+def test_cross_track_shared_region_resolves_padding_overlap_without_warning():
+    import warnings
+
+    doc = Document.create(
+        width=1280,
+        height=720,
+        styles=(
+            Style(name="SingerA", fontname="DejaVu Sans", fontsize=44, shadow=0),
+            Style(name="SingerB", fontname="DejaVu Sans", fontsize=44, shadow=0),
+        ),
+    )
+    doc.records.extend(
+        (
+            Line(start_time=2000, end_time=4000, style="SingerA", text=r"{\k100}First {\k100}line"),
+            Line(start_time=4500, end_time=6500, style="SingerA", text=r"{\k100}Second {\k100}line"),
+            Line(start_time=7500, end_time=9500, style="SingerB", text=r"{\k100}Third {\k100}line"),
+            Line(start_time=10000, end_time=12000, style="SingerB", text=r"{\k100}Fourth {\k100}line"),
+        )
+    )
+    track_a = Track(
+        id="singer_a",
+        source=lambda s: s.style == "SingerA",
+        preview=1.0,
+        effects=(
+            LyricRule("line", "enter", FadeIn(), duration=0.3),
+            LyricRule("line", "exit", FadeOut(), duration=0.3),
+        ),
+    )
+    track_b = Track(
+        id="singer_b",
+        source=lambda s: s.style == "SingerB",
+        preview=1.5,
+        effects=(
+            LyricRule("line", "enter", FadeIn(), duration=0.3),
+            LyricRule("line", "exit", FadeOut(), duration=0.3),
+        ),
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        scene = build_lyric_scene(doc, tracks=(track_a, track_b))
+    assert not caught
+    a_plans = [p for p in scene.plans if p.track_id == "singer_a"]
+    b_plans = [p for p in scene.plans if p.track_id == "singer_b"]
+    # Both rows hand off cleanly across tracks without overlapping display windows.
+    assert a_plans[0].placement.display.end <= b_plans[0].placement.display.start
+    assert a_plans[1].placement.display.end <= b_plans[1].placement.display.start
+    assert any("after" in note or "for" in note for p in (*a_plans, *b_plans) for note in p.placement.adjustments)
+    # Preview interval matches full-song cross-track handoff placements identically.
+    preview = build_lyric_scene(doc, tracks=(track_a, track_b), preview_interval=(6.0, 8.0))
+    expected = [p for p in scene.plans if p.placement.display.start < 8.0 and p.placement.display.end > 6.0]
+    assert [p.placement for p in preview.plans] == [p.placement for p in expected]
+
+
+def test_cross_track_required_overlap_emits_warning_while_same_source_views_do_not():
+    import warnings
+
+    doc = Document.create(
+        width=640,
+        height=360,
+        styles=(
+            Style(name="A", fontname="DejaVu Sans", fontsize=32, shadow=0),
+            Style(name="B", fontname="DejaVu Sans", fontsize=32, shadow=0),
+        ),
+    )
+    doc.records.extend(
+        (
+            Line(start_time=1000, end_time=4000, style="A", text=r"{\k300}Alpha"),
+            Line(start_time=2000, end_time=5000, style="B", text=r"{\k300}Beta"),
+        )
+    )
+    shared = Layout(rows=1, position=Vec2(80, 200))
+    track_a = Track(id="a", source=lambda s: s.style == "A", layout=shared)
+    track_b = Track(id="b", source=lambda s: s.style == "B", layout=shared)
+    with pytest.warns(UserWarning, match="Cross-track lyric overlap"):
+        build_lyric_scene(doc, tracks=(track_a, track_b))
+
+    # Same-source layered views in the same position remain intentional and quiet.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        build_lyric_scene(doc, tracks=(track_a, replace(track_a, id="a_shadow")))
+    assert not caught
+
+    # Spatially separated tracks singing simultaneously do not warn either.
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        build_lyric_scene(
+            doc,
+            tracks=(
+                track_a,
+                replace(track_b, layout=Layout(rows=1, position=Vec2(80, 40))),
+            ),
+        )
+    assert not caught

@@ -105,7 +105,7 @@ scene = build_lyric_scene(
 scene.export("duet.hook")
 ```
 
-Each track keeps its own row rotation and page clock. Two tracks can intentionally select the same source line—each creates an independent visual view. To supply structured lyrics directly from Python without ASS dialogue records, pass `LyricSource.from_lyrics(..., chapter=...)` through `build_lyric_scene(..., inputs=...)`.
+Each track keeps its own row rotation and page clock. Two tracks can intentionally select the same source line—each creates an independent visual view. When separate tracks place different lines into overlapping screen boxes at overlapping times (such as alternating vocalists sharing the bottom two rows), `build_lyric_scene` automatically trims optional preview and tail padding—and scales adaptive transitions when allowed—to hand off cleanly across tracks; if required singing or animation windows still collide, it emits a `UserWarning` naming both lines so you can separate their `region` or `anchor`. To supply structured lyrics directly from Python without ASS dialogue records, pass `LyricSource.from_lyrics(..., chapter=...)` through `build_lyric_scene(..., inputs=...)`.
 
 ## Read the editable component catalog
 
